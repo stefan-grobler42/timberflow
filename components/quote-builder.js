@@ -4,6 +4,7 @@ class QuoteBuilder {
         this.containerId = containerId;
         this.container = document.getElementById(containerId);
         this.currentQuote = null;
+        this.currentProject = null;
         this.quoteLines = [];
         this.stockItems = [];
         this.pamirVariables = {};
@@ -35,6 +36,20 @@ class QuoteBuilder {
                             </div>
                         </div>
                         <div class="card-body">
+                            <!-- Project Context Alert -->
+                            <div id="project-context-alert" class="alert alert-info d-none mb-4">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-project-diagram"></i>
+                                        <strong>Creating quote for project:</strong> 
+                                        <span id="project-context-info"></span>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="clear-project-context">
+                                        <i class="fas fa-times"></i> Clear Project
+                                    </button>
+                                </div>
+                            </div>
+
                             <!-- Quote Header Information -->
                             <div class="row mb-4">
                                 <div class="col-md-6">
@@ -43,10 +58,8 @@ class QuoteBuilder {
                                         <label for="quote-reference">Quote Reference</label>
                                     </div>
                                     <div class="form-floating mb-3">
-                                        <select class="form-select" id="customer-select">
-                                            <option value="">Select Customer...</option>
-                                        </select>
-                                        <label for="customer-select">Customer</label>
+                                        <input type="text" class="form-control" id="customer-name" placeholder="Customer Name">
+                                        <label for="customer-name">Customer Name</label>
                                     </div>
                                 </div>
                                 <div class="col-md-6">
@@ -528,6 +541,61 @@ class QuoteBuilder {
     loadTemplate() {
         // Placeholder for template loading functionality
         window.app.showAlert('Template loading feature coming soon!', 'info');
+    }
+
+    setProjectContext(project, quoteNumber) {
+        this.currentProject = project;
+        
+        // Update the project context alert
+        const contextAlert = document.getElementById('project-context-alert');
+        const contextInfo = document.getElementById('project-context-info');
+        
+        if (contextAlert && contextInfo) {
+            contextInfo.textContent = `${project.number} - ${project.clientName}`;
+            contextAlert.classList.remove('d-none');
+        }
+        
+        // Pre-fill quote form with project information
+        const quoteRef = document.getElementById('quote-reference');
+        const customerName = document.getElementById('customer-name');
+        const projectName = document.getElementById('project-name');
+        
+        if (quoteRef) quoteRef.value = quoteNumber;
+        if (customerName) customerName.value = project.clientName;
+        if (projectName) projectName.value = project.description || `${project.clientName} Project`;
+        
+        // Enable save button since we have a project context
+        const saveBtn = document.getElementById('save-quote-btn');
+        if (saveBtn) saveBtn.disabled = false;
+        
+        // Setup clear project context handler
+        const clearBtn = document.getElementById('clear-project-context');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => this.clearProjectContext());
+        }
+        
+        window.app.showAlert(`Quote ${quoteNumber} initialized for ${project.clientName}`, 'success');
+    }
+    
+    clearProjectContext() {
+        this.currentProject = null;
+        
+        // Hide the project context alert
+        const contextAlert = document.getElementById('project-context-alert');
+        if (contextAlert) {
+            contextAlert.classList.add('d-none');
+        }
+        
+        // Clear form fields
+        const quoteRef = document.getElementById('quote-reference');
+        const customerName = document.getElementById('customer-name');
+        const projectName = document.getElementById('project-name');
+        
+        if (quoteRef) quoteRef.value = '';
+        if (customerName) customerName.value = '';
+        if (projectName) projectName.value = '';
+        
+        window.app.showAlert('Project context cleared', 'info');
     }
 }
 

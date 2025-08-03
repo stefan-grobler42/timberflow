@@ -3,6 +3,7 @@ class MillenniumERP {
     constructor() {
         this.currentUser = null;
         this.activeTab = 'dashboard';
+        this.projectManager = null;
         this.pamirImport = null;
         this.quoteBuilder = null;
         this.stockSelector = null;
@@ -94,6 +95,11 @@ class MillenniumERP {
             case 'dashboard':
                 await this.loadDashboardData();
                 break;
+            case 'project-management':
+                if (!this.projectManager) {
+                    this.projectManager = new ProjectManager();
+                }
+                break;
             case 'pamir-import':
                 if (!this.pamirImport) {
                     this.pamirImport = new PamirImport('pamir-import-content');
@@ -103,6 +109,8 @@ class MillenniumERP {
                 if (!this.quoteBuilder) {
                     this.quoteBuilder = new QuoteBuilder('quote-builder-content');
                 }
+                // Check for project context from project manager
+                this.loadQuoteBuilderContext();
                 break;
             case 'stock-management':
                 if (!this.stockSelector) {
@@ -122,17 +130,17 @@ class MillenniumERP {
             // Load dashboard statistics
             const dashboardData = await this.fetchDashboardStats();
             
+            document.getElementById('active-projects').textContent = dashboardData.activeProjects || 0;
             document.getElementById('active-quotes').textContent = dashboardData.activeQuotes || 0;
             document.getElementById('pending-orders').textContent = dashboardData.pendingOrders || 0;
-            document.getElementById('low-stock-items').textContent = dashboardData.lowStockItems || 0;
             document.getElementById('pamir-imports').textContent = dashboardData.pamirImportsToday || 0;
             
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
             // Set default values on error
+            document.getElementById('active-projects').textContent = '-';
             document.getElementById('active-quotes').textContent = '-';
             document.getElementById('pending-orders').textContent = '-';
-            document.getElementById('low-stock-items').textContent = '-';
             document.getElementById('pamir-imports').textContent = '-';
         }
     }
@@ -152,9 +160,9 @@ class MillenniumERP {
             console.warn('Using fallback dashboard data:', error);
             // Return empty stats that will show as 0
             return {
+                activeProjects: 0,
                 activeQuotes: 0,
                 pendingOrders: 0,
-                lowStockItems: 0,
                 pamirImportsToday: 0
             };
         }
@@ -163,6 +171,25 @@ class MillenniumERP {
     initializeComponents() {
         // Initialize components that might be needed immediately
         this.pamirImport = new PamirImport('pamir-import-content');
+    }
+
+    loadQuoteBuilderContext() {
+        // Check if we have project context from session storage
+        const currentProject = sessionStorage.getItem('currentProject');
+        const quoteNumber = sessionStorage.getItem('quoteNumber');
+        
+        if (currentProject && quoteNumber && this.quoteBuilder) {
+            try {
+                const project = JSON.parse(currentProject);
+                this.quoteBuilder.setProjectContext(project, quoteNumber);
+                
+                // Clear session storage after use
+                sessionStorage.removeItem('currentProject');
+                sessionStorage.removeItem('quoteNumber');
+            } catch (error) {
+                console.error('Failed to load quote builder context:', error);
+            }
+        }
     }
 
     showAlert(message, type = 'info') {
