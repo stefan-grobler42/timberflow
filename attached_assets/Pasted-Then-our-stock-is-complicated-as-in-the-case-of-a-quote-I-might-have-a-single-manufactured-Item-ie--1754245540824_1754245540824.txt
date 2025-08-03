@@ -1,0 +1,44 @@
+Then our stock is complicated as in the case of a quote I might have a single manufactured Item ie. Timber Trusses
+Thereafter its made up of standard stock items ie.
+38x114x3.0m x10
+12X225 FC Fascia X10
+etc.
+Then there are Service items ie.
+Labour
+Transport
+Certification etc.
+
+In the case of a tender they request a rate which is composite ie. Made up from different stock codes
+
+Eg. They might want a price for 0.5mm Corrugated AZ100 Colourplus
+In which case you would need to quote
+0.5 Sheeting as above
+Screws 12X65 eg.
+Transport
+Labour
+Total rate
+All tender rates are supplied and installed
+
+With certain codes you would also need to price for eg. /m or /m2 or /ea and the system would need to convert the pricing to match the unit.
+in the case of roof sheeting there is a cover with so you need to multiply the cover width by the rate to get the rate /m2
+
+Other complications include:
+With Sheeting
+Base Code: 0.5mm AZ100 G550 Colorplus
+Variable Attribute: List of colours
+eg. 0.5mm AZ100 G550 Colorplus {slate}
+Then default UOM is m. The problem is that the sheeting is cut to length so the qty and length vary infinitley so when you create the code it will need to use a tally. ie. when you add to a quote click the hamburger, brings up a tally where you can capture qty, length and the system multiplies it out and prices the total m.
+
+In the case of flashings
+Base code: 0.5mm AZ100 G550 Colorplus
+Eg: 0.5mm AZ100 G550 Colorplus {Barge Flashing} {Girth 185G}{Slate}
+Variable attribute: Description , this will have a default girth
+Variable attribute: Girth, Seperate field for use cases where the flashing doesnt exist in the Type/Description then you can simply add a girth only
+Variable attribute: Colour
+
+Concrete Tiles:
+Base Code: Marley Double Roman 
+Variant Finish: Standard, vintage etc.
+Variant Colour: Charcoal, Brown etc.
+
+Then in the very rare case that a code doesnt exist in the system but is required there should be a temp code that can be created and sit in a seperate table and expire after a set time eg.120days

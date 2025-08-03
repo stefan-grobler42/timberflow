@@ -1,0 +1,19 @@
+I want to define the process flow we use within Millennium Roofing
+1. Client makes contact. Via mail, website,  external & internal sales
+1.1 We create - Project File (Main Record)
+This holds all the relevant details for the enquiry, cutomer, contact, site address, etc. (Upload documents submitted, architects plans etc.)
+1.2 We then asses whats been uploaded and create a quote or tender.
+Important functionality requirement.
+enquiries or projects can vary significatly and the system needs to handle the complexity.
+Types of enquiries
+1. Home Owner / Small Builder/contractor. (Busy with a single house)
+submits plans and wants a quote for the roof. In most cases this would result in one quote. In some cases it requires a number of quotes for different options. In that case the system needs to be able to track each option seperately for reporting purposes and they should all be linked to the project file created.
+2. Large Contractors / builders. Busy with single project multiple building types or one large building split into parts. In this case the system would need to track each different building or part and secondly track various options if required. In this case the pipeline value would be the total of all the buildings / sections split into the various options.
+3. Developers Busy with a single project multiple building types and multiple of each building type.
+In this case the system would need to track building types, qty's of each type and then options of each of the building types.
+NB!! When submitting quotes some want a quote per option detailed, some want a summary of the quotes by building type & qty depends on the client.
+We would need to quote accordingly.
+Needless to say there needs to be a link between all the variations, types qty's options so that you can drill through.
+This can all be viewed and created from within the Project but can also be found directly in the quotes menu option.
+You cannot create quote, tender or order without a parent project file.
+It is important that as these are created they generate logical numbers that the designers can use to create the record on the mitek system, numbers are limited to  15 Characters. This number will create the link for the import.

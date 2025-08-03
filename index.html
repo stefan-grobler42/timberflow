@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Millennium Timber Roof ERP - Enhanced Quoting System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="styles.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-home"></i> Millennium Timber Roof ERP
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text">
+                    <i class="fas fa-user"></i> <span id="current-user">Loading...</span>
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3">
+        <div class="row">
+            <!-- Sidebar Navigation -->
+            <div class="col-md-3 col-lg-2">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-bars"></i> Navigation</h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="#dashboard" class="list-group-item list-group-item-action active" data-tab="dashboard">
+                            <i class="fas fa-chart-line"></i> Dashboard
+                        </a>
+                        <a href="#pamir-import" class="list-group-item list-group-item-action" data-tab="pamir-import">
+                            <i class="fas fa-file-import"></i> Pamir Import
+                        </a>
+                        <a href="#quote-builder" class="list-group-item list-group-item-action" data-tab="quote-builder">
+                            <i class="fas fa-calculator"></i> Quote Builder
+                        </a>
+                        <a href="#stock-management" class="list-group-item list-group-item-action" data-tab="stock-management">
+                            <i class="fas fa-boxes"></i> Stock Management
+                        </a>
+                        <a href="#formula-engine" class="list-group-item list-group-item-action" data-tab="formula-engine">
+                            <i class="fas fa-cogs"></i> Formula Engine
+                        </a>
+                        <a href="#orders" class="list-group-item list-group-item-action" data-tab="orders">
+                            <i class="fas fa-clipboard-list"></i> Orders
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="col-md-9 col-lg-10">
+                <!-- Dashboard Tab -->
+                <div id="dashboard" class="tab-content active">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <h2><i class="fas fa-chart-line"></i> Dashboard</h2>
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h4 id="active-quotes">0</h4>
+                                                    <p>Active Quotes</p>
+                                                </div>
+                                                <i class="fas fa-file-invoice fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h4 id="pending-orders">0</h4>
+                                                    <p>Pending Orders</p>
+                                                </div>
+                                                <i class="fas fa-clock fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-warning text-white">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h4 id="low-stock-items">0</h4>
+                                                    <p>Low Stock Items</p>
+                                                </div>
+                                                <i class="fas fa-exclamation-triangle fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between">
+                                                <div>
+                                                    <h4 id="pamir-imports">0</h4>
+                                                    <p>Pamir Imports Today</p>
+                                                </div>
+                                                <i class="fas fa-download fa-2x"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pamir Import Tab -->
+                <div id="pamir-import" class="tab-content">
+                    <h2><i class="fas fa-file-import"></i> Pamir Data Import</h2>
+                    <div id="pamir-import-content"></div>
+                </div>
+
+                <!-- Quote Builder Tab -->
+                <div id="quote-builder" class="tab-content">
+                    <h2><i class="fas fa-calculator"></i> Enhanced Quote Builder</h2>
+                    <div id="quote-builder-content"></div>
+                </div>
+
+                <!-- Stock Management Tab -->
+                <div id="stock-management" class="tab-content">
+                    <h2><i class="fas fa-boxes"></i> Stock Management</h2>
+                    <div id="stock-management-content"></div>
+                </div>
+
+                <!-- Formula Engine Tab -->
+                <div id="formula-engine" class="tab-content">
+                    <h2><i class="fas fa-cogs"></i> Formula Engine</h2>
+                    <div id="formula-engine-content"></div>
+                </div>
+
+                <!-- Orders Tab -->
+                <div id="orders" class="tab-content">
+                    <h2><i class="fas fa-clipboard-list"></i> Order Management</h2>
+                    <div id="orders-content">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Order management functionality will be activated once quotes are approved and converted to orders.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="loadingModal" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Processing...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="utils/formula-calculator.js"></script>
+    <script src="utils/file-parser.js"></script>
+    <script src="api/pamir-parser.js"></script>
+    <script src="api/quote-api.js"></script>
+    <script src="api/stock-api.js"></script>
+    <script src="components/pamir-import.js"></script>
+    <script src="components/quote-builder.js"></script>
+    <script src="components/stock-selector.js"></script>
+    <script src="components/formula-engine.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
