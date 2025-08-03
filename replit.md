@@ -10,6 +10,38 @@ The application features a modern web-based interface with specialized modules f
 
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (August 2025)
+
+- Implemented comprehensive project management system with hierarchical structure
+- Added CRM functionality requirements: Tasks, Mail, Phone Call tracking
+- System-wide search functionality requirement identified
+- Module restructure: General (Customer, Contact), Sales (Project, Quote, Tender, Order), Stock
+- New navigation structure: Left pane with Pinned, Recent, Home sections
+- Dashboard personalization: "My Dashboard" and "My Activities" 
+- Settings redesign: Gear icon opening right-side panel instead of dropdown
+- Employee management module requirement added
+
+## Module Structure
+
+### General Module
+- Customer management with full contact details
+- Contact management with relationship tracking
+
+### Sales Module  
+- Project management (parent record)
+- Quote management (sub-record with options/revisions)
+- Tender management (sub-record with assemblies)
+- Order management (sub-record from quotes/tenders)
+
+### Stock Module
+- Stock item management with complex hierarchies
+- Pamir integration for timber calculations
+
+### CRM Module
+- Task management (calls, emails, meetings)
+- Activity tracking and follow-ups
+- Lead and opportunity management
+
 ## System Architecture
 
 ### Frontend Architecture
