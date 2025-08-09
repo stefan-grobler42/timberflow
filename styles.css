@@ -945,3 +945,41 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+
+/* Stock Item Form Styles */
+.form-label.required::after {
+    content: ' *';
+    color: #dc3545;
+    font-weight: bold;
+}
+
+#stock-item-form .card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+#stock-item-form .form-control:focus,
+#stock-item-form .form-select:focus {
+    border-color: #59AAD5;
+    box-shadow: 0 0 0 0.2rem rgba(89, 170, 213, 0.25);
+}
+
+#stock-item-form .btn-success {
+    background-color: #59AAD5;
+    border-color: #59AAD5;
+}
+
+#stock-item-form .btn-success:hover {
+    background-color: #4A94B8;
+    border-color: #4A94B8;
+}
+
+.stock-manager-container {
+    min-height: 600px;
+}
+
+#stock-item-form-container .card-body {
+    max-height: 80vh;
+    overflow-y: auto;
+}

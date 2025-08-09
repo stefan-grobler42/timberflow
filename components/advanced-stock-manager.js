@@ -523,9 +523,9 @@ class AdvancedStockManager {
 
     setupEventListeners() {
         // Add stock item button
-        const addButton = document.getElementById('add-stock-item');
+        const addButton = document.getElementById('add-stock-btn');
         if (addButton) {
-            addButton.addEventListener('click', () => this.showAddStockModal());
+            addButton.addEventListener('click', () => this.addNewStockItem());
         }
 
         // Create composite button
@@ -539,6 +539,46 @@ class AdvancedStockManager {
         if (tempButton) {
             tempButton.addEventListener('click', () => this.showTempStockModal());
         }
+
+        // Add event delegation for edit buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.edit-stock-btn')) {
+                const btn = e.target.closest('.edit-stock-btn');
+                const itemId = btn.dataset.itemId;
+                const itemCode = btn.dataset.itemCode;
+                if (itemCode) {
+                    this.editStockItem(itemCode);
+                }
+            }
+        });
+    }
+
+    // Integration with StockItemForm
+    addNewStockItem() {
+        if (window.stockItemForm) {
+            window.stockItemForm.clearForm();
+        }
+    }
+
+    async editStockItem(itemCode) {
+        try {
+            // Load the item data from the API
+            const response = await fetch(`/api/stock/items/${itemCode}`);
+            const result = await response.json();
+            
+            if (result.success && window.stockItemForm) {
+                window.stockItemForm.loadItem(result.data);
+            } else {
+                console.error('Failed to load stock item:', result.error);
+            }
+        } catch (error) {
+            console.error('Error loading stock item:', error);
+        }
+    }
+
+    refreshGrid() {
+        console.log('Refreshing stock grid...');
+        this.renderStockGrids();
     }
 
     // Sample data methods

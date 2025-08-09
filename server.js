@@ -35,22 +35,120 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'API healthy', mode: 'development' });
 });
 
-// Mock API endpoints to prevent console errors
+// Import database storage
+const { storage } = require('./server/storage.js');
+
+// Stock Items API Routes
+app.get('/api/stock/items', async (req, res) => {
+    try {
+        const filters = {
+            search: req.query.search,
+            status: req.query.status,
+            itemType: req.query.itemType
+        };
+        const items = await storage.getStockItems(filters);
+        res.json({ success: true, data: items });
+    } catch (error) {
+        console.error('Failed to get stock items:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/stock/items/:id', async (req, res) => {
+    try {
+        const item = await storage.getStockItem(parseInt(req.params.id));
+        if (!item) {
+            return res.status(404).json({ success: false, error: 'Stock item not found' });
+        }
+        res.json({ success: true, data: item });
+    } catch (error) {
+        console.error('Failed to get stock item:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/stock/items', async (req, res) => {
+    try {
+        const item = await storage.createStockItem(req.body);
+        res.status(201).json({ success: true, data: item });
+    } catch (error) {
+        console.error('Failed to create stock item:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.put('/api/stock/items/:id', async (req, res) => {
+    try {
+        const item = await storage.updateStockItem(parseInt(req.params.id), req.body);
+        res.json({ success: true, data: item });
+    } catch (error) {
+        console.error('Failed to update stock item:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Lookup Tables API Routes
+app.get('/api/lookup/uoms', async (req, res) => {
+    try {
+        const uoms = await storage.getBaseUoms();
+        res.json({ success: true, data: uoms });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/lookup/categories', async (req, res) => {
+    try {
+        const categories = await storage.getItemCategories();
+        res.json({ success: true, data: categories });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/lookup/variants', async (req, res) => {
+    try {
+        const variants = await storage.getVariants();
+        res.json({ success: true, data: variants });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/lookup/margin-categories', async (req, res) => {
+    try {
+        const categories = await storage.getMarginCategories();
+        res.json({ success: true, data: categories });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/lookup/discount-categories', async (req, res) => {
+    try {
+        const categories = await storage.getDiscountCategories();
+        res.json({ success: true, data: categories });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Fallback for other API routes
 app.get('/api/*', (req, res) => {
-    console.log(`Mock API call: ${req.path}`);
-    res.json({ 
-        message: 'API connection unavailable - using development mode',
-        path: req.path,
-        mode: 'development'
+    console.log(`API endpoint not found: ${req.path}`);
+    res.status(404).json({ 
+        success: false,
+        error: 'API endpoint not found',
+        path: req.path
     });
 });
 
 app.post('/api/*', (req, res) => {
-    console.log(`Mock API call: ${req.path}`);
-    res.json({ 
-        message: 'API connection unavailable - using development mode',
-        path: req.path,
-        mode: 'development'
+    console.log(`API endpoint not found: ${req.path}`);
+    res.status(404).json({ 
+        success: false,
+        error: 'API endpoint not found',
+        path: req.path
     });
 });
 
