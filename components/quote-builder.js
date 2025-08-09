@@ -9,6 +9,8 @@ class QuoteBuilder {
         this.stockItems = [];
         this.pamirVariables = {};
         this.searchTimeout = null;
+        this.templateManager = new TemplateManager();
+        this.enhancedPamirParser = new EnhancedPamirParser();
         
         this.init();
     }
@@ -539,8 +541,171 @@ class QuoteBuilder {
     }
 
     loadTemplate() {
-        // Placeholder for template loading functionality
-        window.app.showAlert('Template loading feature coming soon!', 'info');
+        // Create modal for template selection
+        const modalHTML = `
+            <div class="modal fade" id="templateSelectionModal" tabindex="-1">
+                <div class="modal-dialog modal-xl">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fas fa-layer-group"></i> Insert Material Template
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            ${this.templateManager.renderTemplateSelector()}
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Remove existing modal if present
+        const existingModal = document.getElementById('templateSelectionModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Add modal to body
+        document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        // Setup template selection handlers
+        this.setupTemplateHandlers();
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('templateSelectionModal'));
+        modal.show();
+    }
+
+    setupTemplateHandlers() {
+        // Setup insert template button handlers
+        document.querySelectorAll('.insert-template').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const templateId = e.target.dataset.templateId;
+                this.insertTemplate(templateId);
+            });
+        });
+    }
+
+    async insertTemplate(templateId) {
+        try {
+            // Set available variables for template processing
+            this.templateManager.setAvailableVariables(this.pamirVariables);
+            
+            // Process template with current variables
+            const result = this.templateManager.insertTemplateIntoQuote(
+                templateId, 
+                this, 
+                this.pamirVariables
+            );
+            
+            // Add processed items to quote
+            this.addTemplateItemsToQuote(result.template);
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('templateSelectionModal'));
+            modal.hide();
+            
+            // Show success message
+            window.app.showAlert(
+                `Template "${result.template.name}" added successfully! ` +
+                `${result.addedItems.withQuantity} items with quantities, ` +
+                `${result.addedItems.withoutQuantity} items need manual entry.`, 
+                'success'
+            );
+            
+        } catch (error) {
+            console.error('Failed to insert template:', error);
+            window.app.showAlert(`Failed to insert template: ${error.message}`, 'danger');
+        }
+    }
+
+    addTemplateItemsToQuote(template) {
+        // Add items grouped by their template groups
+        template.groups.forEach(group => {
+            // Add group header
+            this.addGroupHeader(group.name, group.collapsible);
+            
+            // Add individual items
+            group.items.forEach(item => {
+                const quoteLine = {
+                    id: Date.now() + Math.random(),
+                    stockItemId: item.stockCode,
+                    stockCode: item.stockCode,
+                    description: item.description,
+                    formula: item.formula || '',
+                    quantity: item.calculatedQuantity || 0,
+                    unitPrice: item.pricing?.unitPrice || 0,
+                    total: (item.calculatedQuantity || 0) * (item.pricing?.unitPrice || 0),
+                    groupName: group.name,
+                    hasVariables: item.hasVariables,
+                    requiresTally: item.requiresTally,
+                    variables: item.variables,
+                    formulaError: item.formulaError
+                };
+                
+                this.quoteLines.push(quoteLine);
+                this.renderQuoteLine(quoteLine, this.quoteLines.length - 1);
+            });
+        });
+        
+        this.calculateLineTotals();
+        this.enableSaveButton();
+    }
+
+    addGroupHeader(groupName, collapsible = true) {
+        const container = document.getElementById('quote-lines-container');
+        const headerId = `group-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        
+        const headerHTML = `
+            <div class="quote-group-header" data-group-name="${groupName}">
+                <div class="group-header-content">
+                    ${collapsible ? 
+                        `<button class="btn btn-sm btn-link group-toggle" data-bs-toggle="collapse" data-bs-target="#${headerId}">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>` : ''
+                    }
+                    <strong class="group-title">
+                        <i class="fas fa-layer-group"></i> ${groupName}
+                    </strong>
+                </div>
+            </div>
+            <div class="collapse show" id="${headerId}">
+        `;
+        
+        container.insertAdjacentHTML('beforeend', headerHTML);
+        
+        // Add closing div after items are added
+        this.currentGroupContainer = headerId;
+    }
+
+    addMaterialGroup(groupName, items) {
+        // This method is called by the template manager
+        this.addGroupHeader(groupName, true);
+        
+        items.forEach(item => {
+            const quoteLine = {
+                id: Date.now() + Math.random(),
+                stockItemId: item.stockCode,
+                stockCode: item.stockCode,
+                description: item.description,
+                formula: item.formula || '',
+                quantity: item.calculatedQuantity || item.quantity || 0,
+                unitPrice: item.pricing?.unitPrice || 0,
+                total: (item.calculatedQuantity || item.quantity || 0) * (item.pricing?.unitPrice || 0),
+                groupName: groupName
+            };
+            
+            this.quoteLines.push(quoteLine);
+            this.renderQuoteLine(quoteLine, this.quoteLines.length - 1);
+        });
+        
+        // Close the collapsible group
+        const container = document.getElementById('quote-lines-container');
+        container.insertAdjacentHTML('beforeend', '</div>');
     }
 
     setProjectContext(project, quoteNumber) {

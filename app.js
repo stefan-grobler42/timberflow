@@ -382,8 +382,8 @@ class MillenniumERP {
                 break;
             case 'stock-items':
             case 'stock-management':
-                if (!this.stockSelector) {
-                    this.stockSelector = new StockSelector('stock-management-content');
+                if (!this.advancedStockManager) {
+                    this.advancedStockManager = new AdvancedStockManager('stock-management-content');
                 }
                 break;
             case 'formula-engine':
