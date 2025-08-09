@@ -406,14 +406,8 @@ class MillenniumERP {
                 break;
             case 'stock-items':
             case 'stock-management':
-                try {
-                    console.log('Initializing Power Apps-style Stock Manager...');
-                    if (!this.stockPowerApp) {
-                        this.stockPowerApp = new StockPowerApp('stock-management-content');
-                    }
-                } catch (error) {
-                    console.error('Failed to initialize Stock Power App:', error);
-                    this.showAlert('Stock Management module failed to load. Please refresh the page.', 'danger');
+                if (!this.simpleStockManager) {
+                    this.simpleStockManager = new SimpleStockManager('stock-management-content');
                 }
                 break;
             case 'formula-engine':
