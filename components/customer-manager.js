@@ -520,7 +520,20 @@ class CustomerManager {
     initializeClickableFields() {
         // Add delay to ensure fields are rendered
         setTimeout(() => {
-            ClickableFieldUtils.applyToAllFields();
+            // Only apply to specific fields, not all fields
+            const phoneField = document.getElementById('phone');
+            const emailField = document.getElementById('email');
+            const websiteField = document.getElementById('website');
+            
+            if (phoneField) {
+                ClickableFieldUtils.makePhoneClickable(phoneField);
+            }
+            if (emailField) {
+                ClickableFieldUtils.makeEmailClickable(emailField);
+            }
+            if (websiteField) {
+                ClickableFieldUtils.makeWebsiteClickable(websiteField);
+            }
         }, 100);
     }
     

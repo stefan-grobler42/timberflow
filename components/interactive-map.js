@@ -149,13 +149,27 @@ class InteractiveMap {
         // Zoom controls
         zoomInBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             currentTransform.scale = Math.min(currentTransform.scale * 1.2, 3);
             this.updateMapTransform(currentTransform);
         });
         
         zoomOutBtn.addEventListener('click', (e) => {
             e.stopPropagation();
+            e.preventDefault();
             currentTransform.scale = Math.max(currentTransform.scale / 1.2, 0.5);
+            this.updateMapTransform(currentTransform);
+        });
+        
+        // Mouse wheel zoom
+        mapDiv.addEventListener('wheel', (e) => {
+            if (e.target.closest('.map-controls') || e.target.closest('.map-search')) return;
+            
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const zoomDelta = e.deltaY > 0 ? 0.9 : 1.1;
+            currentTransform.scale = Math.max(0.5, Math.min(3, currentTransform.scale * zoomDelta));
             this.updateMapTransform(currentTransform);
         });
         
@@ -302,88 +316,151 @@ class InteractiveMap {
 // Clickable field utilities
 class ClickableFieldUtils {
     static makePhoneClickable(element) {
-        if (!element) return;
+        if (!element || element.classList.contains('clickable-enhanced')) return;
         
-        const phoneNumber = element.textContent || element.value;
-        if (!phoneNumber) return;
+        element.classList.add('clickable-enhanced');
         
-        element.style.cursor = 'pointer';
-        element.style.color = '#0066cc';
-        element.style.textDecoration = 'underline';
-        element.title = 'Click to call';
-        
-        element.addEventListener('click', (e) => {
-            e.preventDefault();
+        // Wrap the input in a container with icon
+        if (element.tagName === 'INPUT') {
+            this.wrapInputWithIcon(element, 'fas fa-phone', (value) => {
+                const cleanNumber = value.replace(/[^\d+]/g, '');
+                if (confirm(`Call ${value}?`)) {
+                    window.location.href = `tel:${cleanNumber}`;
+                }
+            });
+        } else {
+            // For display elements, make them clickable
+            const phoneNumber = element.textContent || element.value;
+            if (!phoneNumber) return;
             
-            // Clean phone number for dialing
-            const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
+            element.style.cursor = 'pointer';
+            element.style.color = '#0066cc';
+            element.style.textDecoration = 'underline';
+            element.title = 'Click to call';
             
-            if (confirm(`Call ${phoneNumber}?`)) {
-                window.location.href = `tel:${cleanNumber}`;
-            }
-        });
+            element.addEventListener('click', (e) => {
+                e.preventDefault();
+                const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
+                if (confirm(`Call ${phoneNumber}?`)) {
+                    window.location.href = `tel:${cleanNumber}`;
+                }
+            });
+        }
     }
     
     static makeEmailClickable(element) {
-        if (!element) return;
+        if (!element || element.classList.contains('clickable-enhanced')) return;
         
-        const email = element.textContent || element.value;
-        if (!email || !email.includes('@')) return;
+        element.classList.add('clickable-enhanced');
         
-        element.style.cursor = 'pointer';
-        element.style.color = '#0066cc';
-        element.style.textDecoration = 'underline';
-        element.title = 'Click to send email';
-        
-        element.addEventListener('click', (e) => {
-            e.preventDefault();
+        // Wrap the input in a container with icon
+        if (element.tagName === 'INPUT') {
+            this.wrapInputWithIcon(element, 'fas fa-envelope', (value) => {
+                if (!value.includes('@')) return;
+                if (confirm(`Send email to ${value}?`)) {
+                    window.location.href = `mailto:${value}`;
+                }
+            });
+        } else {
+            // For display elements, make them clickable
+            const email = element.textContent || element.value;
+            if (!email || !email.includes('@')) return;
             
-            if (confirm(`Send email to ${email}?`)) {
-                window.location.href = `mailto:${email}`;
-            }
-        });
+            element.style.cursor = 'pointer';
+            element.style.color = '#0066cc';
+            element.style.textDecoration = 'underline';
+            element.title = 'Click to send email';
+            
+            element.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm(`Send email to ${email}?`)) {
+                    window.location.href = `mailto:${email}`;
+                }
+            });
+        }
     }
     
     static makeWebsiteClickable(element) {
-        if (!element) return;
+        if (!element || element.classList.contains('clickable-enhanced')) return;
         
-        const website = element.textContent || element.value;
-        if (!website) return;
+        element.classList.add('clickable-enhanced');
         
-        element.style.cursor = 'pointer';
-        element.style.color = '#0066cc';
-        element.style.textDecoration = 'underline';
-        element.title = 'Click to visit website';
+        // Wrap the input in a container with icon
+        if (element.tagName === 'INPUT') {
+            this.wrapInputWithIcon(element, 'fas fa-external-link-alt', (value) => {
+                if (!value) return;
+                let url = value;
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                if (confirm(`Navigate to ${value}?`)) {
+                    window.open(url, '_blank');
+                }
+            });
+        } else {
+            // For display elements, make them clickable
+            const website = element.textContent || element.value;
+            if (!website) return;
+            
+            element.style.cursor = 'pointer';
+            element.style.color = '#0066cc';
+            element.style.textDecoration = 'underline';
+            element.title = 'Click to visit website';
+            
+            element.addEventListener('click', (e) => {
+                e.preventDefault();
+                let url = website;
+                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                    url = 'https://' + url;
+                }
+                if (confirm(`Navigate to ${website}?`)) {
+                    window.open(url, '_blank');
+                }
+            });
+        }
+    }
+    
+    static wrapInputWithIcon(input, iconClass, clickHandler) {
+        // Create wrapper
+        const wrapper = document.createElement('div');
+        wrapper.className = 'input-group';
         
-        element.addEventListener('click', (e) => {
+        // Insert wrapper before input
+        input.parentNode.insertBefore(wrapper, input);
+        
+        // Move input into wrapper
+        wrapper.appendChild(input);
+        
+        // Create icon button
+        const iconButton = document.createElement('button');
+        iconButton.className = 'btn btn-outline-secondary';
+        iconButton.type = 'button';
+        iconButton.innerHTML = `<i class="${iconClass}"></i>`;
+        iconButton.title = 'Click to use this contact method';
+        iconButton.style.borderLeft = 'none';
+        
+        // Add icon click handler
+        iconButton.addEventListener('click', (e) => {
             e.preventDefault();
-            
-            let url = website;
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                url = 'https://' + url;
-            }
-            
-            if (confirm(`Navigate to ${website}?`)) {
-                window.open(url, '_blank');
+            e.stopPropagation();
+            if (input.value.trim()) {
+                clickHandler(input.value);
             }
         });
+        
+        // Add to wrapper (Bootstrap 5 style)
+        wrapper.appendChild(iconButton);
+        
+        // Ensure input can be typed in normally
+        input.style.cursor = 'text';
+        input.style.borderTopRightRadius = '0';
+        input.style.borderBottomRightRadius = '0';
+        iconButton.style.borderTopLeftRadius = '0';
+        iconButton.style.borderBottomLeftRadius = '0';
     }
     
     static applyToAllFields() {
-        // Auto-apply to common field patterns
-        document.querySelectorAll('input[type="tel"], input[name*="phone"], .phone-field').forEach(field => {
-            if (field.value) this.makePhoneClickable(field);
-        });
-        
-        document.querySelectorAll('input[type="email"], input[name*="email"], .email-field').forEach(field => {
-            if (field.value) this.makeEmailClickable(field);
-        });
-        
-        document.querySelectorAll('input[type="url"], input[name*="website"], .website-field').forEach(field => {
-            if (field.value) this.makeWebsiteClickable(field);
-        });
-        
-        // Also apply to display elements
+        // Auto-apply to display elements in tables only
         document.querySelectorAll('.customer-phone, .customer-email, .customer-website').forEach(element => {
             if (element.classList.contains('customer-phone')) {
                 this.makePhoneClickable(element);
@@ -391,6 +468,27 @@ class ClickableFieldUtils {
                 this.makeEmailClickable(element);
             } else if (element.classList.contains('customer-website')) {
                 this.makeWebsiteClickable(element);
+            }
+        });
+    }
+    
+    static enhanceFormFields() {
+        // Only enhance specific form fields with values
+        document.querySelectorAll('input[type="tel"], input[name*="phone"], .phone-field').forEach(field => {
+            if (field.value && field.tagName === 'INPUT') {
+                this.makePhoneClickable(field);
+            }
+        });
+        
+        document.querySelectorAll('input[type="email"], input[name*="email"], .email-field').forEach(field => {
+            if (field.value && field.tagName === 'INPUT') {
+                this.makeEmailClickable(field);
+            }
+        });
+        
+        document.querySelectorAll('input[type="url"], input[name*="website"], .website-field').forEach(field => {
+            if (field.value && field.tagName === 'INPUT') {
+                this.makeWebsiteClickable(field);
             }
         });
     }
