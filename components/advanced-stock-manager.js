@@ -20,19 +20,21 @@ class AdvancedStockManager {
     async init() {
         console.log('Starting Advanced Stock Manager initialization...');
         
-        // Load stock data immediately without await to prevent hanging
-        this.loadStockData().then(() => {
-            console.log('Stock data loaded, refreshing display...');
-            this.renderStockGrids();
-        }).catch(error => {
-            console.warn('Stock data loading failed, using defaults:', error);
-            this.stockItems = this.getAllSampleStockItems();
-            this.renderStockGrids();
-        });
-        
         // Render UI immediately
         this.render();
         this.setupEventListeners();
+        
+        // Load stock data with a small delay to ensure DOM is ready
+        setTimeout(() => {
+            this.loadStockData().then(() => {
+                console.log('Stock data loaded, refreshing display...');
+                this.renderStockGrids();
+            }).catch(error => {
+                console.warn('Stock data loading failed, using defaults:', error);
+                this.stockItems = this.getAllSampleStockItems();
+                this.renderStockGrids();
+            });
+        }, 100);
         console.log('Advanced Stock Manager UI rendered successfully');
     }
 
@@ -214,6 +216,12 @@ class AdvancedStockManager {
     renderStockGrids() {
         console.log('Rendering stock grids with', this.stockItems?.length || 0, 'items');
         
+        // Ensure we have data before rendering
+        if (!this.stockItems || this.stockItems.length === 0) {
+            console.log('No stock items found, loading sample data...');
+            this.stockItems = this.getAllSampleStockItems();
+        }
+        
         try {
             // Render Manufactured Items (Timber Trusses)
             this.renderManufacturedItems();
@@ -266,9 +274,13 @@ class AdvancedStockManager {
 
     renderManufacturedItems() {
         const container = document.getElementById('manufactured-items-grid');
-        if (!container) return;
+        if (!container) {
+            console.warn('manufactured-items-grid container not found');
+            return;
+        }
 
         const manufacturedItems = this.getManufacturedItems();
+        console.log('Rendering', manufacturedItems.length, 'manufactured items');
         
         container.innerHTML = `
             <div class="table-responsive">
@@ -313,9 +325,13 @@ class AdvancedStockManager {
 
     renderStandardItems() {
         const container = document.getElementById('standard-items-grid');
-        if (!container) return;
+        if (!container) {
+            console.warn('standard-items-grid container not found');
+            return;
+        }
 
         const standardItems = this.getStandardItems();
+        console.log('Rendering', standardItems.length, 'standard items');
         
         container.innerHTML = `
             <div class="table-responsive">
