@@ -343,17 +343,30 @@ class EnhancedLocationField {
             <div class="text-muted">${locationData.coordinates}</div>
         `;
         
-        // Hide input/map sections and show saved section
-        document.querySelector('.address-input-section').style.display = 'none';
-        document.querySelector('.map-section').style.display = 'none';
+        // Show saved confirmation but keep map visible
         savedSection.style.display = 'block';
+        
+        // Update save button text to show saved status
+        const saveBtn = document.getElementById('save-location-btn');
+        const originalText = saveBtn.innerHTML;
+        saveBtn.innerHTML = '<i class="fas fa-check"></i> Location Saved!';
+        saveBtn.classList.replace('btn-primary', 'btn-success');
+        
+        // Reset button after 2 seconds
+        setTimeout(() => {
+            saveBtn.innerHTML = originalText;
+            saveBtn.classList.replace('btn-success', 'btn-primary');
+        }, 2000);
     }
     
     showEditMode() {
-        // Show input/map sections and hide saved section
+        // Show input/map sections and hide saved section only if user wants to edit
         document.querySelector('.address-input-section').style.display = 'block';
         document.querySelector('.map-section').style.display = 'block';
-        document.getElementById('saved-location-display').style.display = 'none';
+        // Keep saved location visible if it exists, just allow editing alongside it
+        if (!this.currentLocation) {
+            document.getElementById('saved-location-display').style.display = 'none';
+        }
     }
     
     hideSavedLocation() {
