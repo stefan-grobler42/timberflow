@@ -275,17 +275,17 @@ class CustomerManager {
                                 <div class="card-body">
                                     <div class="mb-3">
                                         <label for="phone" class="form-label">Phone Number</label>
-                                        <input type="tel" class="form-control" id="phone" value="${customer.phone}">
+                                        <input type="tel" class="form-control phone-field" id="phone" value="${customer.phone}">
                                     </div>
                                     
                                     <div class="mb-3">
                                         <label for="email" class="form-label">Email Address</label>
-                                        <input type="email" class="form-control" id="email" value="${customer.email}">
+                                        <input type="email" class="form-control email-field" id="email" value="${customer.email}">
                                     </div>
                                     
                                     <div class="mb-3">
                                         <label for="website" class="form-label">Website</label>
-                                        <input type="url" class="form-control" id="website" value="${customer.website}">
+                                        <input type="url" class="form-control website-field" id="website" value="${customer.website}">
                                     </div>
                                     
                                     <div class="mb-3">
@@ -295,7 +295,7 @@ class CustomerManager {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <div id="address-map" style="height: 150px; border-radius: 0.375rem;"></div>
+                                        <div id="address-map" style="height: 200px; border-radius: 0.375rem;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -429,6 +429,9 @@ class CustomerManager {
         
         // Initialize address field
         this.initializeAddressField();
+        
+        // Make contact fields clickable
+        this.initializeClickableFields();
     }
     
     initializeLookupFields() {
@@ -490,14 +493,35 @@ class CustomerManager {
         const mapContainer = document.getElementById('address-map');
         
         if (addressInput && mapContainer) {
-            this.addressField = createAddressField(addressInput, mapContainer, {
+            // Initialize interactive map
+            this.interactiveMap = new InteractiveMap(mapContainer, {
+                onLocationSelect: (locationData) => {
+                    console.log('Location selected:', locationData);
+                    addressInput.value = locationData.address;
+                    
+                    // Trigger change event
+                    addressInput.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+            
+            // Also setup Google autocomplete for the input
+            this.addressField = createAddressField(addressInput, null, {
                 onAddressSelect: (addressData) => {
                     console.log('Address selected:', addressData);
-                    // Update the map display to show the address is located
-                    this.updateMapDisplay(mapContainer, addressData.fullAddress);
+                    // Update the interactive map when address is typed
+                    if (addressData.location) {
+                        this.interactiveMap.setCenter(addressData.location);
+                    }
                 }
             });
         }
+    }
+    
+    initializeClickableFields() {
+        // Add delay to ensure fields are rendered
+        setTimeout(() => {
+            ClickableFieldUtils.applyToAllFields();
+        }, 100);
     }
     
     updateMapDisplay(mapContainer, address) {
