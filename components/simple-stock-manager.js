@@ -18,7 +18,15 @@ class SimpleStockManager {
 
     init() {
         console.log('SimpleStockManager: Initializing...');
+        console.log('Container element:', this.container);
+        
+        if (!this.container) {
+            console.error('Container not found:', this.containerId);
+            return;
+        }
+        
         this.loadSampleData();
+        console.log('Sample data loaded:', this.data.length, 'items');
         this.render();
         console.log('SimpleStockManager: Ready');
     }
@@ -102,6 +110,7 @@ class SimpleStockManager {
     }
 
     renderListView() {
+        console.log('Rendering list view to container:', this.container);
         this.container.innerHTML = `
             <div class="stock-manager-container">
                 <!-- Header -->
