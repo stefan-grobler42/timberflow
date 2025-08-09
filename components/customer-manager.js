@@ -289,13 +289,11 @@ class CustomerManager {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="address" class="form-label">Address</label>
-                                        <input type="text" class="form-control" id="address" 
-                                               value="${customer.address}" placeholder="Start typing address...">
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <div id="address-map" style="height: 200px; border-radius: 0.375rem;"></div>
+                                        <label for="location-picker-container" class="form-label">Location</label>
+                                        <div id="location-picker-container"></div>
+                                        <!-- Hidden field to store location data -->
+                                        <input type="hidden" id="address" value="${customer.address}">
+                                        <input type="hidden" id="location-data" value="">
                                     </div>
                                 </div>
                             </div>
@@ -427,8 +425,8 @@ class CustomerManager {
         // Initialize lookup fields
         this.initializeLookupFields();
         
-        // Initialize address field
-        this.initializeAddressField();
+        // Initialize location picker
+        this.initializeLocationPicker();
         
         // Make contact fields clickable
         this.initializeClickableFields();
@@ -488,65 +486,48 @@ class CustomerManager {
         }
     }
     
-    initializeAddressField() {
+    initializeLocationPicker() {
+        const container = document.getElementById('location-picker-container');
         const addressInput = document.getElementById('address');
-        const mapContainer = document.getElementById('address-map');
+        const locationDataInput = document.getElementById('location-data');
         
-        if (addressInput && mapContainer) {
-            // Initialize interactive map
-            this.interactiveMap = new InteractiveMap(mapContainer, {
-                onLocationSelect: (locationData) => {
-                    console.log('Location selected:', locationData);
-                    addressInput.value = locationData.address;
+        if (container) {
+            // Initialize location picker
+            this.locationPicker = new LocationPicker('location-picker-container', {
+                onLocationSave: (locationData) => {
+                    console.log('Location saved:', locationData);
                     
-                    // Trigger change event
-                    addressInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-            
-            // Also setup Google autocomplete for the input
-            this.addressField = createAddressField(addressInput, null, {
-                onAddressSelect: (addressData) => {
-                    console.log('Address selected:', addressData);
-                    // Update the interactive map when address is typed
-                    if (addressData.location && this.interactiveMap) {
-                        this.interactiveMap.setCenter(addressData.location);
+                    // Update hidden fields with location data
+                    if (addressInput) {
+                        addressInput.value = locationData.coordinates;
                     }
+                    if (locationDataInput) {
+                        locationDataInput.value = JSON.stringify(locationData);
+                    }
+                    
+                    // Store location data for saving
+                    this.currentLocationData = locationData;
                 }
             });
             
-            // Add manual search for map synchronization
-            addressInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                if (value.length > 10 && this.interactiveMap) {
-                    // Debounce the search (longer delay and longer text requirement)
-                    clearTimeout(this.addressSearchTimeout);
-                    this.addressSearchTimeout = setTimeout(() => {
-                        this.geocodeAndUpdateMap(value);
-                    }, 1500);
+            // Load existing location data if available
+            if (this.currentItem && this.currentItem.locationData) {
+                try {
+                    const locationData = typeof this.currentItem.locationData === 'string' 
+                        ? JSON.parse(this.currentItem.locationData) 
+                        : this.currentItem.locationData;
+                    
+                    if (locationData.lat && locationData.lng) {
+                        this.locationPicker.loadSavedLocation(locationData);
+                    }
+                } catch (e) {
+                    console.warn('Could not load saved location data:', e);
                 }
-            });
+            }
         }
     }
     
-    geocodeAndUpdateMap(address) {
-        if (typeof google !== 'undefined' && google.maps && this.interactiveMap) {
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ address: address, componentRestrictions: { country: 'ZA' } }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const location = results[0].geometry.location;
-                    // Google Maps LatLng object has lat() and lng() methods
-                    const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
-                    const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
-                    
-                    this.interactiveMap.setCenter({
-                        lat: lat,
-                        lng: lng
-                    });
-                }
-            });
-        }
-    }
+
     
     initializeClickableFields() {
         // Add delay to ensure fields are rendered
@@ -686,6 +667,18 @@ class CustomerManager {
     }
 
     getFormData() {
+        const locationDataInput = document.getElementById('location-data');
+        let locationData = null;
+        
+        // Get location data if available
+        if (locationDataInput && locationDataInput.value) {
+            try {
+                locationData = JSON.parse(locationDataInput.value);
+            } catch (e) {
+                console.warn('Could not parse location data:', e);
+            }
+        }
+        
         return {
             accountNo: document.getElementById('accountNo').value,
             accountName: document.getElementById('accountName').value,
@@ -701,6 +694,7 @@ class CustomerManager {
             relationshipType: document.getElementById('relationshipType').value,
             primaryContact: document.getElementById('primaryContact').value,
             address: document.getElementById('address').value,
+            locationData: locationData,
             isActive: document.getElementById('isActive').checked
         };
     }
