@@ -34,8 +34,15 @@ Preferred communication style: Simple, everyday language.
 - Order management (sub-record from quotes/tenders)
 
 ### Stock Module
-- Stock item management with complex hierarchies
-- Pamir integration for timber calculations
+- **Complex Stock Hierarchy**: Three-tier system supporting manufactured items (timber trusses), standard stock items (timber/materials), and service items (labour/transport)
+- **Variable Attributes**: Dynamic stock variants for colours, girths, finishes with configurable pricing
+- **Composite Tender Rates**: Recipe-based composite items for tender pricing (sheeting + screws + labour + transport)
+- **Unit Conversion System**: Automatic conversion between m, m2, ea with cover width calculations for sheeting
+- **Flexible BOM System**: Unique BOMs for each manufactured item (timber trusses) linked to Pamir exports
+- **Temporary Stock Codes**: 120-day expiring temporary codes for rare/custom items
+- **Material Grouping**: Collapsible groups (Roof Trusses > Timber/Plates, Hangers, Bracing, etc.)
+- **Tally System**: Interactive quantity/length capture for cut-to-length materials
+- **Pamir Integration**: Automatic BOM creation from CSV/Excel exports with variable extraction
 
 ### CRM Module
 - Task management (calls, emails, meetings)
