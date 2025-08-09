@@ -10,6 +10,21 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <link href="styles.css?v=2025-08-09-force" rel="stylesheet">
     <link href="millennium-brand.css?v=2025-08-09-force" rel="stylesheet">
+    
+    <!-- Google Maps API -->
+    <script>
+        function initGoogleMaps() {
+            window.googleMapsLoaded = true;
+            console.log('Google Maps API loaded successfully');
+            // Trigger map initialization for any waiting components
+            if (window.mapInitQueue) {
+                window.mapInitQueue.forEach(callback => callback());
+                window.mapInitQueue = [];
+            }
+        }
+    </script>
+    
+
 </head>
 <body style="background-color: #E6E6E6 !important; font-family: 'Roboto', sans-serif !important; color: #231f20 !important;">
     <nav class="navbar navbar-expand-lg navbar-dark millennium-navbar fixed-top" style="background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important; background-color: #59AAD5 !important;">
@@ -586,11 +601,35 @@
     <script src="components/stock-selector.js"></script>
     <script src="components/simple-stock-manager.js"></script>
     <script src="components/lookup-field.js"></script>
+    <script src="components/interactive-map.js"></script>
     <script src="components/customer-manager.js"></script>
 
     <script src="components/enhanced-pamir-parser.js"></script>
     <script src="components/template-manager.js"></script>
     <script src="components/formula-engine.js"></script>
     <script src="app.js?v=2025-08-09-force"></script>
+    
+    <!-- Load Google Maps API -->
+    <script>
+        // Load Google Maps API dynamically with the API key from server
+        fetch('/api/google-maps-key')
+            .then(response => response.json())
+            .then(data => {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=places&callback=initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            })
+            .catch(error => {
+                console.error('Failed to load Google Maps API key:', error);
+                // Use a placeholder key for development
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            });
+    </script>
 </body>
 </html>

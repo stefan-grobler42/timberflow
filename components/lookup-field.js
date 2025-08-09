@@ -247,38 +247,6 @@ class LookupField {
         this.input.dispatchEvent(new Event('change', { bubbles: true }));
     }
     
-    openDropdown() {
-        this.isOpen = true;
-        this.dropdown.style.display = 'block';
-        this.input.setAttribute('aria-expanded', 'true');
-    }
-    
-    closeDropdown() {
-        this.isOpen = false;
-        this.dropdown.style.display = 'none';
-        this.selectedIndex = -1;
-        this.input.setAttribute('aria-expanded', 'false');
-    }
-    
-    setValue(value) {
-        const item = this.options.data.find(item => item[this.options.valueField] === value);
-        if (item) {
-            this.input.value = item[this.options.displayField];
-            this.input.setAttribute('data-value', value);
-        }
-    }
-    
-    getValue() {
-        return this.input.getAttribute('data-value') || '';
-    }
-    
-    updateData(newData) {
-        this.options.data = newData;
-        if (this.isOpen) {
-            this.filterData(this.input.value);
-        }
-    }
-    
     openSearchModal() {
         // Create modal for browsing all options
         const modal = document.createElement('div');
@@ -375,23 +343,53 @@ class LookupField {
             };
         });
     }
+    
+    openDropdown() {
+        this.isOpen = true;
+        this.dropdown.style.display = 'block';
+        this.input.setAttribute('aria-expanded', 'true');
+    }
+    
+    closeDropdown() {
+        this.isOpen = false;
+        this.dropdown.style.display = 'none';
+        this.selectedIndex = -1;
+        this.input.setAttribute('aria-expanded', 'false');
+    }
+    
+    setValue(value) {
+        const item = this.options.data.find(item => item[this.options.valueField] === value);
+        if (item) {
+            this.input.value = item[this.options.displayField];
+            this.input.setAttribute('data-value', value);
+        }
+    }
+    
+    getValue() {
+        return this.input.getAttribute('data-value') || '';
+    }
+    
+    updateData(newData) {
+        this.options.data = newData;
+        if (this.isOpen) {
+            this.filterData(this.input.value);
+        }
+    }
 }
 
-// Interactive Google Maps Address Autocomplete Component
+// Google Maps Address Autocomplete Component
 class AddressField {
     constructor(inputElement, options = {}) {
         this.input = inputElement;
         this.options = {
             onAddressSelect: options.onAddressSelect || (() => {}),
             showMap: options.showMap !== false,
-            mapContainer: options.mapContainer || null,
-            apiKey: options.apiKey || null
+            mapContainer: options.mapContainer || null
         };
         
         this.autocomplete = null;
         this.map = null;
         this.marker = null;
-        this.isRealGoogleMaps = false;
         
         this.init();
     }
@@ -408,378 +406,251 @@ class AddressField {
     loadGoogleMapsAPI() {
         return new Promise((resolve) => {
             if (window.google && window.google.maps && window.google.maps.places) {
-                this.isRealGoogleMaps = true;
+                // Real Google Maps API is already loaded
                 resolve();
                 return;
             }
             
-            // For development, create enhanced interactive mock
-            this.setupInteractiveMap();
+            // Only use mock if real API is not available
+            console.warn('Google Maps API not available, using mock implementation');
+            window.google = {
+                maps: {
+                    places: {
+                        Autocomplete: class {
+                            constructor(input) {
+                                this.input = input;
+                                this.listeners = {};
+                                this.setupMockAutocomplete();
+                            }
+                            
+                            setupMockAutocomplete() {
+                                // Mock address suggestions with coordinates
+                                const addresses = [
+                                    { 
+                                        description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', 
+                                        place_id: '1',
+                                        lat: -25.8707788, 
+                                        lng: 28.3665748 
+                                    },
+                                    { 
+                                        description: '234 Oak Avenue, Centurion, 0157', 
+                                        place_id: '2',
+                                        lat: -25.8619, 
+                                        lng: 28.1880 
+                                    },
+                                    { 
+                                        description: '456 Pine Street, Sandton, 2196', 
+                                        place_id: '3',
+                                        lat: -26.1076, 
+                                        lng: 28.0567 
+                                    },
+                                    { 
+                                        description: '789 Main Road, Cape Town, 8001', 
+                                        place_id: '4',
+                                        lat: -33.9249, 
+                                        lng: 18.4241 
+                                    }
+                                ];
+                                
+                                const dropdown = document.createElement('div');
+                                dropdown.className = 'address-dropdown';
+                                dropdown.style.cssText = `
+                                    position: absolute;
+                                    top: 100%;
+                                    left: 0;
+                                    right: 0;
+                                    background: white;
+                                    border: 1px solid #dee2e6;
+                                    border-radius: 0.375rem;
+                                    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+                                    max-height: 200px;
+                                    overflow-y: auto;
+                                    z-index: 1000;
+                                    display: none;
+                                `;
+                                
+                                this.input.parentNode.style.position = 'relative';
+                                this.input.parentNode.appendChild(dropdown);
+                                
+                                this.input.addEventListener('input', (e) => {
+                                    const value = e.target.value.toLowerCase();
+                                    if (value.length < 3) {
+                                        dropdown.style.display = 'none';
+                                        return;
+                                    }
+                                    
+                                    const filtered = addresses.filter(addr => 
+                                        addr.description.toLowerCase().includes(value)
+                                    );
+                                    
+                                    if (filtered.length > 0) {
+                                        dropdown.innerHTML = filtered.map(addr => `
+                                            <div class="address-item" 
+                                                 style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;"
+                                                 onmouseover="this.style.backgroundColor = '#f8f9fa'"
+                                                 onmouseout="this.style.backgroundColor = 'white'"
+                                                 onclick="this.selectAddress('${addr.description}')">
+                                                ${addr.description}
+                                            </div>
+                                        `).join('');
+                                        
+                                        dropdown.style.display = 'block';
+                                        
+                                        // Add click handlers
+                                        dropdown.querySelectorAll('.address-item').forEach((item, index) => {
+                                            item.selectAddress = (address) => {
+                                                this.input.value = address;
+                                                dropdown.style.display = 'none';
+                                                this.triggerPlaceChanged(address);
+                                            };
+                                        });
+                                    } else {
+                                        dropdown.style.display = 'none';
+                                    }
+                                });
+                                
+                                document.addEventListener('click', (e) => {
+                                    if (!this.input.contains(e.target) && !dropdown.contains(e.target)) {
+                                        dropdown.style.display = 'none';
+                                    }
+                                });
+                            }
+                            
+                            addListener(event, callback) {
+                                this.listeners[event] = callback;
+                            }
+                            
+                            triggerPlaceChanged(address) {
+                                if (this.listeners.place_changed) {
+                                    this.listeners.place_changed();
+                                }
+                            }
+                            
+                            getPlace() {
+                                const address = this.input.value;
+                                
+                                // Find matching address with coordinates
+                                const mockAddresses = [
+                                    { 
+                                        description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', 
+                                        lat: -25.8707788, 
+                                        lng: 28.3665748 
+                                    },
+                                    { 
+                                        description: '234 Oak Avenue, Centurion, 0157', 
+                                        lat: -25.8619, 
+                                        lng: 28.1880 
+                                    },
+                                    { 
+                                        description: '456 Pine Street, Sandton, 2196', 
+                                        lat: -26.1076, 
+                                        lng: 28.0567 
+                                    },
+                                    { 
+                                        description: '789 Main Road, Cape Town, 8001', 
+                                        lat: -33.9249, 
+                                        lng: 18.4241 
+                                    }
+                                ];
+                                
+                                const match = mockAddresses.find(addr => 
+                                    addr.description.toLowerCase().includes(address.toLowerCase()) ||
+                                    address.toLowerCase().includes(addr.description.toLowerCase())
+                                );
+                                
+                                const coordinates = match ? { lat: match.lat, lng: match.lng } : { lat: -25.7479, lng: 28.2293 };
+                                
+                                // Mock place object with real coordinates
+                                return {
+                                    formatted_address: address,
+                                    geometry: {
+                                        location: {
+                                            lat: () => coordinates.lat,
+                                            lng: () => coordinates.lng
+                                        }
+                                    },
+                                    address_components: [
+                                        { long_name: address.split(',')[0], types: ['street_number', 'route'] },
+                                        { long_name: address.split(',')[1] || 'Suburb', types: ['sublocality'] },
+                                        { long_name: address.split(',')[2] || 'City', types: ['locality'] },
+                                        { long_name: address.split(',')[3] || '0000', types: ['postal_code'] }
+                                    ]
+                                };
+                            }
+                        }
+                    },
+                    Map: class {
+                        constructor(element, options) {
+                            this.element = element;
+                            this.options = options;
+                            this.element.innerHTML = `
+                                <div class="map-placeholder" style="width: 100%; height: 150px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                    <div style="text-align: center;">
+                                        <i class="fas fa-map-marker-alt fa-2x text-muted mb-2"></i>
+                                        <div class="text-muted">Click to view in Google Maps</div>
+                                    </div>
+                                </div>
+                            `;
+                            this.mapPlaceholder = this.element.querySelector('.map-placeholder');
+                        }
+                        
+                        setCenter(location) {
+                            // Mock implementation
+                        }
+                        
+                        setZoom(zoom) {
+                            // Mock implementation
+                        }
+                    },
+                    Marker: class {
+                        constructor(options) {
+                            this.options = options;
+                        }
+                        
+                        setPosition(location) {
+                            // Mock implementation
+                        }
+                        
+                        setMap(map) {
+                            // Mock implementation
+                        }
+                    }
+                }
+            };
+            
             resolve();
         });
     }
     
-    setupInteractiveMap() {
-        window.google = {
-            maps: {
-                places: {
-                    Autocomplete: class {
-                        constructor(input) {
-                            this.input = input;
-                            this.listeners = {};
-                            this.setupAddressAutocomplete();
-                        }
-                        
-                        setupAddressAutocomplete() {
-                            const addresses = [
-                                { description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', place_id: '1' },
-                                { description: '234 Oak Avenue, Centurion, 0157', place_id: '2' },
-                                { description: '456 Pine Street, Sandton, 2196', place_id: '3' },
-                                { description: '789 Main Road, Cape Town, 8001', place_id: '4' },
-                                { description: '123 Church Street, Pretoria Central, 0002', place_id: '5' },
-                                { description: '567 Jan Smuts Avenue, Rosebank, 2196', place_id: '6' }
-                            ];
-                            
-                            const dropdown = document.createElement('div');
-                            dropdown.className = 'address-dropdown';
-                            dropdown.style.cssText = `
-                                position: absolute;
-                                top: 100%;
-                                left: 0;
-                                right: 0;
-                                background: white;
-                                border: 1px solid #dee2e6;
-                                border-radius: 0.375rem;
-                                box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-                                max-height: 200px;
-                                overflow-y: auto;
-                                z-index: 1000;
-                                display: none;
-                            `;
-                            
-                            this.input.parentNode.style.position = 'relative';
-                            this.input.parentNode.appendChild(dropdown);
-                            
-                            this.input.addEventListener('input', (e) => {
-                                const value = e.target.value.toLowerCase();
-                                if (value.length < 3) {
-                                    dropdown.style.display = 'none';
-                                    return;
-                                }
-                                
-                                const filtered = addresses.filter(addr => 
-                                    addr.description.toLowerCase().includes(value)
-                                );
-                                
-                                if (filtered.length > 0) {
-                                    dropdown.innerHTML = filtered.map(addr => `
-                                        <div class="address-item" 
-                                             style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;"
-                                             onmouseover="this.style.backgroundColor = '#f8f9fa'"
-                                             onmouseout="this.style.backgroundColor = 'white'"
-                                             data-address="${addr.description}">
-                                            ${addr.description}
-                                        </div>
-                                    `).join('');
-                                    
-                                    dropdown.style.display = 'block';
-                                    
-                                    dropdown.querySelectorAll('.address-item').forEach(item => {
-                                        item.addEventListener('click', () => {
-                                            this.input.value = item.dataset.address;
-                                            dropdown.style.display = 'none';
-                                            this.triggerPlaceChanged(item.dataset.address);
-                                        });
-                                    });
-                                } else {
-                                    dropdown.style.display = 'none';
-                                }
-                            });
-                            
-                            document.addEventListener('click', (e) => {
-                                if (!this.input.contains(e.target) && !dropdown.contains(e.target)) {
-                                    dropdown.style.display = 'none';
-                                }
-                            });
-                        }
-                        
-                        addListener(event, callback) {
-                            this.listeners[event] = callback;
-                        }
-                        
-                        triggerPlaceChanged(address) {
-                            if (this.listeners.place_changed) {
-                                this.listeners.place_changed();
-                            }
-                        }
-                        
-                        getPlace() {
-                            const address = this.input.value;
-                            return {
-                                formatted_address: address,
-                                geometry: {
-                                    location: {
-                                        lat: () => -25.7479 + (Math.random() - 0.5) * 0.1,
-                                        lng: () => 28.2293 + (Math.random() - 0.5) * 0.1
-                                    }
-                                },
-                                address_components: [
-                                    { long_name: address.split(',')[0], types: ['street_number', 'route'] },
-                                    { long_name: address.split(',')[1] || 'Suburb', types: ['sublocality'] },
-                                    { long_name: address.split(',')[2] || 'City', types: ['locality'] },
-                                    { long_name: address.split(',')[3] || '0000', types: ['postal_code'] }
-                                ]
-                            };
-                        }
-                    }
-                },
-                Map: class {
-                    constructor(element, options) {
-                        this.element = element;
-                        this.options = options;
-                        this.center = options.center || { lat: -25.7479, lng: 28.2293 };
-                        this.zoom = options.zoom || 15;
-                        this.markers = [];
-                        this.createInteractiveMap();
-                    }
-                    
-                    createInteractiveMap() {
-                        this.element.innerHTML = `
-                            <div style="width: 100%; height: 150px; background: linear-gradient(135deg, #a8e6cf 0%, #88d8a3 50%, #68c182 100%); border: 1px solid #dee2e6; border-radius: 0.375rem; position: relative; cursor: grab; overflow: hidden; user-select: none;">
-                                <!-- Map grid pattern -->
-                                <div class="map-grid" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.2; background-image: 
-                                    linear-gradient(rgba(255,255,255,0.3) 1px, transparent 1px),
-                                    linear-gradient(90deg, rgba(255,255,255,0.3) 1px, transparent 1px);
-                                    background-size: 20px 20px;">
-                                </div>
-                                
-                                <!-- Street patterns -->
-                                <div style="position: absolute; top: 30%; left: 10%; width: 80%; height: 2px; background: rgba(255,255,255,0.6); border-radius: 1px;"></div>
-                                <div style="position: absolute; top: 60%; left: 15%; width: 70%; height: 2px; background: rgba(255,255,255,0.6); border-radius: 1px;"></div>
-                                <div style="position: absolute; top: 20%; left: 25%; width: 2px; height: 60%; background: rgba(255,255,255,0.6); border-radius: 1px;"></div>
-                                <div style="position: absolute; top: 25%; left: 65%; width: 2px; height: 50%; background: rgba(255,255,255,0.6); border-radius: 1px;"></div>
-                                
-                                <!-- Marker container -->
-                                <div class="marker-container" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none;"></div>
-                                
-                                <!-- Map controls -->
-                                <div style="position: absolute; top: 10px; left: 10px; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; flex-direction: column;">
-                                    <button class="zoom-in" style="border: none; background: none; padding: 6px 8px; cursor: pointer; border-bottom: 1px solid #eee;">
-                                        <i class="fas fa-plus" style="font-size: 10px;"></i>
-                                    </button>
-                                    <button class="zoom-out" style="border: none; background: none; padding: 6px 8px; cursor: pointer;">
-                                        <i class="fas fa-minus" style="font-size: 10px;"></i>
-                                    </button>
-                                </div>
-                                
-                                <!-- Map info -->
-                                <div style="position: absolute; bottom: 5px; right: 5px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px;">
-                                    Zoom: <span class="zoom-level">${this.zoom}</span>
-                                </div>
-                                
-                                <!-- Click to navigate indicator -->
-                                <div style="position: absolute; bottom: 5px; left: 5px; background: rgba(0,0,0,0.7); color: white; padding: 2px 6px; border-radius: 3px; font-size: 9px;">
-                                    <i class="fas fa-external-link-alt"></i> Click to navigate
-                                </div>
-                            </div>
-                        `;
-                        
-                        this.setupMapInteractions();
-                    }
-                    
-                    setupMapInteractions() {
-                        const mapElement = this.element.querySelector('div');
-                        const zoomInBtn = this.element.querySelector('.zoom-in');
-                        const zoomOutBtn = this.element.querySelector('.zoom-out');
-                        const zoomLevel = this.element.querySelector('.zoom-level');
-                        
-                        // Zoom controls
-                        zoomInBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            this.setZoom(Math.min(this.zoom + 1, 20));
-                        });
-                        
-                        zoomOutBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            this.setZoom(Math.max(this.zoom - 1, 1));
-                        });
-                        
-                        // Pan functionality with mouse
-                        let isDragging = false;
-                        let startX, startY;
-                        
-                        mapElement.addEventListener('mousedown', (e) => {
-                            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
-                            isDragging = true;
-                            startX = e.clientX;
-                            startY = e.clientY;
-                            mapElement.style.cursor = 'grabbing';
-                        });
-                        
-                        mapElement.addEventListener('mousemove', (e) => {
-                            if (isDragging) {
-                                const deltaX = e.clientX - startX;
-                                const deltaY = e.clientY - startY;
-                                this.updateMapPosition(deltaX, deltaY);
-                                startX = e.clientX;
-                                startY = e.clientY;
-                            }
-                        });
-                        
-                        mapElement.addEventListener('mouseup', () => {
-                            isDragging = false;
-                            mapElement.style.cursor = 'grab';
-                        });
-                        
-                        mapElement.addEventListener('mouseleave', () => {
-                            isDragging = false;
-                            mapElement.style.cursor = 'grab';
-                        });
-                        
-                        // Click to open Google Maps
-                        mapElement.addEventListener('click', (e) => {
-                            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'I') return;
-                            if (!isDragging && this.currentAddress) {
-                                const address = encodeURIComponent(this.currentAddress);
-                                window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
-                            }
-                        });
-                    }
-                    
-                    updateMapPosition(deltaX, deltaY) {
-                        const grid = this.element.querySelector('.map-grid');
-                        if (grid) {
-                            const currentX = parseFloat(grid.style.backgroundPositionX) || 0;
-                            const currentY = parseFloat(grid.style.backgroundPositionY) || 0;
-                            grid.style.backgroundPosition = `${currentX + deltaX * 0.1}px ${currentY + deltaY * 0.1}px`;
-                        }
-                    }
-                    
-                    setCenter(location) {
-                        this.center = location;
-                        this.animateToLocation();
-                    }
-                    
-                    setZoom(zoom) {
-                        this.zoom = zoom;
-                        const zoomLevel = this.element.querySelector('.zoom-level');
-                        if (zoomLevel) {
-                            zoomLevel.textContent = zoom;
-                        }
-                        
-                        // Update grid size based on zoom
-                        const grid = this.element.querySelector('.map-grid');
-                        if (grid) {
-                            const gridSize = Math.max(10, 30 - zoom);
-                            grid.style.backgroundSize = `${gridSize}px ${gridSize}px`;
-                        }
-                    }
-                    
-                    animateToLocation() {
-                        const mapElement = this.element.querySelector('div');
-                        mapElement.style.transform = 'scale(0.95)';
-                        mapElement.style.transition = 'transform 0.3s ease';
-                        setTimeout(() => {
-                            mapElement.style.transform = 'scale(1)';
-                            setTimeout(() => {
-                                mapElement.style.transition = '';
-                            }, 300);
-                        }, 100);
-                    }
-                },
-                Marker: class {
-                    constructor(options) {
-                        this.options = options;
-                        this.map = options.map;
-                        this.position = options.position;
-                        this.element = null;
-                        if (this.map) {
-                            this.createMarker();
-                        }
-                    }
-                    
-                    createMarker() {
-                        if (this.map && this.map.element) {
-                            // Remove existing marker
-                            const existingMarker = this.map.element.querySelector('.map-marker');
-                            if (existingMarker) {
-                                existingMarker.remove();
-                            }
-                            
-                            this.element = document.createElement('div');
-                            this.element.className = 'map-marker';
-                            this.element.style.cssText = `
-                                position: absolute;
-                                top: 50%;
-                                left: 50%;
-                                transform: translate(-50%, -100%);
-                                z-index: 10;
-                                pointer-events: none;
-                            `;
-                            
-                            this.element.innerHTML = `
-                                <i class="fas fa-map-marker-alt fa-2x text-danger" 
-                                   style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.4)); animation: markerDrop 0.5s ease-out;"></i>
-                            `;
-                            
-                            // Add CSS animations if not already present
-                            if (!document.querySelector('#marker-animations')) {
-                                const style = document.createElement('style');
-                                style.id = 'marker-animations';
-                                style.textContent = `
-                                    @keyframes markerDrop {
-                                        0% { transform: translate(-50%, -200%) scale(0.5); opacity: 0; }
-                                        50% { transform: translate(-50%, -110%) scale(1.1); opacity: 0.8; }
-                                        100% { transform: translate(-50%, -100%) scale(1); opacity: 1; }
-                                    }
-                                `;
-                                document.head.appendChild(style);
-                            }
-                            
-                            const markerContainer = this.map.element.querySelector('.marker-container');
-                            if (markerContainer) {
-                                markerContainer.appendChild(this.element);
-                            }
-                        }
-                    }
-                    
-                    setPosition(location) {
-                        this.position = location;
-                        if (this.map) {
-                            this.map.setCenter(location);
-                        }
-                    }
-                    
-                    setMap(map) {
-                        if (this.element && this.element.parentNode) {
-                            this.element.parentNode.removeChild(this.element);
-                        }
-                        
-                        this.map = map;
-                        if (map) {
-                            this.createMarker();
-                        }
-                    }
-                }
-            }
-        };
-    }
-    
     initAutocomplete() {
-        this.autocomplete = new google.maps.places.Autocomplete(this.input);
+        // Configure autocomplete for South Africa
+        this.autocomplete = new google.maps.places.Autocomplete(this.input, {
+            componentRestrictions: { country: 'za' },
+            fields: ['place_id', 'geometry', 'formatted_address', 'address_components']
+        });
         
         this.autocomplete.addListener('place_changed', () => {
             const place = this.autocomplete.getPlace();
             
             if (place.formatted_address) {
+                // Handle Google Maps LatLng object properly
+                let locationData = null;
+                if (place.geometry && place.geometry.location) {
+                    const location = place.geometry.location;
+                    locationData = {
+                        lat: typeof location.lat === 'function' ? location.lat() : location.lat,
+                        lng: typeof location.lng === 'function' ? location.lng() : location.lng
+                    };
+                }
+                
                 this.options.onAddressSelect({
                     fullAddress: place.formatted_address,
-                    location: place.geometry ? place.geometry.location : null,
+                    location: locationData,
                     components: this.parseAddressComponents(place.address_components)
                 });
                 
                 if (this.map && place.geometry) {
-                    this.updateMap(place.geometry.location, place.formatted_address);
+                    this.updateMap(place.geometry.location);
                 }
             }
         });
@@ -790,23 +661,41 @@ class AddressField {
         
         const mapOptions = {
             zoom: 15,
-            center: { lat: -25.7479, lng: 28.2293 }
+            center: { lat: -25.7479, lng: 28.2293 } // Default to Pretoria
         };
         
         this.map = new google.maps.Map(this.options.mapContainer, mapOptions);
         this.marker = new google.maps.Marker({
             map: this.map
         });
+        
+        // Add click handler to open Google Maps
+        this.options.mapContainer.addEventListener('click', () => {
+            const address = encodeURIComponent(this.input.value);
+            window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
+        });
     }
     
-    updateMap(location, address) {
-        if (this.map) {
-            this.map.currentAddress = address;
-            this.map.setCenter(location);
-            this.map.setZoom(16);
-            this.marker.setPosition(location);
-            this.marker.setMap(this.map);
+    updateMap(location) {
+        if (!this.map || !location) {
+            // Update placeholder to show address is selected
+            if (this.mapPlaceholder && this.input.value) {
+                this.mapPlaceholder.innerHTML = `
+                    <div style="text-align: center;">
+                        <i class="fas fa-map-marker-alt fa-2x text-success mb-2"></i>
+                        <div class="text-success"><strong>Address Located</strong></div>
+                        <div class="text-muted small">${this.input.value}</div>
+                        <div class="text-muted small">Click to view in Google Maps</div>
+                    </div>
+                `;
+            }
+            return;
         }
+        
+        this.map.setCenter(location);
+        this.map.setZoom(16);
+        this.marker.setPosition(location);
+        this.marker.setMap(this.map);
     }
     
     parseAddressComponents(components) {
@@ -832,7 +721,7 @@ class AddressField {
     }
 }
 
-// Utility functions
+// Utility function to create lookup fields
 function createLookupField(inputElement, data, options = {}) {
     const lookupData = data.map(item => {
         if (typeof item === 'string') {
@@ -847,6 +736,7 @@ function createLookupField(inputElement, data, options = {}) {
     });
 }
 
+// Utility function to create address fields
 function createAddressField(inputElement, mapContainer = null, options = {}) {
     return new AddressField(inputElement, {
         mapContainer,

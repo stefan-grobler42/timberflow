@@ -35,6 +35,11 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'API healthy', mode: 'development' });
 });
 
+// Google Maps API key endpoint
+app.get('/api/google-maps-key', (req, res) => {
+    res.json({ apiKey: process.env.GOOGLE_API_KEY });
+});
+
 // Import database storage
 const { storage } = require('./server/storage.js');
 
