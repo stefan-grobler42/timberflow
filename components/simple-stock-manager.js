@@ -234,25 +234,25 @@ class SimpleStockManager {
                 <!-- Form Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div class="d-flex align-items-center">
-                        <button class="btn btn-outline-secondary me-3" id="back-btn">
-                            <i class="fas fa-arrow-left me-1"></i>Back to List
-                        </button>
+                        <div class="btn-group me-3">
+                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
+                                <i class="fas fa-arrow-left me-1"></i>Back to List
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
+                                <i class="fas fa-undo me-1"></i>Undo Changes
+                            </button>
+                            ${isEdit ? `
+                                <button type="button" class="btn btn-outline-danger" id="delete-btn">
+                                    <i class="fas fa-trash me-1"></i>Delete
+                                </button>
+                            ` : ''}
+                        </div>
                         <h3><i class="fas fa-edit me-2 text-primary"></i>${title}</h3>
                     </div>
                     <div class="auto-save-status">
                         <small class="text-muted" id="auto-save-status">
                             <i class="fas fa-circle text-success"></i> Auto-save enabled
                         </small>
-                    </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
-                            <i class="fas fa-undo me-1"></i>Undo Changes
-                        </button>
-                        ${isEdit ? `
-                            <button type="button" class="btn btn-outline-danger" id="delete-btn">
-                                <i class="fas fa-trash me-1"></i>Delete
-                            </button>
-                        ` : ''}
                     </div>
                 </div>
 
@@ -693,20 +693,56 @@ class SimpleStockManager {
     }
     
     async saveCurrentChanges() {
-        const formData = this.getFormData();
+        const form = document.getElementById('stock-form');
+        if (!form) return;
+        
+        const formData = new FormData(form);
+        const data = {
+            itemCode: formData.get('itemCode'),
+            description: formData.get('description'),
+            itemType: this.lookupFields.itemType ? this.lookupFields.itemType.getValue() : formData.get('itemType'),
+            category: this.lookupFields.category ? this.lookupFields.category.getValue() : formData.get('category'),
+            unitCost: parseFloat(formData.get('unitCost')) || 0,
+            unitPrice: parseFloat(formData.get('unitPrice')) || 0,
+            stockUom: this.lookupFields.stockUom ? this.lookupFields.stockUom.getValue() : formData.get('stockUom'),
+            currentStock: parseFloat(formData.get('currentStock')) || 0,
+            minimumStock: parseFloat(formData.get('minimumStock')) || 0,
+            isActive: formData.has('isActive')
+        };
+        
+        // Add audit trail
+        const now = new Date().toISOString();
+        const user = 'current_user'; // This would come from authentication
         
         if (this.currentItem) {
-            // Update existing item
-            const index = this.data.findIndex(item => item.id === this.currentItem.id);
-            if (index !== -1) {
-                this.data[index] = { ...this.data[index], ...formData };
+            // Track changes for audit
+            const changes = this.getChanges(this.currentItem, data);
+            if (Object.keys(changes).length > 0) {
+                // Update existing item
+                const index = this.data.findIndex(item => item.id === this.currentItem.id);
+                if (index !== -1) {
+                    this.data[index] = { 
+                        ...this.data[index], 
+                        ...data,
+                        lastModified: now,
+                        lastModifiedBy: user
+                    };
+                    // Add to audit trail
+                    this.addAuditEntry(this.currentItem.id, 'UPDATE', changes, user, now);
+                }
             }
         } else {
-            // Create new item
+            // Create new item with audit info
             const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
-            formData.id = newId;
-            this.data.push(formData);
-            this.currentItem = formData;
+            data.id = newId;
+            data.created = now;
+            data.createdBy = user;
+            data.lastModified = now;
+            data.lastModifiedBy = user;
+            this.data.push(data);
+            this.currentItem = data;
+            // Add to audit trail
+            this.addAuditEntry(newId, 'CREATE', data, user, now);
         }
         
         return Promise.resolve();
@@ -764,6 +800,46 @@ class SimpleStockManager {
             
             statusElement.innerHTML = `<i class="${icon}"></i> ${message}`;
         }
+    }
+    
+    // Audit trail methods
+    getChanges(oldData, newData) {
+        const changes = {};
+        Object.keys(newData).forEach(key => {
+            if (oldData[key] !== newData[key]) {
+                changes[key] = {
+                    old: oldData[key],
+                    new: newData[key]
+                };
+            }
+        });
+        return changes;
+    }
+    
+    addAuditEntry(recordId, action, changes, user, timestamp) {
+        // Use global audit trail manager
+        if (window.auditTrailManager) {
+            window.auditTrailManager.recordEvent({
+                module: 'stock',
+                recordType: 'stock_item',
+                recordId,
+                action,
+                changes,
+                user,
+                metadata: {
+                    timestamp: timestamp,
+                    component: 'SimpleStockManager'
+                }
+            });
+        }
+    }
+    
+    getAuditTrail(recordId = null) {
+        if (!this.auditTrail) return [];
+        if (recordId) {
+            return this.auditTrail.filter(entry => entry.recordId === recordId);
+        }
+        return this.auditTrail;
     }
 }
 

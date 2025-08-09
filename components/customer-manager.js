@@ -281,10 +281,27 @@ class CustomerManager {
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h3><i class="fas fa-user-tie"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
-                    <button class="btn btn-outline-secondary" id="back-to-list-btn">
-                        <i class="fas fa-arrow-left"></i> Back to List
-                    </button>
+                    <div class="d-flex align-items-center">
+                        <div class="btn-group me-3">
+                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
+                                <i class="fas fa-arrow-left me-1"></i>Back to List
+                            </button>
+                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
+                                <i class="fas fa-undo me-1"></i>Undo Changes
+                            </button>
+                            ${isEdit ? `
+                                <button type="button" class="btn btn-outline-danger" id="delete-btn">
+                                    <i class="fas fa-trash me-1"></i>Delete
+                                </button>
+                            ` : ''}
+                        </div>
+                        <h3><i class="fas fa-user me-2 text-primary"></i>${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
+                    </div>
+                    <div class="auto-save-status">
+                        <small class="text-muted" id="auto-save-status">
+                            <i class="fas fa-circle text-success"></i> Auto-save enabled
+                        </small>
+                    </div>
                 </div>
 
                 <!-- Customer Form -->
