@@ -73,6 +73,9 @@ class MillenniumERP {
             });
         });
 
+        // Business Central collapsible headers
+        this.setupCollapsibleHeaders();
+
         // Settings panel toggle
         const settingsBtn = document.getElementById('settings-btn');
         const settingsPanel = document.getElementById('settings-panel');
@@ -202,6 +205,26 @@ class MillenniumERP {
         this.settingsOpen = false;
     }
 
+    setupCollapsibleHeaders() {
+        // Handle collapsible header click events for Business Central styling
+        document.querySelectorAll('.bc-collapsible-header').forEach(header => {
+            header.addEventListener('click', (e) => {
+                // Bootstrap handles the collapse, we just need to update the icon
+                setTimeout(() => {
+                    const isExpanded = header.getAttribute('aria-expanded') === 'true';
+                    const icon = header.querySelector('.bc-collapse-icon');
+                    if (icon) {
+                        if (isExpanded) {
+                            icon.style.transform = 'rotate(0deg)';
+                        } else {
+                            icon.style.transform = 'rotate(-90deg)';
+                        }
+                    }
+                }, 150); // Small delay to let Bootstrap update aria-expanded
+            });
+        });
+    }
+
     togglePin(tabName) {
         const index = this.pinnedItems.findIndex(item => item.tab === tabName);
         
@@ -285,7 +308,8 @@ class MillenniumERP {
             });
         }
         
-        this.recentItems = this.recentItems.slice(0, 10);
+        // Limit recent items to 3 for Business Central style
+        this.recentItems = this.recentItems.slice(0, 3);
         this.updateRecentItems();
         this.saveRecentItems();
     }

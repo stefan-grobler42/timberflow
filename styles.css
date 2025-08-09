@@ -77,12 +77,72 @@ body {
     display: block;
 }
 
-/* Sidebar Styles */
+/* Business Central Sidebar Styles */
 .sidebar-container {
     position: sticky;
     top: 90px;
     height: calc(100vh - 90px);
     overflow-y: auto;
+    padding: 0.5rem;
+}
+
+/* Business Central Card Styling */
+.bc-card {
+    border: 1px solid #e3e3e3;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    background: white;
+    margin-bottom: 0.75rem !important;
+}
+
+.bc-card .card-header {
+    background: #f8f9fa !important;
+    border-bottom: 1px solid #e3e3e3;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #495057;
+}
+
+.bc-card .list-group-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+    border: none;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.bc-card .list-group-item:last-child {
+    border-bottom: none;
+}
+
+.bc-card .list-group-item:hover {
+    background-color: #f0f8ff;
+    color: #0066cc;
+}
+
+/* Collapsible Header */
+.bc-collapsible-header {
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    user-select: none;
+}
+
+.bc-collapsible-header:hover {
+    background: #e9ecef !important;
+}
+
+.bc-collapse-icon {
+    font-size: 0.75rem;
+    color: #6c757d;
+    transition: transform 0.2s ease;
+}
+
+.bc-collapsible-header[aria-expanded="false"] .bc-collapse-icon {
+    transform: rotate(-90deg);
+}
+
+.bc-collapsible-header[aria-expanded="true"] .bc-collapse-icon {
+    transform: rotate(0deg);
 }
 
 /* Settings Panel Styles */
@@ -94,31 +154,56 @@ body {
     border-left: 1px solid #dee2e6;
 }
 
-/* Navigation Accordion Styles */
+/* Business Central Navigation Styles */
 .accordion-button {
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     padding: 0.75rem 1rem;
+    font-weight: 500;
+    background-color: #f8f9fa;
+    border: none;
+    border-bottom: 1px solid #e3e3e3;
 }
 
 .accordion-button:not(.collapsed) {
-    background-color: #e3f2fd;
-    color: #1976d2;
+    background-color: #e7f3ff;
+    color: #0066cc;
+    box-shadow: none;
+}
+
+.accordion-button:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 102, 204, 0.25);
+    border-color: transparent;
+}
+
+.accordion-button::after {
+    background-size: 0.75rem;
 }
 
 .list-group-item.border-0 {
+    border: none !important;
     border-left: 3px solid transparent !important;
     transition: all 0.15s ease-in-out;
+    font-size: 0.875rem;
+    padding: 0.625rem 1rem;
 }
 
 .list-group-item.border-0:hover {
-    border-left-color: #0d6efd !important;
-    background-color: #f8f9fa;
+    border-left-color: #0066cc !important;
+    background-color: #f0f8ff;
+    color: #0066cc;
 }
 
 .list-group-item.border-0.active {
-    border-left-color: #0d6efd !important;
+    border-left-color: #0066cc !important;
     background-color: #e7f3ff;
-    color: #0d6efd;
+    color: #0066cc;
+    font-weight: 500;
+}
+
+.list-group-item.border-0 i {
+    width: 20px;
+    text-align: center;
+    margin-right: 0.5rem;
 }
 
 @keyframes fadeIn {
