@@ -282,10 +282,15 @@ class AdvancedStockManager {
         const manufacturedItems = this.getManufacturedItems();
         console.log('Rendering', manufacturedItems.length, 'manufactured items');
         
+        // Simple test content first
         container.innerHTML = `
+            <div class="alert alert-info" role="alert">
+                <h6><i class="fas fa-industry"></i> Manufactured Items (${manufacturedItems.length} items)</h6>
+                <p>Successfully loaded timber truss and manufactured item data.</p>
+            </div>
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>Code</th>
                             <th>Description</th>
@@ -308,10 +313,10 @@ class AdvancedStockManager {
                                     </span>
                                 </td>
                                 <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="stockManager.viewBOM('${item.code}')">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="alert('BOM for ${item.code}')">
                                         <i class="fas fa-list"></i> BOM
                                     </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="stockManager.editItem('${item.code}')">
+                                    <button class="btn btn-sm btn-outline-warning" onclick="alert('Edit ${item.code}')">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                 </td>
@@ -321,6 +326,8 @@ class AdvancedStockManager {
                 </table>
             </div>
         `;
+        
+        console.log('Manufactured items HTML set - container visible:', container.offsetHeight > 0);
     }
 
     renderStandardItems() {
@@ -333,10 +340,15 @@ class AdvancedStockManager {
         const standardItems = this.getStandardItems();
         console.log('Rendering', standardItems.length, 'standard items');
         
+        // Simple visible content
         container.innerHTML = `
+            <div class="alert alert-success" role="alert">
+                <h6><i class="fas fa-boxes"></i> Standard Stock Items (${standardItems.length} items)</h6>
+                <p>Successfully loaded standard stock and material data.</p>
+            </div>
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
+                <table class="table table-striped table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>Base Code</th>
                             <th>Description</th>
@@ -361,11 +373,11 @@ class AdvancedStockManager {
                                 <td>R ${item.unitPrice?.toFixed(2) || '0.00'}</td>
                                 <td>
                                     ${item.requiresTally ? 
-                                        `<button class="btn btn-sm btn-success" onclick="stockManager.openTally('${item.baseCode}')">
+                                        `<button class="btn btn-sm btn-success" onclick="alert('Tally for ${item.baseCode}')">
                                             <i class="fas fa-calculator"></i> Tally
                                         </button>` : ''
                                     }
-                                    <button class="btn btn-sm btn-outline-primary" onclick="stockManager.configureVariables('${item.baseCode}')">
+                                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Configure ${item.baseCode}')">
                                         <i class="fas fa-cog"></i> Variables
                                     </button>
                                 </td>
@@ -375,6 +387,8 @@ class AdvancedStockManager {
                 </table>
             </div>
         `;
+        
+        console.log('Standard items HTML set - container visible:', container.offsetHeight > 0);
     }
 
     renderServiceItems() {
