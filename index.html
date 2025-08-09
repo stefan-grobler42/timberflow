@@ -11,9 +11,18 @@
     <link href="styles.css?v=2025-08-09-force" rel="stylesheet">
     <link href="millennium-brand.css?v=2025-08-09-force" rel="stylesheet">
     
-    <!-- Leaflet Map Library -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Maps API -->
+    <script>
+        function initGoogleMaps() {
+            window.googleMapsLoaded = true;
+            console.log('Google Maps API loaded successfully');
+            // Trigger map initialization for any waiting components
+            if (window.mapInitQueue) {
+                window.mapInitQueue.forEach(callback => callback());
+                window.mapInitQueue = [];
+            }
+        }
+    </script>
     
 
 </head>
@@ -599,5 +608,28 @@
     <script src="components/template-manager.js"></script>
     <script src="components/formula-engine.js"></script>
     <script src="app.js?v=2025-08-09-force"></script>
+    
+    <!-- Load Google Maps API -->
+    <script>
+        // Load Google Maps API dynamically with the API key from server
+        fetch('/api/google-maps-key')
+            .then(response => response.json())
+            .then(data => {
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=places&callback=initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            })
+            .catch(error => {
+                console.error('Failed to load Google Maps API key:', error);
+                // Use a placeholder key for development
+                const script = document.createElement('script');
+                script.src = `https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initGoogleMaps`;
+                script.async = true;
+                script.defer = true;
+                document.head.appendChild(script);
+            });
+    </script>
 </body>
 </html>

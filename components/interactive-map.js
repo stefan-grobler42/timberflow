@@ -1,4 +1,4 @@
-// Interactive Map Component with OpenStreetMap/Leaflet
+// Interactive Map Component with Google Maps
 class InteractiveMap {
     constructor(element, options = {}) {
         this.element = element;
@@ -9,87 +9,78 @@ class InteractiveMap {
         this.map = null;
         this.currentMarker = null;
         this.onLocationSelect = options.onLocationSelect || (() => {});
-        this.initLeafletMap();
+        this.initGoogleMap();
     }
     
-    async initLeafletMap() {
-        // Check if Leaflet is available
-        if (typeof L !== 'undefined') {
-            this.createLeafletMap();
+    async initGoogleMap() {
+        // Check if Google Maps is available
+        if (window.googleMapsLoaded && typeof google !== 'undefined') {
+            this.createGoogleMap();
         } else {
-            // Fallback to enhanced mock map if Leaflet not available
-            this.initMockMap();
+            // Queue the initialization for when Google Maps loads
+            if (!window.mapInitQueue) window.mapInitQueue = [];
+            window.mapInitQueue.push(() => this.createGoogleMap());
         }
     }
     
-    createLeafletMap() {
+    createGoogleMap() {
         this.element.innerHTML = `
-            <div class="leaflet-map-container" style="width: 100%; height: 200px; border: 1px solid #dee2e6; border-radius: 0.375rem; position: relative;">
-                <div id="leaflet-map-${Date.now()}" style="width: 100%; height: 100%; border-radius: 0.375rem; z-index: 1;"></div>
+            <div class="google-map-container" style="width: 100%; height: 200px; border: 1px solid #dee2e6; border-radius: 0.375rem; position: relative;">
+                <div id="google-map-${Date.now()}" style="width: 100%; height: 100%; border-radius: 0.375rem;"></div>
                 
                 <!-- Search box overlay -->
-                <div class="map-search-overlay" style="position: absolute; top: 10px; left: 10px; z-index: 1000; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-                    <input type="text" class="form-control form-control-sm" placeholder="Search South African locations..." style="width: 200px; font-size: 12px; border: none; outline: none; padding: 8px;">
-                </div>
-                
-                <!-- Map type controls -->
-                <div class="map-type-controls" style="position: absolute; top: 10px; right: 10px; z-index: 1000; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 4px;">
-                    <button class="btn btn-sm btn-light map-type-street active" title="Street View" style="margin: 2px;">
-                        <i class="fas fa-road"></i>
-                    </button>
-                    <button class="btn btn-sm btn-light map-type-satellite" title="Satellite View" style="margin: 2px;">
-                        <i class="fas fa-satellite"></i>
-                    </button>
+                <div class="map-search-overlay" style="position: absolute; top: 10px; left: 10px; z-index: 10; background: white; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search locations..." style="width: 200px; font-size: 12px; border: none; outline: none; padding: 8px;">
                 </div>
                 
                 <!-- Info panel -->
-                <div class="map-info" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 8px; font-size: 12px; text-align: center; z-index: 1000;">
+                <div class="map-info" style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 8px; font-size: 12px; text-align: center; z-index: 10;">
                     <div class="coordinates">Click on map to select location</div>
                 </div>
             </div>
         `;
         
-        const mapId = `leaflet-map-${Date.now()}`;
-        const mapElement = this.element.querySelector(`[id^="leaflet-map-"]`);
+        const mapElement = this.element.querySelector('[id^="google-map-"]');
         const searchInput = this.element.querySelector('.map-search-overlay input');
         this.coordinatesDisplay = this.element.querySelector('.coordinates');
         
-        // Initialize Leaflet Map
-        this.map = L.map(mapElement, {
-            zoomControl: false // We'll add custom controls
-        }).setView([this.center.lat, this.center.lng], this.zoom);
-        
-        // Add zoom control to bottom right
-        L.control.zoom({
-            position: 'bottomright'
-        }).addTo(this.map);
-        
-        // Street map layer (OpenStreetMap)
-        this.streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19
+        // Initialize Google Map
+        this.map = new google.maps.Map(mapElement, {
+            center: this.center,
+            zoom: this.zoom,
+            mapTypeControl: true,
+            mapTypeControlOptions: {
+                style: google.maps.MapTypeControlStyle.HORIZONTAL_BAR,
+                position: google.maps.ControlPosition.TOP_RIGHT,
+            },
+            streetViewControl: true,
+            fullscreenControl: false,
+            zoomControl: true,
+            zoomControlOptions: {
+                position: google.maps.ControlPosition.RIGHT_CENTER
+            }
         });
-        
-        // Satellite layer (Esri World Imagery)
-        this.satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '© Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
-            maxZoom: 19
-        });
-        
-        // Add street layer by default
-        this.streetLayer.addTo(this.map);
-        this.currentLayer = 'street';
         
         // Add click listener for pin dropping
-        this.map.on('click', (e) => {
-            this.dropPin(e.latlng);
+        this.map.addListener('click', (event) => {
+            this.dropPin(event.latLng);
         });
         
-        // Setup map type controls
-        this.setupMapTypeControls();
+        // Setup autocomplete for search
+        const autocomplete = new google.maps.places.Autocomplete(searchInput, {
+            componentRestrictions: { country: 'za' }, // Restrict to South Africa
+            fields: ['place_id', 'geometry', 'name', 'formatted_address']
+        });
+        autocomplete.bindTo('bounds', this.map);
         
-        // Setup search functionality
-        this.setupSearch(searchInput);
+        autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place.geometry) {
+                this.map.setCenter(place.geometry.location);
+                this.map.setZoom(17);
+                this.dropPin(place.geometry.location, place.formatted_address);
+            }
+        });
     }
     
     initMockMap() {
@@ -317,126 +308,57 @@ class InteractiveMap {
     dropPin(latLng, address = null) {
         // Remove existing marker
         if (this.currentMarker) {
-            if (this.map && typeof this.map.removeLayer === 'function') {
-                this.map.removeLayer(this.currentMarker);
-            } else if (this.currentMarker.setMap) {
-                this.currentMarker.setMap(null);
-            }
+            this.currentMarker.setMap(null);
         }
         
-        if (this.map && typeof L !== 'undefined') {
-            // Leaflet marker
-            const lat = latLng.lat;
-            const lng = latLng.lng;
+        if (this.map && typeof google !== 'undefined') {
+            // Google Maps marker
+            this.currentMarker = new google.maps.Marker({
+                position: latLng,
+                map: this.map,
+                animation: google.maps.Animation.DROP,
+                title: 'Selected Location'
+            });
             
-            this.currentMarker = L.marker([lat, lng])
-                .addTo(this.map)
-                .bindPopup('Selected Location')
-                .openPopup();
+            const lat = latLng.lat();
+            const lng = latLng.lng();
             
             // Update coordinates display
             this.coordinatesDisplay.textContent = `Selected: Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
             
-            // Reverse geocoding for address
-            this.reverseGeocode(lat, lng).then(foundAddress => {
-                const finalAddress = address || foundAddress || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            // Get address if not provided
+            if (!address) {
+                const geocoder = new google.maps.Geocoder();
+                geocoder.geocode({ location: latLng }, (results, status) => {
+                    if (status === 'OK' && results[0]) {
+                        address = results[0].formatted_address;
+                        this.onLocationSelect({
+                            lat: lat,
+                            lng: lng,
+                            address: address
+                        });
+                    } else {
+                        this.onLocationSelect({
+                            lat: lat,
+                            lng: lng,
+                            address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+                        });
+                    }
+                });
+            } else {
                 this.onLocationSelect({
                     lat: lat,
                     lng: lng,
-                    address: finalAddress
+                    address: address
                 });
-            });
+            }
         } else {
-            // Mock map pin dropping fallback
-            this.dropMockPin(latLng.x || 50, latLng.y || 50);
+            // Fallback to mock map
+            this.initMockMap();
         }
     }
     
-    async reverseGeocode(lat, lng) {
-        try {
-            // Use Nominatim (OpenStreetMap) reverse geocoding
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
-            const data = await response.json();
-            if (data && data.display_name) {
-                return data.display_name;
-            }
-        } catch (error) {
-            console.log('Reverse geocoding failed:', error);
-        }
-        return null;
-    }
-    
-    setupMapTypeControls() {
-        const streetBtn = this.element.querySelector('.map-type-street');
-        const satelliteBtn = this.element.querySelector('.map-type-satellite');
-        
-        streetBtn.addEventListener('click', () => {
-            if (this.currentLayer !== 'street') {
-                this.map.removeLayer(this.satelliteLayer);
-                this.map.addLayer(this.streetLayer);
-                this.currentLayer = 'street';
-                streetBtn.classList.add('active');
-                satelliteBtn.classList.remove('active');
-            }
-        });
-        
-        satelliteBtn.addEventListener('click', () => {
-            if (this.currentLayer !== 'satellite') {
-                this.map.removeLayer(this.streetLayer);
-                this.map.addLayer(this.satelliteLayer);
-                this.currentLayer = 'satellite';
-                satelliteBtn.classList.add('active');
-                streetBtn.classList.remove('active');
-            }
-        });
-    }
-    
-    setupSearch(searchInput) {
-        let searchTimeout;
-        
-        searchInput.addEventListener('input', (e) => {
-            const value = e.target.value.trim();
-            if (value.length > 2) {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    this.searchLocation(value);
-                }, 500);
-            }
-        });
-        
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.searchLocation(e.target.value.trim());
-            }
-        });
-    }
-    
-    async searchLocation(query) {
-        try {
-            // Use Nominatim search with bias towards South Africa
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=1&addressdetails=1`);
-            const data = await response.json();
-            
-            if (data && data.length > 0) {
-                const result = data[0];
-                const lat = parseFloat(result.lat);
-                const lng = parseFloat(result.lon);
-                
-                // Pan to location
-                this.map.setView([lat, lng], 16);
-                
-                // Drop pin
-                setTimeout(() => {
-                    this.dropPin({ lat, lng }, result.display_name);
-                }, 300);
-            }
-        } catch (error) {
-            console.log('Search failed:', error);
-            // Fallback to mock search
-            this.searchLocationMock(query);
-        }
-    }
+
     
     dropMockPin(x, y) {
         // Remove existing pins
@@ -565,31 +487,7 @@ class InteractiveMap {
             this.updateMapTransform(currentTransform);
         });
         
-        // Map type toggle for satellite overlay
-        const mapTypeBtn = mapDiv.querySelector('.map-type-toggle');
-        const satelliteOverlay = mapDiv.querySelector('.satellite-overlay');
-        if (mapTypeBtn && satelliteOverlay) {
-            let isSatelliteView = false;
-            mapTypeBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                
-                if (!isSatelliteView) {
-                    // Switch to satellite view
-                    satelliteOverlay.style.opacity = '0.85';
-                    mapTypeBtn.innerHTML = '<i class="fas fa-road"></i>';
-                    mapTypeBtn.title = 'Switch to Road View';
-                    mapTypeBtn.classList.add('active');
-                } else {
-                    // Switch back to road view
-                    satelliteOverlay.style.opacity = '0';
-                    mapTypeBtn.innerHTML = '<i class="fas fa-satellite"></i>';
-                    mapTypeBtn.title = 'Switch to Satellite View';
-                    mapTypeBtn.classList.remove('active');
-                }
-                isSatelliteView = !isSatelliteView;
-            });
-        }
+
         
         // Search functionality
         this.searchInput.addEventListener('input', (e) => {
@@ -611,38 +509,7 @@ class InteractiveMap {
         this.mapContainer.style.transform = `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`;
     }
     
-    searchLocationMock(query) {
-        // Fallback mock location search for South African locations
-        const mockLocations = [
-            { name: '117 Wilkins Bunting Street, Mooikloof', lat: -25.7479, lng: 28.2293 },
-            { name: 'Pretoria Central', lat: -25.7461, lng: 28.1881 },
-            { name: 'Sandton City', lat: -26.1076, lng: 28.0567 },
-            { name: 'Cape Town CBD', lat: -33.9249, lng: 18.4241 },
-            { name: 'Johannesburg', lat: -26.2041, lng: 28.0473 },
-            { name: 'Durban', lat: -29.8587, lng: 31.0218 },
-            { name: 'Port Elizabeth', lat: -33.9608, lng: 25.6022 },
-            { name: 'Bloemfontein', lat: -29.0852, lng: 26.1596 }
-        ];
-        
-        const found = mockLocations.find(loc => 
-            loc.name.toLowerCase().includes(query.toLowerCase())
-        );
-        
-        if (found && this.map) {
-            if (typeof L !== 'undefined') {
-                this.map.setView([found.lat, found.lng], 15);
-                setTimeout(() => {
-                    this.dropPin({ lat: found.lat, lng: found.lng }, found.name);
-                }, 300);
-            } else {
-                this.center = { lat: found.lat, lng: found.lng };
-                this.coordinatesDisplay.textContent = `Lat: ${this.center.lat.toFixed(6)}, Lng: ${this.center.lng.toFixed(6)}`;
-                setTimeout(() => {
-                    this.dropMockPin(50, 50);
-                }, 300);
-            }
-        }
-    }
+
     
     dropPin(x, y) {
         // Remove existing pins
