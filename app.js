@@ -619,6 +619,18 @@ class MillenniumERP {
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MillenniumERP();
+    
+    // Add click handlers for stock item rows
+    document.addEventListener('click', function(e) {
+        const clickableRow = e.target.closest('.clickable-row');
+        if (clickableRow) {
+            e.preventDefault();
+            const itemCode = clickableRow.getAttribute('data-item-code');
+            if (itemCode && window.app?.advancedStockManager) {
+                window.app.advancedStockManager.editStockItem(itemCode);
+            }
+        }
+    });
 });
 
 // Global error handler for uncaught errors

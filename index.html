@@ -437,11 +437,11 @@
                                                             <th width="10%">UOM</th>
                                                             <th width="12%">Unit Price</th>
                                                             <th width="10%">Status</th>
-                                                            <th width="18%">Actions</th>
+                                                            <th width="8%">Edit</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody id="stock-items-tbody">
-                                                    <tr>
+                                                    <tr class="clickable-row" data-item-code="TR001" style="cursor: pointer;">
                                                         <td><strong>TR001</strong></td>
                                                         <td>Standard Roof Truss 8m Span</td>
                                                         <td><span class="badge bg-info">Manufactured</span></td>
@@ -449,18 +449,10 @@
                                                         <td>R 2,450.00</td>
                                                         <td><span class="badge bg-success">Active</span></td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-outline-primary me-1" title="View BOM">
-                                                                <i class="fas fa-list"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-warning me-1 edit-stock-btn" title="Edit" data-item-code="TR001">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-info" title="Variables">
-                                                                <i class="fas fa-cog"></i>
-                                                            </button>
+                                                            <i class="fas fa-edit text-muted" title="Click row to edit"></i>
                                                         </td>
                                                     </tr>
-                                                    <tr>
+                                                    <tr class="clickable-row" data-item-code="TM240x35" style="cursor: pointer;">
                                                         <td><strong>TM240x35</strong></td>
                                                         <td>Treated Pine Timber 240x35mm</td>
                                                         <td><span class="badge bg-secondary">Standard</span></td>
@@ -468,18 +460,10 @@
                                                         <td>R 125.50</td>
                                                         <td><span class="badge bg-success">Active</span></td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-success me-1" title="Tally Entry">
-                                                                <i class="fas fa-calculator"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-warning me-1 edit-stock-btn" title="Edit" data-item-code="TM240x35">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-info" title="Variables">
-                                                                <i class="fas fa-cog"></i>
-                                                            </button>
+                                                            <i class="fas fa-edit text-muted" title="Click row to edit"></i>
                                                         </td>
                                                     </tr>
-                                                    <tr>
+                                                    <tr class="clickable-row" data-item-code="LAB001" style="cursor: pointer;">
                                                         <td><strong>LAB001</strong></td>
                                                         <td>Installation Labour - Roof Truss</td>
                                                         <td><span class="badge bg-warning">Service</span></td>
@@ -487,15 +471,10 @@
                                                         <td>R 450.00</td>
                                                         <td><span class="badge bg-success">Active</span></td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-outline-warning me-1 edit-stock-btn" title="Edit" data-item-code="LAB001">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-danger" title="Deactivate">
-                                                                <i class="fas fa-times"></i>
-                                                            </button>
+                                                            <i class="fas fa-edit text-muted" title="Click row to edit"></i>
                                                         </td>
                                                     </tr>
-                                                    <tr>
+                                                    <tr class="clickable-row" data-item-code="COMP001" style="cursor: pointer;">
                                                         <td><strong>COMP001</strong></td>
                                                         <td>Complete Roof Sheeting Package</td>
                                                         <td><span class="badge bg-primary">Composite</span></td>
@@ -503,15 +482,10 @@
                                                         <td>R 85.75</td>
                                                         <td><span class="badge bg-success">Active</span></td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-outline-primary me-1" title="View Recipe">
-                                                                <i class="fas fa-recipe"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-warning me-1 edit-stock-btn" title="Edit" data-item-code="COMP001">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
+                                                            <i class="fas fa-edit text-muted" title="Click row to edit"></i>
                                                         </td>
                                                     </tr>
-                                                    <tr>
+                                                    <tr class="clickable-row" data-item-code="TEMP123" style="cursor: pointer;">
                                                         <td><strong>TEMP123</strong></td>
                                                         <td>Custom Curved Beam - Project ABC</td>
                                                         <td><span class="badge bg-danger">Temporary</span></td>
@@ -519,12 +493,7 @@
                                                         <td>R 3,200.00</td>
                                                         <td><span class="badge bg-warning">Expires: 45 days</span></td>
                                                         <td>
-                                                            <button class="btn btn-sm btn-outline-success me-1" title="Make Permanent">
-                                                                <i class="fas fa-save"></i>
-                                                            </button>
-                                                            <button class="btn btn-sm btn-outline-warning me-1 edit-stock-btn" title="Edit" data-item-code="TEMP123">
-                                                                <i class="fas fa-edit"></i>
-                                                            </button>
+                                                            <i class="fas fa-edit text-muted" title="Click row to edit"></i>
                                                         </td>
                                                     </tr>
                                                 </tbody>
