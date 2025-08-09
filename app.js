@@ -626,9 +626,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clickableRow) {
             e.preventDefault();
             const itemCode = clickableRow.getAttribute('data-item-code');
-            if (itemCode && window.app?.advancedStockManager) {
-                window.app.advancedStockManager.editStockItem(itemCode);
+            if (itemCode) {
+                // Navigate to stock item form page
+                window.location.href = `stock-item-form.html?code=${itemCode}`;
             }
+        }
+
+        // Handle new item button
+        if (e.target.closest('#new-item-btn')) {
+            e.preventDefault();
+            window.location.href = 'stock-item-form.html';
         }
     });
 });
