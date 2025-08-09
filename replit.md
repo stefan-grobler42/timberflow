@@ -36,6 +36,9 @@ Preferred communication style: Simple, everyday language.
 - **In-Panel Content Switching**: Grid and form views now switch within the same container, maintaining sidebar visibility
 - **Enhanced Navigation Pattern**: Click item rows → content area switches to form view; save/back → returns to grid with updates
 - **Universal Module Pattern**: Established SPA navigation pattern to be applied across all future system modules
+- **Settings Tables Module**: Added comprehensive settings tables group for UOM, Item Types, Categories, Company Types, Account Types, and Account Relationships
+- **Customer Management System**: Implemented complete customer/account management based on Excel specification with comprehensive field validation and relationship management
+- **Lookup Table Integration**: Established foundation for settings tables to support dropdown lookups across all modules
 
 ## Module Structure
 

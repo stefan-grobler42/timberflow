@@ -414,6 +414,11 @@ class MillenniumERP {
                     this.simpleStockManager = new SimpleStockManager('stock-management-content');
                 }
                 break;
+            case 'customers':
+                if (!this.customerManager) {
+                    this.customerManager = new CustomerManager('customers-content');
+                }
+                break;
             case 'formula-engine':
                 if (!this.formulaEngine) {
                     this.formulaEngine = new FormulaEngine('formula-engine-content');
