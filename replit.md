@@ -50,6 +50,7 @@ Preferred communication style: Simple, everyday language.
 - **Customer Workflow Management**: Three-tier customer status system (Prospect → Confirmed Customer → Account Review) with approval tracking for financial department coordination
 - **Mobile-Friendly GPS Integration**: Field workers can use GPS location detection for marking delivery locations and customer sites
 - **Contact Management Enhancement**: Separate contact records linked to customer accounts for better data organization and relationship tracking
+- **Standardized Address Fields**: Enhanced location field pattern established as universal standard for all address/location inputs throughout application with Google Maps autocomplete, GPS positioning, interactive pin dropping, and visual confirmation
 
 ## Module Structure
 
@@ -89,9 +90,10 @@ Preferred communication style: Simple, everyday language.
 ### Frontend Architecture
 - **Single-Page Application (SPA)**: Built with vanilla JavaScript using a modular component-based architecture
 - **UI Framework**: Bootstrap 5 for responsive design with custom CSS for timber industry theming
-- **Component System**: Separate JavaScript classes for each major feature (PamirImport, QuoteBuilder, StockSelector, FormulaEngine)
+- **Component System**: Separate JavaScript classes for each major feature (PamirImport, QuoteBuilder, StockSelector, FormulaEngine, EnhancedLocationField)
 - **State Management**: Centralized application controller (MillenniumERP class) managing component lifecycle and inter-component communication
 - **File Handling**: Client-side file parsing utilities supporting Excel, JSON, CSV, and text formats
+- **Address Field Standard**: Universal EnhancedLocationField component pattern with Google Maps integration, GPS positioning, interactive pin dropping, and type="button" attributes to prevent form submission conflicts
 
 ### Backend Integration
 - **API Architecture**: RESTful API integration layer with existing .NET backend at cloud-mroofing.co.za
@@ -131,9 +133,10 @@ Preferred communication style: Simple, everyday language.
 - **File Storage**: Document and plan storage for project files and attachments
 
 ### Third-Party Integrations
+- **Google Maps Platform**: Comprehensive location services including Places API for address autocomplete, Maps JavaScript API for interactive mapping, and Geocoding API for coordinate conversion
 - **Mitek Pamir**: CAD software integration for importing design variables and material calculations
 - **Excel/Spreadsheet Processing**: Client-side Excel file processing for stock imports and data exchange
-- **Browser APIs**: File API for drag-and-drop functionality and FileReader for client-side file processing
+- **Browser APIs**: File API for drag-and-drop functionality, FileReader for client-side file processing, and Geolocation API for GPS positioning
 
 ### Development Dependencies
 - **Modern Browser APIs**: FileReader, Fetch API, Local Storage for offline capabilities

@@ -29,7 +29,7 @@ class EnhancedLocationField {
                 <div class="address-input-section mb-3">
                     <div class="input-group">
                         <input type="text" class="form-control" id="location-address-input" 
-                               placeholder="Type address or business name...">
+                               placeholder="Type address...">
                         <button class="btn btn-outline-primary" type="button" id="use-current-location-btn">
                             <i class="fas fa-crosshairs"></i> My Location
                         </button>
@@ -38,7 +38,7 @@ class EnhancedLocationField {
                         </button>
                     </div>
                     <div class="form-text text-muted">
-                        <i class="fas fa-info-circle"></i> Type to search locations or click "My Location" for GPS positioning
+                        <i class="fas fa-info-circle"></i> Type to search addresses or click "My Location" for GPS positioning
                     </div>
                 </div>
 

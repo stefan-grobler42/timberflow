@@ -354,7 +354,7 @@ class CustomerManager {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="enhanced-location-container" class="form-label">Location</label>
+                                        <label for="enhanced-location-container" class="form-label">Address</label>
                                         <div id="enhanced-location-container"></div>
                                         <!-- Hidden field to store location data -->
                                         <input type="hidden" id="address" value="${customer.address}">
