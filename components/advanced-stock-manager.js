@@ -693,7 +693,7 @@ class AdvancedStockManager {
                     </thead>
                     <tbody>
                         ${manufacturedItems.map(item => `
-                            <tr>
+                            <tr class="clickable-row" data-item-code="${item.code}" style="cursor: pointer;">
                                 <td><strong>${item.code}</strong></td>
                                 <td>${item.description}</td>
                                 <td>
@@ -704,14 +704,7 @@ class AdvancedStockManager {
                                         ${item.active ? 'Active' : 'Inactive'}
                                     </span>
                                 </td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="alert('BOM for ${item.code}')">
-                                        <i class="fas fa-list"></i> BOM
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-warning" onclick="alert('Edit ${item.code}')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                </td>
+                                <td><i class="fas fa-edit text-muted"></i></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -752,7 +745,7 @@ class AdvancedStockManager {
                     </thead>
                     <tbody>
                         ${standardItems.map(item => `
-                            <tr>
+                            <tr class="clickable-row" data-item-code="${item.baseCode}" style="cursor: pointer;">
                                 <td><strong>${item.baseCode}</strong></td>
                                 <td>${item.description}</td>
                                 <td>
@@ -763,16 +756,7 @@ class AdvancedStockManager {
                                 </td>
                                 <td>${item.uom}</td>
                                 <td>R ${item.unitPrice?.toFixed(2) || '0.00'}</td>
-                                <td>
-                                    ${item.requiresTally ? 
-                                        `<button class="btn btn-sm btn-success" onclick="alert('Tally for ${item.baseCode}')">
-                                            <i class="fas fa-calculator"></i> Tally
-                                        </button>` : ''
-                                    }
-                                    <button class="btn btn-sm btn-outline-primary" onclick="alert('Configure ${item.baseCode}')">
-                                        <i class="fas fa-cog"></i> Variables
-                                    </button>
-                                </td>
+                                <td><i class="fas fa-edit text-muted"></i></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -935,13 +919,15 @@ class AdvancedStockManager {
         }
 
         // Row click handlers for editing items (using event delegation)
-        document.addEventListener('click', (e) => {
+        const self = this;
+        document.addEventListener('click', function(e) {
             const clickableRow = e.target.closest('.clickable-row');
-            if (clickableRow && this.currentView === 'grid') {
+            if (clickableRow && self.currentView === 'grid' && self.container.contains(clickableRow)) {
                 e.preventDefault();
                 const itemCode = clickableRow.getAttribute('data-item-code');
+                console.log('Row clicked for item:', itemCode);
                 if (itemCode) {
-                    this.showItemForm(itemCode);
+                    self.showItemForm(itemCode);
                 }
             }
         });
