@@ -17,14 +17,32 @@ class AdvancedStockManager {
         this.init();
     }
 
-    init() {
-        this.loadStockData();
+    async init() {
+        console.log('Starting Advanced Stock Manager initialization...');
+        
+        // Load stock data immediately without await to prevent hanging
+        this.loadStockData().then(() => {
+            console.log('Stock data loaded, refreshing display...');
+            this.renderStockGrids();
+        }).catch(error => {
+            console.warn('Stock data loading failed, using defaults:', error);
+            this.stockItems = this.getAllSampleStockItems();
+            this.renderStockGrids();
+        });
+        
+        // Render UI immediately
         this.render();
         this.setupEventListeners();
+        console.log('Advanced Stock Manager UI rendered successfully');
     }
 
     render() {
-        if (!this.container) return;
+        if (!this.container) {
+            console.error('Stock Management container not found!');
+            return;
+        }
+        
+        console.log('Rendering Advanced Stock Manager...');
 
         this.container.innerHTML = `
             <div class="row">
@@ -194,20 +212,56 @@ class AdvancedStockManager {
     }
 
     renderStockGrids() {
-        // Render Manufactured Items (Timber Trusses)
-        this.renderManufacturedItems();
+        console.log('Rendering stock grids with', this.stockItems?.length || 0, 'items');
         
-        // Render Standard Stock Items
-        this.renderStandardItems();
-        
-        // Render Service Items
-        this.renderServiceItems();
-        
-        // Render Composite Items
-        this.renderCompositeItems();
-        
-        // Render Temporary Items
-        this.renderTemporaryItems();
+        try {
+            // Render Manufactured Items (Timber Trusses)
+            this.renderManufacturedItems();
+            
+            // Render Standard Stock Items
+            this.renderStandardItems();
+            
+            // Render Service Items
+            this.renderServiceItems();
+            
+            // Render Composite Items
+            this.renderCompositeItems();
+            
+            // Render Temporary Items
+            this.renderTemporaryItems();
+            
+            console.log('Stock grids rendered successfully');
+        } catch (error) {
+            console.error('Failed to render stock grids:', error);
+            this.renderFallbackView();
+        }
+    }
+
+    renderFallbackView() {
+        const containers = [
+            'manufactured-items-grid',
+            'standard-items-grid', 
+            'service-items-grid',
+            'composite-items-grid',
+            'temporary-items-grid'
+        ];
+
+        containers.forEach(containerId => {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `
+                    <div class="text-center p-4">
+                        <div class="text-muted mb-2">
+                            <i class="fas fa-exclamation-triangle fa-2x"></i>
+                        </div>
+                        <p class="text-muted">Loading stock items...</p>
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                `;
+            }
+        });
     }
 
     renderManufacturedItems() {
@@ -809,8 +863,15 @@ class AdvancedStockManager {
 
     getAllSampleStockItems() {
         return [
-            // Manufactured Items
-            ...this.getManufacturedItems(),
+            // Manufactured Items with proper formatting
+            ...this.getManufacturedItems().map(item => ({
+                ...item,
+                id: item.code,
+                category: 'Manufactured Items',
+                currentStock: Math.floor(Math.random() * 20) + 5,
+                sellingPrice: Math.floor(Math.random() * 400) + 300,
+                uom: 'ea'
+            })),
             // Standard Stock Items
             ...this.getStandardItems().map(item => ({
                 ...item,
@@ -827,7 +888,7 @@ class AdvancedStockManager {
                 category: 'Services',
                 currentStock: 'N/A',
                 sellingPrice: item.unitRate,
-                uom: 'hr'
+                uom: item.rateType === 'Per Hour' ? 'hr' : 'ea'
             })),
             // Composite Items
             ...this.getCompositeItems().map(item => ({

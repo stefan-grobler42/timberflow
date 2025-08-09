@@ -383,7 +383,13 @@ class MillenniumERP {
             case 'stock-items':
             case 'stock-management':
                 if (!this.advancedStockManager) {
-                    this.advancedStockManager = new AdvancedStockManager('stock-management-content');
+                    try {
+                        console.log('Initializing Advanced Stock Manager...');
+                        this.advancedStockManager = new AdvancedStockManager('stock-management-content');
+                    } catch (error) {
+                        console.error('Failed to initialize Advanced Stock Manager:', error);
+                        this.showAlert('Stock Management module failed to load. Using fallback mode.', 'warning');
+                    }
                 }
                 break;
             case 'formula-engine':
