@@ -415,14 +415,8 @@ class MillenniumERP {
                         this.showAlert('Stock Management module failed to load. Using fallback mode.', 'warning');
                     }
                 }
-                if (!this.stockItemForm) {
-                    try {
-                        console.log('Initializing Stock Item Form...');
-                        this.stockItemForm = new StockItemForm();
-                    } catch (error) {
-                        console.error('Failed to initialize Stock Item Form:', error);
-                    }
-                }
+                // StockItemForm is now integrated within AdvancedStockManager
+                // No need for separate initialization
                 break;
             case 'formula-engine':
                 if (!this.formulaEngine) {
