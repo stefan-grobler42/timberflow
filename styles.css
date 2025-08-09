@@ -127,6 +127,20 @@ body {
     height: calc(100vh - 90px);
     overflow-y: auto;
     padding: 0.5rem;
+    min-width: 250px; /* Ensure minimum width */
+}
+
+/* Responsive sidebar adjustments */
+@media (max-width: 1200px) {
+    .sidebar-container {
+        min-width: 220px;
+    }
+}
+
+@media (max-width: 992px) {
+    .sidebar-container {
+        min-width: 200px;
+    }
 }
 
 /* Millennium Roofing Card Styling - Force Override */
@@ -230,6 +244,53 @@ body {
     transition: all 0.15s ease-in-out;
     font-size: 0.875rem;
     padding: 0.625rem 1rem;
+    white-space: nowrap; /* Prevent text wrapping */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+}
+
+.list-group-item.border-0 i {
+    margin-right: 0.75rem;
+    width: 16px; /* Fixed width for icons */
+    text-align: center;
+    flex-shrink: 0;
+}
+
+/* Stock Items Grid Styling */
+#stock-items .table th {
+    background: linear-gradient(135deg, var(--millennium-rasin-black) 0%, var(--millennium-black-olive) 100%);
+    color: var(--millennium-white);
+    font-weight: 500;
+    font-size: 0.875rem;
+    border: none;
+}
+
+#stock-items .table tbody tr:hover {
+    background-color: rgba(89, 170, 213, 0.1);
+}
+
+/* Badge Styling for Stock Categories */
+.badge.bg-info { background-color: var(--millennium-carolina-blue) !important; }
+.badge.bg-secondary { background-color: var(--millennium-black-olive) !important; }
+.badge.bg-warning { background-color: #f0ad4e !important; }
+.badge.bg-primary { background-color: var(--millennium-middle-blue) !important; }
+.badge.bg-danger { background-color: #d9534f !important; }
+
+/* Button improvements for stock actions */
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* Action buttons spacing */
+#stock-items .btn-sm {
+    margin-right: 0.25rem;
+}
+
+#stock-items .btn-sm:last-child {
+    margin-right: 0;
 }
 
 .list-group-item.border-0:hover {
