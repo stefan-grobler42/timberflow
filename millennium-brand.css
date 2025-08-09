@@ -1,0 +1,110 @@
+/* Millennium Roofing Corporate Identity Styles */
+/* Force override all Bootstrap defaults */
+
+/* Millennium Brand Colors */
+:root {
+    --millennium-carolina-blue: #59AAD5;
+    --millennium-middle-blue: #54C3D6;
+    --millennium-black-olive: #464746;
+    --millennium-rasin-black: #231f20;
+    --millennium-white: #ffffff;
+    --millennium-platinum: #E6E6E6;
+    --millennium-silver-chalice: #b3b3b3;
+    --millennium-spanish-grey: #999999;
+    --millennium-davys-grey: #4d4d4d;
+}
+
+/* Force Body Styling */
+body {
+    background-color: #E6E6E6 !important;
+    font-family: 'Roboto', sans-serif !important;
+    color: #231f20 !important;
+}
+
+/* Force Navbar Styling */
+.navbar {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important;
+    background-color: #59AAD5 !important;
+}
+
+.navbar-dark .navbar-brand,
+.navbar-dark .navbar-nav .nav-link {
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+.navbar-brand {
+    font-weight: 700 !important;
+}
+
+.millennium-brand-text {
+    color: #ffffff !important;
+    font-weight: 500;
+}
+
+/* Force Card Styling */
+.card {
+    border: 1px solid #999999 !important;
+    border-radius: 6px !important;
+    background: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(35, 31, 32, 0.15) !important;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important;
+    border-bottom: 1px solid #999999 !important;
+    color: #231f20 !important;
+    font-weight: 500 !important;
+}
+
+/* Force Accordion Styling */
+.accordion-button {
+    background-color: #E6E6E6 !important;
+    color: #231f20 !important;
+    font-weight: 500;
+}
+
+.accordion-button:not(.collapsed) {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important;
+    color: #ffffff !important;
+}
+
+/* Force List Group Styling */
+.list-group-item {
+    border-left: 3px solid transparent !important;
+}
+
+.list-group-item:hover {
+    background: linear-gradient(90deg, rgba(89, 170, 213, 0.1) 0%, rgba(84, 195, 214, 0.05) 100%) !important;
+    border-left-color: #59AAD5 !important;
+    color: #59AAD5 !important;
+}
+
+.list-group-item.active {
+    background: linear-gradient(90deg, rgba(89, 170, 213, 0.2) 0%, rgba(84, 195, 214, 0.1) 100%) !important;
+    border-left-color: #59AAD5 !important;
+    color: #59AAD5 !important;
+}
+
+/* Force Button Styling */
+.btn-primary {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important;
+    border-color: #59AAD5 !important;
+    color: #ffffff !important;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #54C3D6 0%, #59AAD5 100%) !important;
+    border-color: #54C3D6 !important;
+}
+
+/* Collapsible Icons */
+.bc-collapse-icon {
+    color: #59AAD5 !important;
+}
+
+/* Form Controls */
+.form-control:focus {
+    border-color: #59AAD5 !important;
+    box-shadow: 0 0 0 0.2rem rgba(89, 170, 213, 0.25) !important;
+}
