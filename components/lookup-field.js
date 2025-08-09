@@ -1,0 +1,538 @@
+// Keyboard-driven lookup field component
+class LookupField {
+    constructor(inputElement, options = {}) {
+        this.input = inputElement;
+        this.options = {
+            data: options.data || [],
+            placeholder: options.placeholder || 'Type to search...',
+            maxResults: options.maxResults || 10,
+            onSelect: options.onSelect || (() => {}),
+            searchFields: options.searchFields || ['name', 'value'],
+            displayField: options.displayField || 'name',
+            valueField: options.valueField || 'value'
+        };
+        
+        this.isOpen = false;
+        this.selectedIndex = -1;
+        this.filteredData = [];
+        this.dropdown = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.input.setAttribute('autocomplete', 'off');
+        this.input.setAttribute('role', 'combobox');
+        this.input.setAttribute('aria-expanded', 'false');
+        this.input.setAttribute('aria-autocomplete', 'list');
+        
+        this.attachEventListeners();
+        this.createDropdown();
+    }
+    
+    attachEventListeners() {
+        // Input events
+        this.input.addEventListener('input', (e) => this.handleInput(e));
+        this.input.addEventListener('focus', (e) => this.handleFocus(e));
+        this.input.addEventListener('blur', (e) => this.handleBlur(e));
+        this.input.addEventListener('keydown', (e) => this.handleKeydown(e));
+        
+        // Document click to close dropdown
+        document.addEventListener('click', (e) => {
+            if (!this.input.contains(e.target) && !this.dropdown.contains(e.target)) {
+                this.closeDropdown();
+            }
+        });
+    }
+    
+    createDropdown() {
+        this.dropdown = document.createElement('div');
+        this.dropdown.className = 'lookup-dropdown';
+        this.dropdown.style.cssText = `
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        `;
+        
+        // Position dropdown relative to input
+        this.input.parentNode.style.position = 'relative';
+        this.input.parentNode.appendChild(this.dropdown);
+    }
+    
+    handleInput(e) {
+        const value = e.target.value;
+        this.filterData(value);
+        
+        if (value.length > 0) {
+            this.openDropdown();
+        } else {
+            this.closeDropdown();
+        }
+    }
+    
+    handleFocus(e) {
+        if (this.input.value.length > 0) {
+            this.filterData(this.input.value);
+            this.openDropdown();
+        } else {
+            // Show initial suggestions
+            this.filteredData = this.options.data.slice(0, this.options.maxResults);
+            this.renderDropdown();
+            this.openDropdown();
+        }
+    }
+    
+    handleBlur(e) {
+        // Delay to allow click on dropdown items
+        setTimeout(() => {
+            this.closeDropdown();
+        }, 150);
+    }
+    
+    handleKeydown(e) {
+        if (!this.isOpen) {
+            if (e.key === 'ArrowDown' && this.input.value.length === 0) {
+                e.preventDefault();
+                this.filteredData = this.options.data.slice(0, this.options.maxResults);
+                this.renderDropdown();
+                this.openDropdown();
+                return;
+            }
+            return;
+        }
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.selectedIndex = Math.min(this.selectedIndex + 1, this.filteredData.length - 1);
+                this.updateSelection();
+                break;
+                
+            case 'ArrowUp':
+                e.preventDefault();
+                this.selectedIndex = Math.max(this.selectedIndex - 1, -1);
+                this.updateSelection();
+                break;
+                
+            case 'Enter':
+                e.preventDefault();
+                if (this.selectedIndex >= 0) {
+                    this.selectItem(this.filteredData[this.selectedIndex]);
+                }
+                break;
+                
+            case 'Escape':
+                e.preventDefault();
+                this.closeDropdown();
+                break;
+                
+            case 'Tab':
+                this.closeDropdown();
+                break;
+        }
+    }
+    
+    filterData(searchTerm) {
+        const term = searchTerm.toLowerCase();
+        
+        this.filteredData = this.options.data.filter(item => {
+            return this.options.searchFields.some(field => {
+                const value = item[field];
+                return value && value.toString().toLowerCase().includes(term);
+            });
+        }).slice(0, this.options.maxResults);
+        
+        this.selectedIndex = -1;
+        this.renderDropdown();
+    }
+    
+    renderDropdown() {
+        if (this.filteredData.length === 0) {
+            this.dropdown.innerHTML = '<div class="lookup-item no-results">No results found</div>';
+            return;
+        }
+        
+        this.dropdown.innerHTML = this.filteredData.map((item, index) => {
+            const displayValue = item[this.options.displayField];
+            const isSelected = index === this.selectedIndex;
+            
+            return `
+                <div class="lookup-item ${isSelected ? 'selected' : ''}" 
+                     data-index="${index}"
+                     style="padding: 8px 12px; cursor: pointer; ${isSelected ? 'background-color: #0d6efd; color: white;' : ''}"
+                     onmouseover="this.style.backgroundColor = '#f8f9fa'; this.style.color = '#000';"
+                     onmouseout="this.style.backgroundColor = '${isSelected ? '#0d6efd' : 'transparent'}'; this.style.color = '${isSelected ? 'white' : '#000'}';"
+                     onclick="this.closest('.lookup-dropdown').lookupField.selectItemByIndex(${index})">
+                    ${displayValue}
+                </div>
+            `;
+        }).join('');
+        
+        // Store reference for onclick handler
+        this.dropdown.lookupField = this;
+    }
+    
+    updateSelection() {
+        const items = this.dropdown.querySelectorAll('.lookup-item');
+        items.forEach((item, index) => {
+            if (index === this.selectedIndex) {
+                item.classList.add('selected');
+                item.style.backgroundColor = '#0d6efd';
+                item.style.color = 'white';
+                item.scrollIntoView({ block: 'nearest' });
+            } else {
+                item.classList.remove('selected');
+                item.style.backgroundColor = 'transparent';
+                item.style.color = '#000';
+            }
+        });
+    }
+    
+    selectItemByIndex(index) {
+        this.selectItem(this.filteredData[index]);
+    }
+    
+    selectItem(item) {
+        if (!item) return;
+        
+        const displayValue = item[this.options.displayField];
+        const value = item[this.options.valueField];
+        
+        this.input.value = displayValue;
+        this.input.setAttribute('data-value', value);
+        
+        this.closeDropdown();
+        this.options.onSelect(item, value);
+        
+        // Trigger change event
+        this.input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    openDropdown() {
+        this.isOpen = true;
+        this.dropdown.style.display = 'block';
+        this.input.setAttribute('aria-expanded', 'true');
+    }
+    
+    closeDropdown() {
+        this.isOpen = false;
+        this.dropdown.style.display = 'none';
+        this.selectedIndex = -1;
+        this.input.setAttribute('aria-expanded', 'false');
+    }
+    
+    setValue(value) {
+        const item = this.options.data.find(item => item[this.options.valueField] === value);
+        if (item) {
+            this.input.value = item[this.options.displayField];
+            this.input.setAttribute('data-value', value);
+        }
+    }
+    
+    getValue() {
+        return this.input.getAttribute('data-value') || '';
+    }
+    
+    updateData(newData) {
+        this.options.data = newData;
+        if (this.isOpen) {
+            this.filterData(this.input.value);
+        }
+    }
+}
+
+// Google Maps Address Autocomplete Component
+class AddressField {
+    constructor(inputElement, options = {}) {
+        this.input = inputElement;
+        this.options = {
+            onAddressSelect: options.onAddressSelect || (() => {}),
+            showMap: options.showMap !== false,
+            mapContainer: options.mapContainer || null
+        };
+        
+        this.autocomplete = null;
+        this.map = null;
+        this.marker = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadGoogleMapsAPI().then(() => {
+            this.initAutocomplete();
+            if (this.options.showMap && this.options.mapContainer) {
+                this.initMap();
+            }
+        });
+    }
+    
+    loadGoogleMapsAPI() {
+        return new Promise((resolve) => {
+            if (window.google && window.google.maps) {
+                resolve();
+                return;
+            }
+            
+            // For development, we'll simulate the Google Maps API
+            // In production, you would load the actual Google Maps JavaScript API
+            window.google = {
+                maps: {
+                    places: {
+                        Autocomplete: class {
+                            constructor(input) {
+                                this.input = input;
+                                this.listeners = {};
+                                this.setupMockAutocomplete();
+                            }
+                            
+                            setupMockAutocomplete() {
+                                // Mock address suggestions
+                                const addresses = [
+                                    { description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', place_id: '1' },
+                                    { description: '234 Oak Avenue, Centurion, 0157', place_id: '2' },
+                                    { description: '456 Pine Street, Sandton, 2196', place_id: '3' },
+                                    { description: '789 Main Road, Cape Town, 8001', place_id: '4' }
+                                ];
+                                
+                                const dropdown = document.createElement('div');
+                                dropdown.className = 'address-dropdown';
+                                dropdown.style.cssText = `
+                                    position: absolute;
+                                    top: 100%;
+                                    left: 0;
+                                    right: 0;
+                                    background: white;
+                                    border: 1px solid #dee2e6;
+                                    border-radius: 0.375rem;
+                                    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+                                    max-height: 200px;
+                                    overflow-y: auto;
+                                    z-index: 1000;
+                                    display: none;
+                                `;
+                                
+                                this.input.parentNode.style.position = 'relative';
+                                this.input.parentNode.appendChild(dropdown);
+                                
+                                this.input.addEventListener('input', (e) => {
+                                    const value = e.target.value.toLowerCase();
+                                    if (value.length < 3) {
+                                        dropdown.style.display = 'none';
+                                        return;
+                                    }
+                                    
+                                    const filtered = addresses.filter(addr => 
+                                        addr.description.toLowerCase().includes(value)
+                                    );
+                                    
+                                    if (filtered.length > 0) {
+                                        dropdown.innerHTML = filtered.map(addr => `
+                                            <div class="address-item" 
+                                                 style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;"
+                                                 onmouseover="this.style.backgroundColor = '#f8f9fa'"
+                                                 onmouseout="this.style.backgroundColor = 'white'"
+                                                 onclick="this.selectAddress('${addr.description}')">
+                                                ${addr.description}
+                                            </div>
+                                        `).join('');
+                                        
+                                        dropdown.style.display = 'block';
+                                        
+                                        // Add click handlers
+                                        dropdown.querySelectorAll('.address-item').forEach((item, index) => {
+                                            item.selectAddress = (address) => {
+                                                this.input.value = address;
+                                                dropdown.style.display = 'none';
+                                                this.triggerPlaceChanged(address);
+                                            };
+                                        });
+                                    } else {
+                                        dropdown.style.display = 'none';
+                                    }
+                                });
+                                
+                                document.addEventListener('click', (e) => {
+                                    if (!this.input.contains(e.target) && !dropdown.contains(e.target)) {
+                                        dropdown.style.display = 'none';
+                                    }
+                                });
+                            }
+                            
+                            addListener(event, callback) {
+                                this.listeners[event] = callback;
+                            }
+                            
+                            triggerPlaceChanged(address) {
+                                if (this.listeners.place_changed) {
+                                    this.listeners.place_changed();
+                                }
+                            }
+                            
+                            getPlace() {
+                                const address = this.input.value;
+                                // Mock place object
+                                return {
+                                    formatted_address: address,
+                                    geometry: {
+                                        location: {
+                                            lat: () => -25.7479,
+                                            lng: () => 28.2293
+                                        }
+                                    },
+                                    address_components: [
+                                        { long_name: address.split(',')[0], types: ['street_number', 'route'] },
+                                        { long_name: address.split(',')[1] || 'Suburb', types: ['sublocality'] },
+                                        { long_name: address.split(',')[2] || 'City', types: ['locality'] },
+                                        { long_name: address.split(',')[3] || '0000', types: ['postal_code'] }
+                                    ]
+                                };
+                            }
+                        }
+                    },
+                    Map: class {
+                        constructor(element, options) {
+                            this.element = element;
+                            this.options = options;
+                            this.element.innerHTML = `
+                                <div style="width: 100%; height: 150px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                    <div style="text-align: center;">
+                                        <i class="fas fa-map-marker-alt fa-2x text-muted mb-2"></i>
+                                        <div class="text-muted">Click to view in Google Maps</div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        setCenter(location) {
+                            // Mock implementation
+                        }
+                        
+                        setZoom(zoom) {
+                            // Mock implementation
+                        }
+                    },
+                    Marker: class {
+                        constructor(options) {
+                            this.options = options;
+                        }
+                        
+                        setPosition(location) {
+                            // Mock implementation
+                        }
+                        
+                        setMap(map) {
+                            // Mock implementation
+                        }
+                    }
+                }
+            };
+            
+            resolve();
+        });
+    }
+    
+    initAutocomplete() {
+        this.autocomplete = new google.maps.places.Autocomplete(this.input);
+        
+        this.autocomplete.addListener('place_changed', () => {
+            const place = this.autocomplete.getPlace();
+            
+            if (place.formatted_address) {
+                this.options.onAddressSelect({
+                    fullAddress: place.formatted_address,
+                    location: place.geometry ? place.geometry.location : null,
+                    components: this.parseAddressComponents(place.address_components)
+                });
+                
+                if (this.map && place.geometry) {
+                    this.updateMap(place.geometry.location);
+                }
+            }
+        });
+    }
+    
+    initMap() {
+        if (!this.options.mapContainer) return;
+        
+        const mapOptions = {
+            zoom: 15,
+            center: { lat: -25.7479, lng: 28.2293 } // Default to Pretoria
+        };
+        
+        this.map = new google.maps.Map(this.options.mapContainer, mapOptions);
+        this.marker = new google.maps.Marker({
+            map: this.map
+        });
+        
+        // Add click handler to open Google Maps
+        this.options.mapContainer.addEventListener('click', () => {
+            const address = encodeURIComponent(this.input.value);
+            window.open(`https://maps.google.com/maps?q=${address}`, '_blank');
+        });
+    }
+    
+    updateMap(location) {
+        if (!this.map || !location) return;
+        
+        this.map.setCenter(location);
+        this.map.setZoom(16);
+        this.marker.setPosition(location);
+        this.marker.setMap(this.map);
+    }
+    
+    parseAddressComponents(components) {
+        const result = {};
+        
+        if (!components) return result;
+        
+        components.forEach(component => {
+            const types = component.types;
+            
+            if (types.includes('street_number') || types.includes('route')) {
+                result.street = component.long_name;
+            } else if (types.includes('sublocality')) {
+                result.suburb = component.long_name;
+            } else if (types.includes('locality')) {
+                result.city = component.long_name;
+            } else if (types.includes('postal_code')) {
+                result.postalCode = component.long_name;
+            }
+        });
+        
+        return result;
+    }
+}
+
+// Utility function to create lookup fields
+function createLookupField(inputElement, data, options = {}) {
+    const lookupData = data.map(item => {
+        if (typeof item === 'string') {
+            return { name: item, value: item };
+        }
+        return item;
+    });
+    
+    return new LookupField(inputElement, {
+        data: lookupData,
+        ...options
+    });
+}
+
+// Utility function to create address fields
+function createAddressField(inputElement, mapContainer = null, options = {}) {
+    return new AddressField(inputElement, {
+        mapContainer,
+        ...options
+    });
+}

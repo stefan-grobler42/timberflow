@@ -14,6 +14,9 @@ class CustomerManager {
         this.relationshipTypes = ['Customer', 'Subsidiary', 'Parent Company', 'Joint Venture', 'Supplier', 'Partner'];
         this.employees = ['John Smith', 'Sarah Johnson', 'Mike Brown', 'Lisa Davis'];
         
+        // Lookup field instances
+        this.lookupFields = {};
+        
         if (!this.container) {
             console.error('CustomerManager: Container not found:', containerId);
             return;
@@ -237,21 +240,15 @@ class CustomerManager {
                                     <div class="row">
                                         <div class="col-md-6 mb-3">
                                             <label for="companyType" class="form-label">Company Type *</label>
-                                            <select class="form-select" id="companyType" required>
-                                                <option value="">Select Type</option>
-                                                ${this.companyTypes.map(type => 
-                                                    `<option value="${type}" ${customer.companyType === type ? 'selected' : ''}>${type}</option>`
-                                                ).join('')}
-                                            </select>
+                                            <input type="text" class="form-control lookup-field" id="companyType" 
+                                                   value="${customer.companyType}" data-lookup="companyTypes" 
+                                                   placeholder="Type to search company types..." required>
                                         </div>
                                         <div class="col-md-6 mb-3">
                                             <label for="accountType" class="form-label">Account Type *</label>
-                                            <select class="form-select" id="accountType" required>
-                                                <option value="">Select Type</option>
-                                                ${this.accountTypes.map(type => 
-                                                    `<option value="${type}" ${customer.accountType === type ? 'selected' : ''}>${type}</option>`
-                                                ).join('')}
-                                            </select>
+                                            <input type="text" class="form-control lookup-field" id="accountType" 
+                                                   value="${customer.accountType}" data-lookup="accountTypes" 
+                                                   placeholder="Type to search account types..." required>
                                         </div>
                                     </div>
 
@@ -293,7 +290,12 @@ class CustomerManager {
                                     
                                     <div class="mb-3">
                                         <label for="address" class="form-label">Address</label>
-                                        <textarea class="form-control" id="address" rows="3">${customer.address}</textarea>
+                                        <input type="text" class="form-control" id="address" 
+                                               value="${customer.address}" placeholder="Start typing address...">
+                                    </div>
+                                    
+                                    <div class="mb-3">
+                                        <div id="address-map" style="height: 150px; border-radius: 0.375rem;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -309,21 +311,15 @@ class CustomerManager {
                             <div class="row">
                                 <div class="col-md-3 mb-3">
                                     <label for="salesRepresentative" class="form-label">Sales Representative</label>
-                                    <select class="form-select" id="salesRepresentative">
-                                        <option value="">Select Representative</option>
-                                        ${this.employees.map(emp => 
-                                            `<option value="${emp}" ${customer.salesRepresentative === emp ? 'selected' : ''}>${emp}</option>`
-                                        ).join('')}
-                                    </select>
+                                    <input type="text" class="form-control lookup-field" id="salesRepresentative" 
+                                           value="${customer.salesRepresentative}" data-lookup="employees" 
+                                           placeholder="Type to search employees...">
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label for="relationshipType" class="form-label">Relationship Type</label>
-                                    <select class="form-select" id="relationshipType">
-                                        <option value="">Select Type</option>
-                                        ${this.relationshipTypes.map(type => 
-                                            `<option value="${type}" ${customer.relationshipType === type ? 'selected' : ''}>${type}</option>`
-                                        ).join('')}
-                                    </select>
+                                    <input type="text" class="form-control lookup-field" id="relationshipType" 
+                                           value="${customer.relationshipType}" data-lookup="relationshipTypes" 
+                                           placeholder="Type to search relationship types...">
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label for="primaryContact" class="form-label">Primary Contact</label>
@@ -331,12 +327,9 @@ class CustomerManager {
                                 </div>
                                 <div class="col-md-3 mb-3">
                                     <label for="parentAccount" class="form-label">Parent Account</label>
-                                    <select class="form-select" id="parentAccount">
-                                        <option value="">None</option>
-                                        ${this.data.filter(c => c.id !== customer.id).map(c => 
-                                            `<option value="${c.accountName}" ${customer.parentAccount === c.accountName ? 'selected' : ''}>${c.accountName}</option>`
-                                        ).join('')}
-                                    </select>
+                                    <input type="text" class="form-control lookup-field" id="parentAccount" 
+                                           value="${customer.parentAccount}" data-lookup="parentAccounts" 
+                                           placeholder="Type to search accounts...">
                                 </div>
                             </div>
                         </div>
@@ -429,6 +422,80 @@ class CustomerManager {
         const cancelBtn = document.getElementById('cancel-btn');
         if (cancelBtn) {
             cancelBtn.addEventListener('click', () => this.showList());
+        }
+        
+        // Initialize lookup fields
+        this.initializeLookupFields();
+        
+        // Initialize address field
+        this.initializeAddressField();
+    }
+    
+    initializeLookupFields() {
+        // Clear existing lookup fields
+        Object.values(this.lookupFields).forEach(field => {
+            if (field.dropdown && field.dropdown.parentNode) {
+                field.dropdown.parentNode.removeChild(field.dropdown);
+            }
+        });
+        this.lookupFields = {};
+        
+        // Company Types
+        const companyTypeInput = document.getElementById('companyType');
+        if (companyTypeInput) {
+            this.lookupFields.companyType = createLookupField(companyTypeInput, this.companyTypes, {
+                placeholder: 'Type to search company types...'
+            });
+        }
+        
+        // Account Types
+        const accountTypeInput = document.getElementById('accountType');
+        if (accountTypeInput) {
+            this.lookupFields.accountType = createLookupField(accountTypeInput, this.accountTypes, {
+                placeholder: 'Type to search account types...'
+            });
+        }
+        
+        // Sales Representative
+        const salesRepInput = document.getElementById('salesRepresentative');
+        if (salesRepInput) {
+            this.lookupFields.salesRepresentative = createLookupField(salesRepInput, this.employees, {
+                placeholder: 'Type to search employees...'
+            });
+        }
+        
+        // Relationship Types
+        const relationshipInput = document.getElementById('relationshipType');
+        if (relationshipInput) {
+            this.lookupFields.relationshipType = createLookupField(relationshipInput, this.relationshipTypes, {
+                placeholder: 'Type to search relationship types...'
+            });
+        }
+        
+        // Parent Account
+        const parentAccountInput = document.getElementById('parentAccount');
+        if (parentAccountInput) {
+            const parentAccounts = this.data
+                .filter(c => !this.currentItem || c.id !== this.currentItem.id)
+                .map(c => ({ name: c.accountName, value: c.accountName }));
+            
+            this.lookupFields.parentAccount = createLookupField(parentAccountInput, parentAccounts, {
+                placeholder: 'Type to search accounts...'
+            });
+        }
+    }
+    
+    initializeAddressField() {
+        const addressInput = document.getElementById('address');
+        const mapContainer = document.getElementById('address-map');
+        
+        if (addressInput && mapContainer) {
+            this.addressField = createAddressField(addressInput, mapContainer, {
+                onAddressSelect: (addressData) => {
+                    console.log('Address selected:', addressData);
+                    // You can update additional fields here if needed
+                }
+            });
         }
     }
 

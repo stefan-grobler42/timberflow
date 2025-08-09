@@ -39,6 +39,9 @@ Preferred communication style: Simple, everyday language.
 - **Settings Tables Module**: Added comprehensive settings tables group for UOM, Item Types, Categories, Company Types, Account Types, and Account Relationships
 - **Customer Management System**: Implemented complete customer/account management based on Excel specification with comprehensive field validation and relationship management
 - **Lookup Table Integration**: Established foundation for settings tables to support dropdown lookups across all modules
+- **Keyboard-Driven Interface**: Implemented searchable lookup fields replacing all dropdowns with type-ahead search functionality
+- **Google Maps Integration**: Added address autocomplete with mini-map display and direct Google Maps navigation
+- **Enhanced User Experience**: Tab navigation support, arrow key selection, and keyboard-only data entry workflow
 
 ## Module Structure
 
