@@ -323,8 +323,9 @@ class InteractiveMap {
                 title: 'Selected Location'
             });
             
-            const lat = latLng.lat();
-            const lng = latLng.lng();
+            // Handle both Google Maps LatLng objects and plain objects
+            const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+            const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
             
             // Update coordinates display
             this.coordinatesDisplay.textContent = `Selected: Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
@@ -382,15 +383,19 @@ class InteractiveMap {
     
     // Method to center map on coordinates (called from address field)
     setCenter(location) {
-        if (this.map && location.lat && location.lng) {
-            const position = new google.maps.LatLng(location.lat, location.lng);
-            this.map.setCenter(position);
-            this.map.setZoom(16);
-            
-            // Drop a pin at the location
-            setTimeout(() => {
-                this.dropPin(position);
-            }, 300);
+        if (this.map && location && location.lat && location.lng) {
+            try {
+                const position = new google.maps.LatLng(location.lat, location.lng);
+                this.map.setCenter(position);
+                this.map.setZoom(16);
+                
+                // Drop a pin at the location
+                setTimeout(() => {
+                    this.dropPin(position);
+                }, 300);
+            } catch (error) {
+                console.error('Error setting map center:', error);
+            }
         }
     }
     

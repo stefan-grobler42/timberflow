@@ -518,26 +518,30 @@ class CustomerManager {
             // Add manual search for map synchronization
             addressInput.addEventListener('input', (e) => {
                 const value = e.target.value.trim();
-                if (value.length > 5 && this.interactiveMap) {
-                    // Debounce the search
+                if (value.length > 10 && this.interactiveMap) {
+                    // Debounce the search (longer delay and longer text requirement)
                     clearTimeout(this.addressSearchTimeout);
                     this.addressSearchTimeout = setTimeout(() => {
                         this.geocodeAndUpdateMap(value);
-                    }, 1000);
+                    }, 1500);
                 }
             });
         }
     }
     
     geocodeAndUpdateMap(address) {
-        if (typeof google !== 'undefined' && google.maps) {
+        if (typeof google !== 'undefined' && google.maps && this.interactiveMap) {
             const geocoder = new google.maps.Geocoder();
             geocoder.geocode({ address: address, componentRestrictions: { country: 'ZA' } }, (results, status) => {
-                if (status === 'OK' && results[0] && this.interactiveMap) {
+                if (status === 'OK' && results[0]) {
                     const location = results[0].geometry.location;
+                    // Google Maps LatLng object has lat() and lng() methods
+                    const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+                    const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+                    
                     this.interactiveMap.setCenter({
-                        lat: location.lat(),
-                        lng: location.lng()
+                        lat: lat,
+                        lng: lng
                     });
                 }
             });
