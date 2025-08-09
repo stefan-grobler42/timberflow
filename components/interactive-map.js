@@ -5,6 +5,10 @@ class InteractiveMap {
         this.options = options;
         this.center = options.center || { lat: -25.7479, lng: 28.2293 };
         this.zoom = options.zoom || 15;
+        
+        // Ensure center coordinates are always valid numbers
+        this.center.lat = isNaN(this.center.lat) ? -25.7479 : this.center.lat;
+        this.center.lng = isNaN(this.center.lng) ? 28.2293 : this.center.lng;
         this.markers = [];
         this.map = null;
         this.currentMarker = null;
@@ -601,15 +605,18 @@ class InteractiveMap {
             mockMapElement.appendChild(pin);
         }
         
-        // Update coordinates (mock calculation)
-        const lat = this.center.lat + (y - 50) * 0.001;
-        const lng = this.center.lng + (x - 50) * 0.001;
+        // Update coordinates (mock calculation) - ensure valid numbers
+        const centerLat = isNaN(this.center.lat) ? -25.7479 : this.center.lat;
+        const centerLng = isNaN(this.center.lng) ? 28.2293 : this.center.lng;
+        
+        const lat = centerLat + (y - 50) * 0.001;
+        const lng = centerLng + (x - 50) * 0.001;
         this.coordinatesDisplay.textContent = `📍 Pin: Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
         
         // Generate address from coordinates
         const address = this.generateAddressFromCoords(lat, lng);
         
-        // Trigger callback
+        // Trigger callback with valid coordinates
         this.onLocationSelect({
             lat: lat,
             lng: lng,
@@ -632,7 +639,15 @@ class InteractiveMap {
     }
     
     setCenter(location) {
-        this.center = { lat: location.lat(), lng: location.lng() };
+        // Handle both Google Maps LatLng objects and plain objects
+        const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
+        const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
+        
+        // Ensure valid coordinates
+        const validLat = isNaN(lat) ? -25.7479 : lat;
+        const validLng = isNaN(lng) ? 28.2293 : lng;
+        
+        this.center = { lat: validLat, lng: validLng };
         this.coordinatesDisplay.textContent = `Lat: ${this.center.lat.toFixed(6)}, Lng: ${this.center.lng.toFixed(6)}`;
         
         // Auto-drop pin at center
