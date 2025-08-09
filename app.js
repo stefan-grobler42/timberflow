@@ -406,17 +406,15 @@ class MillenniumERP {
                 break;
             case 'stock-items':
             case 'stock-management':
-                if (!this.advancedStockManager) {
-                    try {
-                        console.log('Initializing Advanced Stock Manager...');
-                        this.advancedStockManager = new AdvancedStockManager('stock-management-content');
-                    } catch (error) {
-                        console.error('Failed to initialize Advanced Stock Manager:', error);
-                        this.showAlert('Stock Management module failed to load. Using fallback mode.', 'warning');
+                try {
+                    console.log('Initializing Power Apps-style Stock Manager...');
+                    if (!this.stockPowerApp) {
+                        this.stockPowerApp = new StockPowerApp('stock-management-content');
                     }
+                } catch (error) {
+                    console.error('Failed to initialize Stock Power App:', error);
+                    this.showAlert('Stock Management module failed to load. Please refresh the page.', 'danger');
                 }
-                // StockItemForm is now integrated within AdvancedStockManager
-                // No need for separate initialization
                 break;
             case 'formula-engine':
                 if (!this.formulaEngine) {
