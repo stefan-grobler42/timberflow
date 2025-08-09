@@ -26,17 +26,22 @@
 }
 
 body {
-    background-color: var(--millennium-platinum);
-    font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #E6E6E6 !important;
+    font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
     padding-top: 0;
-    color: var(--millennium-rasin-black);
+    color: #231f20 !important;
 }
 
-/* Millennium Roofing Navbar Styles */
-.millennium-navbar {
-    background: linear-gradient(135deg, var(--millennium-carolina-blue) 0%, var(--millennium-middle-blue) 100%) !important;
+/* Millennium Roofing Navbar Styles - Force Override */
+.navbar.millennium-navbar {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important;
+    background-color: #59AAD5 !important;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 1030;
+}
+
+.navbar-dark.millennium-navbar {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important;
 }
 
 .millennium-brand {
@@ -124,22 +129,22 @@ body {
     padding: 0.5rem;
 }
 
-/* Millennium Roofing Card Styling */
-.bc-card {
-    border: 1px solid var(--millennium-spanish-grey);
-    border-radius: 6px;
-    box-shadow: 0 2px 8px rgba(35, 31, 32, 0.08);
-    background: var(--millennium-white);
+/* Millennium Roofing Card Styling - Force Override */
+.bc-card, .card.bc-card {
+    border: 1px solid #999999 !important;
+    border-radius: 6px !important;
+    box-shadow: 0 2px 8px rgba(35, 31, 32, 0.08) !important;
+    background: #ffffff !important;
     margin-bottom: 0.75rem !important;
 }
 
-.bc-card .card-header {
-    background: linear-gradient(135deg, var(--millennium-platinum) 0%, var(--millennium-silver-chalice) 100%) !important;
-    border-bottom: 1px solid var(--millennium-spanish-grey);
-    padding: 0.75rem 1rem;
-    font-weight: 500;
-    font-size: 0.875rem;
-    color: var(--millennium-rasin-black);
+.bc-card .card-header, .card.bc-card .card-header {
+    background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important;
+    border-bottom: 1px solid #999999 !important;
+    padding: 0.75rem 1rem !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    color: #231f20 !important;
 }
 
 .bc-card .list-group-item {
