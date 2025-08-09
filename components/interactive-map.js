@@ -13,13 +13,8 @@ class InteractiveMap {
     }
     
     async initGoogleMap() {
-        // Check if Google Maps is available
-        if (typeof google !== 'undefined' && google.maps) {
-            this.createGoogleMap();
-        } else {
-            // Fallback to mock map if Google Maps not available
-            this.initMockMap();
-        }
+        // Use enhanced mock map with satellite imagery
+        this.initMockMap();
     }
     
     createGoogleMap() {
@@ -83,14 +78,17 @@ class InteractiveMap {
     initMockMap() {
         this.element.innerHTML = `
             <div class="interactive-map" style="width: 100%; height: 200px; border: 1px solid #dee2e6; border-radius: 0.375rem; position: relative; overflow: hidden; cursor: crosshair;">
-                <div class="map-container" style="width: 300%; height: 300%; background-image: url('data:image/svg+xml,${this.generateMapTiles()}'); background-size: 600px 600px; background-repeat: repeat; position: absolute; transition: transform 0.3s ease; transform: translate(-100px, -100px) scale(1);">
+                <div class="map-container" style="width: 300%; height: 300%; background-image: url('data:image/svg+xml,${this.generateMapTiles()}'); background-size: 400px 400px; background-repeat: repeat; position: absolute; transition: transform 0.3s ease; transform: translate(-100px, -100px) scale(1);">
                     <!-- Street grid overlay -->
-                    <div class="street-grid" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.6;">
+                    <div class="street-grid" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.8;">
                         ${this.generateStreetGrid()}
                     </div>
                     <!-- Buildings overlay -->
-                    <div class="buildings" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.8;">
+                    <div class="buildings" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.9;">
                         ${this.generateBuildings()}
+                    </div>
+                    <!-- Satellite overlay toggle -->
+                    <div class="satellite-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('data:image/svg+xml,${this.generateSatelliteOverlay()}'); background-size: 300px 300px; background-repeat: repeat; opacity: 0; transition: opacity 0.3s ease;">
                     </div>
                 </div>
                 
@@ -129,22 +127,60 @@ class InteractiveMap {
     }
     
     generateMapTiles() {
-        // Create a more realistic satellite-like background pattern
+        // Create realistic satellite imagery background
         return encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="600" height="600" viewBox="0 0 600 600">
+            <svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
                 <defs>
-                    <pattern id="terrain" patternUnits="userSpaceOnUse" width="100" height="100">
-                        <rect width="100" height="100" fill="#8fbc8f"/>
-                        <circle cx="20" cy="30" r="8" fill="#228b22" opacity="0.3"/>
-                        <circle cx="70" cy="60" r="12" fill="#32cd32" opacity="0.2"/>
-                        <circle cx="40" cy="80" r="6" fill="#006400" opacity="0.4"/>
+                    <!-- Satellite terrain texture -->
+                    <radialGradient id="terrain1" cx="0.3" cy="0.3" r="0.7">
+                        <stop offset="0%" stop-color="#7BA05B"/>
+                        <stop offset="50%" stop-color="#8FBC8F"/>
+                        <stop offset="100%" stop-color="#6B8E23"/>
+                    </radialGradient>
+                    <radialGradient id="terrain2" cx="0.7" cy="0.6" r="0.8">
+                        <stop offset="0%" stop-color="#98D982"/>
+                        <stop offset="50%" stop-color="#7BA05B"/>
+                        <stop offset="100%" stop-color="#5F7F3F"/>
+                    </radialGradient>
+                    
+                    <!-- Urban areas -->
+                    <pattern id="urban" patternUnits="userSpaceOnUse" width="40" height="40">
+                        <rect width="40" height="40" fill="#C4A484"/>
+                        <rect x="5" y="5" width="8" height="8" fill="#A0826D" opacity="0.8"/>
+                        <rect x="20" y="15" width="12" height="6" fill="#8B6F47" opacity="0.7"/>
+                        <rect x="15" y="25" width="6" height="10" fill="#A0826D" opacity="0.9"/>
                     </pattern>
+                    
+                    <!-- Water bodies -->
+                    <radialGradient id="water" cx="0.5" cy="0.5" r="0.8">
+                        <stop offset="0%" stop-color="#4682B4"/>
+                        <stop offset="70%" stop-color="#2F4F4F"/>
+                        <stop offset="100%" stop-color="#1C3A3A"/>
+                    </radialGradient>
                 </defs>
-                <rect width="600" height="600" fill="url(#terrain)"/>
-                <!-- Add some variation -->
-                <rect x="0" y="0" width="200" height="200" fill="#9acd32" opacity="0.2"/>
-                <rect x="200" y="200" width="200" height="200" fill="#6b8e23" opacity="0.2"/>
-                <rect x="400" y="400" width="200" height="200" fill="#8fbc8f" opacity="0.2"/>
+                
+                <!-- Base terrain -->
+                <rect width="800" height="800" fill="url(#terrain1)"/>
+                
+                <!-- Terrain variations -->
+                <ellipse cx="200" cy="150" rx="120" ry="80" fill="url(#terrain2)" opacity="0.7"/>
+                <ellipse cx="600" cy="400" rx="150" ry="100" fill="url(#terrain1)" opacity="0.8"/>
+                <ellipse cx="400" cy="650" rx="180" ry="120" fill="url(#terrain2)" opacity="0.6"/>
+                
+                <!-- Urban areas -->
+                <rect x="300" y="200" width="200" height="300" fill="url(#urban)" opacity="0.9"/>
+                <rect x="100" y="450" width="150" height="200" fill="url(#urban)" opacity="0.8"/>
+                <rect x="550" y="100" width="180" height="180" fill="url(#urban)" opacity="0.7"/>
+                
+                <!-- Water features -->
+                <ellipse cx="150" cy="300" rx="60" ry="40" fill="url(#water)" opacity="0.9"/>
+                <ellipse cx="650" cy="600" rx="80" ry="50" fill="url(#water)" opacity="0.8"/>
+                
+                <!-- Forest patches -->
+                <circle cx="100" cy="100" r="40" fill="#228B22" opacity="0.6"/>
+                <circle cx="700" cy="200" r="50" fill="#006400" opacity="0.7"/>
+                <circle cx="200" cy="700" r="35" fill="#32CD32" opacity="0.5"/>
+                <circle cx="600" cy="750" r="45" fill="#228B22" opacity="0.6"/>
             </svg>
         `);
     }
@@ -214,6 +250,51 @@ class InteractiveMap {
         });
         
         return buildings;
+    }
+    
+    generateSatelliteOverlay() {
+        // Satellite view with more realistic aerial imagery textures
+        return encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+                <defs>
+                    <radialGradient id="sat1" cx="0.4" cy="0.3" r="0.9">
+                        <stop offset="0%" stop-color="#8B7355"/>
+                        <stop offset="40%" stop-color="#6B5B47"/>
+                        <stop offset="100%" stop-color="#4A3F35"/>
+                    </radialGradient>
+                    <radialGradient id="sat2" cx="0.6" cy="0.7" r="0.8">
+                        <stop offset="0%" stop-color="#7A9B7A"/>
+                        <stop offset="60%" stop-color="#5B7A5B"/>
+                        <stop offset="100%" stop-color="#3D5A3D"/>
+                    </radialGradient>
+                </defs>
+                
+                <!-- Satellite base -->
+                <rect width="300" height="300" fill="url(#sat1)"/>
+                
+                <!-- Vegetation patterns -->
+                <ellipse cx="80" cy="60" rx="40" ry="25" fill="url(#sat2)" opacity="0.8"/>
+                <ellipse cx="220" cy="180" rx="50" ry="35" fill="url(#sat2)" opacity="0.7"/>
+                <ellipse cx="150" cy="250" rx="35" ry="20" fill="url(#sat2)" opacity="0.9"/>
+                
+                <!-- Built-up areas -->
+                <rect x="120" y="100" width="60" height="80" fill="#8B8680" opacity="0.9"/>
+                <rect x="50" y="150" width="40" height="60" fill="#9B9590" opacity="0.8"/>
+                <rect x="200" y="80" width="50" height="50" fill="#7B7670" opacity="0.85"/>
+                
+                <!-- Road networks (visible from satellite) -->
+                <path d="M0,120 L300,120" stroke="#B0A090" stroke-width="3" opacity="0.7"/>
+                <path d="M150,0 L150,300" stroke="#B0A090" stroke-width="3" opacity="0.7"/>
+                <path d="M0,200 L300,200" stroke="#A59585" stroke-width="2" opacity="0.6"/>
+                <path d="M80,0 L80,300" stroke="#A59585" stroke-width="2" opacity="0.6"/>
+                <path d="M220,0 L220,300" stroke="#A59585" stroke-width="2" opacity="0.6"/>
+                
+                <!-- Shadow effects -->
+                <ellipse cx="140" cy="120" rx="25" ry="15" fill="#000" opacity="0.1"/>
+                <ellipse cx="70" cy="170" rx="20" ry="12" fill="#000" opacity="0.1"/>
+                <ellipse cx="210" cy="100" rx="22" ry="14" fill="#000" opacity="0.1"/>
+            </svg>
+        `);
     }
     
     dropPin(latLng, address = null) {
@@ -389,6 +470,32 @@ class InteractiveMap {
             currentTransform.scale = Math.max(0.5, Math.min(3, currentTransform.scale * zoomDelta));
             this.updateMapTransform(currentTransform);
         });
+        
+        // Map type toggle for satellite overlay
+        const mapTypeBtn = mapDiv.querySelector('.map-type-toggle');
+        const satelliteOverlay = mapDiv.querySelector('.satellite-overlay');
+        if (mapTypeBtn && satelliteOverlay) {
+            let isSatelliteView = false;
+            mapTypeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                
+                if (!isSatelliteView) {
+                    // Switch to satellite view
+                    satelliteOverlay.style.opacity = '0.85';
+                    mapTypeBtn.innerHTML = '<i class="fas fa-road"></i>';
+                    mapTypeBtn.title = 'Switch to Road View';
+                    mapTypeBtn.classList.add('active');
+                } else {
+                    // Switch back to road view
+                    satelliteOverlay.style.opacity = '0';
+                    mapTypeBtn.innerHTML = '<i class="fas fa-satellite"></i>';
+                    mapTypeBtn.title = 'Switch to Satellite View';
+                    mapTypeBtn.classList.remove('active');
+                }
+                isSatelliteView = !isSatelliteView;
+            });
+        }
         
         // Search functionality
         this.searchInput.addEventListener('input', (e) => {
