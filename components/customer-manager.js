@@ -275,17 +275,17 @@ class CustomerManager {
                                 <div class="card-body">
                                     <div class="mb-3">
                                         <label for="phone" class="form-label">Phone Number</label>
-                                        <input type="tel" class="form-control phone-field" id="phone" value="${customer.phone}">
+                                        <input type="tel" class="form-control" id="phone" value="${customer.phone}">
                                     </div>
                                     
                                     <div class="mb-3">
                                         <label for="email" class="form-label">Email Address</label>
-                                        <input type="email" class="form-control email-field" id="email" value="${customer.email}">
+                                        <input type="email" class="form-control" id="email" value="${customer.email}">
                                     </div>
                                     
                                     <div class="mb-3">
                                         <label for="website" class="form-label">Website</label>
-                                        <input type="url" class="form-control website-field" id="website" value="${customer.website}">
+                                        <input type="url" class="form-control" id="website" value="${customer.website}">
                                     </div>
                                     
                                     <div class="mb-3">
@@ -295,7 +295,7 @@ class CustomerManager {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <div id="address-map" style="height: 200px; border-radius: 0.375rem;"></div>
+                                        <div id="address-map" style="height: 150px; border-radius: 0.375rem;"></div>
                                     </div>
                                 </div>
                             </div>
@@ -429,9 +429,6 @@ class CustomerManager {
         
         // Initialize address field
         this.initializeAddressField();
-        
-        // Make contact fields clickable
-        this.initializeClickableFields();
     }
     
     initializeLookupFields() {
@@ -493,79 +490,14 @@ class CustomerManager {
         const mapContainer = document.getElementById('address-map');
         
         if (addressInput && mapContainer) {
-            // Initialize interactive map
-            this.interactiveMap = new InteractiveMap(mapContainer, {
-                onLocationSelect: (locationData) => {
-                    console.log('Location selected:', locationData);
-                    addressInput.value = locationData.address;
-                    
-                    // Trigger change event
-                    addressInput.dispatchEvent(new Event('change', { bubbles: true }));
-                }
-            });
-            
-            // Also setup Google autocomplete for the input
-            this.addressField = createAddressField(addressInput, null, {
+            this.addressField = createAddressField(addressInput, mapContainer, {
                 onAddressSelect: (addressData) => {
                     console.log('Address selected:', addressData);
-                    // Update the interactive map when address is typed
-                    if (addressData.location && this.interactiveMap) {
-                        this.interactiveMap.setCenter(addressData.location);
-                    }
-                }
-            });
-            
-            // Add manual search for map synchronization
-            addressInput.addEventListener('input', (e) => {
-                const value = e.target.value.trim();
-                if (value.length > 10 && this.interactiveMap) {
-                    // Debounce the search (longer delay and longer text requirement)
-                    clearTimeout(this.addressSearchTimeout);
-                    this.addressSearchTimeout = setTimeout(() => {
-                        this.geocodeAndUpdateMap(value);
-                    }, 1500);
+                    // Update the map display to show the address is located
+                    this.updateMapDisplay(mapContainer, addressData.fullAddress);
                 }
             });
         }
-    }
-    
-    geocodeAndUpdateMap(address) {
-        if (typeof google !== 'undefined' && google.maps && this.interactiveMap) {
-            const geocoder = new google.maps.Geocoder();
-            geocoder.geocode({ address: address, componentRestrictions: { country: 'ZA' } }, (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    const location = results[0].geometry.location;
-                    // Google Maps LatLng object has lat() and lng() methods
-                    const lat = typeof location.lat === 'function' ? location.lat() : location.lat;
-                    const lng = typeof location.lng === 'function' ? location.lng() : location.lng;
-                    
-                    this.interactiveMap.setCenter({
-                        lat: lat,
-                        lng: lng
-                    });
-                }
-            });
-        }
-    }
-    
-    initializeClickableFields() {
-        // Add delay to ensure fields are rendered
-        setTimeout(() => {
-            // Only apply to specific fields, not all fields
-            const phoneField = document.getElementById('phone');
-            const emailField = document.getElementById('email');
-            const websiteField = document.getElementById('website');
-            
-            if (phoneField) {
-                ClickableFieldUtils.makePhoneClickable(phoneField);
-            }
-            if (emailField) {
-                ClickableFieldUtils.makeEmailClickable(emailField);
-            }
-            if (websiteField) {
-                ClickableFieldUtils.makeWebsiteClickable(websiteField);
-            }
-        }, 100);
     }
     
     updateMapDisplay(mapContainer, address) {
