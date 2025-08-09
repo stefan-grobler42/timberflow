@@ -66,6 +66,9 @@ class InteractiveMap {
             this.dropPin(event.latLng);
         });
         
+        // Add info window for navigation
+        this.infoWindow = new google.maps.InfoWindow();
+        
         // Setup autocomplete for search
         const autocomplete = new google.maps.places.Autocomplete(searchInput, {
             componentRestrictions: { country: 'za' }, // Restrict to South Africa
@@ -326,6 +329,25 @@ class InteractiveMap {
             // Update coordinates display
             this.coordinatesDisplay.textContent = `Selected: Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`;
             
+            // Add click listener to marker for navigation
+            this.currentMarker.addListener('click', () => {
+                const navigationUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+                const infoContent = `
+                    <div style="padding: 5px;">
+                        <strong>Selected Location</strong><br>
+                        <small>Lat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}</small><br>
+                        <button onclick="window.open('${navigationUrl}', '_blank')" class="btn btn-sm btn-primary mt-2">
+                            <i class="fas fa-directions"></i> Navigate Here
+                        </button>
+                        <button onclick="this.parentElement.parentElement.parentElement.style.display='none'" class="btn btn-sm btn-secondary mt-2 ms-1">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                `;
+                this.infoWindow.setContent(infoContent);
+                this.infoWindow.open(this.map, this.currentMarker);
+            });
+            
             // Get address if not provided
             if (!address) {
                 const geocoder = new google.maps.Geocoder();
@@ -358,7 +380,19 @@ class InteractiveMap {
         }
     }
     
-
+    // Method to center map on coordinates (called from address field)
+    setCenter(location) {
+        if (this.map && location.lat && location.lng) {
+            const position = new google.maps.LatLng(location.lat, location.lng);
+            this.map.setCenter(position);
+            this.map.setZoom(16);
+            
+            // Drop a pin at the location
+            setTimeout(() => {
+                this.dropPin(position);
+            }, 300);
+        }
+    }
     
     dropMockPin(x, y) {
         // Remove existing pins
@@ -389,7 +423,10 @@ class InteractiveMap {
             this.coordinatesDisplay.textContent = `Lat: ${this.center.lat.toFixed(6)}, Lng: ${this.center.lng.toFixed(6)}`;
         });
         
-        this.element.querySelector('.interactive-map').appendChild(pin);
+        const mapElement = this.element.querySelector('.interactive-map');
+        if (mapElement) {
+            mapElement.appendChild(pin);
+        }
         
         // Update coordinates (mock calculation)
         const lat = this.center.lat + (y - 50) * 0.001;
@@ -554,7 +591,10 @@ class InteractiveMap {
             document.head.appendChild(style);
         }
         
-        this.element.querySelector('.interactive-map').appendChild(pin);
+        const mockMapElement = this.element.querySelector('.interactive-map');
+        if (mockMapElement) {
+            mockMapElement.appendChild(pin);
+        }
         
         // Update coordinates (mock calculation)
         const lat = this.center.lat + (y - 50) * 0.001;

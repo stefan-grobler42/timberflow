@@ -509,9 +509,36 @@ class CustomerManager {
                 onAddressSelect: (addressData) => {
                     console.log('Address selected:', addressData);
                     // Update the interactive map when address is typed
-                    if (addressData.location) {
+                    if (addressData.location && this.interactiveMap) {
                         this.interactiveMap.setCenter(addressData.location);
                     }
+                }
+            });
+            
+            // Add manual search for map synchronization
+            addressInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim();
+                if (value.length > 5 && this.interactiveMap) {
+                    // Debounce the search
+                    clearTimeout(this.addressSearchTimeout);
+                    this.addressSearchTimeout = setTimeout(() => {
+                        this.geocodeAndUpdateMap(value);
+                    }, 1000);
+                }
+            });
+        }
+    }
+    
+    geocodeAndUpdateMap(address) {
+        if (typeof google !== 'undefined' && google.maps) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ address: address, componentRestrictions: { country: 'ZA' } }, (results, status) => {
+                if (status === 'OK' && results[0] && this.interactiveMap) {
+                    const location = results[0].geometry.location;
+                    this.interactiveMap.setCenter({
+                        lat: location.lat(),
+                        lng: location.lng()
+                    });
                 }
             });
         }
