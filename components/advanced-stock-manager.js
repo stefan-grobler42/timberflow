@@ -6,6 +6,8 @@ class AdvancedStockManager {
         this.stockItems = [];
         this.compositeItems = [];
         this.temporaryItems = [];
+        this.currentView = 'grid'; // 'grid' or 'form'
+        this.editingItem = null;
         this.stockCategories = {
             manufactured: 'Manufactured Items',
             standard: 'Standard Stock Items', 
@@ -46,6 +48,14 @@ class AdvancedStockManager {
         
         console.log('Rendering Advanced Stock Manager...');
 
+        if (this.currentView === 'grid') {
+            this.renderGridView();
+        } else if (this.currentView === 'form') {
+            this.renderFormView();
+        }
+    }
+
+    renderGridView() {
         this.container.innerHTML = `
             <div class="row">
                 <div class="col-md-12">
@@ -211,6 +221,388 @@ class AdvancedStockManager {
         `;
 
         this.renderStockGrids();
+    }
+
+    // Switch to form view for editing/creating items
+    showItemForm(itemCode = null) {
+        if (itemCode) {
+            this.editingItem = this.stockItems.find(item => item.itemCode === itemCode);
+        } else {
+            this.editingItem = null;
+        }
+        this.currentView = 'form';
+        this.render();
+    }
+
+    // Switch back to grid view
+    showGridView() {
+        this.currentView = 'grid';
+        this.editingItem = null;
+        this.render();
+    }
+
+    renderFormView() {
+        const itemCode = this.editingItem?.itemCode || '';
+        const isEdit = !!this.editingItem;
+        const title = isEdit ? `Edit Stock Item - ${itemCode}` : 'New Stock Item';
+
+        this.container.innerHTML = `
+            <div class="row">
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-outline-secondary me-3" id="back-to-grid">
+                                <i class="fas fa-arrow-left me-1"></i>Back to Stock Items
+                            </button>
+                            <h3><i class="fas fa-box-open me-2"></i>${title}</h3>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline-secondary" id="clear-form-btn">
+                                <i class="fas fa-broom me-1"></i>Clear
+                            </button>
+                            <button class="btn btn-success" id="save-item-btn">
+                                <i class="fas fa-save me-1"></i>Save Item
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            ${this.getFormHTML()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        this.setupFormEventListeners();
+        
+        if (isEdit && this.editingItem) {
+            this.populateForm(this.editingItem);
+        }
+    }
+
+    getFormHTML() {
+        return `
+            <form id="stock-item-form" class="row g-3">
+                <!-- Basic Information Section -->
+                <div class="col-12">
+                    <div class="form-section" style="background: #f8f9fa; border-left: 4px solid var(--millennium-blue); padding: 1rem; margin: 1rem 0;">
+                        <h5 class="mb-3">
+                            <i class="fas fa-info-circle me-2"></i>Basic Information
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Item Code <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" id="itemCode" name="itemCode" required>
+                                <div class="form-text">Unique identifier for this item</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label class="form-label">Description <span style="color: red;">*</span></label>
+                                <input type="text" class="form-control" id="description" name="description" required>
+                                <div class="form-text">Full description of the item</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Item Type <span style="color: red;">*</span></label>
+                                <select class="form-select" id="itemType" name="itemType" required>
+                                    <option value="">Select Type...</option>
+                                    <option value="stock">Stock Item</option>
+                                    <option value="service">Service</option>
+                                    <option value="manufactured">Manufactured</option>
+                                    <option value="composite">Composite</option>
+                                    <option value="temporary">Temporary</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Category <span style="color: red;">*</span></label>
+                                <select class="form-select" id="itemCategoryId" name="itemCategoryId" required>
+                                    <option value="">Select Category...</option>
+                                    <option value="1">Timber Trusses</option>
+                                    <option value="2">Structural Timber</option>
+                                    <option value="3">Roofing Materials</option>
+                                    <option value="4">Labour Services</option>
+                                    <option value="5">Hardware</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Units of Measure Section -->
+                <div class="col-12">
+                    <div class="form-section" style="background: #f8f9fa; border-left: 4px solid var(--millennium-blue); padding: 1rem; margin: 1rem 0;">
+                        <h5 class="mb-3">
+                            <i class="fas fa-balance-scale me-2"></i>Units of Measure
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Stock UOM <span style="color: red;">*</span></label>
+                                <select class="form-select" id="stockUomId" name="stockUomId" required>
+                                    <option value="">Select UOM...</option>
+                                    <option value="1">EA - Each</option>
+                                    <option value="2">M - Metres</option>
+                                    <option value="3">M2 - Square Metres</option>
+                                    <option value="4">HR - Hours</option>
+                                    <option value="5">KG - Kilograms</option>
+                                </select>
+                                <div class="form-text">How we store this item</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Sales UOM <span style="color: red;">*</span></label>
+                                <select class="form-select" id="salesUomId" name="salesUomId" required>
+                                    <option value="">Select UOM...</option>
+                                    <option value="1">EA - Each</option>
+                                    <option value="2">M - Metres</option>
+                                    <option value="3">M2 - Square Metres</option>
+                                    <option value="4">HR - Hours</option>
+                                    <option value="5">KG - Kilograms</option>
+                                </select>
+                                <div class="form-text">How we sell this item</div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Purchase UOM <span style="color: red;">*</span></label>
+                                <select class="form-select" id="purchaseUomId" name="purchaseUomId" required>
+                                    <option value="">Select UOM...</option>
+                                    <option value="1">EA - Each</option>
+                                    <option value="2">M - Metres</option>
+                                    <option value="3">M2 - Square Metres</option>
+                                    <option value="4">HR - Hours</option>
+                                    <option value="5">KG - Kilograms</option>
+                                    <option value="6">BOX - Box</option>
+                                </select>
+                                <div class="form-text">How we buy this item</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Purchase Pack Size</label>
+                                <input type="number" class="form-control" id="purchasePackSize" name="purchasePackSize" min="1" value="1">
+                                <div class="form-text">Number of stock units per purchase unit</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Stock to Sales Conversion</label>
+                                <input type="number" class="form-control" id="stockToSalesConversion" name="stockToSalesConversion" step="0.001" min="0" value="1">
+                                <div class="form-text">Conversion factor from stock to sales UOM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pricing Section -->
+                <div class="col-12">
+                    <div class="form-section" style="background: #f8f9fa; border-left: 4px solid var(--millennium-blue); padding: 1rem; margin: 1rem 0;">
+                        <h5 class="mb-3">
+                            <i class="fas fa-dollar-sign me-2"></i>Pricing & Margins
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Unit Cost (per Stock UOM)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R</span>
+                                    <input type="number" class="form-control" id="unitCost" name="unitCost" step="0.01" min="0">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label">Unit Price (per Sales UOM)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R</span>
+                                    <input type="number" class="form-control" id="unitPrice" name="unitPrice" step="0.01" min="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Inventory Management Section -->
+                <div class="col-12">
+                    <div class="form-section" style="background: #f8f9fa; border-left: 4px solid var(--millennium-blue); padding: 1rem; margin: 1rem 0;">
+                        <h5 class="mb-3">
+                            <i class="fas fa-warehouse me-2"></i>Inventory Management
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Current Stock</label>
+                                <input type="number" class="form-control" id="currentStock" name="currentStock" step="0.01" min="0" value="0">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Minimum Stock</label>
+                                <input type="number" class="form-control" id="minimumStock" name="minimumStock" step="0.01" min="0" value="0">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label">Maximum Stock</label>
+                                <input type="number" class="form-control" id="maximumStock" name="maximumStock" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Special Options Section -->
+                <div class="col-12">
+                    <div class="form-section" style="background: #f8f9fa; border-left: 4px solid var(--millennium-blue); padding: 1rem; margin: 1rem 0;">
+                        <h5 class="mb-3">
+                            <i class="fas fa-cog me-2"></i>Special Options
+                        </h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="isBomItem" name="isBomItem">
+                                    <label class="form-check-label" for="isBomItem">
+                                        <strong>Bill of Materials Item</strong>
+                                    </label>
+                                    <div class="form-text">This item has sub-components</div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="isActive" name="isActive" checked>
+                                    <label class="form-check-label" for="isActive">
+                                        <strong>Active</strong>
+                                    </label>
+                                    <div class="form-text">Available for use in system</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        `;
+    }
+
+    setupFormEventListeners() {
+        // Back to grid button
+        const backBtn = document.getElementById('back-to-grid');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this.showGridView();
+            });
+        }
+
+        // Save button
+        const saveBtn = document.getElementById('save-item-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveStockItem();
+            });
+        }
+
+        // Clear button
+        const clearBtn = document.getElementById('clear-form-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearForm();
+            });
+        }
+    }
+
+    populateForm(item) {
+        Object.keys(item).forEach(key => {
+            const element = document.getElementById(key);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = !!item[key];
+                } else {
+                    element.value = item[key] || '';
+                }
+            }
+        });
+    }
+
+    clearForm() {
+        const form = document.getElementById('stock-item-form');
+        if (form) {
+            form.reset();
+            document.getElementById('isActive').checked = true;
+            document.getElementById('purchasePackSize').value = '1';
+            document.getElementById('stockToSalesConversion').value = '1';
+            document.getElementById('currentStock').value = '0';
+            document.getElementById('minimumStock').value = '0';
+        }
+    }
+
+    async saveStockItem() {
+        const form = document.getElementById('stock-item-form');
+        const formData = new FormData(form);
+        const data = {};
+
+        // Convert form data to object
+        for (let [key, value] of formData.entries()) {
+            if (value === '') {
+                data[key] = null;
+            } else if (['itemCategoryId', 'stockUomId', 'salesUomId', 'purchaseUomId', 'purchasePackSize'].includes(key)) {
+                data[key] = parseInt(value);
+            } else if (['unitCost', 'unitPrice', 'currentStock', 'minimumStock', 'maximumStock', 'stockToSalesConversion'].includes(key)) {
+                data[key] = parseFloat(value) || 0;
+            } else {
+                data[key] = value;
+            }
+        }
+
+        // Handle checkboxes
+        data.isBomItem = document.getElementById('isBomItem').checked;
+        data.isActive = document.getElementById('isActive').checked;
+
+        try {
+            const saveBtn = document.getElementById('save-item-btn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Saving...';
+
+            // For demo purposes, add/update item in local array
+            const existingIndex = this.stockItems.findIndex(item => item.itemCode === data.itemCode);
+            if (existingIndex >= 0) {
+                this.stockItems[existingIndex] = { ...this.stockItems[existingIndex], ...data };
+            } else {
+                this.stockItems.push(data);
+            }
+
+            // Show success message
+            this.showNotification('Stock item saved successfully!', 'success');
+            
+            // Return to grid view after saving
+            setTimeout(() => {
+                this.showGridView();
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error saving stock item:', error);
+            this.showNotification('Failed to save stock item: ' + error.message, 'error');
+            
+            const saveBtn = document.getElementById('save-item-btn');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Item';
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show position-fixed`;
+        notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        notification.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
     }
 
     renderStockGrids() {
@@ -522,10 +914,12 @@ class AdvancedStockManager {
     }
 
     setupEventListeners() {
-        // Add stock item button
-        const addButton = document.getElementById('add-stock-btn');
-        if (addButton) {
-            addButton.addEventListener('click', () => this.addNewStockItem());
+        // Add Stock Item button - switch to form view
+        const addItemBtn = document.getElementById('add-stock-item');
+        if (addItemBtn) {
+            addItemBtn.addEventListener('click', () => {
+                this.showItemForm();
+            });
         }
 
         // Create composite button
@@ -540,17 +934,19 @@ class AdvancedStockManager {
             tempButton.addEventListener('click', () => this.showTempStockModal());
         }
 
-        // Add event delegation for edit buttons
+        // Row click handlers for editing items (using event delegation)
         document.addEventListener('click', (e) => {
-            if (e.target.closest('.edit-stock-btn')) {
-                const btn = e.target.closest('.edit-stock-btn');
-                const itemId = btn.dataset.itemId;
-                const itemCode = btn.dataset.itemCode;
+            const clickableRow = e.target.closest('.clickable-row');
+            if (clickableRow && this.currentView === 'grid') {
+                e.preventDefault();
+                const itemCode = clickableRow.getAttribute('data-item-code');
                 if (itemCode) {
-                    this.editStockItem(itemCode);
+                    this.showItemForm(itemCode);
                 }
             }
         });
+
+        console.log('Event listeners set up successfully');
     }
 
     // Integration with StockItemForm

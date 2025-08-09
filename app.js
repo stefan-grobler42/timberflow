@@ -620,24 +620,7 @@ class MillenniumERP {
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MillenniumERP();
     
-    // Add click handlers for stock item rows
-    document.addEventListener('click', function(e) {
-        const clickableRow = e.target.closest('.clickable-row');
-        if (clickableRow) {
-            e.preventDefault();
-            const itemCode = clickableRow.getAttribute('data-item-code');
-            if (itemCode) {
-                // Navigate to stock item form page
-                window.location.href = `stock-item-form.html?code=${itemCode}`;
-            }
-        }
-
-        // Handle new item button
-        if (e.target.closest('#new-item-btn')) {
-            e.preventDefault();
-            window.location.href = 'stock-item-form.html';
-        }
-    });
+    // Remove the separate page navigation - now handled by SPA components
 });
 
 // Global error handler for uncaught errors
