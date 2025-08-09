@@ -17,6 +17,12 @@ class SimpleStockManager {
         // Lookup field instances
         this.lookupFields = {};
         
+        // Auto-save functionality
+        this.autoSaveEnabled = true;
+        this.changesPending = false;
+        this.lastSavedState = null;
+        this.autoSaveDelay = 1000; // 1 second delay
+        
         if (!this.container) {
             console.error('SimpleStockManager: Container not found:', containerId);
             return;
@@ -233,12 +239,17 @@ class SimpleStockManager {
                         </button>
                         <h3><i class="fas fa-edit me-2 text-primary"></i>${title}</h3>
                     </div>
+                    <div class="auto-save-status">
+                        <small class="text-muted" id="auto-save-status">
+                            <i class="fas fa-circle text-success"></i> Auto-save enabled
+                        </small>
+                    </div>
                     <div class="btn-group">
-                        <button class="btn btn-success" id="save-btn">
-                            <i class="fas fa-save me-1"></i>Save
+                        <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
+                            <i class="fas fa-undo me-1"></i>Undo Changes
                         </button>
                         ${isEdit ? `
-                            <button class="btn btn-outline-danger" id="delete-btn">
+                            <button type="button" class="btn btn-outline-danger" id="delete-btn">
                                 <i class="fas fa-trash me-1"></i>Delete
                             </button>
                         ` : ''}
@@ -431,16 +442,27 @@ class SimpleStockManager {
     }
 
     setupFormEvents() {
-        // Back button
-        const backBtn = document.getElementById('back-btn');
-        if (backBtn) {
-            backBtn.addEventListener('click', () => this.showList());
+        const form = document.getElementById('stock-form');
+        if (form) {
+            // Add change detection for auto-save
+            form.addEventListener('input', () => this.handleFormChange());
+            form.addEventListener('change', () => this.handleFormChange());
         }
 
-        // Save button
-        const saveBtn = document.getElementById('save-btn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveItem());
+        // Back button with auto-save
+        const backBtn = document.getElementById('back-btn');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this.saveCurrentChanges().then(() => {
+                    this.showList();
+                });
+            });
+        }
+
+        // Undo button
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
         }
 
         // Delete button
@@ -448,6 +470,9 @@ class SimpleStockManager {
         if (deleteBtn) {
             deleteBtn.addEventListener('click', () => this.deleteCurrentItem());
         }
+        
+        // Store initial state for undo functionality
+        this.storeCurrentState();
     }
     
     initializeLookupFields() {
@@ -614,6 +639,131 @@ class SimpleStockManager {
                 notification.remove();
             }
         }, 3000);
+    }
+    
+    // Auto-save functionality methods
+    handleFormChange() {
+        if (!this.autoSaveEnabled) return;
+        
+        this.changesPending = true;
+        this.updateAutoSaveStatus('Changes detected...');
+        
+        // Enable undo button
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = false;
+        }
+        
+        // Clear any existing timeout
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+        
+        // Set new timeout for auto-save
+        this.autoSaveTimeout = setTimeout(() => {
+            this.autoSaveChanges();
+        }, this.autoSaveDelay);
+    }
+    
+    async autoSaveChanges() {
+        if (!this.changesPending) return;
+        
+        try {
+            this.updateAutoSaveStatus('Saving changes...');
+            await this.saveCurrentChanges();
+            this.changesPending = false;
+            this.updateAutoSaveStatus('All changes saved');
+            
+            // Store new state for undo
+            this.storeCurrentState();
+            
+            // Reset undo button
+            setTimeout(() => {
+                const undoBtn = document.getElementById('undo-btn');
+                if (undoBtn) {
+                    undoBtn.disabled = true;
+                }
+                this.updateAutoSaveStatus('Auto-save enabled');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+            this.updateAutoSaveStatus('Save failed - please try again');
+        }
+    }
+    
+    async saveCurrentChanges() {
+        const formData = this.getFormData();
+        
+        if (this.currentItem) {
+            // Update existing item
+            const index = this.data.findIndex(item => item.id === this.currentItem.id);
+            if (index !== -1) {
+                this.data[index] = { ...this.data[index], ...formData };
+            }
+        } else {
+            // Create new item
+            const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
+            formData.id = newId;
+            this.data.push(formData);
+            this.currentItem = formData;
+        }
+        
+        return Promise.resolve();
+    }
+    
+    storeCurrentState() {
+        const form = document.getElementById('stock-form');
+        if (form) {
+            const formData = new FormData(form);
+            this.lastSavedState = Object.fromEntries(formData.entries());
+        }
+    }
+    
+    undoChanges() {
+        if (!this.lastSavedState) return;
+        
+        // Restore form values
+        Object.keys(this.lastSavedState).forEach(key => {
+            const field = document.querySelector(`[name="${key}"]`);
+            if (field) {
+                if (field.type === 'checkbox') {
+                    field.checked = this.lastSavedState[key] === 'on';
+                } else {
+                    field.value = this.lastSavedState[key] || '';
+                }
+            }
+        });
+        
+        // Reset auto-save state
+        this.changesPending = false;
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = true;
+        }
+        
+        this.updateAutoSaveStatus('Changes reverted');
+        setTimeout(() => {
+            this.updateAutoSaveStatus('Auto-save enabled');
+        }, 2000);
+    }
+    
+    updateAutoSaveStatus(message) {
+        const statusElement = document.getElementById('auto-save-status');
+        if (statusElement) {
+            let icon = 'fas fa-circle text-success';
+            if (message.includes('Saving')) {
+                icon = 'fas fa-spinner fa-spin text-primary';
+            } else if (message.includes('failed')) {
+                icon = 'fas fa-exclamation-triangle text-danger';
+            } else if (message.includes('saved')) {
+                icon = 'fas fa-check text-success';
+            } else if (message.includes('Changes detected')) {
+                icon = 'fas fa-edit text-warning';
+            }
+            
+            statusElement.innerHTML = `<i class="${icon}"></i> ${message}`;
+        }
     }
 }
 

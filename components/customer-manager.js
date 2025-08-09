@@ -22,6 +22,12 @@ class CustomerManager {
         // Lookup field instances
         this.lookupFields = {};
         
+        // Auto-save functionality
+        this.autoSaveEnabled = true;
+        this.changesPending = false;
+        this.lastSavedState = null;
+        this.autoSaveDelay = 1000; // 1 second delay
+        
         if (!this.container) {
             console.error('CustomerManager: Container not found:', containerId);
             return;
@@ -465,12 +471,21 @@ class CustomerManager {
                         </div>
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-outline-secondary" id="cancel-btn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> ${isEdit ? 'Update Customer' : 'Save Customer'}
-                        </button>
+                    <!-- Auto-save Status -->
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="auto-save-status">
+                            <small class="text-muted" id="auto-save-status">
+                                <i class="fas fa-circle text-success"></i> Auto-save enabled
+                            </small>
+                        </div>
+                        <div class="form-actions d-flex gap-2">
+                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
+                                <i class="fas fa-undo"></i> Undo Changes
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="back-to-list-btn">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -526,20 +541,28 @@ class CustomerManager {
     attachFormEventListeners() {
         const form = document.getElementById('customer-form');
         if (form) {
+            // Remove form submission - auto-save handles saving
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.saveCustomer();
             });
+            
+            // Add change detection for auto-save
+            form.addEventListener('input', () => this.handleFormChange());
+            form.addEventListener('change', () => this.handleFormChange());
         }
 
         const backBtn = document.getElementById('back-to-list-btn');
         if (backBtn) {
-            backBtn.addEventListener('click', () => this.showList());
+            backBtn.addEventListener('click', () => {
+                this.saveCurrentChanges().then(() => {
+                    this.showList();
+                });
+            });
         }
 
-        const cancelBtn = document.getElementById('cancel-btn');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => this.showList());
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
         }
         
         // Initialize lookup fields
@@ -550,6 +573,9 @@ class CustomerManager {
         
         // Make contact fields clickable
         this.initializeClickableFields();
+        
+        // Store initial state for undo functionality
+        this.storeCurrentState();
     }
     
     initializeLookupFields() {
@@ -922,6 +948,149 @@ class CustomerManager {
                 </div>
             </div>
         `).join('');
+    }
+    
+    // Auto-save functionality methods
+    handleFormChange() {
+        if (!this.autoSaveEnabled) return;
+        
+        this.changesPending = true;
+        this.updateAutoSaveStatus('Changes detected...');
+        
+        // Enable undo button
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = false;
+        }
+        
+        // Clear any existing timeout
+        if (this.autoSaveTimeout) {
+            clearTimeout(this.autoSaveTimeout);
+        }
+        
+        // Set new timeout for auto-save
+        this.autoSaveTimeout = setTimeout(() => {
+            this.autoSaveChanges();
+        }, this.autoSaveDelay);
+    }
+    
+    async autoSaveChanges() {
+        if (!this.changesPending) return;
+        
+        try {
+            this.updateAutoSaveStatus('Saving changes...');
+            await this.saveCurrentChanges();
+            this.changesPending = false;
+            this.updateAutoSaveStatus('All changes saved');
+            
+            // Store new state for undo
+            this.storeCurrentState();
+            
+            // Reset undo button
+            setTimeout(() => {
+                const undoBtn = document.getElementById('undo-btn');
+                if (undoBtn) {
+                    undoBtn.disabled = true;
+                }
+                this.updateAutoSaveStatus('Auto-save enabled');
+            }, 2000);
+            
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+            this.updateAutoSaveStatus('Save failed - please try again');
+        }
+    }
+    
+    async saveCurrentChanges() {
+        if (!this.validateForm()) {
+            throw new Error('Validation failed');
+        }
+        
+        const formData = this.getFormData();
+        
+        if (this.currentItem) {
+            // Update existing item
+            const index = this.data.findIndex(item => item.id === this.currentItem.id);
+            if (index !== -1) {
+                this.data[index] = { ...this.data[index], ...formData };
+            }
+        } else {
+            // Create new item
+            const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
+            formData.id = newId;
+            this.data.push(formData);
+            this.currentItem = formData;
+        }
+        
+        return Promise.resolve();
+    }
+    
+    storeCurrentState() {
+        const form = document.getElementById('customer-form');
+        if (form) {
+            const formData = new FormData(form);
+            this.lastSavedState = Object.fromEntries(formData.entries());
+            
+            // Also store non-form field values
+            this.lastSavedState.address = document.getElementById('address')?.value || '';
+            this.lastSavedState.locationData = document.getElementById('location-data')?.value || '';
+        }
+    }
+    
+    undoChanges() {
+        if (!this.lastSavedState) return;
+        
+        // Restore form values
+        Object.keys(this.lastSavedState).forEach(key => {
+            const field = document.getElementById(key);
+            if (field) {
+                if (field.type === 'checkbox') {
+                    field.checked = this.lastSavedState[key] === 'on';
+                } else {
+                    field.value = this.lastSavedState[key] || '';
+                }
+            }
+        });
+        
+        // Restore location field
+        if (this.enhancedLocationField && this.lastSavedState.locationData) {
+            try {
+                const locationData = JSON.parse(this.lastSavedState.locationData);
+                this.enhancedLocationField.loadSavedLocation(locationData);
+            } catch (e) {
+                console.warn('Could not restore location data:', e);
+            }
+        }
+        
+        // Reset auto-save state
+        this.changesPending = false;
+        const undoBtn = document.getElementById('undo-btn');
+        if (undoBtn) {
+            undoBtn.disabled = true;
+        }
+        
+        this.updateAutoSaveStatus('Changes reverted');
+        setTimeout(() => {
+            this.updateAutoSaveStatus('Auto-save enabled');
+        }, 2000);
+    }
+    
+    updateAutoSaveStatus(message) {
+        const statusElement = document.getElementById('auto-save-status');
+        if (statusElement) {
+            let icon = 'fas fa-circle text-success';
+            if (message.includes('Saving')) {
+                icon = 'fas fa-spinner fa-spin text-primary';
+            } else if (message.includes('failed')) {
+                icon = 'fas fa-exclamation-triangle text-danger';
+            } else if (message.includes('saved')) {
+                icon = 'fas fa-check text-success';
+            } else if (message.includes('Changes detected')) {
+                icon = 'fas fa-edit text-warning';
+            }
+            
+            statusElement.innerHTML = `<i class="${icon}"></i> ${message}`;
+        }
     }
 
     showList() {
