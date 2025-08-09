@@ -26,8 +26,36 @@ class LookupField {
         this.input.setAttribute('aria-expanded', 'false');
         this.input.setAttribute('aria-autocomplete', 'list');
         
+        this.wrapInputWithSearchIcon();
         this.attachEventListeners();
         this.createDropdown();
+    }
+    
+    wrapInputWithSearchIcon() {
+        // Wrap input in input-group with search icon
+        const parent = this.input.parentNode;
+        const wrapper = document.createElement('div');
+        wrapper.className = 'input-group';
+        
+        parent.insertBefore(wrapper, this.input);
+        wrapper.appendChild(this.input);
+        
+        // Add search icon button
+        const searchBtn = document.createElement('button');
+        searchBtn.className = 'btn btn-outline-secondary';
+        searchBtn.type = 'button';
+        searchBtn.innerHTML = '<i class="fas fa-search"></i>';
+        searchBtn.title = 'Browse all options';
+        
+        wrapper.appendChild(searchBtn);
+        
+        // Add click handler for search button
+        searchBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.openSearchModal();
+        });
+        
+        this.searchButton = searchBtn;
     }
     
     attachEventListeners() {
@@ -64,9 +92,10 @@ class LookupField {
             display: none;
         `;
         
-        // Position dropdown relative to input
-        this.input.parentNode.style.position = 'relative';
-        this.input.parentNode.appendChild(this.dropdown);
+        // Position dropdown relative to input group
+        const container = this.input.closest('.input-group') || this.input.parentNode;
+        container.style.position = 'relative';
+        container.appendChild(this.dropdown);
     }
     
     handleInput(e) {
@@ -216,6 +245,103 @@ class LookupField {
         
         // Trigger change event
         this.input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    openSearchModal() {
+        // Create modal for browsing all options
+        const modal = document.createElement('div');
+        modal.className = 'modal fade';
+        modal.style.zIndex = '1055';
+        modal.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Select ${this.options.placeholder.replace('Type to search', '').replace('...', '')}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <input type="text" class="form-control" id="modal-search" placeholder="Search options...">
+                        </div>
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Option</th>
+                                        <th width="80">Select</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="modal-options-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Initialize modal
+        const bsModal = new bootstrap.Modal(modal);
+        const modalSearch = modal.querySelector('#modal-search');
+        const modalBody = modal.querySelector('#modal-options-body');
+        
+        // Render initial options
+        this.renderModalOptions(modalBody, this.options.data);
+        
+        // Search functionality
+        modalSearch.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = this.options.data.filter(item => {
+                return this.options.searchFields.some(field => {
+                    const value = item[field];
+                    return value && value.toString().toLowerCase().includes(term);
+                });
+            });
+            this.renderModalOptions(modalBody, filtered);
+        });
+        
+        // Show modal
+        bsModal.show();
+        
+        // Clean up when modal is hidden
+        modal.addEventListener('hidden.bs.modal', () => {
+            modal.remove();
+        });
+        
+        // Focus search input when modal is shown
+        modal.addEventListener('shown.bs.modal', () => {
+            modalSearch.focus();
+        });
+    }
+    
+    renderModalOptions(tbody, data) {
+        tbody.innerHTML = data.map(item => {
+            const displayValue = item[this.options.displayField];
+            return `
+                <tr style="cursor: pointer;" onclick="this.selectOption()">
+                    <td>${displayValue}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); this.parentNode.parentNode.selectOption();">
+                            <i class="fas fa-check"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        // Add selection handlers
+        tbody.querySelectorAll('tr').forEach((row, index) => {
+            row.selectOption = () => {
+                this.selectItem(data[index]);
+                const modal = row.closest('.modal');
+                bootstrap.Modal.getInstance(modal).hide();
+            };
+        });
     }
     
     openDropdown() {
@@ -405,13 +531,14 @@ class AddressField {
                             this.element = element;
                             this.options = options;
                             this.element.innerHTML = `
-                                <div style="width: 100%; height: 150px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                <div class="map-placeholder" style="width: 100%; height: 150px; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                                     <div style="text-align: center;">
                                         <i class="fas fa-map-marker-alt fa-2x text-muted mb-2"></i>
                                         <div class="text-muted">Click to view in Google Maps</div>
                                     </div>
                                 </div>
                             `;
+                            this.mapPlaceholder = this.element.querySelector('.map-placeholder');
                         }
                         
                         setCenter(location) {
@@ -483,7 +610,20 @@ class AddressField {
     }
     
     updateMap(location) {
-        if (!this.map || !location) return;
+        if (!this.map || !location) {
+            // Update placeholder to show address is selected
+            if (this.mapPlaceholder && this.input.value) {
+                this.mapPlaceholder.innerHTML = `
+                    <div style="text-align: center;">
+                        <i class="fas fa-map-marker-alt fa-2x text-success mb-2"></i>
+                        <div class="text-success"><strong>Address Located</strong></div>
+                        <div class="text-muted small">${this.input.value}</div>
+                        <div class="text-muted small">Click to view in Google Maps</div>
+                    </div>
+                `;
+            }
+            return;
+        }
         
         this.map.setCenter(location);
         this.map.setZoom(16);

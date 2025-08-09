@@ -493,8 +493,35 @@ class CustomerManager {
             this.addressField = createAddressField(addressInput, mapContainer, {
                 onAddressSelect: (addressData) => {
                     console.log('Address selected:', addressData);
-                    // You can update additional fields here if needed
+                    // Update the map display to show the address is located
+                    this.updateMapDisplay(mapContainer, addressData.fullAddress);
                 }
+            });
+        }
+    }
+    
+    updateMapDisplay(mapContainer, address) {
+        if (mapContainer && address) {
+            mapContainer.innerHTML = `
+                <div style="width: 100%; height: 150px; background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #28a745; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;">
+                    <div style="text-align: center; z-index: 1;">
+                        <i class="fas fa-map-marker-alt fa-3x text-success mb-2"></i>
+                        <div class="text-success fw-bold">Address Located</div>
+                        <div class="text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${address}</div>
+                        <div class="text-muted small mt-1">
+                            <i class="fas fa-external-link-alt"></i> Click to open in Google Maps
+                        </div>
+                    </div>
+                    <div style="position: absolute; top: 10px; right: 10px;">
+                        <i class="fas fa-check-circle text-success fa-lg"></i>
+                    </div>
+                </div>
+            `;
+            
+            // Add click handler to open Google Maps
+            mapContainer.addEventListener('click', () => {
+                const encodedAddress = encodeURIComponent(address);
+                window.open(`https://maps.google.com/maps?q=${encodedAddress}`, '_blank');
             });
         }
     }
