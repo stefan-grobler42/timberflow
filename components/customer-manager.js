@@ -10,9 +10,14 @@ class CustomerManager {
         
         // Reference data for lookups
         this.companyTypes = ['Sole Proprietor', 'Private Company', 'Public Company', 'Close Corporation', 'Partnership', 'Trust', 'Individual'];
-        this.accountTypes = ['Customer', 'Prospect', 'Supplier', 'Partner', 'Competitor'];
+        this.accountTypes = ['Prospect', 'Customer', 'Supplier', 'Partner', 'Competitor'];
+        this.customerStatuses = ['Prospect', 'Confirmed Customer', 'Account Under Review', 'Credit Approved', 'Account Closed'];
+        this.approvalStatuses = ['Pending', 'Credit App Required', 'References Check', 'Payment History Review', 'Approved', 'Rejected'];
         this.relationshipTypes = ['Customer', 'Subsidiary', 'Parent Company', 'Joint Venture', 'Supplier', 'Partner'];
         this.employees = ['John Smith', 'Sarah Johnson', 'Mike Brown', 'Lisa Davis'];
+        
+        // Contacts data
+        this.contacts = [];
         
         // Lookup field instances
         this.lookupFields = {};
@@ -36,7 +41,7 @@ class CustomerManager {
         this.data = [
             {
                 id: 1,
-                accountNo: 'ACC001',
+                accountNo: 'PROS001',
                 accountName: 'Millennium Construction Ltd',
                 companyType: 'Private Company',
                 companyRegistrationNo: '2018/123456/07',
@@ -45,16 +50,21 @@ class CustomerManager {
                 email: 'info@millennium.co.za',
                 website: 'https://www.millennium.co.za',
                 parentAccount: null,
-                accountType: 'Customer',
+                accountType: 'Prospect',
+                customerStatus: 'Prospect',
+                approvalStatus: 'Pending',
                 salesRepresentative: 'John Smith',
                 relationshipType: 'Customer',
                 primaryContact: 'Mike Johnson',
                 address: '123 Construction Ave, Johannesburg, 2001',
+                dateCreated: '2025-08-01',
+                quotesRequested: 3,
+                totalQuoteValue: 250000,
                 isActive: true
             },
             {
                 id: 2,
-                accountNo: 'ACC002',
+                accountNo: 'CUST002',
                 accountName: 'Cape Town Developers',
                 companyType: 'Private Company',
                 companyRegistrationNo: '2019/234567/07',
@@ -64,15 +74,21 @@ class CustomerManager {
                 website: 'https://www.ctdevelopers.co.za',
                 parentAccount: null,
                 accountType: 'Customer',
+                customerStatus: 'Confirmed Customer',
+                approvalStatus: 'Approved',
                 salesRepresentative: 'Sarah Johnson',
                 relationshipType: 'Customer',
                 primaryContact: 'Susan Williams',
                 address: '456 Development St, Cape Town, 8001',
+                dateCreated: '2024-12-15',
+                quotesRequested: 8,
+                totalQuoteValue: 750000,
+                ordersPlaced: 2,
                 isActive: true
             },
             {
                 id: 3,
-                accountNo: 'ACC003',
+                accountNo: 'PROS003',
                 accountName: 'Durban Home Builders',
                 companyType: 'Close Corporation',
                 companyRegistrationNo: 'CK2020/345678/23',
@@ -81,12 +97,61 @@ class CustomerManager {
                 email: 'admin@dhb.co.za',
                 website: 'https://www.dhb.co.za',
                 parentAccount: null,
-                accountType: 'Customer',
+                accountType: 'Prospect',
+                customerStatus: 'Account Under Review',
+                approvalStatus: 'Credit App Required',
                 salesRepresentative: 'Mike Brown',
                 relationshipType: 'Customer',
                 primaryContact: 'David Thompson',
                 address: '789 Builder Road, Durban, 4001',
+                dateCreated: '2025-07-20',
+                quotesRequested: 5,
+                totalQuoteValue: 180000,
                 isActive: true
+            }
+        ];
+        
+        // Load contact data
+        this.contacts = [
+            {
+                id: 1,
+                customerId: 1,
+                firstName: 'Mike',
+                lastName: 'Johnson',
+                title: 'Project Manager',
+                phone: '+27 11 234 5679',
+                email: 'mike.johnson@millennium.co.za',
+                isPrimary: true
+            },
+            {
+                id: 2,
+                customerId: 2,
+                firstName: 'Susan',
+                lastName: 'Williams',
+                title: 'Development Director',
+                phone: '+27 21 345 6790',
+                email: 'susan@ctdevelopers.co.za',
+                isPrimary: true
+            },
+            {
+                id: 3,
+                customerId: 2,
+                firstName: 'James',
+                lastName: 'Smith',
+                title: 'Site Manager',
+                phone: '+27 21 345 6791',
+                email: 'james@ctdevelopers.co.za',
+                isPrimary: false
+            },
+            {
+                id: 4,
+                customerId: 3,
+                firstName: 'David',
+                lastName: 'Thompson',
+                title: 'Owner',
+                phone: '+27 31 456 7891',
+                email: 'david@dhb.co.za',
+                isPrimary: true
             }
         ];
     }
@@ -289,12 +354,65 @@ class CustomerManager {
                                     </div>
                                     
                                     <div class="mb-3">
-                                        <label for="location-picker-container" class="form-label">Location</label>
-                                        <div id="location-picker-container"></div>
+                                        <label for="enhanced-location-container" class="form-label">Location</label>
+                                        <div id="enhanced-location-container"></div>
                                         <!-- Hidden field to store location data -->
                                         <input type="hidden" id="address" value="${customer.address}">
                                         <input type="hidden" id="location-data" value="">
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Customer Status & Workflow -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-line"></i> Customer Status & Workflow</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="customerStatus" class="form-label">Customer Status *</label>
+                                    <input type="text" class="form-control lookup-field" id="customerStatus" 
+                                           value="${customer.customerStatus || 'Prospect'}" data-lookup="customerStatuses" 
+                                           placeholder="Type to search statuses..." required>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="approvalStatus" class="form-label">Approval Status</label>
+                                    <input type="text" class="form-control lookup-field" id="approvalStatus" 
+                                           value="${customer.approvalStatus || 'Pending'}" data-lookup="approvalStatuses" 
+                                           placeholder="Type to search approval status...">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label for="dateCreated" class="form-label">Date Created</label>
+                                    <input type="date" class="form-control" id="dateCreated" 
+                                           value="${customer.dateCreated || new Date().toISOString().split('T')[0]}">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label for="quotesRequested" class="form-label">Quotes Requested</label>
+                                    <input type="number" class="form-control" id="quotesRequested" 
+                                           value="${customer.quotesRequested || 0}" min="0">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="totalQuoteValue" class="form-label">Total Quote Value</label>
+                                    <input type="number" class="form-control" id="totalQuoteValue" 
+                                           value="${customer.totalQuoteValue || 0}" min="0" step="0.01" placeholder="R 0.00">
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label for="ordersPlaced" class="form-label">Orders Placed</label>
+                                    <input type="number" class="form-control" id="ordersPlaced" 
+                                           value="${customer.ordersPlaced || 0}" min="0">
+                                </div>
+                                <div class="col-md-3 mt-4">
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="promote-customer-btn" 
+                                            ${customer.customerStatus === 'Confirmed Customer' ? 'disabled' : ''}>
+                                        <i class="fas fa-arrow-up"></i> 
+                                        ${customer.customerStatus === 'Prospect' ? 'Confirm Customer' : 'Update Status'}
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -307,23 +425,25 @@ class CustomerManager {
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-md-3 mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label for="salesRepresentative" class="form-label">Sales Representative</label>
                                     <input type="text" class="form-control lookup-field" id="salesRepresentative" 
                                            value="${customer.salesRepresentative}" data-lookup="employees" 
                                            placeholder="Type to search employees...">
                                 </div>
-                                <div class="col-md-3 mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label for="relationshipType" class="form-label">Relationship Type</label>
                                     <input type="text" class="form-control lookup-field" id="relationshipType" 
                                            value="${customer.relationshipType}" data-lookup="relationshipTypes" 
                                            placeholder="Type to search relationship types...">
                                 </div>
-                                <div class="col-md-3 mb-3">
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
                                     <label for="primaryContact" class="form-label">Primary Contact</label>
                                     <input type="text" class="form-control" id="primaryContact" value="${customer.primaryContact}">
                                 </div>
-                                <div class="col-md-3 mb-3">
+                                <div class="col-md-6 mb-3">
                                     <label for="parentAccount" class="form-label">Parent Account</label>
                                     <input type="text" class="form-control lookup-field" id="parentAccount" 
                                            value="${customer.parentAccount}" data-lookup="parentAccounts" 
@@ -457,6 +577,22 @@ class CustomerManager {
             });
         }
         
+        // Customer Status
+        const customerStatusInput = document.getElementById('customerStatus');
+        if (customerStatusInput) {
+            this.lookupFields.customerStatus = createLookupField(customerStatusInput, this.customerStatuses, {
+                placeholder: 'Type to search customer statuses...'
+            });
+        }
+        
+        // Approval Status
+        const approvalStatusInput = document.getElementById('approvalStatus');
+        if (approvalStatusInput) {
+            this.lookupFields.approvalStatus = createLookupField(approvalStatusInput, this.approvalStatuses, {
+                placeholder: 'Type to search approval statuses...'
+            });
+        }
+        
         // Sales Representative
         const salesRepInput = document.getElementById('salesRepresentative');
         if (salesRepInput) {
@@ -487,19 +623,19 @@ class CustomerManager {
     }
     
     initializeLocationPicker() {
-        const container = document.getElementById('location-picker-container');
+        const container = document.getElementById('enhanced-location-container');
         const addressInput = document.getElementById('address');
         const locationDataInput = document.getElementById('location-data');
         
         if (container) {
-            // Initialize location picker
-            this.locationPicker = new LocationPicker('location-picker-container', {
-                onLocationSave: (locationData) => {
-                    console.log('Location saved:', locationData);
+            // Initialize enhanced location field
+            this.enhancedLocationField = new EnhancedLocationField('enhanced-location-container', {
+                onLocationSelect: (locationData) => {
+                    console.log('Location selected:', locationData);
                     
                     // Update hidden fields with location data
                     if (addressInput) {
-                        addressInput.value = locationData.coordinates;
+                        addressInput.value = locationData.address || locationData.coordinates;
                     }
                     if (locationDataInput) {
                         locationDataInput.value = JSON.stringify(locationData);
@@ -518,7 +654,7 @@ class CustomerManager {
                         : this.currentItem.locationData;
                     
                     if (locationData.lat && locationData.lng) {
-                        this.locationPicker.loadSavedLocation(locationData);
+                        this.enhancedLocationField.loadSavedLocation(locationData);
                     }
                 } catch (e) {
                     console.warn('Could not load saved location data:', e);
@@ -690,6 +826,12 @@ class CustomerManager {
             website: document.getElementById('website').value,
             parentAccount: document.getElementById('parentAccount').value,
             accountType: document.getElementById('accountType').value,
+            customerStatus: document.getElementById('customerStatus').value,
+            approvalStatus: document.getElementById('approvalStatus').value,
+            dateCreated: document.getElementById('dateCreated').value,
+            quotesRequested: parseInt(document.getElementById('quotesRequested').value) || 0,
+            totalQuoteValue: parseFloat(document.getElementById('totalQuoteValue').value) || 0,
+            ordersPlaced: parseInt(document.getElementById('ordersPlaced').value) || 0,
             salesRepresentative: document.getElementById('salesRepresentative').value,
             relationshipType: document.getElementById('relationshipType').value,
             primaryContact: document.getElementById('primaryContact').value,
@@ -730,13 +872,56 @@ class CustomerManager {
             email: '',
             website: '',
             parentAccount: '',
-            accountType: '',
+            accountType: 'Prospect',
+            customerStatus: 'Prospect',
+            approvalStatus: 'Pending',
+            dateCreated: new Date().toISOString().split('T')[0],
+            quotesRequested: 0,
+            totalQuoteValue: 0,
+            ordersPlaced: 0,
             salesRepresentative: '',
             relationshipType: '',
             primaryContact: '',
             address: '',
             isActive: true
         };
+    }
+    
+    renderContactsList(customerId) {
+        if (!customerId) return '<div class="text-muted">Save customer first to add contacts</div>';
+        
+        const customerContacts = this.contacts.filter(c => c.customerId === customerId);
+        
+        if (customerContacts.length === 0) {
+            return '<div class="text-muted">No contacts added yet</div>';
+        }
+        
+        return customerContacts.map(contact => `
+            <div class="contact-item border rounded p-3 mb-2">
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>${contact.firstName} ${contact.lastName}</strong>
+                        ${contact.isPrimary ? '<span class="badge bg-primary ms-2">Primary</span>' : ''}
+                        <br>
+                        <small class="text-muted">${contact.title}</small>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="small">
+                            <i class="fas fa-phone"></i> ${contact.phone}<br>
+                            <i class="fas fa-envelope"></i> ${contact.email}
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-sm btn-outline-primary edit-contact-btn" data-contact-id="${contact.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-contact-btn" data-contact-id="${contact.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `).join('');
     }
 
     showList() {
