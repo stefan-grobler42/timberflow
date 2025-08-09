@@ -502,18 +502,34 @@ class CustomerManager {
     
     updateMapDisplay(mapContainer, address) {
         if (mapContainer && address) {
+            // Create a more realistic map view with pin
             mapContainer.innerHTML = `
-                <div style="width: 100%; height: 150px; background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border: 2px solid #28a745; border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative;">
-                    <div style="text-align: center; z-index: 1;">
-                        <i class="fas fa-map-marker-alt fa-3x text-success mb-2"></i>
-                        <div class="text-success fw-bold">Address Located</div>
-                        <div class="text-muted small" style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${address}</div>
-                        <div class="text-muted small mt-1">
-                            <i class="fas fa-external-link-alt"></i> Click to open in Google Maps
+                <div style="width: 100%; height: 150px; background: linear-gradient(135deg, #a8e6cf 0%, #88d8a3 50%, #68c182 100%); border: 2px solid #28a745; border-radius: 0.375rem; position: relative; cursor: pointer; overflow: hidden;">
+                    <!-- Simulated map grid -->
+                    <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.3;">
+                        <div style="position: absolute; top: 25%; left: 15%; width: 2px; height: 50%; background: #fff;"></div>
+                        <div style="position: absolute; top: 40%; left: 0; width: 100%; height: 2px; background: #fff;"></div>
+                        <div style="position: absolute; top: 25%; right: 20%; width: 2px; height: 50%; background: #fff;"></div>
+                        <div style="position: absolute; top: 15%; left: 0; width: 100%; height: 2px; background: #fff;"></div>
+                    </div>
+                    
+                    <!-- Location pin -->
+                    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 3;">
+                        <i class="fas fa-map-marker-alt fa-2x text-danger" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3));"></i>
+                    </div>
+                    
+                    <!-- Address info overlay -->
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); color: white; padding: 8px; text-align: center;">
+                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 2px;">📍 Address Located</div>
+                        <div style="font-size: 10px; opacity: 0.9; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${address}</div>
+                        <div style="font-size: 9px; opacity: 0.7; margin-top: 2px;">
+                            <i class="fas fa-external-link-alt"></i> Click to navigate
                         </div>
                     </div>
-                    <div style="position: absolute; top: 10px; right: 10px;">
-                        <i class="fas fa-check-circle text-success fa-lg"></i>
+                    
+                    <!-- Success indicator -->
+                    <div style="position: absolute; top: 10px; right: 10px; z-index: 4;">
+                        <i class="fas fa-check-circle text-success fa-lg" style="background: white; border-radius: 50%; padding: 2px;"></i>
                     </div>
                 </div>
             `;

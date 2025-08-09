@@ -42,6 +42,10 @@ Preferred communication style: Simple, everyday language.
 - **Keyboard-Driven Interface**: Implemented searchable lookup fields replacing all dropdowns with type-ahead search functionality
 - **Google Maps Integration**: Added address autocomplete with mini-map display and direct Google Maps navigation
 - **Enhanced User Experience**: Tab navigation support, arrow key selection, and keyboard-only data entry workflow
+- **Universal Lookup Pattern**: Enhanced lookup fields with search buttons implemented across Customer and Stock modules
+- **Visual Map Improvements**: Mini-maps now display location pins and visual confirmation when addresses are located
+- **Standardized Interface**: All future lookup fields will use searchable input with magnifying glass browse button
+- **Address Field Standard**: All address fields include Google Maps autocomplete with mini-map and click-to-navigate functionality
 
 ## Module Structure
 

@@ -8,6 +8,15 @@ class SimpleStockManager {
         this.currentItem = null;
         this.searchTerm = '';
         
+        // Reference data for lookups
+        this.itemTypes = ['Manufactured', 'Standard', 'Service'];
+        this.categories = ['Timber Trusses', 'Structural Timber', 'Hardware', 'Sheeting', 'Insulation', 'Labour', 'Transport'];
+        this.uomTypes = ['EA', 'M', 'M2', 'M3', 'KG', 'L', 'HR'];
+        this.suppliers = ['Timber World', 'Steel & Tube', 'Bunnings', 'Local Supplier', 'Direct Manufacturer'];
+        
+        // Lookup field instances
+        this.lookupFields = {};
+        
         if (!this.container) {
             console.error('SimpleStockManager: Container not found:', containerId);
             return;
@@ -257,24 +266,13 @@ class SimpleStockManager {
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Item Type <span class="text-danger">*</span></label>
-                                            <select class="form-select" name="itemType" required>
-                                                <option value="">Select Type...</option>
-                                                <option value="Manufactured">Manufactured</option>
-                                                <option value="Standard">Standard</option>
-                                                <option value="Service">Service</option>
-                                                <option value="Composite">Composite</option>
-                                            </select>
+                                            <input type="text" class="form-control lookup-field" name="itemType" 
+                                                   placeholder="Type to search item types..." required>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Category <span class="text-danger">*</span></label>
-                                            <select class="form-select" name="category" required>
-                                                <option value="">Select Category...</option>
-                                                <option value="Timber Trusses">Timber Trusses</option>
-                                                <option value="Structural Timber">Structural Timber</option>
-                                                <option value="Roofing Materials">Roofing Materials</option>
-                                                <option value="Hardware">Hardware</option>
-                                                <option value="Labour">Labour</option>
-                                            </select>
+                                            <input type="text" class="form-control lookup-field" name="category" 
+                                                   placeholder="Type to search categories..." required>
                                         </div>
                                     </div>
                                 </div>
@@ -303,12 +301,8 @@ class SimpleStockManager {
                                         </div>
                                         <div class="col-md-4">
                                             <label class="form-label">Stock UOM</label>
-                                            <select class="form-select" name="stockUom">
-                                                <option value="EA">Each (EA)</option>
-                                                <option value="M">Meters (M)</option>
-                                                <option value="M2">Square Meters (M²)</option>
-                                                <option value="HR">Hours (HR)</option>
-                                            </select>
+                                            <input type="text" class="form-control lookup-field" name="stockUom" 
+                                                   placeholder="Type to search UOM...">
                                         </div>
                                     </div>
                                 </div>
@@ -372,6 +366,7 @@ class SimpleStockManager {
         `;
 
         this.setupFormEvents();
+        this.initializeLookupFields();
         if (isEdit) {
             this.populateForm();
         }
@@ -454,6 +449,53 @@ class SimpleStockManager {
             deleteBtn.addEventListener('click', () => this.deleteCurrentItem());
         }
     }
+    
+    initializeLookupFields() {
+        // Clear existing lookup fields
+        Object.values(this.lookupFields).forEach(field => {
+            if (field.dropdown && field.dropdown.parentNode) {
+                field.dropdown.parentNode.removeChild(field.dropdown);
+            }
+        });
+        this.lookupFields = {};
+        
+        // Item Types
+        const itemTypeInput = document.querySelector('[name="itemType"]');
+        if (itemTypeInput) {
+            this.lookupFields.itemType = createLookupField(itemTypeInput, this.itemTypes, {
+                placeholder: 'Type to search item types...'
+            });
+        }
+        
+        // Categories
+        const categoryInput = document.querySelector('[name="category"]');
+        if (categoryInput) {
+            this.lookupFields.category = createLookupField(categoryInput, this.categories, {
+                placeholder: 'Type to search categories...'
+            });
+        }
+        
+        // UOM Types
+        const uomInput = document.querySelector('[name="stockUom"]');
+        if (uomInput) {
+            const uomData = this.uomTypes.map(uom => {
+                const labels = {
+                    'EA': 'Each (EA)',
+                    'M': 'Meters (M)',
+                    'M2': 'Square Meters (M²)',
+                    'M3': 'Cubic Meters (M³)',
+                    'KG': 'Kilograms (KG)',
+                    'L': 'Liters (L)',
+                    'HR': 'Hours (HR)'
+                };
+                return { name: labels[uom] || uom, value: uom };
+            });
+            
+            this.lookupFields.stockUom = createLookupField(uomInput, uomData, {
+                placeholder: 'Type to search UOM...'
+            });
+        }
+    }
 
     updateTable() {
         const tbody = this.container.querySelector('tbody');
@@ -510,11 +552,11 @@ class SimpleStockManager {
         const data = {
             itemCode: formData.get('itemCode'),
             description: formData.get('description'),
-            itemType: formData.get('itemType'),
-            category: formData.get('category'),
+            itemType: this.lookupFields.itemType ? this.lookupFields.itemType.getValue() : formData.get('itemType'),
+            category: this.lookupFields.category ? this.lookupFields.category.getValue() : formData.get('category'),
             unitCost: parseFloat(formData.get('unitCost')) || 0,
             unitPrice: parseFloat(formData.get('unitPrice')) || 0,
-            stockUom: formData.get('stockUom'),
+            stockUom: this.lookupFields.stockUom ? this.lookupFields.stockUom.getValue() : formData.get('stockUom'),
             currentStock: parseFloat(formData.get('currentStock')) || 0,
             minimumStock: parseFloat(formData.get('minimumStock')) || 0,
             isActive: formData.has('isActive')
@@ -545,6 +587,11 @@ class SimpleStockManager {
                     element.checked = !!this.currentItem[key];
                 } else {
                     element.value = this.currentItem[key] || '';
+                    
+                    // If this is a lookup field, update its value properly
+                    if (this.lookupFields[key]) {
+                        this.lookupFields[key].setValue(this.currentItem[key]);
+                    }
                 }
             }
         });
