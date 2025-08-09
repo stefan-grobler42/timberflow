@@ -405,13 +405,14 @@ class AddressField {
     
     loadGoogleMapsAPI() {
         return new Promise((resolve) => {
-            if (window.google && window.google.maps) {
+            if (window.google && window.google.maps && window.google.maps.places) {
+                // Real Google Maps API is already loaded
                 resolve();
                 return;
             }
             
-            // For development, we'll simulate the Google Maps API
-            // In production, you would load the actual Google Maps JavaScript API
+            // Only use mock if real API is not available
+            console.warn('Google Maps API not available, using mock implementation');
             window.google = {
                 maps: {
                     places: {
@@ -423,12 +424,32 @@ class AddressField {
                             }
                             
                             setupMockAutocomplete() {
-                                // Mock address suggestions
+                                // Mock address suggestions with coordinates
                                 const addresses = [
-                                    { description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', place_id: '1' },
-                                    { description: '234 Oak Avenue, Centurion, 0157', place_id: '2' },
-                                    { description: '456 Pine Street, Sandton, 2196', place_id: '3' },
-                                    { description: '789 Main Road, Cape Town, 8001', place_id: '4' }
+                                    { 
+                                        description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', 
+                                        place_id: '1',
+                                        lat: -25.8707788, 
+                                        lng: 28.3665748 
+                                    },
+                                    { 
+                                        description: '234 Oak Avenue, Centurion, 0157', 
+                                        place_id: '2',
+                                        lat: -25.8619, 
+                                        lng: 28.1880 
+                                    },
+                                    { 
+                                        description: '456 Pine Street, Sandton, 2196', 
+                                        place_id: '3',
+                                        lat: -26.1076, 
+                                        lng: 28.0567 
+                                    },
+                                    { 
+                                        description: '789 Main Road, Cape Town, 8001', 
+                                        place_id: '4',
+                                        lat: -33.9249, 
+                                        lng: 18.4241 
+                                    }
                                 ];
                                 
                                 const dropdown = document.createElement('div');
@@ -507,13 +528,45 @@ class AddressField {
                             
                             getPlace() {
                                 const address = this.input.value;
-                                // Mock place object
+                                
+                                // Find matching address with coordinates
+                                const mockAddresses = [
+                                    { 
+                                        description: '117 Wilkins Bunting Street, Mooikloof, Pretoria, 0081', 
+                                        lat: -25.8707788, 
+                                        lng: 28.3665748 
+                                    },
+                                    { 
+                                        description: '234 Oak Avenue, Centurion, 0157', 
+                                        lat: -25.8619, 
+                                        lng: 28.1880 
+                                    },
+                                    { 
+                                        description: '456 Pine Street, Sandton, 2196', 
+                                        lat: -26.1076, 
+                                        lng: 28.0567 
+                                    },
+                                    { 
+                                        description: '789 Main Road, Cape Town, 8001', 
+                                        lat: -33.9249, 
+                                        lng: 18.4241 
+                                    }
+                                ];
+                                
+                                const match = mockAddresses.find(addr => 
+                                    addr.description.toLowerCase().includes(address.toLowerCase()) ||
+                                    address.toLowerCase().includes(addr.description.toLowerCase())
+                                );
+                                
+                                const coordinates = match ? { lat: match.lat, lng: match.lng } : { lat: -25.7479, lng: 28.2293 };
+                                
+                                // Mock place object with real coordinates
                                 return {
                                     formatted_address: address,
                                     geometry: {
                                         location: {
-                                            lat: () => -25.7479,
-                                            lng: () => 28.2293
+                                            lat: () => coordinates.lat,
+                                            lng: () => coordinates.lng
                                         }
                                     },
                                     address_components: [
@@ -570,15 +623,29 @@ class AddressField {
     }
     
     initAutocomplete() {
-        this.autocomplete = new google.maps.places.Autocomplete(this.input);
+        // Configure autocomplete for South Africa
+        this.autocomplete = new google.maps.places.Autocomplete(this.input, {
+            componentRestrictions: { country: 'za' },
+            fields: ['place_id', 'geometry', 'formatted_address', 'address_components']
+        });
         
         this.autocomplete.addListener('place_changed', () => {
             const place = this.autocomplete.getPlace();
             
             if (place.formatted_address) {
+                // Handle Google Maps LatLng object properly
+                let locationData = null;
+                if (place.geometry && place.geometry.location) {
+                    const location = place.geometry.location;
+                    locationData = {
+                        lat: typeof location.lat === 'function' ? location.lat() : location.lat,
+                        lng: typeof location.lng === 'function' ? location.lng() : location.lng
+                    };
+                }
+                
                 this.options.onAddressSelect({
                     fullAddress: place.formatted_address,
-                    location: place.geometry ? place.geometry.location : null,
+                    location: locationData,
                     components: this.parseAddressComponents(place.address_components)
                 });
                 
