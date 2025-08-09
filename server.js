@@ -56,13 +56,35 @@ app.get('/api/stock/items', async (req, res) => {
 
 app.get('/api/stock/items/:id', async (req, res) => {
     try {
-        const item = await storage.getStockItem(parseInt(req.params.id));
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid item ID' });
+        }
+        
+        const item = await storage.getStockItem(id);
         if (!item) {
             return res.status(404).json({ success: false, error: 'Stock item not found' });
         }
         res.json({ success: true, data: item });
     } catch (error) {
         console.error('Failed to get stock item:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// Get stock item by code
+app.get('/api/stock/items/by-code/:code', async (req, res) => {
+    try {
+        const code = req.params.code;
+        const item = await storage.getStockItemByCode(code);
+        
+        if (item) {
+            res.json({ success: true, data: item });
+        } else {
+            res.status(404).json({ success: false, error: 'Stock item not found' });
+        }
+    } catch (error) {
+        console.error('Failed to get stock item by code:', error);
         res.status(500).json({ success: false, error: error.message });
     }
 });

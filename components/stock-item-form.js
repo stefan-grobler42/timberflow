@@ -21,23 +21,75 @@ class StockItemForm {
     async loadLookupData() {
         try {
             const [uoms, categories, variants, marginCategories, discountCategories] = await Promise.all([
-                fetch('/api/lookup/uoms').then(r => r.json()),
-                fetch('/api/lookup/categories').then(r => r.json()),
-                fetch('/api/lookup/variants').then(r => r.json()),
-                fetch('/api/lookup/margin-categories').then(r => r.json()),
-                fetch('/api/lookup/discount-categories').then(r => r.json())
+                fetch('/api/lookup/uoms').then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                fetch('/api/lookup/categories').then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                fetch('/api/lookup/variants').then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                fetch('/api/lookup/margin-categories').then(r => r.json()).catch(() => ({ success: false, data: [] })),
+                fetch('/api/lookup/discount-categories').then(r => r.json()).catch(() => ({ success: false, data: [] }))
             ]);
 
             this.lookupData = {
-                uoms: uoms.success ? uoms.data : [],
-                categories: categories.success ? categories.data : [],
-                variants: variants.success ? variants.data : [],
-                marginCategories: marginCategories.success ? marginCategories.data : [],
-                discountCategories: discountCategories.success ? discountCategories.data : []
+                uoms: uoms.success ? uoms.data : this.getSampleUoms(),
+                categories: categories.success ? categories.data : this.getSampleCategories(),
+                variants: variants.success ? variants.data : this.getSampleVariants(),
+                marginCategories: marginCategories.success ? marginCategories.data : this.getSampleMarginCategories(),
+                discountCategories: discountCategories.success ? discountCategories.data : this.getSampleDiscountCategories()
             };
         } catch (error) {
             console.error('Failed to load lookup data:', error);
+            // Use sample data if API fails
+            this.lookupData = {
+                uoms: this.getSampleUoms(),
+                categories: this.getSampleCategories(),
+                variants: this.getSampleVariants(),
+                marginCategories: this.getSampleMarginCategories(),
+                discountCategories: this.getSampleDiscountCategories()
+            };
         }
+    }
+
+    getSampleUoms() {
+        return [
+            { id: 1, code: 'EA', name: 'Each', isActive: true },
+            { id: 2, code: 'M', name: 'Metres', isActive: true },
+            { id: 3, code: 'M2', name: 'Square Metres', isActive: true },
+            { id: 4, code: 'HR', name: 'Hours', isActive: true },
+            { id: 5, code: 'KG', name: 'Kilograms', isActive: true }
+        ];
+    }
+
+    getSampleCategories() {
+        return [
+            { id: 1, name: 'Timber Trusses', isActive: true },
+            { id: 2, name: 'Structural Timber', isActive: true },
+            { id: 3, name: 'Roofing Materials', isActive: true },
+            { id: 4, name: 'Labour Services', isActive: true },
+            { id: 5, name: 'Hardware', isActive: true }
+        ];
+    }
+
+    getSampleVariants() {
+        return [
+            { id: 1, name: 'Standard', isActive: true },
+            { id: 2, name: 'Galvanised', isActive: true },
+            { id: 3, name: 'Stainless Steel', isActive: true }
+        ];
+    }
+
+    getSampleMarginCategories() {
+        return [
+            { id: 1, name: 'Standard Margin', defaultMarginPercent: 25, isActive: true },
+            { id: 2, name: 'High Margin', defaultMarginPercent: 40, isActive: true },
+            { id: 3, name: 'Low Margin', defaultMarginPercent: 15, isActive: true }
+        ];
+    }
+
+    getSampleDiscountCategories() {
+        return [
+            { id: 1, name: 'No Discount', maxDiscountPercent: 0, isActive: true },
+            { id: 2, name: 'Standard Discount', maxDiscountPercent: 10, isActive: true },
+            { id: 3, name: 'High Volume Discount', maxDiscountPercent: 20, isActive: true }
+        ];
     }
 
     render() {

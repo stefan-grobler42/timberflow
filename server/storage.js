@@ -54,6 +54,14 @@ class DatabaseStorage {
     return item || undefined;
   }
 
+  async getStockItemByCode(itemCode) {
+    const [item] = await db.select()
+      .from(stockItems)
+      .where(eq(stockItems.itemCode, itemCode))
+      .execute();
+    return item || undefined;
+  }
+
   async getStockItemByCode(code) {
     const [item] = await db.select()
       .from(stockItems)
