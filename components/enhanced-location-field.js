@@ -59,7 +59,7 @@ class EnhancedLocationField {
                             <small class="text-muted" id="location-coordinates">Click on map to drop pin</small>
                         </div>
                         <div class="map-actions">
-                            <button class="btn btn-sm btn-outline-success" id="save-location-btn" disabled>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="save-location-btn" disabled>
                                 <i class="fas fa-save"></i> Save Location
                             </button>
                         </div>
@@ -75,10 +75,10 @@ class EnhancedLocationField {
                                 <div id="saved-location-text" class="small"></div>
                             </div>
                             <div class="col-auto">
-                                <button class="btn btn-sm btn-success" id="navigate-btn">
+                                <button type="button" class="btn btn-sm btn-success" id="navigate-btn">
                                     <i class="fas fa-directions"></i> Navigate
                                 </button>
-                                <button class="btn btn-sm btn-outline-secondary" id="edit-location-btn">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="edit-location-btn">
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
                             </div>
