@@ -419,7 +419,11 @@ class CustomerManager {
         const customer = this.currentItem || this.getEmptyCustomer();
         const isEdit = this.currentItem !== null;
 
+        // Generate module header for form view
+        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management');
+
         this.container.innerHTML = `
+            ${moduleHeader}
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -626,6 +630,9 @@ class CustomerManager {
         `;
 
         this.attachFormEventListeners();
+        
+        // Setup header action handlers for form view
+        this.setupHeaderActions();
     }
 
     attachListEventListeners() {

@@ -129,7 +129,7 @@ class StockManager {
             </div>
         `;
 
-        // Setup header action handlers
+        // Setup header action handlers  
         this.setupHeaderActions();
         
         // Setup grid using system defaults
@@ -152,42 +152,13 @@ class StockManager {
             case 'new-record':
                 this.showForm();
                 break;
-            case 'import-data':
-                console.log('Import data action');
-                break;
-            case 'quick-add':
-                console.log('Quick add action');
-                break;
-            case 'edit-selected':
-                console.log('Edit selected action');
-                break;
-            case 'bulk-edit':
-                console.log('Bulk edit action');
-                break;
-            case 'copy-record':
-                console.log('Copy record action');
-                break;
             case 'export-excel':
                 if (this.dataGrid) {
                     this.dataGrid.exportToExcel();
                 }
                 break;
-            case 'export-pdf':
-                console.log('Export PDF action');
-                break;
-            case 'export-selected':
-                if (this.dataGrid) {
-                    this.dataGrid.exportToExcel(true); // Export selected only
-                }
-                break;
             case 'refresh':
                 this.render();
-                break;
-            case 'settings':
-                console.log('Settings action');
-                break;
-            case 'help':
-                console.log('Help action');
                 break;
         }
     }
@@ -239,10 +210,14 @@ class StockManager {
         const isEdit = !!this.currentItem && !!this.currentItem.id;
         const title = isEdit ? 'Edit Stock Item' : 'New Stock Item';
         
+        // Generate module header for form view
+        const moduleHeader = SystemDefaults.generateModuleHeader('Stock Management');
+        
         // Generate form tabs using system defaults
         const formTabs = SystemDefaults.generateFormTabs('stock');
         
         this.container.innerHTML = `
+            ${moduleHeader}
             <div class="stock-form-container">
                 <!-- Form Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -352,6 +327,9 @@ class StockManager {
 
         // Setup form event handlers
         this.setupFormHandlers();
+        
+        // Setup header action handlers for form view
+        this.setupHeaderActions();
     }
 
     setupFormHandlers() {

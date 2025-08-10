@@ -28,31 +28,25 @@ class SystemDefaults {
     // ===========================================
     static get HEADER_BAR_DEFAULTS() {
         return {
-            // Standard action button groups
+            // Standard action button groups - only functional buttons
             actionGroups: {
                 create: {
                     label: 'Create',
                     icon: 'fas fa-plus',
                     variant: 'primary',
-                    actions: ['New Record', 'Import Data', 'Quick Add']
-                },
-                edit: {
-                    label: 'Edit',
-                    icon: 'fas fa-edit',
-                    variant: 'outline-primary',
-                    actions: ['Edit Selected', 'Bulk Edit', 'Copy Record']
+                    actions: ['New Record'] // Only functional buttons
                 },
                 export: {
                     label: 'Export',
                     icon: 'fas fa-download',
                     variant: 'outline-secondary',
-                    actions: ['Export Excel', 'Export PDF', 'Export Selected']
+                    actions: ['Export Excel'] // Only functional buttons
                 },
                 tools: {
                     label: 'Tools',
                     icon: 'fas fa-tools',
                     variant: 'outline-info',
-                    actions: ['Refresh', 'Settings', 'Help']
+                    actions: ['Refresh'] // Only functional buttons
                 }
             },
 
@@ -105,6 +99,38 @@ class SystemDefaults {
                 showBreadcrumb: true,
                 showSearch: true,
                 defaultActionGroups: ['create', 'edit', 'export', 'tools']
+            },
+
+            // Badge color schemes for different entity types
+            badgeSchemes: {
+                itemType: {
+                    'Manufactured': 'bg-primary',
+                    'Standard': 'bg-success', 
+                    'Service': 'bg-info'
+                },
+                companyType: {
+                    'Private Company': 'bg-primary',
+                    'Close Corporation': 'bg-info',
+                    'Partnership': 'bg-success',
+                    'Sole Proprietor': 'bg-warning',
+                    'Public Company': 'bg-dark',
+                    'Trust': 'bg-secondary',
+                    'Individual': 'bg-light text-dark'
+                },
+                accountType: {
+                    'Prospect': 'bg-warning',
+                    'Customer': 'bg-success',
+                    'Supplier': 'bg-info',
+                    'Partner': 'bg-primary',
+                    'Competitor': 'bg-danger'
+                },
+                customerStatus: {
+                    'Prospect': 'bg-warning',
+                    'Confirmed Customer': 'bg-success',
+                    'Account Under Review': 'bg-info',
+                    'Credit Approved': 'bg-primary',
+                    'Account Closed': 'bg-danger'
+                }
             },
 
             // Standard column types and their formatting
@@ -367,19 +393,30 @@ class SystemDefaults {
         
         // Generate action button groups
         Object.entries(actionGroups).forEach(([key, group]) => {
-            headerHtml += `
-                <div class="btn-group me-2" role="group">
-                    <button type="button" class="btn btn-${group.variant} dropdown-toggle" 
-                            data-bs-toggle="dropdown" aria-expanded="false">
+            if (group.actions.length === 1) {
+                // Single action - direct button
+                const action = group.actions[0];
+                headerHtml += `
+                    <button type="button" class="btn btn-${group.variant} me-2" 
+                            data-action="${action.toLowerCase().replace(' ', '-')}">
                         <i class="${group.icon} me-1"></i> ${group.label}
-                    </button>
-                    <ul class="dropdown-menu">`;
-            
-            group.actions.forEach(action => {
-                headerHtml += `<li><a class="dropdown-item" href="#" data-action="${action.toLowerCase().replace(' ', '-')}">${action}</a></li>`;
-            });
-            
-            headerHtml += `</ul></div>`;
+                    </button>`;
+            } else {
+                // Multiple actions - dropdown
+                headerHtml += `
+                    <div class="btn-group me-2" role="group">
+                        <button type="button" class="btn btn-${group.variant} dropdown-toggle" 
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="${group.icon} me-1"></i> ${group.label}
+                        </button>
+                        <ul class="dropdown-menu">`;
+                
+                group.actions.forEach(action => {
+                    headerHtml += `<li><a class="dropdown-item" href="#" data-action="${action.toLowerCase().replace(' ', '-')}">${action}</a></li>`;
+                });
+                
+                headerHtml += `</ul></div>`;
+            }
         });
         
         headerHtml += `
