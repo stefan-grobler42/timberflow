@@ -144,23 +144,34 @@ class EnhancedDataGrid {
     }
 
     setupColumnResizing() {
+        // Remove existing resize event listeners to prevent duplicates
+        if (this.resizeListeners) {
+            this.resizeListeners.forEach(listener => {
+                document.removeEventListener(listener.type, listener.handler);
+            });
+        }
+        
+        this.resizeListeners = [];
         let isResizing = false;
         let currentColumn = null;
         let startX = 0;
         let startWidth = 0;
 
-        this.container.addEventListener('mousedown', (e) => {
+        // Use event delegation for mousedown on the container
+        const mouseDownHandler = (e) => {
             if (e.target.classList.contains('resize-handle')) {
+                console.log('Resize handle clicked!'); // Debug log
                 isResizing = true;
                 currentColumn = e.target.parentElement;
                 startX = e.pageX;
                 startWidth = parseInt(window.getComputedStyle(currentColumn).width, 10);
                 document.body.classList.add('resizing');
                 e.preventDefault();
+                e.stopPropagation();
             }
-        });
+        };
 
-        document.addEventListener('mousemove', (e) => {
+        const mouseMoveHandler = (e) => {
             if (!isResizing) return;
             
             const width = startWidth + e.pageX - startX;
@@ -174,15 +185,25 @@ class EnhancedDataGrid {
                     columnConfig.width = width + 'px';
                 }
             }
-        });
+        };
 
-        document.addEventListener('mouseup', () => {
+        const mouseUpHandler = () => {
             if (isResizing) {
                 isResizing = false;
                 currentColumn = null;
                 document.body.classList.remove('resizing');
             }
-        });
+        };
+
+        this.container.addEventListener('mousedown', mouseDownHandler);
+        document.addEventListener('mousemove', mouseMoveHandler);
+        document.addEventListener('mouseup', mouseUpHandler);
+        
+        // Store listeners for cleanup
+        this.resizeListeners = [
+            { type: 'mousemove', handler: mouseMoveHandler },
+            { type: 'mouseup', handler: mouseUpHandler }
+        ];
     }
 
     renderColumnMenu() {
@@ -490,6 +511,9 @@ class EnhancedDataGrid {
         }
         this.updateSelectionInfo();
         this.updateSelectAllCheckbox();
+        
+        // Re-setup column resizing after table update
+        this.setupColumnResizing();
     }
 
     updateSelectionInfo() {
