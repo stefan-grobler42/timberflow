@@ -53,6 +53,7 @@ Preferred communication style: Simple, everyday language.
 - **Standardized Address Fields**: Enhanced location field pattern established as universal standard for all address/location inputs throughout application with Google Maps autocomplete, GPS positioning, interactive pin dropping, and visual confirmation
 - **Universal Auto-Save Pattern**: Implemented system-wide auto-save functionality with change detection, undo capability, and seamless navigation without explicit save buttons - pattern to be applied across all future modules
 - **Enhanced Data Grid System**: Universal enterprise-grade data grid component with sortable columns, column visibility control, multi-select functionality, Excel export, persistent column resizing, auto-fit functionality, and Millennium branding - established as system-wide standard for all modules
+- **Centralized System Defaults**: Created `system/defaults.js` as central configuration for all core functionality (grids, lookups, maps, auto-save, validation) - single point of control for system-wide changes without module rewrites
 
 ## Module Structure
 
@@ -89,6 +90,13 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
+### Centralized System Defaults (`system/defaults.js`)
+- **Single Source of Truth**: All core system functionality centralized in one configuration file
+- **Universal Standards**: Grid behavior, lookup functionality, map settings, auto-save patterns, validation rules
+- **Brand Consistency**: Millennium color palette, typography, and styling applied system-wide
+- **Effortless Maintenance**: Change core functionality once, automatically applies to all modules
+- **Module Independence**: New modules inherit all system standards automatically
+
 ### Frontend Architecture
 - **Single-Page Application (SPA)**: Built with vanilla JavaScript using a modular component-based architecture
 - **UI Framework**: Bootstrap 5 for responsive design with custom CSS for timber industry theming
@@ -97,6 +105,7 @@ Preferred communication style: Simple, everyday language.
 - **File Handling**: Client-side file parsing utilities supporting Excel, JSON, CSV, and text formats
 - **Address Field Standard**: Universal EnhancedLocationField component pattern with Google Maps integration, GPS positioning, interactive pin dropping, and type="button" attributes to prevent form submission conflicts
 - **Auto-Save Architecture**: Universal pattern with change detection, auto-save on navigation, undo functionality before leaving record, and elimination of explicit save/cancel buttons for streamlined user experience
+- **System Defaults Integration**: All modules automatically inherit system-wide standards for consistent behavior and appearance
 
 ### Backend Integration
 - **API Architecture**: RESTful API integration layer with existing .NET backend at cloud-mroofing.co.za
