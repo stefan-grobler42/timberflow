@@ -10,6 +10,7 @@ class EnhancedDataGrid {
         this.sortConfig = { field: null, direction: 'asc' };
         this.searchTerm = '';
         this.columnWidths = new Map(); // Store column widths for persistence
+        this.storageKey = `grid-column-widths-${this.config.entityName || 'default'}`; // Unique storage key per grid
         
         // Column configuration
         this.columns = config.columns || [];
@@ -24,6 +25,7 @@ class EnhancedDataGrid {
     }
 
     init() {
+        this.loadColumnWidths();
         this.render();
     }
 
@@ -489,6 +491,27 @@ class EnhancedDataGrid {
         this.onSelectionChange(Array.from(this.selectedRows));
     }
 
+    loadColumnWidths() {
+        try {
+            const saved = localStorage.getItem(this.storageKey);
+            if (saved) {
+                const widths = JSON.parse(saved);
+                this.columnWidths = new Map(Object.entries(widths));
+            }
+        } catch (error) {
+            console.warn('Failed to load column widths:', error);
+        }
+    }
+
+    saveColumnWidths() {
+        try {
+            const widthsObj = Object.fromEntries(this.columnWidths);
+            localStorage.setItem(this.storageKey, JSON.stringify(widthsObj));
+        } catch (error) {
+            console.warn('Failed to save column widths:', error);
+        }
+    }
+
     initializeColumnResizing() {
         let isResizing = false;
         let startX = 0;
@@ -520,6 +543,7 @@ class EnhancedDataGrid {
                 const field = currentTh.dataset.field;
                 if (field) {
                     this.columnWidths.set(field, width);
+                    this.saveColumnWidths();
                 }
                 
                 // Update corresponding body cells
