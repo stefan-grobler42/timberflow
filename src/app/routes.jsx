@@ -15,6 +15,10 @@ class Router {
     this.addRoute('/customers/new', () => this.renderCustomerDetails('new'));
     this.addRoute('/customers/:id', (params) => this.renderCustomerDetails(params.id));
     this.addRoute('/customers/:id/edit', (params) => this.renderCustomerDetails(params.id));
+    this.addRoute('/products', () => this.renderProductsList());
+    this.addRoute('/products/new', () => this.renderProductDetails('new'));
+    this.addRoute('/products/:id', (params) => this.renderProductDetails(params.id));
+    this.addRoute('/products/:id/edit', (params) => this.renderProductDetails(params.id));
 
     // Listen for hash changes
     window.addEventListener('hashchange', () => this.handleRouteChange());
@@ -53,6 +57,9 @@ class Router {
     
     // Simple parameter parsing for :id patterns
     if (pathParts.length >= 2 && pathParts[0] === 'customers' && pathParts[1] !== 'new') {
+      params.id = pathParts[1];
+    }
+    if (pathParts.length >= 2 && pathParts[0] === 'products' && pathParts[1] !== 'new') {
       params.id = pathParts[1];
     }
     
@@ -169,6 +176,44 @@ class Router {
         // Fallback if component not loaded
         console.warn('⚠️ CustomerDetails component not available');
         mainContent.innerHTML = '<div class="alert alert-warning">Customer details module not loaded</div>';
+      }
+    }
+  }
+
+  renderProductsList() {
+    console.log('📦 Products module mounted on /products');
+    
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+      mainContent.innerHTML = '<div id="products-list-container"></div>';
+      
+      // Dynamically load and initialize the products index component
+      if (window.ProductsIndex) {
+        new window.ProductsIndex('products-list-container');
+        console.log('✅ Products list component initialized');
+      } else {
+        // Fallback if component not loaded
+        console.warn('⚠️ ProductsIndex component not available');
+        mainContent.innerHTML = '<div class="alert alert-warning">Products module not loaded</div>';
+      }
+    }
+  }
+
+  renderProductDetails(productId) {
+    console.log(`📝 Product details mounted for ID: ${productId}`);
+    
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) {
+      mainContent.innerHTML = '<div id="product-details-container"></div>';
+      
+      // Dynamically load and initialize the product details component
+      if (window.ProductDetails) {
+        new window.ProductDetails('product-details-container', productId);
+        console.log('✅ Product details component initialized');
+      } else {
+        // Fallback if component not loaded
+        console.warn('⚠️ ProductDetails component not available');
+        mainContent.innerHTML = '<div class="alert alert-warning">Product details module not loaded</div>';
       }
     }
   }

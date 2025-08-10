@@ -58,6 +58,13 @@ class Sidebar {
                 </a>
               </li>
               <li class="nav-item">
+                <a class="nav-link" href="#/products" data-route="/products">
+                  <i class="fas fa-boxes"></i>
+                  Products
+                  <span class="badge bg-primary ms-auto">New</span>
+                </a>
+              </li>
+              <li class="nav-item">
                 <a class="nav-link disabled" href="#/projects" data-route="/projects">
                   <i class="fas fa-project-diagram"></i>
                   Projects
