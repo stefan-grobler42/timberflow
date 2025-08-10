@@ -610,8 +610,75 @@ class MillenniumERP {
 document.addEventListener('DOMContentLoaded', () => {
     window.app = new MillenniumERP();
     
-    // Remove the separate page navigation - now handled by SPA components
+    // Initialize systems that load based on defaults
+    window.systemDefaults = new SystemDefaults();
+    
+    // Add modular system entry point
+    addModularSystemButton();
 });
+
+// Add entry point for modular system
+function addModularSystemButton() {
+    // Add button to top navigation
+    const headerActions = document.querySelector('.d-flex.align-items-center.ms-auto');
+    if (headerActions) {
+        const modularBtn = document.createElement('button');
+        modularBtn.className = 'btn btn-outline-primary me-2';
+        modularBtn.innerHTML = '<i class="fas fa-rocket"></i> Modular System';
+        modularBtn.onclick = launchModularSystem;
+        headerActions.insertBefore(modularBtn, headerActions.firstChild);
+    }
+    
+    // Also add to dashboard
+    const dashboardContent = document.getElementById('my-dashboard');
+    if (dashboardContent) {
+        const existingModularCard = dashboardContent.querySelector('.modular-system-card');
+        if (!existingModularCard) {
+            const cardContainer = dashboardContent.querySelector('.row .col-md-3:last-child');
+            if (cardContainer) {
+                cardContainer.insertAdjacentHTML('afterend', `
+                    <div class="col-md-3">
+                        <div class="card bg-gradient text-white modular-system-card" style="background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h4>NEW</h4>
+                                        <p>Modular System</p>
+                                    </div>
+                                    <i class="fas fa-rocket fa-2x"></i>
+                                </div>
+                                <button class="btn btn-light btn-sm mt-2" onclick="launchModularSystem()">
+                                    <i class="fas fa-play"></i> Launch
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `);
+            }
+        }
+    }
+}
+
+// Launch modular system
+function launchModularSystem() {
+    console.log('Launching Modular System...');
+    
+    // Initialize modular app if not already done
+    if (!window.modularApp) {
+        if (window.ModularApp) {
+            window.modularApp = new window.ModularApp();
+        } else {
+            console.error('ModularApp not loaded');
+            return;
+        }
+    }
+    
+    // Show modular system and hide original
+    window.modularApp.show();
+    
+    // Navigate to customers by default
+    window.location.hash = '/customers';
+}
 
 // Global error handler for uncaught errors
 window.addEventListener('error', (event) => {
