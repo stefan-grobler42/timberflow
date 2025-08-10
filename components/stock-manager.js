@@ -160,6 +160,10 @@ class StockManager {
             case 'refresh':
                 this.render();
                 break;
+            case 'back-to-list':
+                this.currentView = 'list';
+                this.render();
+                break;
         }
     }
 
@@ -211,7 +215,7 @@ class StockManager {
         const title = isEdit ? 'Edit Stock Item' : 'New Stock Item';
         
         // Generate module header for form view
-        const moduleHeader = SystemDefaults.generateModuleHeader('Stock Management');
+        const moduleHeader = SystemDefaults.generateModuleHeader('Stock Management', null, true);
         
         // Generate form tabs using system defaults
         const formTabs = SystemDefaults.generateFormTabs('stock');

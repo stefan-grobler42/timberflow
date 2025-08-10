@@ -413,6 +413,40 @@ class CustomerManager {
         
         // Update grid data
         this.dataGrid.setData(this.data);
+        
+        // Setup header action handlers
+        this.setupHeaderActions();
+    }
+
+    setupHeaderActions() {
+        // Add event listeners for header actions
+        this.container.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action) {
+                e.preventDefault();
+                this.handleHeaderAction(action);
+            }
+        });
+    }
+
+    handleHeaderAction(action) {
+        switch (action) {
+            case 'new-record':
+                this.newCustomer();
+                break;
+            case 'export-excel':
+                if (this.dataGrid) {
+                    this.dataGrid.exportToExcel();
+                }
+                break;
+            case 'refresh':
+                this.render();
+                break;
+            case 'back-to-list':
+                this.currentView = 'list';
+                this.render();
+                break;
+        }
     }
 
     renderFormView() {
@@ -420,7 +454,7 @@ class CustomerManager {
         const isEdit = this.currentItem !== null;
 
         // Generate module header for form view
-        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management');
+        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management', null, true);
 
         this.container.innerHTML = `
             ${moduleHeader}
@@ -631,8 +665,7 @@ class CustomerManager {
 
         this.attachFormEventListeners();
         
-        // Setup header action handlers for form view
-        this.setupHeaderActions();
+        // Header actions already set up in attachFormEventListeners
     }
 
     attachListEventListeners() {
@@ -709,6 +742,15 @@ class CustomerManager {
         if (backBtn) {
             backBtn.addEventListener('click', () => this.handleBackToList());
         }
+        
+        // Setup header action handlers  
+        this.container.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action === 'back-to-list') {
+                e.preventDefault();
+                this.handleBackToList();
+            }
+        });
 
         const undoBtn = document.getElementById('undo-changes-btn');
         if (undoBtn) {
