@@ -12,6 +12,24 @@ class SimpleStockManager {
         
         // Enhanced grid
         this.dataGrid = null;
+        this.gridColumns = [
+            { field: 'itemCode', header: 'Item Code', width: '120px', type: 'text' },
+            { field: 'description', header: 'Description', width: '300px', type: 'text' },
+            { field: 'itemType', header: 'Type', width: '120px', type: 'badge',
+              badgeClasses: {
+                'Manufactured': 'bg-primary',
+                'Standard': 'bg-success', 
+                'Service': 'bg-info'
+              }
+            },
+            { field: 'category', header: 'Category', width: '150px', type: 'text' },
+            { field: 'unitCost', header: 'Unit Cost', width: '100px', type: 'currency' },
+            { field: 'unitPrice', header: 'Unit Price', width: '100px', type: 'currency' },
+            { field: 'stockUom', header: 'UOM', width: '80px', type: 'text' },
+            { field: 'currentStock', header: 'Stock', width: '80px', type: 'number' },
+            { field: 'minimumStock', header: 'Min Stock', width: '80px', type: 'number' },
+            { field: 'isActive', header: 'Active', width: '80px', type: 'boolean' }
+        ];
         
         // Reference data for lookups
         this.itemTypes = ['Manufactured', 'Standard', 'Service'];
@@ -41,6 +59,7 @@ class SimpleStockManager {
         
         this.loadSampleData();
         console.log('Sample data loaded:', this.data.length, 'items');
+        this.setupGrid();
         this.render();
         console.log('SimpleStockManager: Ready');
     }
@@ -115,6 +134,20 @@ class SimpleStockManager {
         ];
     }
 
+    setupGrid() {
+        const gridConfig = {
+            columns: this.gridColumns,
+            entityName: 'Stock Item',
+            onRowClick: (id) => this.editItem(id),
+            onSelectionChange: (selectedIds) => {
+                console.log('Selected stock items:', selectedIds);
+            }
+        };
+
+        this.dataGrid = new EnhancedDataGrid('stock-grid-container', gridConfig);
+        this.dataGrid.setData(this.data);
+    }
+
     render() {
         if (this.currentView === 'list') {
             this.renderListView();
@@ -124,50 +157,18 @@ class SimpleStockManager {
     }
 
     renderListView() {
-        // Initialize enhanced data grid if not already done
-        if (!this.dataGrid) {
-            this.container.innerHTML = `
-                <div class="stock-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-boxes"></i> Stock Management</h2>
-                    </div>
-                    <div id="stock-grid-container"></div>
+        // Set up container for enhanced data grid
+        this.container.innerHTML = `
+            <div class="stock-manager-container">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-boxes"></i> Stock Management</h2>
                 </div>
-            `;
+                <div id="stock-grid-container"></div>
+            </div>
+        `;
 
-            const gridConfig = {
-                entityName: 'Stock Item',
-                columns: [
-                    { field: 'itemCode', header: 'Item Code', width: '120px' },
-                    { field: 'description', header: 'Description', width: '250px' },
-                    { field: 'itemType', header: 'Type', type: 'badge', width: '120px',
-                      badgeClasses: {
-                        'Manufactured': 'bg-primary',
-                        'Standard': 'bg-success',
-                        'Service': 'bg-info'
-                      }
-                    },
-                    { field: 'category', header: 'Category', width: '150px' },
-                    { field: 'stockUom', header: 'UOM', width: '80px' },
-                    { field: 'currentStock', header: 'Current Stock', type: 'number', width: '120px' },
-                    { field: 'minimumStock', header: 'Min Stock', type: 'number', width: '100px' },
-                    { field: 'unitCost', header: 'Unit Cost', type: 'currency', width: '120px' },
-                    { field: 'unitPrice', header: 'Unit Price', type: 'currency', width: '120px' },
-                    { field: 'isActive', header: 'Active', type: 'boolean', width: '80px' }
-                ],
-                onRowClick: (id) => this.editItem(id),
-                onNew: () => this.showForm(),
-                onDelete: (id) => this.deleteItem(id),
-                onSelectionChange: (selectedIds) => {
-                    console.log('Selected stock items:', selectedIds);
-                }
-            };
-
-            this.dataGrid = new EnhancedDataGrid('stock-grid-container', gridConfig);
-        }
-        
-        // Update grid data
-        this.dataGrid.setData(this.data);
+        // Recreate grid to ensure proper rendering
+        this.setupGrid();
     }
 
     renderTableRows() {
