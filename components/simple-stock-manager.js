@@ -97,62 +97,178 @@ class SimpleStockManager {
     }
 
     renderListView() {
-        // Initialize enhanced data grid if not already done
-        if (!this.dataGrid) {
-            this.container.innerHTML = `
-                <div class="stock-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-boxes"></i> Stock Management</h2>
-                    </div>
-                    <div id="stock-grid-container"></div>
-                </div>
-            `;
+        // Always render the container first
+        this.container.innerHTML = `
+            <div class="stock-manager-container">
+                <div id="stock-grid-container"></div>
+            </div>
+        `;
 
-            this.initDataGrid();
-        } else {
-            // Update existing grid data
-            this.dataGrid.updateData(this.data);
-        }
+        // Initialize the grid (enhanced or simple fallback)
+        this.initDataGrid();
     }
 
     initDataGrid() {
-        // Stock grid columns configuration
-        const columns = [
-            { field: 'itemCode', header: 'Item Code', width: '120px' },
-            { field: 'description', header: 'Description', width: '250px' },
-            { field: 'itemType', header: 'Type', width: '100px' },
-            { field: 'category', header: 'Category', width: '150px' },
-            { field: 'currentStock', header: 'Stock', width: '80px' },
-            { field: 'stockUom', header: 'UOM', width: '60px' },
-            { field: 'unitPrice', header: 'Price', width: '100px' },
-            { field: 'supplier', header: 'Supplier', width: '140px' },
-            { field: 'isActive', header: 'Status', width: '80px' }
-        ];
+        // Check if EnhancedDataGrid is available
+        if (typeof EnhancedDataGrid === 'undefined') {
+            console.error('EnhancedDataGrid not available, falling back to simple table');
+            this.renderSimpleTable();
+            return;
+        }
 
-        // Enhanced data grid configuration
-        const config = {
-            entityName: 'Stock Item',
-            showNewButton: true,
-            allowMultiSelect: true,
-            formatters: {
-                currentStock: (value, row) => {
-                    const isLow = row.currentStock <= row.minimumStock && row.itemType !== 'Service';
-                    return `<span class="${isLow ? 'text-danger fw-bold' : ''}">${value}</span>`;
+        try {
+            // Stock grid columns configuration
+            const columns = [
+                { field: 'itemCode', header: 'Item Code', width: '120px' },
+                { field: 'description', header: 'Description', width: '250px' },
+                { field: 'itemType', header: 'Type', width: '100px' },
+                { field: 'category', header: 'Category', width: '150px' },
+                { field: 'currentStock', header: 'Stock', width: '80px' },
+                { field: 'stockUom', header: 'UOM', width: '60px' },
+                { field: 'unitPrice', header: 'Price', width: '100px' },
+                { field: 'supplier', header: 'Supplier', width: '140px' },
+                { field: 'isActive', header: 'Status', width: '80px' }
+            ];
+
+            // Enhanced data grid configuration
+            const config = {
+                entityName: 'Stock Item',
+                showNewButton: true,
+                allowMultiSelect: true,
+                formatters: {
+                    currentStock: (value, row) => {
+                        const isLow = row.currentStock <= row.minimumStock && row.itemType !== 'Service';
+                        return `<span class="${isLow ? 'text-danger fw-bold' : ''}">${value}</span>`;
+                    },
+                    unitPrice: (value) => `R ${parseFloat(value).toFixed(2)}`,
+                    itemType: (value) => `<span class="badge bg-info">${value}</span>`,
+                    isActive: (value) => `<span class="badge bg-${value ? 'success' : 'secondary'}">${value ? 'Active' : 'Inactive'}</span>`,
+                    supplier: (value) => value || 'Not Set'
                 },
-                unitPrice: (value) => `R ${parseFloat(value).toFixed(2)}`,
-                itemType: (value) => `<span class="badge bg-info">${value}</span>`,
-                isActive: (value) => `<span class="badge bg-${value ? 'success' : 'secondary'}">${value ? 'Active' : 'Inactive'}</span>`,
-                supplier: (value) => value || 'Not Set'
-            },
-            onRowClick: (id) => this.editItem(id),
-            onSelectionChange: (selectedIds) => {
-                console.log('Selected stock items:', selectedIds);
-            },
-            onDelete: (id) => this.deleteItem(id)
-        };
+                onRowClick: (id) => this.editItem(id),
+                onSelectionChange: (selectedIds) => {
+                    console.log('Selected stock items:', selectedIds);
+                },
+                onDelete: (id) => this.deleteItem(id)
+            };
 
-        // Initialize enhanced data grid
-        this.dataGrid = new EnhancedDataGrid('stock-grid-container', columns, this.data, config);
+            // Initialize enhanced data grid
+            this.dataGrid = new EnhancedDataGrid('stock-grid-container', columns, this.data, config);
+        } catch (error) {
+            console.error('Failed to initialize EnhancedDataGrid, falling back to simple table:', error);
+            this.renderSimpleTable();
+        }
+    }
+
+    renderSimpleTable() {
+        const container = document.getElementById('stock-grid-container');
+        if (!container) return;
+
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Stock Items (${this.data.length})</h5>
+                    <button class="btn btn-primary btn-sm" onclick="window.stockManager.showForm()">
+                        <i class="fas fa-plus"></i> New Stock Item
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Item Code</th>
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th>Stock</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${this.renderTableRows()}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+
+        // Add event listeners for buttons
+        container.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(e.target.closest('.edit-btn').dataset.id);
+                this.editItem(id);
+            });
+        });
+
+        container.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = parseInt(e.target.closest('.delete-btn').dataset.id);
+                this.deleteItem(id);
+            });
+        });
+
+        // Add row click listeners
+        container.querySelectorAll('.clickable-row').forEach(row => {
+            row.addEventListener('click', (e) => {
+                const id = parseInt(row.dataset.id);
+                this.editItem(id);
+            });
+        });
+    }
+
+    renderTableRows() {
+        if (this.data.length === 0) {
+            return `
+                <tr>
+                    <td colspan="8" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="fas fa-inbox fa-2x mb-3"></i>
+                            <p>No stock items found</p>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        return this.data.map(item => `
+            <tr class="clickable-row" data-id="${item.id}" style="cursor: pointer;">
+                <td><strong>${item.itemCode}</strong></td>
+                <td>${item.description}</td>
+                <td><span class="badge bg-info">${item.itemType}</span></td>
+                <td>${item.category}</td>
+                <td>
+                    <span class="${item.currentStock <= item.minimumStock && item.itemType !== 'Service' ? 'text-danger fw-bold' : ''}">
+                        ${item.currentStock} ${item.stockUom}
+                    </span>
+                </td>
+                <td>R ${item.unitPrice.toFixed(2)}</td>
+                <td>
+                    <span class="badge bg-${item.isActive ? 'success' : 'secondary'}">
+                        ${item.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary edit-btn" data-id="${item.id}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-outline-danger delete-btn" data-id="${item.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    showForm() {
+        this.currentItem = null;
+        this.currentView = 'form';
+        this.render();
     }
 
     editItem(id) {

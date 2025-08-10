@@ -407,11 +407,13 @@ class MillenniumERP {
             case 'stock-items':
                 if (!this.simpleStockManager) {
                     this.simpleStockManager = new SimpleStockManager('stock-items-content');
+                    window.stockManager = this.simpleStockManager; // Global reference for buttons
                 }
                 break;
             case 'stock-management':
                 if (!this.simpleStockManager) {
                     this.simpleStockManager = new SimpleStockManager('stock-management-content');
+                    window.stockManager = this.simpleStockManager; // Global reference for buttons
                 }
                 break;
             case 'customers':
@@ -625,3 +627,4 @@ window.addEventListener('error', (event) => {
         window.app.showAlert('A system error occurred. Please refresh the page if problems persist.', 'danger');
     }
 });
+window.stockManager = null;
