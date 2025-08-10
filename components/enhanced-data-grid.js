@@ -78,8 +78,8 @@ class EnhancedDataGrid {
                 </div>
 
                 <!-- Table Container -->
-                <div class="table-container" style="overflow-x: auto; width: 100%; position: relative;">
-                    <table class="table table-hover table-striped" id="data-grid-table" style="min-width: 100%; table-layout: auto;">
+                <div class="table-responsive">
+                    <table class="table table-hover table-striped" id="data-grid-table">
                         <thead class="table-dark sticky-top" style="z-index: 1050;">
                             ${this.renderTableHeader()}
                         </thead>
@@ -102,45 +102,6 @@ class EnhancedDataGrid {
         `;
 
         this.attachEventListeners();
-        this.addResizingSupport();
-    }
-
-    addResizingSupport() {
-        // Add enhanced CSS for better column resizing
-        if (!document.getElementById('enhanced-resize-css')) {
-            const style = document.createElement('style');
-            style.id = 'enhanced-resize-css';
-            style.textContent = `
-                .table-container {
-                    position: relative;
-                }
-                .table th.sortable-header {
-                    resize: horizontal !important;
-                    overflow: auto !important;
-                    min-width: 80px !important;
-                    max-width: 500px !important;
-                    border-right: 2px solid #495057;
-                }
-                .table th.sortable-header::-webkit-resizer {
-                    background: transparent;
-                    width: 8px;
-                }
-                /* Ensure table doesn't constrain column resizing */
-                #data-grid-table {
-                    table-layout: auto !important;
-                    width: max-content !important;
-                    min-width: 100% !important;
-                }
-                /* Show resize cursor on hover */
-                .sortable-header:hover {
-                    cursor: col-resize;
-                }
-                .sortable-header:hover .d-flex {
-                    cursor: pointer;
-                }
-            `;
-            document.head.appendChild(style);
-        }
     }
 
     renderColumnMenu() {
@@ -165,9 +126,9 @@ class EnhancedDataGrid {
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; min-width: 80px; resize: horizontal; overflow: auto;">
-                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                            <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
+                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''}">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
@@ -214,7 +175,7 @@ class EnhancedDataGrid {
                                data-id="${row.id}" ${isSelected ? 'checked' : ''}>
                     </td>
                     ${selectableColumns.map(col => `
-                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: ${col.width || '200px'};" title="${this.getPlainTextValue(row[col.field])}">${this.formatCellValue(row[col.field], col)}</td>
+                        <td>${this.formatCellValue(row[col.field], col)}</td>
                     `).join('')}
                     <td>
                         <div class="btn-group btn-group-sm">
@@ -251,34 +212,6 @@ class EnhancedDataGrid {
         }
     }
 
-    getPlainTextValue(value) {
-        if (value === null || value === undefined) return '';
-        return String(value);
-    }
-
-    updateSelectionInfo() {
-        const selectedCountElement = document.getElementById('selected-count');
-        const totalCountElement = document.getElementById('total-count');
-        
-        if (selectedCountElement) {
-            selectedCountElement.textContent = this.selectedRows.size;
-        }
-        if (totalCountElement) {
-            totalCountElement.textContent = this.filteredData.length;
-        }
-    }
-
-    updateSelectAllCheckbox() {
-        const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        if (selectAllCheckbox && this.filteredData.length > 0) {
-            const allSelected = this.filteredData.every(row => this.selectedRows.has(row.id));
-            const someSelected = this.filteredData.some(row => this.selectedRows.has(row.id));
-            
-            selectAllCheckbox.checked = allSelected;
-            selectAllCheckbox.indeterminate = someSelected && !allSelected;
-        }
-    }
-
     attachEventListeners() {
         // Search functionality
         const searchInput = document.getElementById('grid-search');
@@ -304,9 +237,22 @@ class EnhancedDataGrid {
             });
         });
 
-        // Row selection and select all using event delegation
+        // Select all checkbox
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', (e) => {
+                if (e.target.checked) {
+                    this.filteredData.forEach(row => this.selectedRows.add(row.id));
+                } else {
+                    this.selectedRows.clear();
+                }
+                this.updateTable();
+                this.onSelectionChange(Array.from(this.selectedRows));
+            });
+        }
+
+        // Row selection
         this.container.addEventListener('change', (e) => {
-            // Handle individual row checkboxes
             if (e.target.classList.contains('row-checkbox')) {
                 const id = parseInt(e.target.dataset.id);
                 if (e.target.checked) {
@@ -315,20 +261,6 @@ class EnhancedDataGrid {
                     this.selectedRows.delete(id);
                 }
                 this.updateSelectionInfo();
-                this.updateSelectAllCheckbox();
-                this.onSelectionChange(Array.from(this.selectedRows));
-            }
-            
-            // Handle select all checkbox
-            if (e.target.id === 'select-all-checkbox') {
-                if (e.target.checked) {
-                    // Select all filtered rows
-                    this.filteredData.forEach(row => this.selectedRows.add(row.id));
-                } else {
-                    // Clear all selections
-                    this.selectedRows.clear();
-                }
-                this.updateTable();
                 this.onSelectionChange(Array.from(this.selectedRows));
             }
         });
@@ -446,7 +378,6 @@ class EnhancedDataGrid {
             thead.innerHTML = this.renderTableHeader();
         }
         this.updateSelectionInfo();
-        this.updateSelectAllCheckbox();
     }
 
     updateSelectionInfo() {
