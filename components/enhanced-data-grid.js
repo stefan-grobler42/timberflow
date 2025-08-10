@@ -512,6 +512,45 @@ class EnhancedDataGrid {
         }
     }
 
+    calculateOptimalColumnWidth(field) {
+        // Find the column definition
+        const column = this.columns.find(col => col.field === field);
+        if (!column) return 150;
+
+        // Create a temporary element to measure text width
+        const tempDiv = document.createElement('div');
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.visibility = 'hidden';
+        tempDiv.style.whiteSpace = 'nowrap';
+        tempDiv.style.font = window.getComputedStyle(this.container.querySelector('table')).font;
+        document.body.appendChild(tempDiv);
+
+        let maxWidth = 0;
+
+        // Measure header width
+        tempDiv.textContent = column.header;
+        maxWidth = Math.max(maxWidth, tempDiv.offsetWidth);
+
+        // Measure data content width (sample up to 20 rows for performance)
+        const sampleData = this.filteredData.slice(0, 20);
+        sampleData.forEach(row => {
+            const value = this.formatCellValue(row[field], column);
+            // Remove HTML tags for width calculation
+            const textValue = value.replace(/<[^>]*>/g, '');
+            tempDiv.textContent = textValue;
+            maxWidth = Math.max(maxWidth, tempDiv.offsetWidth);
+        });
+
+        document.body.removeChild(tempDiv);
+
+        // Add padding and minimum/maximum constraints
+        const padding = 40; // Account for cell padding and sort icons
+        const minWidth = 80;
+        const maxWidth_limit = 400;
+        
+        return Math.min(Math.max(maxWidth + padding, minWidth), maxWidth_limit);
+    }
+
     initializeColumnResizing() {
         let isResizing = false;
         let startX = 0;
@@ -529,6 +568,45 @@ class EnhancedDataGrid {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent other click events
                 document.body.style.cursor = 'col-resize';
+            }
+        });
+
+        // Double-click to auto-fit column width
+        this.container.addEventListener('dblclick', (e) => {
+            if (e.target.classList.contains('column-resizer')) {
+                const th = e.target.parentElement;
+                const field = th.dataset.field;
+                if (field) {
+                    const optimalWidth = this.calculateOptimalColumnWidth(field);
+                    th.style.width = optimalWidth + 'px';
+                    
+                    // Update corresponding body cells
+                    const columnIndex = Array.from(th.parentElement.children).indexOf(th);
+                    const tbody = this.container.querySelector('#grid-tbody');
+                    if (tbody) {
+                        const rows = tbody.querySelectorAll('tr');
+                        rows.forEach(row => {
+                            const cell = row.children[columnIndex];
+                            if (cell) {
+                                cell.style.width = optimalWidth + 'px';
+                            }
+                        });
+                    }
+                    
+                    // Store the new width
+                    this.columnWidths.set(field, optimalWidth);
+                    this.saveColumnWidths();
+                    
+                    // Update table width
+                    const table = this.container.querySelector('#data-grid-table');
+                    if (table) {
+                        const totalWidth = Array.from(th.parentElement.children)
+                            .reduce((sum, header) => sum + parseInt(window.getComputedStyle(header).width, 10), 0);
+                        table.style.minWidth = totalWidth + 'px';
+                    }
+                }
+                e.preventDefault();
+                e.stopPropagation();
             }
         });
 
