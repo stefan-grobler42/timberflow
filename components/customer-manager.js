@@ -37,10 +37,22 @@ class CustomerManager {
     }
 
     init() {
-        console.log('CustomerManager: Initializing...');
-        this.loadSampleData();
-        this.render();
-        console.log('CustomerManager: Ready');
+        try {
+            console.log('CustomerManager: Initializing...');
+            this.loadSampleData();
+            this.render();
+            console.log('CustomerManager: Ready');
+        } catch (error) {
+            console.error('CustomerManager init error:', error);
+            this.container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>Customer Manager Error</h5>
+                    <p>Failed to initialize customer management.</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
+                </div>
+            `;
+        }
     }
 
     loadSampleData() {
@@ -662,81 +674,88 @@ class CustomerManager {
             console.warn('Error in initializeLookupFields:', error);
         }
         
-        // Approval Status
-        const approvalStatusInput = document.getElementById('approvalStatus');
-        if (approvalStatusInput) {
-            this.lookupFields.approvalStatus = createLookupField(approvalStatusInput, this.approvalStatuses, {
-                placeholder: 'Type to search approval statuses...'
-            });
-        }
-        
-        // Sales Representative
-        const salesRepInput = document.getElementById('salesRepresentative');
-        if (salesRepInput) {
-            this.lookupFields.salesRepresentative = createLookupField(salesRepInput, this.employees, {
-                placeholder: 'Type to search employees...'
-            });
-        }
-        
-        // Relationship Types
-        const relationshipInput = document.getElementById('relationshipType');
-        if (relationshipInput) {
-            this.lookupFields.relationshipType = createLookupField(relationshipInput, this.relationshipTypes, {
-                placeholder: 'Type to search relationship types...'
-            });
-        }
-        
-        // Parent Account
-        const parentAccountInput = document.getElementById('parentAccount');
-        if (parentAccountInput) {
-            const parentAccounts = this.data
-                .filter(c => !this.currentItem || c.id !== this.currentItem.id)
-                .map(c => ({ name: c.accountName, value: c.accountName }));
-            
-            this.lookupFields.parentAccount = createLookupField(parentAccountInput, parentAccounts, {
-                placeholder: 'Type to search accounts...'
-            });
-        }
+            // Only initialize remaining lookups if createLookupField is available
+            if (typeof createLookupField !== 'undefined') {
+                // Approval Status
+                const approvalStatusInput = document.getElementById('approvalStatus');
+                if (approvalStatusInput) {
+                    this.lookupFields.approvalStatus = createLookupField(approvalStatusInput, this.approvalStatuses, {
+                        placeholder: 'Type to search approval statuses...'
+                    });
+                }
+                
+                // Sales Representative
+                const salesRepInput = document.getElementById('salesRepresentative');
+                if (salesRepInput) {
+                    this.lookupFields.salesRepresentative = createLookupField(salesRepInput, this.employees, {
+                        placeholder: 'Type to search employees...'
+                    });
+                }
+                
+                // Relationship Types
+                const relationshipInput = document.getElementById('relationshipType');
+                if (relationshipInput) {
+                    this.lookupFields.relationshipType = createLookupField(relationshipInput, this.relationshipTypes, {
+                        placeholder: 'Type to search relationship types...'
+                    });
+                }
+                
+                // Parent Account
+                const parentAccountInput = document.getElementById('parentAccount');
+                if (parentAccountInput) {
+                    const parentAccounts = this.data
+                        .filter(c => !this.currentItem || c.id !== this.currentItem.id)
+                        .map(c => ({ name: c.accountName, value: c.accountName }));
+                    
+                    this.lookupFields.parentAccount = createLookupField(parentAccountInput, parentAccounts, {
+                        placeholder: 'Type to search accounts...'
+                    });
+                }
+            }
     }
     
     initializeLocationPicker() {
-        const container = document.getElementById('enhanced-location-container');
-        const addressInput = document.getElementById('address');
-        const locationDataInput = document.getElementById('location-data');
-        
-        if (container) {
-            // Initialize enhanced location field
-            this.enhancedLocationField = new EnhancedLocationField('enhanced-location-container', {
-                onLocationSelect: (locationData) => {
-                    console.log('Location selected:', locationData);
-                    
-                    // Update hidden fields with location data
-                    if (addressInput) {
-                        addressInput.value = locationData.address || locationData.coordinates;
-                    }
-                    if (locationDataInput) {
-                        locationDataInput.value = JSON.stringify(locationData);
-                    }
-                    
-                    // Store location data for saving
-                    this.currentLocationData = locationData;
-                }
-            });
+        try {
+            const container = document.getElementById('enhanced-location-container');
+            const addressInput = document.getElementById('address');
+            const locationDataInput = document.getElementById('location-data');
             
-            // Load existing location data if available
-            if (this.currentItem && this.currentItem.locationData) {
-                try {
-                    const locationData = typeof this.currentItem.locationData === 'string' 
-                        ? JSON.parse(this.currentItem.locationData) 
-                        : this.currentItem.locationData;
-                    
-                    if (locationData.lat && locationData.lng) {
-                        this.enhancedLocationField.loadSavedLocation(locationData);
+            if (container && typeof EnhancedLocationField !== 'undefined') {
+                // Initialize enhanced location field
+                this.enhancedLocationField = new EnhancedLocationField('enhanced-location-container', {
+                    onLocationSelect: (locationData) => {
+                        console.log('Location selected:', locationData);
+                        
+                        // Update hidden fields with location data
+                        if (addressInput) {
+                            addressInput.value = locationData.address || locationData.coordinates;
+                        }
+                        if (locationDataInput) {
+                            locationDataInput.value = JSON.stringify(locationData);
+                        }
+                        
+                        // Store location data for saving
+                        this.currentLocationData = locationData;
                     }
-                } catch (e) {
-                    console.warn('Could not load saved location data:', e);
+                });
+                
+                // Load existing location data if available
+                if (this.currentItem && this.currentItem.locationData) {
+                    try {
+                        const locationData = typeof this.currentItem.locationData === 'string' 
+                            ? JSON.parse(this.currentItem.locationData) 
+                            : this.currentItem.locationData;
+                        
+                        if (locationData.lat && locationData.lng) {
+                            this.enhancedLocationField.loadSavedLocation(locationData);
+                        }
+                    } catch (e) {
+                        console.warn('Could not load saved location data:', e);
+                    }
                 }
             }
+        } catch (error) {
+            console.warn('Enhanced location field not available:', error);
         }
     }
     

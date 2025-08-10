@@ -680,6 +680,22 @@ class MillenniumERP {
             const content = document.getElementById('main-content');
             content.innerHTML = '<div id="customer-view-container"></div>';
             
+            // Record the view switch in audit trail
+            if (window.universalAuditSystem) {
+                window.universalAuditSystem.recordEvent({
+                    module: 'customer',
+                    recordType: 'view_switch',
+                    recordId: null,
+                    action: 'READ',
+                    changes: { viewType: view },
+                    metadata: {
+                        component: 'MillenniumERP',
+                        automated: false,
+                        source: 'view_selection'
+                    }
+                });
+            }
+            
             if (view === 'grid') {
                 if (typeof CustomerGridManager !== 'undefined') {
                     this.customerGridManager = new CustomerGridManager('customer-view-container');
@@ -700,7 +716,34 @@ class MillenniumERP {
         } catch (error) {
             console.error('Error loading customer view:', error);
             const content = document.getElementById('main-content');
-            content.innerHTML = '<div class="alert alert-danger">Error loading customer management. Please refresh the page.</div>';
+            content.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>Customer Management Error</h5>
+                    <p>There was an error loading the customer management interface.</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
+                </div>
+            `;
+            
+            // Record the error in audit trail
+            if (window.universalAuditSystem) {
+                window.universalAuditSystem.recordEvent({
+                    module: 'system',
+                    recordType: 'error',
+                    recordId: null,
+                    action: 'ERROR',
+                    changes: { 
+                        error: error.message,
+                        stack: error.stack,
+                        view: view 
+                    },
+                    metadata: {
+                        component: 'MillenniumERP',
+                        automated: true,
+                        source: 'error_handler'
+                    }
+                });
+            }
         }
     }
 
