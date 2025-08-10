@@ -335,14 +335,13 @@ class CustomerManager {
     }
 
     renderListView() {
-        // Generate module header using system defaults
-        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management');
-        
         // Initialize enhanced data grid if not already done
         if (!this.dataGrid) {
             this.container.innerHTML = `
-                ${moduleHeader}
                 <div class="customer-manager-container">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
+                    </div>
                     <div id="customer-grid-container"></div>
                 </div>
             `;
@@ -413,51 +412,13 @@ class CustomerManager {
         
         // Update grid data
         this.dataGrid.setData(this.data);
-        
-        // Setup header action handlers
-        this.setupHeaderActions();
-    }
-
-    setupHeaderActions() {
-        // Add event listeners for header actions
-        this.container.addEventListener('click', (e) => {
-            const action = e.target.getAttribute('data-action');
-            if (action) {
-                e.preventDefault();
-                this.handleHeaderAction(action);
-            }
-        });
-    }
-
-    handleHeaderAction(action) {
-        switch (action) {
-            case 'new-record':
-                this.newCustomer();
-                break;
-            case 'export-excel':
-                if (this.dataGrid) {
-                    this.dataGrid.exportToExcel();
-                }
-                break;
-            case 'refresh':
-                this.render();
-                break;
-            case 'back-to-list':
-                this.currentView = 'list';
-                this.render();
-                break;
-        }
     }
 
     renderFormView() {
         const customer = this.currentItem || this.getEmptyCustomer();
         const isEdit = this.currentItem !== null;
 
-        // Generate module header for form view
-        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management', null, true);
-
         this.container.innerHTML = `
-            ${moduleHeader}
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -664,8 +625,6 @@ class CustomerManager {
         `;
 
         this.attachFormEventListeners();
-        
-        // Header actions already set up in attachFormEventListeners
     }
 
     attachListEventListeners() {
@@ -742,15 +701,6 @@ class CustomerManager {
         if (backBtn) {
             backBtn.addEventListener('click', () => this.handleBackToList());
         }
-        
-        // Setup header action handlers  
-        this.container.addEventListener('click', (e) => {
-            const action = e.target.getAttribute('data-action');
-            if (action === 'back-to-list') {
-                e.preventDefault();
-                this.handleBackToList();
-            }
-        });
 
         const undoBtn = document.getElementById('undo-changes-btn');
         if (undoBtn) {
