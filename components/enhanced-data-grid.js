@@ -102,6 +102,31 @@ class EnhancedDataGrid {
         `;
 
         this.attachEventListeners();
+        this.addResizableColumns();
+    }
+
+    addResizableColumns() {
+        // Add CSS for column resizing
+        if (!document.getElementById('resizable-columns-css')) {
+            const style = document.createElement('style');
+            style.id = 'resizable-columns-css';
+            style.textContent = `
+                .resizable-column {
+                    resize: horizontal !important;
+                    overflow: auto !important;
+                    min-width: 80px !important;
+                    max-width: 500px !important;
+                }
+                .resizable-column::-webkit-resizer {
+                    background: #007bff;
+                    border-radius: 2px;
+                }
+                .table th.resizable-column {
+                    border-right: 2px solid #dee2e6;
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 
     renderColumnMenu() {
@@ -126,7 +151,7 @@ class EnhancedDataGrid {
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; resize: horizontal; overflow: hidden;">
+                    <th class="sortable-header resizable-column" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; resize: horizontal; overflow: auto; min-width: 80px;">
                         <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
                             <span class="sort-indicator">
