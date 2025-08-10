@@ -692,8 +692,59 @@ function launchCharterModule(moduleName) {
         case 'Customers':
             launchCustomersModule();
             break;
+        case 'Contacts':
+            launchGenericModule('Contacts', ContactsModule);
+            break;
+        case 'Employees':
+            launchGenericModule('Employees', EmployeesModule);
+            break;
+        case 'Projects':
+            launchGenericModule('Projects', ProjectsModule);
+            break;
+        case 'Quotes':
+            launchGenericModule('Quotes', QuotesModule);
+            break;
+        case 'Tenders':
+            launchGenericModule('Tenders', TendersModule);
+            break;
+        case 'Orders':
+            launchGenericModule('Orders', OrdersModule);
+            break;
+        case 'StockItems':
+            launchGenericModule('StockItems', StockItemsModule);
+            break;
+        case 'Tasks':
+            launchGenericModule('Tasks', TasksModule);
+            break;
+        case 'PhoneCalls':
+            launchGenericModule('PhoneCalls', PhoneCallsModule);
+            break;
+        case 'Emails':
+            launchGenericModule('Emails', EmailsModule);
+            break;
+        case 'Meetings':
+            launchGenericModule('Meetings', MeetingsModule);
+            break;
         case 'Products':
             launchProductsModule();
+            break;
+        case 'UnitsOfMeasure':
+            launchGenericModule('UnitsOfMeasure', UnitsOfMeasureModule);
+            break;
+        case 'ItemTypes':
+            launchGenericModule('ItemTypes', ItemTypesModule);
+            break;
+        case 'Categories':
+            launchGenericModule('Categories', CategoriesModule);
+            break;
+        case 'CompanyTypes':
+            launchGenericModule('CompanyTypes', CompanyTypesModule);
+            break;
+        case 'AccountTypes':
+            launchGenericModule('AccountTypes', AccountTypesModule);
+            break;
+        case 'AccountRelationships':
+            launchGenericModule('AccountRelationships', AccountRelationshipsModule);
             break;
         default:
             console.warn(`Module ${moduleName} not implemented yet`);
@@ -726,6 +777,33 @@ function launchProductsModule() {
     console.log('Loading Products module...');
     // TODO: Implement charter-compliant Products module
     console.log('Products module: Coming soon');
+}
+
+function launchGenericModule(moduleName, moduleClass) {
+    console.log(`Loading ${moduleName} module...`);
+    
+    const tabId = moduleName.toLowerCase();
+    const tab = document.getElementById(tabId) || document.querySelector(`[data-tab="${tabId}"]`);
+    const contentDiv = document.getElementById(`${tabId}-content`);
+    
+    if (tab && contentDiv) {
+        // Show the tab
+        tab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(t => {
+            if (t.id !== `${tabId}-content`) t.classList.remove('active');
+        });
+        
+        // Load the module if available and not already loaded
+        if (!contentDiv.hasChildNodes() && window[moduleClass]) {
+            console.log(`${moduleName}: Initializing...`);
+            const moduleInstance = new window[moduleClass](contentDiv);
+            console.log(`${moduleName}: Ready`);
+        } else if (!window[moduleClass]) {
+            console.log(`${moduleName} module: Coming soon`);
+        }
+    } else {
+        console.warn(`Tab or content area not found for ${moduleName}`);
+    }
 }
 
 // Charter-compliant platform health check

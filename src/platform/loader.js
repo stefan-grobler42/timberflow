@@ -136,8 +136,28 @@ class PlatformLoader {
      */
     async loadModules() {
         const modules = [
+            // Core Business Modules
             { name: 'Customers', path: 'src/modules/customers/index.jsx' },
-            { name: 'Products', path: 'src/modules/products/index.jsx' }
+            { name: 'Contacts', path: 'src/modules/contacts/index.jsx' },
+            { name: 'Employees', path: 'src/modules/employees/index.jsx' },
+            { name: 'Projects', path: 'src/modules/projects/index.jsx' },
+            { name: 'Quotes', path: 'src/modules/quotes/index.jsx' },
+            { name: 'Tenders', path: 'src/modules/tenders/index.jsx' },
+            { name: 'Orders', path: 'src/modules/orders/index.jsx' },
+            { name: 'StockItems', path: 'src/modules/stockitems/index.jsx' },
+            { name: 'Tasks', path: 'src/modules/tasks/index.jsx' },
+            { name: 'PhoneCalls', path: 'src/modules/phonecalls/index.jsx' },
+            { name: 'Emails', path: 'src/modules/emails/index.jsx' },
+            { name: 'Meetings', path: 'src/modules/meetings/index.jsx' },
+            { name: 'Products', path: 'src/modules/products/index.jsx' },
+            
+            // Settings Modules
+            { name: 'UnitsOfMeasure', path: 'src/modules/settings/unitsofmeasure/index.jsx' },
+            { name: 'ItemTypes', path: 'src/modules/settings/itemtypes/index.jsx' },
+            { name: 'Categories', path: 'src/modules/settings/categories/index.jsx' },
+            { name: 'CompanyTypes', path: 'src/modules/settings/companytypes/index.jsx' },
+            { name: 'AccountTypes', path: 'src/modules/settings/accounttypes/index.jsx' },
+            { name: 'AccountRelationships', path: 'src/modules/settings/accountrelationships/index.jsx' }
         ];
 
         for (const module of modules) {
