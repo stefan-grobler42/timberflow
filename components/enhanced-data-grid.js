@@ -126,9 +126,9 @@ class EnhancedDataGrid {
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''}">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>${col.header}</span>
+                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; resize: horizontal; overflow: hidden;">
+                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                            <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
@@ -175,7 +175,7 @@ class EnhancedDataGrid {
                                data-id="${row.id}" ${isSelected ? 'checked' : ''}>
                     </td>
                     ${selectableColumns.map(col => `
-                        <td>${this.formatCellValue(row[col.field], col)}</td>
+                        <td style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: ${col.width || '200px'};" title="${this.getPlainTextValue(row[col.field])}">${this.formatCellValue(row[col.field], col)}</td>
                     `).join('')}
                     <td>
                         <div class="btn-group btn-group-sm">
@@ -209,6 +209,34 @@ class EnhancedDataGrid {
                 return `<span class="badge ${badgeClass}">${value}</span>`;
             default:
                 return String(value);
+        }
+    }
+
+    getPlainTextValue(value) {
+        if (value === null || value === undefined) return '';
+        return String(value);
+    }
+
+    updateSelectionInfo() {
+        const selectedCountElement = document.getElementById('selected-count');
+        const totalCountElement = document.getElementById('total-count');
+        
+        if (selectedCountElement) {
+            selectedCountElement.textContent = this.selectedRows.size;
+        }
+        if (totalCountElement) {
+            totalCountElement.textContent = this.filteredData.length;
+        }
+    }
+
+    updateSelectAllCheckbox() {
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        if (selectAllCheckbox && this.filteredData.length > 0) {
+            const allSelected = this.filteredData.every(row => this.selectedRows.has(row.id));
+            const someSelected = this.filteredData.some(row => this.selectedRows.has(row.id));
+            
+            selectAllCheckbox.checked = allSelected;
+            selectAllCheckbox.indeterminate = someSelected && !allSelected;
         }
     }
 
@@ -261,6 +289,7 @@ class EnhancedDataGrid {
                     this.selectedRows.delete(id);
                 }
                 this.updateSelectionInfo();
+                this.updateSelectAllCheckbox();
                 this.onSelectionChange(Array.from(this.selectedRows));
             }
         });
@@ -378,6 +407,7 @@ class EnhancedDataGrid {
             thead.innerHTML = this.renderTableHeader();
         }
         this.updateSelectionInfo();
+        this.updateSelectAllCheckbox();
     }
 
     updateSelectionInfo() {
