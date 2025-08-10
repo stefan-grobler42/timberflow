@@ -261,24 +261,17 @@ class SystemSidebar {
             }
         });
 
-        // Listen for external navigation events
-        document.addEventListener('millennium-module-navigate', (event) => {
+        // Listen for external navigation events - only for sidebar updates, not navigation
+        document.addEventListener('sidebar-update-active', (event) => {
             if (event.detail.module) {
-                this.navigateToModule(event.detail.module);
+                this.updateActiveState(event.detail.module);
             }
         });
     }
 
     navigateToModule(moduleName) {
         // Update active state
-        document.querySelectorAll('[data-module]').forEach(link => {
-            link.classList.remove('active');
-        });
-        
-        const activeLink = document.querySelector(`[data-module="${moduleName}"]`);
-        if (activeLink) {
-            activeLink.classList.add('active');
-        }
+        this.updateActiveState(moduleName);
 
         // Add to recent items
         this.addToRecent(moduleName);
@@ -291,6 +284,20 @@ class SystemSidebar {
         document.dispatchEvent(new CustomEvent('millennium-module-navigate', {
             detail: { module: moduleName }
         }));
+    }
+
+    updateActiveState(moduleName) {
+        // Update active state only
+        document.querySelectorAll('[data-module]').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        const activeLink = document.querySelector(`[data-module="${moduleName}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+
+        this.currentModule = moduleName;
     }
 
     addToRecent(moduleName) {

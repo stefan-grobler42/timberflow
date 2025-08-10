@@ -76,9 +76,9 @@ class ModuleManager {
                 break;
         }
         
-        // Update sidebar active state (if sidebar is available)
+        // Update sidebar active state (if sidebar is available) - but don't trigger navigation event
         if (window.millenniumSidebar) {
-            window.millenniumSidebar.navigateToModule(moduleName);
+            window.millenniumSidebar.updateActiveState(moduleName);
         }
     }
 
