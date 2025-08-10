@@ -10,6 +10,9 @@ class SimpleStockManager {
         this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
+        // Enhanced grid
+        this.dataGrid = null;
+        
         // Reference data for lookups
         this.itemTypes = ['Manufactured', 'Standard', 'Service'];
         this.categories = ['Timber Trusses', 'Structural Timber', 'Hardware', 'Sheeting', 'Insulation', 'Labour', 'Transport'];
@@ -121,57 +124,50 @@ class SimpleStockManager {
     }
 
     renderListView() {
-        console.log('Rendering list view to container:', this.container);
-        this.container.innerHTML = `
-            <div class="stock-manager-container">
-                <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h3><i class="fas fa-boxes me-2 text-primary"></i>Stock Items</h3>
-                    <div class="btn-group">
-                        <button class="btn btn-primary" id="new-item-btn">
-                            <i class="fas fa-plus me-1"></i>New Item
-                        </button>
-                        <button class="btn btn-outline-secondary" id="refresh-btn">
-                            <i class="fas fa-sync-alt me-1"></i>Refresh
-                        </button>
+        // Initialize enhanced data grid if not already done
+        if (!this.dataGrid) {
+            this.container.innerHTML = `
+                <div class="stock-manager-container">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-boxes"></i> Stock Management</h2>
                     </div>
+                    <div id="stock-grid-container"></div>
                 </div>
+            `;
 
-                <!-- Search Bar -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" id="search-input" 
-                                   placeholder="Search stock items..." value="${this.searchTerm}">
-                        </div>
-                    </div>
-                </div>
+            const gridConfig = {
+                entityName: 'Stock Item',
+                columns: [
+                    { field: 'itemCode', header: 'Item Code', width: '120px' },
+                    { field: 'description', header: 'Description', width: '250px' },
+                    { field: 'itemType', header: 'Type', type: 'badge', width: '120px',
+                      badgeClasses: {
+                        'Manufactured': 'bg-primary',
+                        'Standard': 'bg-success',
+                        'Service': 'bg-info'
+                      }
+                    },
+                    { field: 'category', header: 'Category', width: '150px' },
+                    { field: 'stockUom', header: 'UOM', width: '80px' },
+                    { field: 'currentStock', header: 'Current Stock', type: 'number', width: '120px' },
+                    { field: 'minimumStock', header: 'Min Stock', type: 'number', width: '100px' },
+                    { field: 'unitCost', header: 'Unit Cost', type: 'currency', width: '120px' },
+                    { field: 'unitPrice', header: 'Unit Price', type: 'currency', width: '120px' },
+                    { field: 'isActive', header: 'Active', type: 'boolean', width: '80px' }
+                ],
+                onRowClick: (id) => this.editItem(id),
+                onNew: () => this.showForm(),
+                onDelete: (id) => this.deleteItem(id),
+                onSelectionChange: (selectedIds) => {
+                    console.log('Selected stock items:', selectedIds);
+                }
+            };
 
-                <!-- Data Table -->
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Item Code</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th>Category</th>
-                                <th>Stock</th>
-                                <th>Unit Price</th>
-                                <th>Status</th>
-                                <th width="120">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.renderTableRows()}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-
-        this.setupListEvents();
+            this.dataGrid = new EnhancedDataGrid('stock-grid-container', gridConfig);
+        }
+        
+        // Update grid data
+        this.dataGrid.setData(this.data);
     }
 
     renderTableRows() {

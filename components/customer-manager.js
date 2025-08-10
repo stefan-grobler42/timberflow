@@ -10,6 +10,9 @@ class CustomerManager {
         this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
+        // Enhanced grid
+        this.dataGrid = null;
+        
         // Reference data for lookups
         this.companyTypes = ['Sole Proprietor', 'Private Company', 'Public Company', 'Close Corporation', 'Partnership', 'Trust', 'Individual'];
         this.accountTypes = ['Prospect', 'Customer', 'Supplier', 'Partner', 'Competitor'];
@@ -110,6 +113,171 @@ class CustomerManager {
                 quotesRequested: 5,
                 totalQuoteValue: 180000,
                 isActive: true
+            },
+            {
+                id: 4,
+                accountNo: 'CUST004',
+                accountName: 'Pretoria Property Group',
+                companyType: 'Private Company',
+                companyRegistrationNo: '2017/456789/07',
+                vatRegistrationNo: '4456789012',
+                phone: '+27 12 567 8901',
+                email: 'contracts@ppg.co.za',
+                website: 'https://www.ppg.co.za',
+                parentAccount: null,
+                accountType: 'Customer',
+                customerStatus: 'Credit Approved',
+                approvalStatus: 'Approved',
+                salesRepresentative: 'Lisa Davis',
+                relationshipType: 'Customer',
+                primaryContact: 'Robert Clark',
+                address: '321 Capital Rd, Pretoria, 0001',
+                dateCreated: '2024-06-10',
+                quotesRequested: 12,
+                totalQuoteValue: 1200000,
+                ordersPlaced: 5,
+                isActive: true
+            },
+            {
+                id: 5,
+                accountNo: 'PROS005',
+                accountName: 'Coastal Homes CC',
+                companyType: 'Close Corporation',
+                companyRegistrationNo: 'CK2021/567890/23',
+                vatRegistrationNo: '4567890123',
+                phone: '+27 39 678 9012',
+                email: 'info@coastalhomes.co.za',
+                website: 'https://www.coastalhomes.co.za',
+                parentAccount: null,
+                accountType: 'Prospect',
+                customerStatus: 'Prospect',
+                approvalStatus: 'Pending',
+                salesRepresentative: 'John Smith',
+                relationshipType: 'Customer',
+                primaryContact: 'Emma Taylor',
+                address: '654 Beach Front Dr, Port Elizabeth, 6001',
+                dateCreated: '2025-07-05',
+                quotesRequested: 2,
+                totalQuoteValue: 95000,
+                isActive: true
+            },
+            {
+                id: 6,
+                accountNo: 'CUST006',
+                accountName: 'Midlands Construction',
+                companyType: 'Private Company',
+                companyRegistrationNo: '2015/678901/07',
+                vatRegistrationNo: '4678901234',
+                phone: '+27 33 789 0123',
+                email: 'projects@midlands.co.za',
+                website: 'https://www.midlands.co.za',
+                parentAccount: null,
+                accountType: 'Customer',
+                customerStatus: 'Confirmed Customer',
+                approvalStatus: 'References Check',
+                salesRepresentative: 'Sarah Johnson',
+                relationshipType: 'Customer',
+                primaryContact: 'James Wilson',
+                address: '987 Industrial Ave, Pietermaritzburg, 3200',
+                dateCreated: '2024-08-22',
+                quotesRequested: 15,
+                totalQuoteValue: 890000,
+                ordersPlaced: 3,
+                isActive: true
+            },
+            {
+                id: 7,
+                accountNo: 'SUPP007',
+                accountName: 'Northern Timber Supplies',
+                companyType: 'Private Company',
+                companyRegistrationNo: '2020/789012/07',
+                vatRegistrationNo: '4789012345',
+                phone: '+27 15 890 1234',
+                email: 'sales@northerntimber.co.za',
+                website: 'https://www.northerntimber.co.za',
+                parentAccount: null,
+                accountType: 'Supplier',
+                customerStatus: 'Confirmed Customer',
+                approvalStatus: 'Approved',
+                salesRepresentative: 'Mike Brown',
+                relationshipType: 'Supplier',
+                primaryContact: 'Paul Anderson',
+                address: '456 Timber Mills Rd, Polokwane, 0700',
+                dateCreated: '2024-03-15',
+                quotesRequested: 0,
+                totalQuoteValue: 0,
+                ordersPlaced: 0,
+                isActive: true
+            },
+            {
+                id: 8,
+                accountNo: 'PROS008',
+                accountName: 'Garden Route Developments',
+                companyType: 'Private Company',
+                companyRegistrationNo: '2022/890123/07',
+                vatRegistrationNo: '4890123456',
+                phone: '+27 44 901 2345',
+                email: 'info@gardenroute.co.za',
+                website: 'https://www.gardenroute.co.za',
+                parentAccount: null,
+                accountType: 'Prospect',
+                customerStatus: 'Account Under Review',
+                approvalStatus: 'Payment History Review',
+                salesRepresentative: 'Lisa Davis',
+                relationshipType: 'Customer',
+                primaryContact: 'Michelle Roberts',
+                address: '123 Ocean View Dr, George, 6530',
+                dateCreated: '2025-06-18',
+                quotesRequested: 7,
+                totalQuoteValue: 420000,
+                isActive: true
+            },
+            {
+                id: 9,
+                accountNo: 'CUST009',
+                accountName: 'Free State Builders',
+                companyType: 'Partnership',
+                companyRegistrationNo: 'P2019/901234/21',
+                vatRegistrationNo: '4901234567',
+                phone: '+27 51 012 3456',
+                email: 'admin@fsbuilders.co.za',
+                website: 'https://www.fsbuilders.co.za',
+                parentAccount: null,
+                accountType: 'Customer',
+                customerStatus: 'Credit Approved',
+                approvalStatus: 'Approved',
+                salesRepresentative: 'John Smith',
+                relationshipType: 'Customer',
+                primaryContact: 'Kevin Miller',
+                address: '789 Central Ave, Bloemfontein, 9300',
+                dateCreated: '2024-01-12',
+                quotesRequested: 18,
+                totalQuoteValue: 1350000,
+                ordersPlaced: 6,
+                isActive: true
+            },
+            {
+                id: 10,
+                accountNo: 'PROS010',
+                accountName: 'West Rand Properties',
+                companyType: 'Private Company',
+                companyRegistrationNo: '2023/012345/07',
+                vatRegistrationNo: '5012345678',
+                phone: '+27 11 123 4567',
+                email: 'projects@westrand.co.za',
+                website: null,
+                parentAccount: null,
+                accountType: 'Prospect',
+                customerStatus: 'Prospect',
+                approvalStatus: 'Pending',
+                salesRepresentative: 'Mike Brown',
+                relationshipType: 'Customer',
+                primaryContact: 'Sandra Lewis',
+                address: '321 Mining Rd, Krugersdorp, 1739',
+                dateCreated: '2025-07-28',
+                quotesRequested: 1,
+                totalQuoteValue: 65000,
+                isActive: true
             }
         ];
         
@@ -167,106 +335,83 @@ class CustomerManager {
     }
 
     renderListView() {
-        this.container.innerHTML = `
-            <div class="customer-manager-container">
-                <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
-                    <button class="btn btn-primary" id="new-customer-btn">
-                        <i class="fas fa-plus"></i> New Customer
-                    </button>
-                </div>
-
-                <!-- Search and Filters -->
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-4">
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    <input type="text" class="form-control" id="customer-search" 
-                                           placeholder="Search customers..." value="${this.searchTerm}">
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="account-type-filter">
-                                    <option value="">All Account Types</option>
-                                    ${this.accountTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <select class="form-select" id="company-type-filter">
-                                    <option value="">All Company Types</option>
-                                    ${this.companyTypes.map(type => `<option value="${type}">${type}</option>`).join('')}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <select class="form-select" id="status-filter">
-                                    <option value="">All Status</option>
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
+        // Initialize enhanced data grid if not already done
+        if (!this.dataGrid) {
+            this.container.innerHTML = `
+                <div class="customer-manager-container">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
                     </div>
+                    <div id="customer-grid-container"></div>
                 </div>
+            `;
 
-                <!-- Customer List -->
-                <div class="card">
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Account No.</th>
-                                        <th>Account Name</th>
-                                        <th>Company Type</th>
-                                        <th>Phone</th>
-                                        <th>Sales Rep</th>
-                                        <th>Account Type</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${this.getFilteredData().map(customer => `
-                                        <tr class="clickable-row" data-id="${customer.id}" style="cursor: pointer;">
-                                            <td><strong>${customer.accountNo}</strong></td>
-                                            <td>${customer.accountName}</td>
-                                            <td><span class="badge bg-info">${customer.companyType}</span></td>
-                                            <td>${customer.phone}</td>
-                                            <td>${customer.salesRepresentative}</td>
-                                            <td><span class="badge bg-primary">${customer.accountType}</span></td>
-                                            <td>
-                                                <span class="badge ${customer.isActive ? 'bg-success' : 'bg-danger'}">
-                                                    ${customer.isActive ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${customer.id}">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${customer.id}">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div class="d-flex justify-content-between align-items-center mt-3">
-                            <div class="text-muted">
-                                Showing ${this.getFilteredData().length} customers
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
+            const gridConfig = {
+                entityName: 'Customer',
+                columns: [
+                    { field: 'accountNo', header: 'Account No.', width: '120px' },
+                    { field: 'accountName', header: 'Account Name', width: '200px' },
+                    { field: 'companyType', header: 'Company Type', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Private Company': 'bg-primary',
+                        'Close Corporation': 'bg-info',
+                        'Partnership': 'bg-success',
+                        'Sole Proprietor': 'bg-warning',
+                        'Public Company': 'bg-dark',
+                        'Trust': 'bg-secondary',
+                        'Individual': 'bg-light text-dark'
+                      }
+                    },
+                    { field: 'phone', header: 'Phone', width: '150px' },
+                    { field: 'email', header: 'Email', width: '200px' },
+                    { field: 'salesRepresentative', header: 'Sales Rep', width: '120px' },
+                    { field: 'accountType', header: 'Account Type', type: 'badge', width: '120px',
+                      badgeClasses: {
+                        'Prospect': 'bg-warning',
+                        'Customer': 'bg-success',
+                        'Supplier': 'bg-info',
+                        'Partner': 'bg-primary',
+                        'Competitor': 'bg-danger'
+                      }
+                    },
+                    { field: 'customerStatus', header: 'Customer Status', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Prospect': 'bg-warning',
+                        'Confirmed Customer': 'bg-success',
+                        'Account Under Review': 'bg-info',
+                        'Credit Approved': 'bg-primary',
+                        'Account Closed': 'bg-danger'
+                      }
+                    },
+                    { field: 'approvalStatus', header: 'Approval Status', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Pending': 'bg-warning',
+                        'Credit App Required': 'bg-info',
+                        'References Check': 'bg-secondary',
+                        'Payment History Review': 'bg-primary',
+                        'Approved': 'bg-success',
+                        'Rejected': 'bg-danger'
+                      }
+                    },
+                    { field: 'quotesRequested', header: 'Quotes', type: 'number', width: '80px' },
+                    { field: 'totalQuoteValue', header: 'Quote Value', type: 'currency', width: '120px' },
+                    { field: 'ordersPlaced', header: 'Orders', type: 'number', width: '80px' },
+                    { field: 'dateCreated', header: 'Date Created', type: 'date', width: '120px' },
+                    { field: 'isActive', header: 'Active', type: 'boolean', width: '80px' }
+                ],
+                onRowClick: (id) => this.editCustomer(id),
+                onNew: () => this.newCustomer(),
+                onDelete: (id) => this.deleteCustomer(id),
+                onSelectionChange: (selectedIds) => {
+                    console.log('Selected customers:', selectedIds);
+                }
+            };
 
-        this.attachListEventListeners();
+            this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
+        }
+        
+        // Update grid data
+        this.dataGrid.setData(this.data);
     }
 
     renderFormView() {
