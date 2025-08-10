@@ -335,13 +335,14 @@ class CustomerManager {
     }
 
     renderListView() {
+        // Generate module header using system defaults
+        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management');
+        
         // Initialize enhanced data grid if not already done
         if (!this.dataGrid) {
             this.container.innerHTML = `
+                ${moduleHeader}
                 <div class="customer-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
-                    </div>
                     <div id="customer-grid-container"></div>
                 </div>
             `;

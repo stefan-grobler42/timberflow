@@ -405,13 +405,13 @@ class MillenniumERP {
                 this.loadQuoteBuilderContext();
                 break;
             case 'stock-items':
-                if (!this.simpleStockManager) {
-                    this.simpleStockManager = new SimpleStockManager('stock-items-content');
+                if (!this.stockManager) {
+                    this.stockManager = new StockManager('stock-items-content');
                 }
                 break;
             case 'stock-management':
-                if (!this.simpleStockManager) {
-                    this.simpleStockManager = new SimpleStockManager('stock-management-content');
+                if (!this.stockManager) {
+                    this.stockManager = new StockManager('stock-management-content');
                 }
                 break;
             case 'customers':

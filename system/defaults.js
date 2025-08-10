@@ -24,6 +24,60 @@ class SystemDefaults {
     }
 
     // ===========================================
+    // MODULE HEADER BAR DEFAULTS
+    // ===========================================
+    static get HEADER_BAR_DEFAULTS() {
+        return {
+            // Standard action button groups
+            actionGroups: {
+                create: {
+                    label: 'Create',
+                    icon: 'fas fa-plus',
+                    variant: 'primary',
+                    actions: ['New Record', 'Import Data', 'Quick Add']
+                },
+                edit: {
+                    label: 'Edit',
+                    icon: 'fas fa-edit',
+                    variant: 'outline-primary',
+                    actions: ['Edit Selected', 'Bulk Edit', 'Copy Record']
+                },
+                export: {
+                    label: 'Export',
+                    icon: 'fas fa-download',
+                    variant: 'outline-secondary',
+                    actions: ['Export Excel', 'Export PDF', 'Export Selected']
+                },
+                tools: {
+                    label: 'Tools',
+                    icon: 'fas fa-tools',
+                    variant: 'outline-info',
+                    actions: ['Refresh', 'Settings', 'Help']
+                }
+            },
+
+            // Tab configuration for forms
+            formTabs: {
+                customer: [
+                    { id: 'general', label: 'General', icon: 'fas fa-info-circle' },
+                    { id: 'contacts', label: 'Contacts', icon: 'fas fa-users' },
+                    { id: 'timeline', label: 'Timeline', icon: 'fas fa-history' },
+                    { id: 'projects', label: 'Projects', icon: 'fas fa-building' },
+                    { id: 'financial', label: 'Financial', icon: 'fas fa-dollar-sign' },
+                    { id: 'documents', label: 'Documents', icon: 'fas fa-file-alt' }
+                ],
+                stock: [
+                    { id: 'general', label: 'General', icon: 'fas fa-info-circle' },
+                    { id: 'pricing', label: 'Pricing', icon: 'fas fa-dollar-sign' },
+                    { id: 'inventory', label: 'Inventory', icon: 'fas fa-warehouse' },
+                    { id: 'suppliers', label: 'Suppliers', icon: 'fas fa-truck' },
+                    { id: 'history', label: 'History', icon: 'fas fa-history' }
+                ]
+            }
+        };
+    }
+
+    // ===========================================
     // ENHANCED DATA GRID DEFAULTS
     // ===========================================
     static get GRID_DEFAULTS() {
@@ -43,6 +97,14 @@ class SystemDefaults {
                 boolean: '80px',
                 status: '100px',
                 actions: '120px'
+            },
+
+            // Module header bar with action groups
+            moduleHeader: {
+                showActionBar: true,
+                showBreadcrumb: true,
+                showSearch: true,
+                defaultActionGroups: ['create', 'edit', 'export', 'tools']
             },
 
             // Standard column types and their formatting
@@ -274,6 +336,127 @@ class SystemDefaults {
         Object.entries(colors).forEach(([key, value]) => {
             root.style.setProperty(`--millennium-${key}`, value);
         });
+    }
+
+    /**
+     * Generate module header bar HTML
+     */
+    static generateModuleHeader(moduleName, customGroups = null) {
+        const headerDefaults = this.HEADER_BAR_DEFAULTS;
+        const actionGroups = customGroups || headerDefaults.actionGroups;
+        
+        let headerHtml = `
+            <div class="millennium-module-header bg-white border-bottom mb-4 py-3">
+                <div class="container-fluid">
+                    <!-- Breadcrumb -->
+                    <nav aria-label="breadcrumb" class="mb-2">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="#" class="text-decoration-none">Home</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">${moduleName}</li>
+                        </ol>
+                    </nav>
+                    
+                    <!-- Action Bar -->
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0 fw-bold" style="color: var(--millennium-dark);">
+                            <i class="fas fa-${this.getModuleIcon(moduleName)} me-2" style="color: var(--millennium-primary);"></i>
+                            ${moduleName}
+                        </h4>
+                        
+                        <div class="btn-toolbar" role="toolbar">`;
+        
+        // Generate action button groups
+        Object.entries(actionGroups).forEach(([key, group]) => {
+            headerHtml += `
+                <div class="btn-group me-2" role="group">
+                    <button type="button" class="btn btn-${group.variant} dropdown-toggle" 
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="${group.icon} me-1"></i> ${group.label}
+                    </button>
+                    <ul class="dropdown-menu">`;
+            
+            group.actions.forEach(action => {
+                headerHtml += `<li><a class="dropdown-item" href="#" data-action="${action.toLowerCase().replace(' ', '-')}">${action}</a></li>`;
+            });
+            
+            headerHtml += `</ul></div>`;
+        });
+        
+        headerHtml += `
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        
+        return headerHtml;
+    }
+
+    /**
+     * Generate form tabs HTML
+     */
+    static generateFormTabs(moduleType, activeTab = null) {
+        const headerDefaults = this.HEADER_BAR_DEFAULTS;
+        const tabs = headerDefaults.formTabs[moduleType.toLowerCase()] || [];
+        
+        if (tabs.length === 0) return '';
+        
+        let tabsHtml = `
+            <div class="millennium-form-tabs">
+                <ul class="nav nav-tabs border-bottom-0 mb-3" id="form-tabs" role="tablist">`;
+        
+        tabs.forEach((tab, index) => {
+            const isActive = activeTab === tab.id || (activeTab === null && index === 0);
+            tabsHtml += `
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link ${isActive ? 'active' : ''}" 
+                            id="${tab.id}-tab" 
+                            data-bs-toggle="tab" 
+                            data-bs-target="#${tab.id}-content" 
+                            type="button" 
+                            role="tab" 
+                            aria-controls="${tab.id}-content" 
+                            aria-selected="${isActive}">
+                        <i class="${tab.icon} me-1"></i> ${tab.label}
+                    </button>
+                </li>`;
+        });
+        
+        tabsHtml += `
+                </ul>
+                <div class="tab-content" id="form-tab-content">`;
+        
+        tabs.forEach((tab, index) => {
+            const isActive = activeTab === tab.id || (activeTab === null && index === 0);
+            tabsHtml += `
+                <div class="tab-pane fade ${isActive ? 'show active' : ''}" 
+                     id="${tab.id}-content" 
+                     role="tabpanel" 
+                     aria-labelledby="${tab.id}-tab">
+                    <!-- ${tab.label} content will be inserted here -->
+                </div>`;
+        });
+        
+        tabsHtml += `</div></div>`;
+        
+        return tabsHtml;
+    }
+
+    /**
+     * Get module icon based on module name
+     */
+    static getModuleIcon(moduleName) {
+        const icons = {
+            'Customer': 'users',
+            'Stock': 'boxes',
+            'Project': 'building',
+            'Quote': 'file-invoice',
+            'Order': 'shopping-cart',
+            'Financial': 'dollar-sign',
+            'Settings': 'cog',
+            'Reports': 'chart-bar'
+        };
+        
+        return icons[moduleName] || 'circle';
     }
 
     /**
