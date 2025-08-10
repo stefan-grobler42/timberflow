@@ -6,6 +6,8 @@ class CustomerManager {
         this.data = [];
         this.currentView = 'list';
         this.currentItem = null;
+        this.originalItem = null; // Store original state for undo functionality
+        this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
         // Reference data for lookups
@@ -275,10 +277,18 @@ class CustomerManager {
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary" id="back-to-list-btn">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </button>
+                        <button class="btn btn-outline-warning" id="undo-changes-btn" style="display: none;">
+                            <i class="fas fa-undo"></i> Undo Changes
+                        </button>
+                        <div id="auto-save-status" class="text-muted small" style="display: none;">
+                            <i class="fas fa-save"></i> Auto-saved
+                        </div>
+                    </div>
                     <h3><i class="fas fa-user-tie"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
-                    <button class="btn btn-outline-secondary" id="back-to-list-btn">
-                        <i class="fas fa-arrow-left"></i> Back to List
-                    </button>
                 </div>
 
                 <!-- Customer Form -->
@@ -465,13 +475,6 @@ class CustomerManager {
                         </div>
                     </div>
 
-                    <!-- Form Actions -->
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-outline-secondary" id="cancel-btn">Cancel</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-save"></i> ${isEdit ? 'Update Customer' : 'Save Customer'}
-                        </button>
-                    </div>
                 </form>
             </div>
         `;
@@ -524,22 +527,39 @@ class CustomerManager {
     }
 
     attachFormEventListeners() {
+        // Store original item state for undo functionality
+        if (this.currentItem) {
+            this.originalItem = JSON.parse(JSON.stringify(this.currentItem));
+        } else {
+            this.originalItem = null;
+        }
+        this.hasUnsavedChanges = false;
+
         const form = document.getElementById('customer-form');
         if (form) {
+            // Remove default form submission, auto-save will handle saving
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                this.saveCustomer();
+            });
+            
+            // Add change detection for auto-save
+            form.addEventListener('input', () => {
+                this.detectChanges();
+            });
+            
+            form.addEventListener('change', () => {
+                this.detectChanges();
             });
         }
 
         const backBtn = document.getElementById('back-to-list-btn');
         if (backBtn) {
-            backBtn.addEventListener('click', () => this.showList());
+            backBtn.addEventListener('click', () => this.handleBackToList());
         }
 
-        const cancelBtn = document.getElementById('cancel-btn');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => this.showList());
+        const undoBtn = document.getElementById('undo-changes-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
         }
         
         // Initialize lookup fields
@@ -761,12 +781,16 @@ class CustomerManager {
 
     newCustomer() {
         this.currentItem = null;
+        this.originalItem = null;
+        this.hasUnsavedChanges = false;
         this.currentView = 'form';
         this.render();
     }
 
     editCustomer(id) {
         this.currentItem = this.data.find(customer => customer.id === id);
+        this.originalItem = null; // Will be set in attachFormEventListeners
+        this.hasUnsavedChanges = false;
         this.currentView = 'form';
         this.render();
     }
@@ -780,27 +804,7 @@ class CustomerManager {
         }
     }
 
-    saveCustomer() {
-        const formData = this.getFormData();
-        
-        if (!this.validateForm(formData)) {
-            return;
-        }
 
-        if (this.currentItem) {
-            // Update existing
-            const index = this.data.findIndex(c => c.id === this.currentItem.id);
-            this.data[index] = { ...formData, id: this.currentItem.id };
-            this.showNotification('Customer updated successfully', 'success');
-        } else {
-            // Create new
-            const newId = Math.max(...this.data.map(c => c.id), 0) + 1;
-            this.data.push({ ...formData, id: newId });
-            this.showNotification('Customer created successfully', 'success');
-        }
-
-        this.showList();
-    }
 
     getFormData() {
         const locationDataInput = document.getElementById('location-data');
@@ -859,6 +863,123 @@ class CustomerManager {
         }
 
         return true;
+    }
+
+    detectChanges() {
+        if (!this.originalItem && !this.currentItem) return; // New record, no changes to detect yet
+        
+        const currentFormData = this.getFormData();
+        const hasChanges = this.originalItem ? 
+            JSON.stringify(currentFormData) !== JSON.stringify(this.originalItem) :
+            Object.values(currentFormData).some(value => value !== '' && value !== 0 && value !== false);
+        
+        if (hasChanges !== this.hasUnsavedChanges) {
+            this.hasUnsavedChanges = hasChanges;
+            this.updateUndoButtonVisibility();
+        }
+    }
+    
+    updateUndoButtonVisibility() {
+        const undoBtn = document.getElementById('undo-changes-btn');
+        if (undoBtn) {
+            undoBtn.style.display = this.hasUnsavedChanges ? 'block' : 'none';
+        }
+    }
+    
+    undoChanges() {
+        if (this.originalItem) {
+            // Restore original values to form
+            this.populateForm(this.originalItem);
+            this.hasUnsavedChanges = false;
+            this.updateUndoButtonVisibility();
+            this.showAutoSaveStatus('Changes undone');
+        }
+    }
+    
+    populateForm(customer) {
+        // Populate all form fields with customer data
+        const fields = [
+            'accountNo', 'accountName', 'companyType', 'companyRegistrationNo', 'vatRegistrationNo',
+            'phone', 'email', 'website', 'parentAccount', 'accountType', 'customerStatus', 
+            'approvalStatus', 'dateCreated', 'quotesRequested', 'totalQuoteValue', 'ordersPlaced',
+            'salesRepresentative', 'relationshipType', 'primaryContact', 'address'
+        ];
+        
+        fields.forEach(field => {
+            const element = document.getElementById(field);
+            if (element) {
+                if (element.type === 'checkbox') {
+                    element.checked = customer[field] || false;
+                } else {
+                    element.value = customer[field] || '';
+                }
+            }
+        });
+        
+        // Update lookup fields if they exist
+        Object.keys(this.lookupFields).forEach(key => {
+            const lookupField = this.lookupFields[key];
+            if (lookupField && customer[key]) {
+                lookupField.setValue(customer[key]);
+            }
+        });
+    }
+    
+    async handleBackToList() {
+        if (this.hasUnsavedChanges) {
+            // Auto-save before returning to list
+            const success = await this.autoSave();
+            if (success) {
+                this.showAutoSaveStatus('Auto-saved successfully');
+                setTimeout(() => this.showList(), 500); // Brief delay to show save confirmation
+            } else {
+                // If auto-save fails, ask user what to do
+                const proceed = confirm('Failed to save changes. Do you want to discard changes and continue?');
+                if (proceed) {
+                    this.showList();
+                }
+            }
+        } else {
+            this.showList();
+        }
+    }
+    
+    async autoSave() {
+        try {
+            const formData = this.getFormData();
+            
+            if (this.currentItem) {
+                // Update existing customer
+                const index = this.data.findIndex(c => c.id === this.currentItem.id);
+                if (index !== -1) {
+                    this.data[index] = { ...this.data[index], ...formData };
+                }
+            } else {
+                // Create new customer
+                formData.id = Date.now(); // Simple ID generation
+                this.data.push(formData);
+            }
+            
+            this.hasUnsavedChanges = false;
+            this.updateUndoButtonVisibility();
+            return true;
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+            return false;
+        }
+    }
+    
+    showAutoSaveStatus(message) {
+        const statusDiv = document.getElementById('auto-save-status');
+        if (statusDiv) {
+            statusDiv.innerHTML = `<i class="fas fa-check text-success"></i> ${message}`;
+            statusDiv.style.display = 'block';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
+        }
     }
 
     getEmptyCustomer() {
@@ -927,6 +1048,8 @@ class CustomerManager {
     showList() {
         this.currentView = 'list';
         this.currentItem = null;
+        this.originalItem = null;
+        this.hasUnsavedChanges = false;
         this.render();
     }
 

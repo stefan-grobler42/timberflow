@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
 - **Mobile-Friendly GPS Integration**: Field workers can use GPS location detection for marking delivery locations and customer sites
 - **Contact Management Enhancement**: Separate contact records linked to customer accounts for better data organization and relationship tracking
 - **Standardized Address Fields**: Enhanced location field pattern established as universal standard for all address/location inputs throughout application with Google Maps autocomplete, GPS positioning, interactive pin dropping, and visual confirmation
+- **Universal Auto-Save Pattern**: Implemented system-wide auto-save functionality with change detection, undo capability, and seamless navigation without explicit save buttons - pattern to be applied across all future modules
 
 ## Module Structure
 
@@ -94,6 +95,7 @@ Preferred communication style: Simple, everyday language.
 - **State Management**: Centralized application controller (MillenniumERP class) managing component lifecycle and inter-component communication
 - **File Handling**: Client-side file parsing utilities supporting Excel, JSON, CSV, and text formats
 - **Address Field Standard**: Universal EnhancedLocationField component pattern with Google Maps integration, GPS positioning, interactive pin dropping, and type="button" attributes to prevent form submission conflicts
+- **Auto-Save Architecture**: Universal pattern with change detection, auto-save on navigation, undo functionality before leaving record, and elimination of explicit save/cancel buttons for streamlined user experience
 
 ### Backend Integration
 - **API Architecture**: RESTful API integration layer with existing .NET backend at cloud-mroofing.co.za
