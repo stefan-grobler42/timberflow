@@ -48,7 +48,7 @@ class EnhancedDataGrid {
                     z-index: 1051;
                 }
                 .column-resizer:hover {
-                    background: #007bff;
+                    background: #59AAD5;
                 }
                 .resizable-header {
                     position: relative;
@@ -107,7 +107,7 @@ class EnhancedDataGrid {
                 <!-- Table Container -->
                 <div class="table-responsive" style="overflow-x: auto;">
                     <table class="table table-hover table-striped resizable-table" id="data-grid-table" style="min-width: 100%; table-layout: fixed;">
-                        <thead class="table-dark sticky-top" style="z-index: 1050;">
+                        <thead class="sticky-top" style="z-index: 1050; background-color: #59AAD5; color: white;">
                             ${this.renderTableHeader()}
                         </thead>
                         <tbody id="grid-tbody">
@@ -281,6 +281,7 @@ class EnhancedDataGrid {
                     this.selectedRows.clear();
                 }
                 this.updateTable();
+                this.updateSelectionInfo();
                 this.onSelectionChange(Array.from(this.selectedRows));
             });
         }
@@ -294,7 +295,7 @@ class EnhancedDataGrid {
                 } else {
                     this.selectedRows.delete(id);
                 }
-                this.updateSelectionDisplay();
+                this.updateSelectionInfo();
                 this.onSelectionChange(Array.from(this.selectedRows));
             }
         });
@@ -333,7 +334,7 @@ class EnhancedDataGrid {
 
         // Column sorting
         this.container.addEventListener('click', (e) => {
-            if (e.target.closest('.sortable-header')) {
+            if (e.target.closest('.sortable-header') && !e.target.closest('.column-resizer')) {
                 const field = e.target.closest('.sortable-header').dataset.field;
                 this.sort(field);
             }
@@ -412,7 +413,6 @@ class EnhancedDataGrid {
             thead.innerHTML = this.renderTableHeader();
         }
         this.updateSelectionInfo();
-        this.initializeColumnResizing();
     }
 
     updateSelectionInfo() {
@@ -507,6 +507,7 @@ class EnhancedDataGrid {
                 startWidth = parseInt(window.getComputedStyle(currentTh).width, 10);
                 
                 e.preventDefault();
+                e.stopPropagation(); // Prevent other click events
                 document.body.style.cursor = 'col-resize';
             }
         });
