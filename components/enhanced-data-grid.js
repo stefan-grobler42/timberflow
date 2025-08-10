@@ -78,8 +78,8 @@ class EnhancedDataGrid {
                 </div>
 
                 <!-- Table Container -->
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped" id="data-grid-table">
+                <div class="table-container" style="overflow-x: auto; width: 100%; position: relative;">
+                    <table class="table table-hover table-striped" id="data-grid-table" style="min-width: 100%; table-layout: auto;">
                         <thead class="table-dark sticky-top" style="z-index: 1050;">
                             ${this.renderTableHeader()}
                         </thead>
@@ -102,6 +102,42 @@ class EnhancedDataGrid {
         `;
 
         this.attachEventListeners();
+        this.addResizingSupport();
+    }
+
+    addResizingSupport() {
+        // Add enhanced CSS for better column resizing
+        if (!document.getElementById('enhanced-resize-css')) {
+            const style = document.createElement('style');
+            style.id = 'enhanced-resize-css';
+            style.textContent = `
+                .table-container {
+                    position: relative;
+                }
+                .table th.sortable-header {
+                    resize: horizontal !important;
+                    overflow: auto !important;
+                    min-width: 80px !important;
+                    max-width: 500px !important;
+                    border-right: 2px solid #495057;
+                }
+                .table th.sortable-header::-webkit-resizer {
+                    background: linear-gradient(45deg, transparent 6px, #007bff 6px);
+                    border-radius: 2px;
+                }
+                /* Ensure table doesn't constrain column resizing */
+                #data-grid-table {
+                    table-layout: auto !important;
+                    width: max-content !important;
+                    min-width: 100% !important;
+                }
+                /* Better resize handle visibility */
+                .sortable-header:hover::-webkit-resizer {
+                    background: linear-gradient(45deg, transparent 4px, #0056b3 4px);
+                }
+            `;
+            document.head.appendChild(style);
+        }
     }
 
     renderColumnMenu() {
