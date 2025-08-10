@@ -163,10 +163,24 @@ class CustomerManager {
     }
 
     render() {
-        if (this.currentView === 'list') {
-            this.renderListView();
-        } else {
-            this.renderFormView();
+        try {
+            console.log('CustomerManager: Rendering view:', this.currentView);
+            
+            if (this.currentView === 'list') {
+                this.renderListView();
+            } else if (this.currentView === 'form') {
+                this.renderFormView();
+            }
+        } catch (error) {
+            console.error('CustomerManager render error:', error);
+            this.container.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5>Customer Management Error</h5>
+                    <p>There was an error loading the customer management interface.</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
+                </div>
+            `;
         }
     }
 
@@ -499,7 +513,7 @@ class CustomerManager {
                             <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
                                 <i class="fas fa-undo"></i> Undo Changes
                             </button>
-                            <button type="button" class="btn btn-outline-secondary" id="back-to-list-btn">
+                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
                                 <i class="fas fa-arrow-left"></i> Back to List
                             </button>
                         </div>
@@ -568,7 +582,7 @@ class CustomerManager {
             form.addEventListener('change', () => this.handleFormChange());
         }
 
-        const backBtn = document.getElementById('back-to-list-btn');
+        const backBtn = document.getElementById('back-btn');
         if (backBtn) {
             backBtn.addEventListener('click', () => {
                 this.saveCurrentChanges().then(() => {

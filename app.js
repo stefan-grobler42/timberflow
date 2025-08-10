@@ -420,9 +420,6 @@ class MillenniumERP {
                     this.formulaEngine = new FormulaEngine('formula-engine-content');
                 }
                 break;
-            case 'customers':
-                this.loadCustomerModule();
-                break;
             case 'contacts':
                 this.loadContactModule();
                 break;
@@ -650,28 +647,60 @@ class MillenniumERP {
     }
     
     loadStockView(view) {
-        const content = document.getElementById('main-content');
-        content.innerHTML = '<div id="stock-view-container"></div>';
-        
-        if (view === 'grid') {
-            this.stockGridManager = new StockGridManager('stock-view-container');
-            window.currentStockManager = this.stockGridManager;
-        } else {
-            this.simpleStockManager = new SimpleStockManager('stock-view-container');
-            window.currentStockManager = this.simpleStockManager;
+        try {
+            const content = document.getElementById('main-content');
+            content.innerHTML = '<div id="stock-view-container"></div>';
+            
+            if (view === 'grid') {
+                if (typeof StockGridManager !== 'undefined') {
+                    this.stockGridManager = new StockGridManager('stock-view-container');
+                    window.currentStockManager = this.stockGridManager;
+                } else {
+                    console.error('StockGridManager not available');
+                    content.innerHTML = '<div class="alert alert-danger">Grid view not available. Please try form view.</div>';
+                }
+            } else {
+                if (typeof SimpleStockManager !== 'undefined') {
+                    this.simpleStockManager = new SimpleStockManager('stock-view-container');
+                    window.currentStockManager = this.simpleStockManager;
+                } else {
+                    console.error('SimpleStockManager not available');
+                    content.innerHTML = '<div class="alert alert-danger">Stock management not available.</div>';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading stock view:', error);
+            const content = document.getElementById('main-content');
+            content.innerHTML = '<div class="alert alert-danger">Error loading stock management. Please refresh the page.</div>';
         }
     }
     
     loadCustomerView(view) {
-        const content = document.getElementById('main-content');
-        content.innerHTML = '<div id="customer-view-container"></div>';
-        
-        if (view === 'grid') {
-            this.customerGridManager = new CustomerGridManager('customer-view-container');
-            window.currentCustomerManager = this.customerGridManager;
-        } else {
-            this.customerManager = new CustomerManager('customer-view-container');
-            window.currentCustomerManager = this.customerManager;
+        try {
+            const content = document.getElementById('main-content');
+            content.innerHTML = '<div id="customer-view-container"></div>';
+            
+            if (view === 'grid') {
+                if (typeof CustomerGridManager !== 'undefined') {
+                    this.customerGridManager = new CustomerGridManager('customer-view-container');
+                    window.currentCustomerManager = this.customerGridManager;
+                } else {
+                    console.error('CustomerGridManager not available');
+                    content.innerHTML = '<div class="alert alert-danger">Grid view not available. Please try form view.</div>';
+                }
+            } else {
+                if (typeof CustomerManager !== 'undefined') {
+                    this.customerManager = new CustomerManager('customer-view-container');
+                    window.currentCustomerManager = this.customerManager;
+                } else {
+                    console.error('CustomerManager not available');
+                    content.innerHTML = '<div class="alert alert-danger">Customer management not available.</div>';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading customer view:', error);
+            const content = document.getElementById('main-content');
+            content.innerHTML = '<div class="alert alert-danger">Error loading customer management. Please refresh the page.</div>';
         }
     }
 
