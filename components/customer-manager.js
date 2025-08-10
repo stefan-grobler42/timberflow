@@ -22,12 +22,6 @@ class CustomerManager {
         // Lookup field instances
         this.lookupFields = {};
         
-        // Auto-save functionality
-        this.autoSaveEnabled = true;
-        this.changesPending = false;
-        this.lastSavedState = null;
-        this.autoSaveDelay = 1000; // 1 second delay
-        
         if (!this.container) {
             console.error('CustomerManager: Container not found:', containerId);
             return;
@@ -37,22 +31,10 @@ class CustomerManager {
     }
 
     init() {
-        try {
-            console.log('CustomerManager: Initializing...');
-            this.loadSampleData();
-            this.render();
-            console.log('CustomerManager: Ready');
-        } catch (error) {
-            console.error('CustomerManager init error:', error);
-            this.container.innerHTML = `
-                <div class="alert alert-danger">
-                    <h5>Customer Manager Error</h5>
-                    <p>Failed to initialize customer management.</p>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
-                </div>
-            `;
-        }
+        console.log('CustomerManager: Initializing...');
+        this.loadSampleData();
+        this.render();
+        console.log('CustomerManager: Ready');
     }
 
     loadSampleData() {
@@ -175,48 +157,25 @@ class CustomerManager {
     }
 
     render() {
-        try {
-            console.log('CustomerManager: Rendering view:', this.currentView);
-            
-            if (this.currentView === 'list') {
-                this.renderListView();
-            } else if (this.currentView === 'form') {
-                this.renderFormView();
-            }
-        } catch (error) {
-            console.error('CustomerManager render error:', error);
-            this.container.innerHTML = `
-                <div class="alert alert-danger">
-                    <h5>Customer Management Error</h5>
-                    <p>There was an error loading the customer management interface.</p>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
-                </div>
-            `;
+        if (this.currentView === 'list') {
+            this.renderListView();
+        } else {
+            this.renderFormView();
         }
     }
 
     renderListView() {
-        try {
-            console.log('CustomerManager: Rendering list view...');
-            this.container.innerHTML = `
-                <div class="customer-manager-container">
-                    <!-- Header -->
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <div class="d-flex align-items-center">
-                            <h2><i class="fas fa-user-tie me-2"></i>Customer Management</h2>
-                            <div class="btn-group ms-3" role="group">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="millenniumERP.showCustomerViewChoice()">
-                                    <i class="fas fa-exchange-alt me-1"></i>Switch View
-                                </button>
-                            </div>
-                        </div>
-                        <button class="btn btn-primary" id="new-customer-btn">
-                            <i class="fas fa-plus me-1"></i>New Customer
-                        </button>
-                    </div>
+        this.container.innerHTML = `
+            <div class="customer-manager-container">
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
+                    <button class="btn btn-primary" id="new-customer-btn">
+                        <i class="fas fa-plus"></i> New Customer
+                    </button>
+                </div>
 
-                    <!-- Search and Filters -->
+                <!-- Search and Filters -->
                 <div class="card mb-4">
                     <div class="card-body">
                         <div class="row">
@@ -316,27 +275,10 @@ class CustomerManager {
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center">
-                        <div class="btn-group me-3">
-                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
-                                <i class="fas fa-arrow-left me-1"></i>Back to List
-                            </button>
-                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
-                                <i class="fas fa-undo me-1"></i>Undo Changes
-                            </button>
-                            ${isEdit ? `
-                                <button type="button" class="btn btn-outline-danger" id="delete-btn">
-                                    <i class="fas fa-trash me-1"></i>Delete
-                                </button>
-                            ` : ''}
-                        </div>
-                        <h3><i class="fas fa-user me-2 text-primary"></i>${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
-                    </div>
-                    <div class="auto-save-status">
-                        <small class="text-muted" id="auto-save-status">
-                            <i class="fas fa-circle text-success"></i> Auto-save enabled
-                        </small>
-                    </div>
+                    <h3><i class="fas fa-user-tie"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
+                    <button class="btn btn-outline-secondary" id="back-to-list-btn">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </button>
                 </div>
 
                 <!-- Customer Form -->
@@ -523,21 +465,12 @@ class CustomerManager {
                         </div>
                     </div>
 
-                    <!-- Auto-save Status -->
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <div class="auto-save-status">
-                            <small class="text-muted" id="auto-save-status">
-                                <i class="fas fa-circle text-success"></i> Auto-save enabled
-                            </small>
-                        </div>
-                        <div class="form-actions d-flex gap-2">
-                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
-                                <i class="fas fa-undo"></i> Undo Changes
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
-                                <i class="fas fa-arrow-left"></i> Back to List
-                            </button>
-                        </div>
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-outline-secondary" id="cancel-btn">Cancel</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> ${isEdit ? 'Update Customer' : 'Save Customer'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -593,178 +526,140 @@ class CustomerManager {
     attachFormEventListeners() {
         const form = document.getElementById('customer-form');
         if (form) {
-            // Remove form submission - auto-save handles saving
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
+                this.saveCustomer();
             });
-            
-            // Add change detection for auto-save
-            form.addEventListener('input', () => this.handleFormChange());
-            form.addEventListener('change', () => this.handleFormChange());
         }
 
-        const backBtn = document.getElementById('back-btn');
+        const backBtn = document.getElementById('back-to-list-btn');
         if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                this.saveCurrentChanges().then(() => {
-                    this.showList();
-                }).catch(error => {
-                    console.error('Error saving changes:', error);
-                    this.showList(); // Still go back even if save fails
-                });
-            });
+            backBtn.addEventListener('click', () => this.showList());
         }
 
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.addEventListener('click', () => this.undoChanges());
+        const cancelBtn = document.getElementById('cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => this.showList());
         }
         
-        // Initialize components with error handling
-        try {
-            this.initializeLookupFields();
-        } catch (error) {
-            console.warn('Error initializing lookup fields:', error);
-        }
+        // Initialize lookup fields
+        this.initializeLookupFields();
         
-        try {
-            this.initializeLocationPicker();
-        } catch (error) {
-            console.warn('Error initializing location picker:', error);
-        }
+        // Initialize location picker
+        this.initializeLocationPicker();
         
-        try {
-            this.initializeClickableFields();
-        } catch (error) {
-            console.warn('Error initializing clickable fields:', error);
-        }
-        
-        try {
-            this.storeCurrentState();
-        } catch (error) {
-            console.warn('Error storing initial state:', error);
-        }
+        // Make contact fields clickable
+        this.initializeClickableFields();
     }
     
     initializeLookupFields() {
-        try {
-            // Clear existing lookup fields
-            Object.values(this.lookupFields).forEach(field => {
-                if (field.dropdown && field.dropdown.parentNode) {
-                    field.dropdown.parentNode.removeChild(field.dropdown);
-                }
-            });
-            this.lookupFields = {};
-            
-            // Company Types
-            const companyTypeInput = document.getElementById('companyType');
-            if (companyTypeInput && typeof createLookupField !== 'undefined') {
-                this.lookupFields.companyType = createLookupField(companyTypeInput, this.companyTypes, {
-                    placeholder: 'Type to search company types...'
-                });
+        // Clear existing lookup fields
+        Object.values(this.lookupFields).forEach(field => {
+            if (field.dropdown && field.dropdown.parentNode) {
+                field.dropdown.parentNode.removeChild(field.dropdown);
             }
+        });
+        this.lookupFields = {};
         
-            // Account Types
-            const accountTypeInput = document.getElementById('accountType');
-            if (accountTypeInput && typeof createLookupField !== 'undefined') {
-                this.lookupFields.accountType = createLookupField(accountTypeInput, this.accountTypes, {
-                    placeholder: 'Type to search account types...'
-                });
-            }
-            
-            // Customer Status
-            const customerStatusInput = document.getElementById('customerStatus');
-            if (customerStatusInput && typeof createLookupField !== 'undefined') {
-                this.lookupFields.customerStatus = createLookupField(customerStatusInput, this.customerStatuses, {
-                    placeholder: 'Type to search customer statuses...'
-                });
-            }
-        } catch (error) {
-            console.warn('Error in initializeLookupFields:', error);
+        // Company Types
+        const companyTypeInput = document.getElementById('companyType');
+        if (companyTypeInput) {
+            this.lookupFields.companyType = createLookupField(companyTypeInput, this.companyTypes, {
+                placeholder: 'Type to search company types...'
+            });
         }
         
-            // Only initialize remaining lookups if createLookupField is available
-            if (typeof createLookupField !== 'undefined') {
-                // Approval Status
-                const approvalStatusInput = document.getElementById('approvalStatus');
-                if (approvalStatusInput) {
-                    this.lookupFields.approvalStatus = createLookupField(approvalStatusInput, this.approvalStatuses, {
-                        placeholder: 'Type to search approval statuses...'
-                    });
-                }
-                
-                // Sales Representative
-                const salesRepInput = document.getElementById('salesRepresentative');
-                if (salesRepInput) {
-                    this.lookupFields.salesRepresentative = createLookupField(salesRepInput, this.employees, {
-                        placeholder: 'Type to search employees...'
-                    });
-                }
-                
-                // Relationship Types
-                const relationshipInput = document.getElementById('relationshipType');
-                if (relationshipInput) {
-                    this.lookupFields.relationshipType = createLookupField(relationshipInput, this.relationshipTypes, {
-                        placeholder: 'Type to search relationship types...'
-                    });
-                }
-                
-                // Parent Account
-                const parentAccountInput = document.getElementById('parentAccount');
-                if (parentAccountInput) {
-                    const parentAccounts = this.data
-                        .filter(c => !this.currentItem || c.id !== this.currentItem.id)
-                        .map(c => ({ name: c.accountName, value: c.accountName }));
-                    
-                    this.lookupFields.parentAccount = createLookupField(parentAccountInput, parentAccounts, {
-                        placeholder: 'Type to search accounts...'
-                    });
-                }
-            }
+        // Account Types
+        const accountTypeInput = document.getElementById('accountType');
+        if (accountTypeInput) {
+            this.lookupFields.accountType = createLookupField(accountTypeInput, this.accountTypes, {
+                placeholder: 'Type to search account types...'
+            });
+        }
+        
+        // Customer Status
+        const customerStatusInput = document.getElementById('customerStatus');
+        if (customerStatusInput) {
+            this.lookupFields.customerStatus = createLookupField(customerStatusInput, this.customerStatuses, {
+                placeholder: 'Type to search customer statuses...'
+            });
+        }
+        
+        // Approval Status
+        const approvalStatusInput = document.getElementById('approvalStatus');
+        if (approvalStatusInput) {
+            this.lookupFields.approvalStatus = createLookupField(approvalStatusInput, this.approvalStatuses, {
+                placeholder: 'Type to search approval statuses...'
+            });
+        }
+        
+        // Sales Representative
+        const salesRepInput = document.getElementById('salesRepresentative');
+        if (salesRepInput) {
+            this.lookupFields.salesRepresentative = createLookupField(salesRepInput, this.employees, {
+                placeholder: 'Type to search employees...'
+            });
+        }
+        
+        // Relationship Types
+        const relationshipInput = document.getElementById('relationshipType');
+        if (relationshipInput) {
+            this.lookupFields.relationshipType = createLookupField(relationshipInput, this.relationshipTypes, {
+                placeholder: 'Type to search relationship types...'
+            });
+        }
+        
+        // Parent Account
+        const parentAccountInput = document.getElementById('parentAccount');
+        if (parentAccountInput) {
+            const parentAccounts = this.data
+                .filter(c => !this.currentItem || c.id !== this.currentItem.id)
+                .map(c => ({ name: c.accountName, value: c.accountName }));
+            
+            this.lookupFields.parentAccount = createLookupField(parentAccountInput, parentAccounts, {
+                placeholder: 'Type to search accounts...'
+            });
+        }
     }
     
     initializeLocationPicker() {
-        try {
-            const container = document.getElementById('enhanced-location-container');
-            const addressInput = document.getElementById('address');
-            const locationDataInput = document.getElementById('location-data');
+        const container = document.getElementById('enhanced-location-container');
+        const addressInput = document.getElementById('address');
+        const locationDataInput = document.getElementById('location-data');
+        
+        if (container) {
+            // Initialize enhanced location field
+            this.enhancedLocationField = new EnhancedLocationField('enhanced-location-container', {
+                onLocationSelect: (locationData) => {
+                    console.log('Location selected:', locationData);
+                    
+                    // Update hidden fields with location data
+                    if (addressInput) {
+                        addressInput.value = locationData.address || locationData.coordinates;
+                    }
+                    if (locationDataInput) {
+                        locationDataInput.value = JSON.stringify(locationData);
+                    }
+                    
+                    // Store location data for saving
+                    this.currentLocationData = locationData;
+                }
+            });
             
-            if (container && typeof EnhancedLocationField !== 'undefined') {
-                // Initialize enhanced location field
-                this.enhancedLocationField = new EnhancedLocationField('enhanced-location-container', {
-                    onLocationSelect: (locationData) => {
-                        console.log('Location selected:', locationData);
-                        
-                        // Update hidden fields with location data
-                        if (addressInput) {
-                            addressInput.value = locationData.address || locationData.coordinates;
-                        }
-                        if (locationDataInput) {
-                            locationDataInput.value = JSON.stringify(locationData);
-                        }
-                        
-                        // Store location data for saving
-                        this.currentLocationData = locationData;
+            // Load existing location data if available
+            if (this.currentItem && this.currentItem.locationData) {
+                try {
+                    const locationData = typeof this.currentItem.locationData === 'string' 
+                        ? JSON.parse(this.currentItem.locationData) 
+                        : this.currentItem.locationData;
+                    
+                    if (locationData.lat && locationData.lng) {
+                        this.enhancedLocationField.loadSavedLocation(locationData);
                     }
-                });
-                
-                // Load existing location data if available
-                if (this.currentItem && this.currentItem.locationData) {
-                    try {
-                        const locationData = typeof this.currentItem.locationData === 'string' 
-                            ? JSON.parse(this.currentItem.locationData) 
-                            : this.currentItem.locationData;
-                        
-                        if (locationData.lat && locationData.lng) {
-                            this.enhancedLocationField.loadSavedLocation(locationData);
-                        }
-                    } catch (e) {
-                        console.warn('Could not load saved location data:', e);
-                    }
+                } catch (e) {
+                    console.warn('Could not load saved location data:', e);
                 }
             }
-        } catch (error) {
-            console.warn('Enhanced location field not available:', error);
         }
     }
     
@@ -773,23 +668,19 @@ class CustomerManager {
     initializeClickableFields() {
         // Add delay to ensure fields are rendered
         setTimeout(() => {
-            try {
-                // Only apply to specific fields, not all fields
-                const phoneField = document.getElementById('phone');
-                const emailField = document.getElementById('email');
-                const websiteField = document.getElementById('website');
-                
-                if (phoneField && typeof ClickableFieldUtils !== 'undefined') {
-                    ClickableFieldUtils.makePhoneClickable(phoneField);
-                }
-                if (emailField && typeof ClickableFieldUtils !== 'undefined') {
-                    ClickableFieldUtils.makeEmailClickable(emailField);
-                }
-                if (websiteField && typeof ClickableFieldUtils !== 'undefined') {
-                    ClickableFieldUtils.makeWebsiteClickable(websiteField);
-                }
-            } catch (error) {
-                console.warn('Could not initialize clickable fields:', error);
+            // Only apply to specific fields, not all fields
+            const phoneField = document.getElementById('phone');
+            const emailField = document.getElementById('email');
+            const websiteField = document.getElementById('website');
+            
+            if (phoneField) {
+                ClickableFieldUtils.makePhoneClickable(phoneField);
+            }
+            if (emailField) {
+                ClickableFieldUtils.makeEmailClickable(emailField);
+            }
+            if (websiteField) {
+                ClickableFieldUtils.makeWebsiteClickable(websiteField);
             }
         }, 100);
     }
@@ -1031,179 +922,6 @@ class CustomerManager {
                 </div>
             </div>
         `).join('');
-    }
-    
-    // Auto-save functionality methods
-    handleFormChange() {
-        if (!this.autoSaveEnabled) return;
-        
-        this.changesPending = true;
-        this.updateAutoSaveStatus('Changes detected...');
-        
-        // Enable undo button
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.disabled = false;
-        }
-        
-        // Clear any existing timeout
-        if (this.autoSaveTimeout) {
-            clearTimeout(this.autoSaveTimeout);
-        }
-        
-        // Set new timeout for auto-save
-        this.autoSaveTimeout = setTimeout(() => {
-            this.autoSaveChanges();
-        }, this.autoSaveDelay);
-    }
-    
-    async autoSaveChanges() {
-        if (!this.changesPending) return;
-        
-        try {
-            this.updateAutoSaveStatus('Saving changes...');
-            await this.saveCurrentChanges();
-            this.changesPending = false;
-            this.updateAutoSaveStatus('All changes saved');
-            
-            // Store new state for undo
-            this.storeCurrentState();
-            
-            // Reset undo button
-            setTimeout(() => {
-                const undoBtn = document.getElementById('undo-btn');
-                if (undoBtn) {
-                    undoBtn.disabled = true;
-                }
-                this.updateAutoSaveStatus('Auto-save enabled');
-            }, 2000);
-            
-        } catch (error) {
-            console.error('Auto-save failed:', error);
-            this.updateAutoSaveStatus('Save failed - please try again');
-        }
-    }
-    
-    async saveCurrentChanges() {
-        try {
-            const formData = this.getFormData();
-            
-            if (this.currentItem) {
-                // Update existing item
-                const index = this.data.findIndex(item => item.id === this.currentItem.id);
-                if (index !== -1) {
-                    this.data[index] = { ...this.data[index], ...formData };
-                }
-                
-                // Record audit trail for updates
-                if (window.auditTrailManager) {
-                    window.auditTrailManager.recordEvent({
-                        module: 'customer',
-                        recordType: 'customer',
-                        recordId: this.currentItem.id,
-                        action: 'UPDATE',
-                        changes: formData,
-                        metadata: {
-                            component: 'CustomerManager'
-                        }
-                    });
-                }
-            } else {
-                // Create new item
-                const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
-                formData.id = newId;
-                this.data.push(formData);
-                this.currentItem = formData;
-                
-                // Record audit trail for creates
-                if (window.auditTrailManager) {
-                    window.auditTrailManager.recordEvent({
-                        module: 'customer',
-                        recordType: 'customer',
-                        recordId: newId,
-                        action: 'CREATE',
-                        changes: formData,
-                        metadata: {
-                            component: 'CustomerManager'
-                        }
-                    });
-                }
-            }
-            
-            this.changesPending = false;
-            console.log('Customer saved successfully');
-        } catch (error) {
-            console.error('Error saving customer:', error);
-            throw error;
-        }
-    }
-    
-    storeCurrentState() {
-        const form = document.getElementById('customer-form');
-        if (form) {
-            const formData = new FormData(form);
-            this.lastSavedState = Object.fromEntries(formData.entries());
-            
-            // Also store non-form field values
-            this.lastSavedState.address = document.getElementById('address')?.value || '';
-            this.lastSavedState.locationData = document.getElementById('location-data')?.value || '';
-        }
-    }
-    
-    undoChanges() {
-        if (!this.lastSavedState) return;
-        
-        // Restore form values
-        Object.keys(this.lastSavedState).forEach(key => {
-            const field = document.getElementById(key);
-            if (field) {
-                if (field.type === 'checkbox') {
-                    field.checked = this.lastSavedState[key] === 'on';
-                } else {
-                    field.value = this.lastSavedState[key] || '';
-                }
-            }
-        });
-        
-        // Restore location field
-        if (this.enhancedLocationField && this.lastSavedState.locationData) {
-            try {
-                const locationData = JSON.parse(this.lastSavedState.locationData);
-                this.enhancedLocationField.loadSavedLocation(locationData);
-            } catch (e) {
-                console.warn('Could not restore location data:', e);
-            }
-        }
-        
-        // Reset auto-save state
-        this.changesPending = false;
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.disabled = true;
-        }
-        
-        this.updateAutoSaveStatus('Changes reverted');
-        setTimeout(() => {
-            this.updateAutoSaveStatus('Auto-save enabled');
-        }, 2000);
-    }
-    
-    updateAutoSaveStatus(message) {
-        const statusElement = document.getElementById('auto-save-status');
-        if (statusElement) {
-            let icon = 'fas fa-circle text-success';
-            if (message.includes('Saving')) {
-                icon = 'fas fa-spinner fa-spin text-primary';
-            } else if (message.includes('failed')) {
-                icon = 'fas fa-exclamation-triangle text-danger';
-            } else if (message.includes('saved')) {
-                icon = 'fas fa-check text-success';
-            } else if (message.includes('Changes detected')) {
-                icon = 'fas fa-edit text-warning';
-            }
-            
-            statusElement.innerHTML = `<i class="${icon}"></i> ${message}`;
-        }
     }
 
     showList() {

@@ -368,7 +368,6 @@ class MillenniumERP {
             localStorage.setItem('millennium-recent-items', JSON.stringify(this.recentItems));
         } catch (error) {
             console.error('Failed to save recent items:', error);
-            // Don't throw - this is a non-critical feature
         }
     }
 
@@ -411,15 +410,22 @@ class MillenniumERP {
                 }
                 break;
             case 'stock-management':
-                this.showStockViewChoice();
+                if (!this.simpleStockManager) {
+                    this.simpleStockManager = new SimpleStockManager('stock-management-content');
+                }
                 break;
             case 'customers':
-                this.showCustomerViewChoice();
+                if (!this.customerManager) {
+                    this.customerManager = new CustomerManager('customers-content');
+                }
                 break;
             case 'formula-engine':
                 if (!this.formulaEngine) {
                     this.formulaEngine = new FormulaEngine('formula-engine-content');
                 }
+                break;
+            case 'customers':
+                this.loadCustomerModule();
                 break;
             case 'contacts':
                 this.loadContactModule();
@@ -474,278 +480,6 @@ class MillenniumERP {
 
     loadMeetingModule() {
         console.log('Loading Meeting Management module...');
-    }
-    
-    // View choice methods for stock and customer management
-    showStockViewChoice() {
-        const content = document.getElementById('main-content');
-        content.innerHTML = `
-            <div class="view-choice-container">
-                <div class="row justify-content-center">
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header bg-primary text-white">
-                                <h5 class="mb-0"><i class="fas fa-boxes me-2"></i>Stock Management - Choose View</h5>
-                            </div>
-                            <div class="card-body">
-                                <p class="text-muted mb-4">Choose your preferred view for managing stock items:</p>
-                                
-                                <div class="row g-4">
-                                    <div class="col-md-6">
-                                        <div class="card h-100 view-option" data-view="grid">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-table fa-3x text-success mb-3"></i>
-                                                <h6>Interactive Grid View</h6>
-                                                <p class="small text-muted">
-                                                    Excel-like spreadsheet interface with inline editing, 
-                                                    copy/paste, keyboard navigation, and import/export capabilities.
-                                                </p>
-                                                <div class="badge bg-success mb-2">Recommended</div>
-                                                <div class="small">
-                                                    <i class="fas fa-check text-success me-1"></i>Bulk editing<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Excel import/export<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Copy/paste operations<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Keyboard shortcuts
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <div class="card h-100 view-option" data-view="form">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-edit fa-3x text-primary mb-3"></i>
-                                                <h6>Traditional Form View</h6>
-                                                <p class="small text-muted">
-                                                    Classic form-based interface with detailed layouts,
-                                                    auto-save functionality, and comprehensive validation.
-                                                </p>
-                                                <div class="badge bg-info mb-2">Classic</div>
-                                                <div class="small">
-                                                    <i class="fas fa-check text-primary me-1"></i>Detailed forms<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Auto-save<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Field validation<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Lookup fields
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-4 text-center">
-                                    <small class="text-muted">
-                                        You can switch between views anytime using the toolbar buttons.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Add click handlers
-        content.querySelectorAll('.view-option').forEach(option => {
-            option.style.cursor = 'pointer';
-            option.addEventListener('click', () => {
-                const view = option.dataset.view;
-                this.loadStockView(view);
-            });
-            
-            option.addEventListener('mouseenter', () => {
-                option.classList.add('border-primary');
-            });
-            
-            option.addEventListener('mouseleave', () => {
-                option.classList.remove('border-primary');
-            });
-        });
-    }
-    
-    showCustomerViewChoice() {
-        const content = document.getElementById('main-content');
-        content.innerHTML = `
-            <div class="view-choice-container">
-                <div class="row justify-content-center">
-                    <div class="col-md-8">
-                        <div class="card">
-                            <div class="card-header bg-info text-white">
-                                <h5 class="mb-0"><i class="fas fa-users me-2"></i>Customer Management - Choose View</h5>
-                            </div>
-                            <div class="card-body">
-                                <p class="text-muted mb-4">Choose your preferred view for managing customers:</p>
-                                
-                                <div class="row g-4">
-                                    <div class="col-md-6">
-                                        <div class="card h-100 view-option" data-view="grid">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-table fa-3x text-success mb-3"></i>
-                                                <h6>Interactive Grid View</h6>
-                                                <p class="small text-muted">
-                                                    Excel-like spreadsheet interface with inline editing, 
-                                                    bulk operations, and comprehensive audit trails.
-                                                </p>
-                                                <div class="badge bg-success mb-2">Recommended</div>
-                                                <div class="small">
-                                                    <i class="fas fa-check text-success me-1"></i>Bulk editing<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Excel import/export<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Contact management<br>
-                                                    <i class="fas fa-check text-success me-1"></i>Audit trail viewer
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="col-md-6">
-                                        <div class="card h-100 view-option" data-view="form">
-                                            <div class="card-body text-center">
-                                                <i class="fas fa-user-edit fa-3x text-primary mb-3"></i>
-                                                <h6>Detailed Form View</h6>
-                                                <p class="small text-muted">
-                                                    Comprehensive form interface with GPS location,
-                                                    Google Maps integration, and auto-save functionality.
-                                                </p>
-                                                <div class="badge bg-info mb-2">Full Featured</div>
-                                                <div class="small">
-                                                    <i class="fas fa-check text-primary me-1"></i>GPS location<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Google Maps<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Auto-save<br>
-                                                    <i class="fas fa-check text-primary me-1"></i>Field validation
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div class="mt-4 text-center">
-                                    <small class="text-muted">
-                                        You can switch between views anytime using the toolbar buttons.
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Add click handlers
-        content.querySelectorAll('.view-option').forEach(option => {
-            option.style.cursor = 'pointer';
-            option.addEventListener('click', () => {
-                const view = option.dataset.view;
-                this.loadCustomerView(view);
-            });
-            
-            option.addEventListener('mouseenter', () => {
-                option.classList.add('border-info');
-            });
-            
-            option.addEventListener('mouseleave', () => {
-                option.classList.remove('border-info');
-            });
-        });
-    }
-    
-    loadStockView(view) {
-        try {
-            const content = document.getElementById('main-content');
-            content.innerHTML = '<div id="stock-view-container"></div>';
-            
-            if (view === 'grid') {
-                if (typeof StockGridManager !== 'undefined') {
-                    this.stockGridManager = new StockGridManager('stock-view-container');
-                    window.currentStockManager = this.stockGridManager;
-                } else {
-                    console.error('StockGridManager not available');
-                    content.innerHTML = '<div class="alert alert-danger">Grid view not available. Please try form view.</div>';
-                }
-            } else {
-                if (typeof SimpleStockManager !== 'undefined') {
-                    this.simpleStockManager = new SimpleStockManager('stock-view-container');
-                    window.currentStockManager = this.simpleStockManager;
-                } else {
-                    console.error('SimpleStockManager not available');
-                    content.innerHTML = '<div class="alert alert-danger">Stock management not available.</div>';
-                }
-            }
-        } catch (error) {
-            console.error('Error loading stock view:', error);
-            const content = document.getElementById('main-content');
-            content.innerHTML = '<div class="alert alert-danger">Error loading stock management. Please refresh the page.</div>';
-        }
-    }
-    
-    loadCustomerView(view) {
-        try {
-            const content = document.getElementById('main-content');
-            content.innerHTML = '<div id="customer-view-container"></div>';
-            
-            // Record the view switch in audit trail
-            if (window.universalAuditSystem) {
-                window.universalAuditSystem.recordEvent({
-                    module: 'customer',
-                    recordType: 'view_switch',
-                    recordId: null,
-                    action: 'READ',
-                    changes: { viewType: view },
-                    metadata: {
-                        component: 'MillenniumERP',
-                        automated: false,
-                        source: 'view_selection'
-                    }
-                });
-            }
-            
-            if (view === 'grid') {
-                if (typeof CustomerGridManager !== 'undefined') {
-                    this.customerGridManager = new CustomerGridManager('customer-view-container');
-                    window.currentCustomerManager = this.customerGridManager;
-                } else {
-                    console.error('CustomerGridManager not available');
-                    content.innerHTML = '<div class="alert alert-danger">Grid view not available. Please try form view.</div>';
-                }
-            } else {
-                if (typeof CustomerManager !== 'undefined') {
-                    this.customerManager = new CustomerManager('customer-view-container');
-                    window.currentCustomerManager = this.customerManager;
-                } else {
-                    console.error('CustomerManager not available');
-                    content.innerHTML = '<div class="alert alert-danger">Customer management not available.</div>';
-                }
-            }
-        } catch (error) {
-            console.error('Error loading customer view:', error);
-            const content = document.getElementById('main-content');
-            content.innerHTML = `
-                <div class="alert alert-danger">
-                    <h5>Customer Management Error</h5>
-                    <p>There was an error loading the customer management interface.</p>
-                    <p><strong>Error:</strong> ${error.message}</p>
-                    <button class="btn btn-primary" onclick="location.reload()">Refresh Page</button>
-                </div>
-            `;
-            
-            // Record the error in audit trail
-            if (window.universalAuditSystem) {
-                window.universalAuditSystem.recordEvent({
-                    module: 'system',
-                    recordType: 'error',
-                    recordId: null,
-                    action: 'ERROR',
-                    changes: { 
-                        error: error.message,
-                        stack: error.stack,
-                        view: view 
-                    },
-                    metadata: {
-                        component: 'MillenniumERP',
-                        automated: true,
-                        source: 'error_handler'
-                    }
-                });
-            }
-        }
     }
 
     async loadDashboardData() {

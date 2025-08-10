@@ -17,12 +17,6 @@ class SimpleStockManager {
         // Lookup field instances
         this.lookupFields = {};
         
-        // Auto-save functionality
-        this.autoSaveEnabled = true;
-        this.changesPending = false;
-        this.lastSavedState = null;
-        this.autoSaveDelay = 1000; // 1 second delay
-        
         if (!this.container) {
             console.error('SimpleStockManager: Container not found:', containerId);
             return;
@@ -125,198 +119,57 @@ class SimpleStockManager {
     }
 
     renderListView() {
-        console.log('Rendering interactive grid view to container:', this.container);
-        
-        // Prepare grid data
-        const gridData = this.data.map(item => ({
-            id: item.id,
-            code: item.code,
-            description: item.description,
-            type: item.type || 'Stock Item',
-            category: item.category,
-            stock: item.stockLevel || 0,
-            price: item.price || 0,
-            status: item.isActive ? 'Active' : 'Inactive'
-        }));
-        
+        console.log('Rendering list view to container:', this.container);
         this.container.innerHTML = `
             <div class="stock-manager-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center">
-                        <h3><i class="fas fa-boxes me-2 text-primary"></i>Stock Items - Interactive Grid</h3>
-                        <div class="btn-group ms-3" role="group">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="millenniumERP.showStockViewChoice()">
-                                <i class="fas fa-exchange-alt me-1"></i>Switch View
-                            </button>
-                        </div>
-                    </div>
+                    <h3><i class="fas fa-boxes me-2 text-primary"></i>Stock Items</h3>
                     <div class="btn-group">
                         <button class="btn btn-primary" id="new-item-btn">
                             <i class="fas fa-plus me-1"></i>New Item
                         </button>
-                        <button class="btn btn-outline-success" id="import-excel-btn">
-                            <i class="fas fa-file-import me-1"></i>Import Excel
-                        </button>
-                        <button class="btn btn-outline-info" id="export-excel-btn">
-                            <i class="fas fa-file-export me-1"></i>Export Excel
+                        <button class="btn btn-outline-secondary" id="refresh-btn">
+                            <i class="fas fa-sync-alt me-1"></i>Refresh
                         </button>
                     </div>
                 </div>
 
-                <!-- Interactive Grid Container -->
-                <div id="stock-interactive-grid" style="min-height: 500px; border: 1px solid #dee2e6; border-radius: 0.375rem;"></div>
-                
-                <!-- Grid Statistics -->
-                <div class="mt-3 d-flex justify-content-between align-items-center">
-                    <div class="text-muted">
-                        <small>
-                            <i class="fas fa-info-circle me-1"></i>
-                            Click cells to edit • Tab/Arrow keys to navigate • Ctrl+C/V for copy/paste • Double-click for options
-                        </small>
-                    </div>
-                    <div class="text-muted">
-                        <small>Showing ${this.data.length} stock items</small>
+                <!-- Search Bar -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" id="search-input" 
+                                   placeholder="Search stock items..." value="${this.searchTerm}">
+                        </div>
                     </div>
                 </div>
-            </div>
-        `;
 
-        // Initialize the interactive grid
-        this.initializeInteractiveGrid(gridData);
-        this.setupListEvents();
-    }
-    
-    initializeInteractiveGrid(gridData) {
-        const container = document.getElementById('stock-interactive-grid');
-        if (!container) {
-            console.error('Grid container not found');
-            return;
-        }
-        
-        // Define columns for the interactive grid
-        const columns = [
-            { key: 'code', title: 'Code', width: 120, editable: true },
-            { key: 'description', title: 'Description', width: 300, editable: true },
-            { key: 'type', title: 'Type', width: 120, editable: true },
-            { key: 'category', title: 'Category', width: 150, editable: true },
-            { key: 'stock', title: 'Stock', width: 80, editable: true, type: 'number' },
-            { key: 'price', title: 'Price', width: 100, editable: true, type: 'currency' },
-            { key: 'status', title: 'Status', width: 100, editable: true, type: 'select', options: ['Active', 'Inactive'] }
-        ];
-        
-        // Check if InteractiveGrid is available
-        if (typeof InteractiveGrid !== 'undefined') {
-            this.interactiveGrid = new InteractiveGrid(container, {
-                data: gridData,
-                columns: columns,
-                onCellChange: (rowIndex, column, newValue, oldValue) => {
-                    console.log(`Cell changed: Row ${rowIndex}, Column ${column}, ${oldValue} -> ${newValue}`);
-                    this.handleCellChange(rowIndex, column, newValue, oldValue);
-                },
-                onRowAdd: () => {
-                    this.addNewItem();
-                },
-                onRowDelete: (rowIndex) => {
-                    this.deleteItem(gridData[rowIndex].id);
-                }
-            });
-        } else {
-            // Fallback to simple table if InteractiveGrid is not available
-            container.innerHTML = `
-                <div class="alert alert-warning">
-                    <h6>Interactive Grid Not Available</h6>
-                    <p>Using basic table view. Please refresh the page to load the interactive grid.</p>
-                </div>
+                <!-- Data Table -->
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                    <table class="table table-hover">
+                        <thead class="table-light">
                             <tr>
-                                <th>Code</th>
+                                <th>Item Code</th>
                                 <th>Description</th>
                                 <th>Type</th>
                                 <th>Category</th>
                                 <th>Stock</th>
-                                <th>Price</th>
+                                <th>Unit Price</th>
                                 <th>Status</th>
-                                <th>Actions</th>
+                                <th width="120">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${gridData.map(item => `
-                                <tr data-id="${item.id}">
-                                    <td><strong>${item.code}</strong></td>
-                                    <td>${item.description}</td>
-                                    <td>${item.type}</td>
-                                    <td>${item.category}</td>
-                                    <td>${item.stock}</td>
-                                    <td>R${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}</td>
-                                    <td>
-                                        <span class="badge ${item.status === 'Active' ? 'bg-success' : 'bg-secondary'}">
-                                            ${item.status}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${item.id}">
-                                            <i class="fas fa-edit"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${item.id}">
-                                            <i class="fas fa-trash"></i>
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
+                            ${this.renderTableRows()}
                         </tbody>
                     </table>
                 </div>
-            `;
-        }
-    }
-    
-    handleCellChange(rowIndex, column, newValue, oldValue) {
-        // Update the data array
-        const item = this.data[rowIndex];
-        if (!item) return;
-        
-        // Map grid column to data property
-        const propertyMap = {
-            'code': 'code',
-            'description': 'description',
-            'type': 'type',
-            'category': 'category',
-            'stock': 'stockLevel',
-            'price': 'price',
-            'status': 'isActive'
-        };
-        
-        const property = propertyMap[column];
-        if (property) {
-            if (property === 'isActive') {
-                item[property] = newValue === 'Active';
-            } else if (property === 'price' || property === 'stockLevel') {
-                item[property] = parseFloat(newValue) || 0;
-            } else {
-                item[property] = newValue;
-            }
-            
-            // Record audit trail
-            if (window.universalAuditSystem) {
-                window.universalAuditSystem.recordEvent({
-                    module: 'stock',
-                    recordType: 'stock_item',
-                    recordId: item.id,
-                    action: 'UPDATE',
-                    changes: { [property]: { old: oldValue, new: newValue } },
-                    metadata: {
-                        component: 'SimpleStockManager',
-                        gridEdit: true,
-                        column: column
-                    }
-                });
-            }
-            
-            console.log('Stock item updated:', item);
-        }
+            </div>
+        `;
+
+        this.setupListEvents();
     }
 
     renderTableRows() {
@@ -375,25 +228,20 @@ class SimpleStockManager {
                 <!-- Form Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <div class="d-flex align-items-center">
-                        <div class="btn-group me-3">
-                            <button type="button" class="btn btn-outline-secondary" id="back-btn">
-                                <i class="fas fa-arrow-left me-1"></i>Back to List
-                            </button>
-                            <button type="button" class="btn btn-outline-warning" id="undo-btn" disabled>
-                                <i class="fas fa-undo me-1"></i>Undo Changes
-                            </button>
-                            ${isEdit ? `
-                                <button type="button" class="btn btn-outline-danger" id="delete-btn">
-                                    <i class="fas fa-trash me-1"></i>Delete
-                                </button>
-                            ` : ''}
-                        </div>
+                        <button class="btn btn-outline-secondary me-3" id="back-btn">
+                            <i class="fas fa-arrow-left me-1"></i>Back to List
+                        </button>
                         <h3><i class="fas fa-edit me-2 text-primary"></i>${title}</h3>
                     </div>
-                    <div class="auto-save-status">
-                        <small class="text-muted" id="auto-save-status">
-                            <i class="fas fa-circle text-success"></i> Auto-save enabled
-                        </small>
+                    <div class="btn-group">
+                        <button class="btn btn-success" id="save-btn">
+                            <i class="fas fa-save me-1"></i>Save
+                        </button>
+                        ${isEdit ? `
+                            <button class="btn btn-outline-danger" id="delete-btn">
+                                <i class="fas fa-trash me-1"></i>Delete
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -583,27 +431,16 @@ class SimpleStockManager {
     }
 
     setupFormEvents() {
-        const form = document.getElementById('stock-form');
-        if (form) {
-            // Add change detection for auto-save
-            form.addEventListener('input', () => this.handleFormChange());
-            form.addEventListener('change', () => this.handleFormChange());
-        }
-
-        // Back button with auto-save
+        // Back button
         const backBtn = document.getElementById('back-btn');
         if (backBtn) {
-            backBtn.addEventListener('click', () => {
-                this.saveCurrentChanges().then(() => {
-                    this.showList();
-                });
-            });
+            backBtn.addEventListener('click', () => this.showList());
         }
 
-        // Undo button
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.addEventListener('click', () => this.undoChanges());
+        // Save button
+        const saveBtn = document.getElementById('save-btn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveItem());
         }
 
         // Delete button
@@ -611,9 +448,6 @@ class SimpleStockManager {
         if (deleteBtn) {
             deleteBtn.addEventListener('click', () => this.deleteCurrentItem());
         }
-        
-        // Store initial state for undo functionality
-        this.storeCurrentState();
     }
     
     initializeLookupFields() {
@@ -780,207 +614,6 @@ class SimpleStockManager {
                 notification.remove();
             }
         }, 3000);
-    }
-    
-    // Auto-save functionality methods
-    handleFormChange() {
-        if (!this.autoSaveEnabled) return;
-        
-        this.changesPending = true;
-        this.updateAutoSaveStatus('Changes detected...');
-        
-        // Enable undo button
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.disabled = false;
-        }
-        
-        // Clear any existing timeout
-        if (this.autoSaveTimeout) {
-            clearTimeout(this.autoSaveTimeout);
-        }
-        
-        // Set new timeout for auto-save
-        this.autoSaveTimeout = setTimeout(() => {
-            this.autoSaveChanges();
-        }, this.autoSaveDelay);
-    }
-    
-    async autoSaveChanges() {
-        if (!this.changesPending) return;
-        
-        try {
-            this.updateAutoSaveStatus('Saving changes...');
-            await this.saveCurrentChanges();
-            this.changesPending = false;
-            this.updateAutoSaveStatus('All changes saved');
-            
-            // Store new state for undo
-            this.storeCurrentState();
-            
-            // Reset undo button
-            setTimeout(() => {
-                const undoBtn = document.getElementById('undo-btn');
-                if (undoBtn) {
-                    undoBtn.disabled = true;
-                }
-                this.updateAutoSaveStatus('Auto-save enabled');
-            }, 2000);
-            
-        } catch (error) {
-            console.error('Auto-save failed:', error);
-            this.updateAutoSaveStatus('Save failed - please try again');
-        }
-    }
-    
-    async saveCurrentChanges() {
-        const form = document.getElementById('stock-form');
-        if (!form) return;
-        
-        const formData = new FormData(form);
-        const data = {
-            itemCode: formData.get('itemCode'),
-            description: formData.get('description'),
-            itemType: this.lookupFields.itemType ? this.lookupFields.itemType.getValue() : formData.get('itemType'),
-            category: this.lookupFields.category ? this.lookupFields.category.getValue() : formData.get('category'),
-            unitCost: parseFloat(formData.get('unitCost')) || 0,
-            unitPrice: parseFloat(formData.get('unitPrice')) || 0,
-            stockUom: this.lookupFields.stockUom ? this.lookupFields.stockUom.getValue() : formData.get('stockUom'),
-            currentStock: parseFloat(formData.get('currentStock')) || 0,
-            minimumStock: parseFloat(formData.get('minimumStock')) || 0,
-            isActive: formData.has('isActive')
-        };
-        
-        // Add audit trail
-        const now = new Date().toISOString();
-        const user = 'current_user'; // This would come from authentication
-        
-        if (this.currentItem) {
-            // Track changes for audit
-            const changes = this.getChanges(this.currentItem, data);
-            if (Object.keys(changes).length > 0) {
-                // Update existing item
-                const index = this.data.findIndex(item => item.id === this.currentItem.id);
-                if (index !== -1) {
-                    this.data[index] = { 
-                        ...this.data[index], 
-                        ...data,
-                        lastModified: now,
-                        lastModifiedBy: user
-                    };
-                    // Add to audit trail
-                    this.addAuditEntry(this.currentItem.id, 'UPDATE', changes, user, now);
-                }
-            }
-        } else {
-            // Create new item with audit info
-            const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
-            data.id = newId;
-            data.created = now;
-            data.createdBy = user;
-            data.lastModified = now;
-            data.lastModifiedBy = user;
-            this.data.push(data);
-            this.currentItem = data;
-            // Add to audit trail
-            this.addAuditEntry(newId, 'CREATE', data, user, now);
-        }
-        
-        return Promise.resolve();
-    }
-    
-    storeCurrentState() {
-        const form = document.getElementById('stock-form');
-        if (form) {
-            const formData = new FormData(form);
-            this.lastSavedState = Object.fromEntries(formData.entries());
-        }
-    }
-    
-    undoChanges() {
-        if (!this.lastSavedState) return;
-        
-        // Restore form values
-        Object.keys(this.lastSavedState).forEach(key => {
-            const field = document.querySelector(`[name="${key}"]`);
-            if (field) {
-                if (field.type === 'checkbox') {
-                    field.checked = this.lastSavedState[key] === 'on';
-                } else {
-                    field.value = this.lastSavedState[key] || '';
-                }
-            }
-        });
-        
-        // Reset auto-save state
-        this.changesPending = false;
-        const undoBtn = document.getElementById('undo-btn');
-        if (undoBtn) {
-            undoBtn.disabled = true;
-        }
-        
-        this.updateAutoSaveStatus('Changes reverted');
-        setTimeout(() => {
-            this.updateAutoSaveStatus('Auto-save enabled');
-        }, 2000);
-    }
-    
-    updateAutoSaveStatus(message) {
-        const statusElement = document.getElementById('auto-save-status');
-        if (statusElement) {
-            let icon = 'fas fa-circle text-success';
-            if (message.includes('Saving')) {
-                icon = 'fas fa-spinner fa-spin text-primary';
-            } else if (message.includes('failed')) {
-                icon = 'fas fa-exclamation-triangle text-danger';
-            } else if (message.includes('saved')) {
-                icon = 'fas fa-check text-success';
-            } else if (message.includes('Changes detected')) {
-                icon = 'fas fa-edit text-warning';
-            }
-            
-            statusElement.innerHTML = `<i class="${icon}"></i> ${message}`;
-        }
-    }
-    
-    // Audit trail methods
-    getChanges(oldData, newData) {
-        const changes = {};
-        Object.keys(newData).forEach(key => {
-            if (oldData[key] !== newData[key]) {
-                changes[key] = {
-                    old: oldData[key],
-                    new: newData[key]
-                };
-            }
-        });
-        return changes;
-    }
-    
-    addAuditEntry(recordId, action, changes, user, timestamp) {
-        // Use global audit trail manager
-        if (window.auditTrailManager) {
-            window.auditTrailManager.recordEvent({
-                module: 'stock',
-                recordType: 'stock_item',
-                recordId,
-                action,
-                changes,
-                user,
-                metadata: {
-                    timestamp: timestamp,
-                    component: 'SimpleStockManager'
-                }
-            });
-        }
-    }
-    
-    getAuditTrail(recordId = null) {
-        if (!this.auditTrail) return [];
-        if (recordId) {
-            return this.auditTrail.filter(entry => entry.recordId === recordId);
-        }
-        return this.auditTrail;
     }
 }
 
