@@ -1,0 +1,34 @@
+/* Global Styles - Millennium ERP */
+
+/* Millennium Brand Colors */
+:root {
+  --primary: #59AAD5;
+  --secondary: #54C3D6;
+  --dark: #464746;
+  --black: #231f20;
+  --success: #28a745;
+  --danger: #dc3545;
+  --warning: #ffc107;
+  --info: #17a2b8;
+  --light: #f8f9fa;
+  --white: #ffffff;
+}
+
+/* Base styles placeholder */
+body {
+  font-family: 'Roboto', sans-serif;
+  background-color: #E6E6E6;
+  color: var(--black);
+}
+
+.app {
+  /* App shell styles placeholder */
+}
+
+.sidebar {
+  /* Sidebar styles placeholder */
+}
+
+.header {
+  /* Header styles placeholder */
+}
