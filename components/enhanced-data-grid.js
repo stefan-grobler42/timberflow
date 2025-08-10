@@ -122,8 +122,8 @@ class EnhancedDataGrid {
                     border-right: 2px solid #495057;
                 }
                 .table th.sortable-header::-webkit-resizer {
-                    background: linear-gradient(45deg, transparent 6px, #007bff 6px);
-                    border-radius: 2px;
+                    background: transparent;
+                    width: 8px;
                 }
                 /* Ensure table doesn't constrain column resizing */
                 #data-grid-table {
@@ -131,9 +131,12 @@ class EnhancedDataGrid {
                     width: max-content !important;
                     min-width: 100% !important;
                 }
-                /* Better resize handle visibility */
-                .sortable-header:hover::-webkit-resizer {
-                    background: linear-gradient(45deg, transparent 4px, #0056b3 4px);
+                /* Show resize cursor on hover */
+                .sortable-header:hover {
+                    cursor: col-resize;
+                }
+                .sortable-header:hover .d-flex {
+                    cursor: pointer;
                 }
             `;
             document.head.appendChild(style);
