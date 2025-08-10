@@ -9,6 +9,7 @@ class EnhancedDataGrid {
         this.selectedRows = new Set();
         this.sortConfig = { field: null, direction: 'asc' };
         this.searchTerm = '';
+        this.columnWidths = new Map(); // Store column widths for persistence
         
         // Column configuration
         this.columns = config.columns || [];
@@ -156,7 +157,7 @@ class EnhancedDataGrid {
                 </th>
                 ${selectableColumns.map(col => `
                     <th class="sortable-header resizable-header" data-field="${col.field}" 
-                        style="cursor: pointer; width: ${col.width || '150px'}; min-width: 100px; position: relative;">
+                        style="cursor: pointer; width: ${this.columnWidths.get(col.field) ? this.columnWidths.get(col.field) + 'px' : (col.width || '150px')}; min-width: 100px; position: relative;">
                         <div class="d-flex justify-content-between align-items-center">
                             <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${col.header}</span>
                             <span class="sort-indicator">
@@ -209,7 +210,7 @@ class EnhancedDataGrid {
                                data-id="${row.id}" ${isSelected ? 'checked' : ''}>
                     </td>
                     ${selectableColumns.map(col => `
-                        <td>${this.formatCellValue(row[col.field], col)}</td>
+                        <td style="width: ${this.columnWidths.get(col.field) ? this.columnWidths.get(col.field) + 'px' : (col.width || '150px')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.formatCellValue(row[col.field], col)}</td>
                     `).join('')}
                     <td>
                         <div class="btn-group btn-group-sm">
@@ -518,6 +519,12 @@ class EnhancedDataGrid {
             const width = startWidth + e.clientX - startX;
             if (width > 50) { // Minimum column width
                 currentTh.style.width = width + 'px';
+                
+                // Store the new width
+                const field = currentTh.dataset.field;
+                if (field) {
+                    this.columnWidths.set(field, width);
+                }
                 
                 // Update corresponding body cells
                 const columnIndex = Array.from(currentTh.parentElement.children).indexOf(currentTh);
