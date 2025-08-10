@@ -50,7 +50,7 @@ class EnhancedDataGrid {
                                 id="columnsDropdown" data-bs-toggle="dropdown">
                             <i class="fas fa-columns"></i> Columns
                         </button>
-                        <ul class="dropdown-menu" id="columns-menu">
+                        <ul class="dropdown-menu" id="columns-menu" style="z-index: 1060;">
                             ${this.renderColumnMenu()}
                         </ul>
                     </div>
@@ -64,7 +64,7 @@ class EnhancedDataGrid {
                                     id="exportDropdown" data-bs-toggle="dropdown">
                                 <i class="fas fa-download"></i> Export
                             </button>
-                            <ul class="dropdown-menu">
+                            <ul class="dropdown-menu" style="z-index: 1060;">
                                 <li><a class="dropdown-item" id="export-all" href="#"><i class="fas fa-table"></i> Export All to Excel</a></li>
                                 <li><a class="dropdown-item" id="export-selected" href="#"><i class="fas fa-check-square"></i> Export Selected to Excel</a></li>
                             </ul>
@@ -80,7 +80,7 @@ class EnhancedDataGrid {
                 <!-- Table Container -->
                 <div class="table-responsive">
                     <table class="table table-hover table-striped" id="data-grid-table">
-                        <thead class="table-dark sticky-top">
+                        <thead class="table-dark sticky-top" style="z-index: 1050;">
                             ${this.renderTableHeader()}
                         </thead>
                         <tbody id="grid-tbody">

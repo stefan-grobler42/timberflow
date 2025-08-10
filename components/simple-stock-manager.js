@@ -515,6 +515,9 @@ class SimpleStockManager {
         this.currentItem = null;
         this.originalItem = null;
         this.hasUnsavedChanges = false;
+        
+        // Force recreate the grid to ensure proper navigation
+        this.dataGrid = null;
         this.render();
     }
 
