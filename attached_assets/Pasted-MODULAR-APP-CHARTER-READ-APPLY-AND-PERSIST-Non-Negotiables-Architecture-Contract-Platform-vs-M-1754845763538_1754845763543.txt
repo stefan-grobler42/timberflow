@@ -1,0 +1,114 @@
+MODULAR APP CHARTER — READ, APPLY, AND PERSIST
+Non-Negotiables (Architecture Contract)
+Platform vs Modules
+
+Platform = shared, system-wide building blocks (UI widgets, services, styling, shell). Lives under a single shared namespace (e.g., /src/platform/**).
+
+Modules = business features (Customers, Quotes, Stock, etc.). Each lives under /src/modules/<ModuleName>/**.
+
+Import rules: Modules may import only from the Platform and from their own module folder. No module-to-module imports. No duplicating platform code inside modules.
+
+Shared component changes:
+
+If non-breaking, update the Platform component once → change applies system-wide.
+
+If breaking (props/contract changes), create a versioned component (e.g., DataGridV2) in Platform. Migrate only the target module; leave other modules on V1 until told otherwise.
+
+Shell & Commands: Pages render inside a global app shell (header/command bar + sidebar). Page-level buttons are registered through a Command Registry; do not hard-wire buttons into each screen’s layout.
+
+Tabs & Panels: Forms use a TabbedForm wrapper for sub-areas (Overview, Files, Audit, etc.). Reuse platform Files and Audit panels—no per-module reinvention.
+
+If the current repo uses different paths/names, auto-map to the closest equivalents, adopt the contract, and state the mapping in your reply.
+
+Intent Interpretation (What to do when Dale asks…)
+“Add an action/button to Module”
+
+Create a module action in /src/modules/<Module>/actions/<ActionName>.js (or equivalent).
+
+Wire it into the page via the Command Registry (appears in the global header).
+
+Business logic calls Platform services (audit, approvals, files, notifications, etc.).
+
+“Change the grid / lookup / search / form behavior or look”
+
+Treat as a Platform component change.
+
+If non-breaking → update the shared component (rolls out everywhere).
+
+If breaking → add V2 in Platform, migrate only the named module now, and return a one-line migration plan for others (do not auto-migrate).
+
+“Add a new module X”
+
+Scaffold a standard module: List (Grid), Details (TabbedForm), schema, API, routes, sidebar entry.
+
+Reuse Platform components only; no custom grids/forms inside the module.
+
+“Add a tab to Module”
+
+Use the Platform TabbedForm; slot content under the new tab. If Files/Audit, use the Platform panels.
+
+“Set up approvals / promote record / submit for approval”
+
+Use Platform approvals service + audit service. Store status on the record (e.g., prospect | pending_approval | active | rejected). Actions live under module /actions/…, not in component bodies.
+
+“Change the system look & feel”
+
+Update Platform theme/tokens or shared styles. Do not restyle each module.
+
+Default Behaviors (so Dale doesn’t have to specify)
+Global vs Local impact:
+
+Changing a Platform component → global effect by default.
+
+If risk of breakage, auto-create V2 and migrate only the module Dale is working in.
+
+Files & Audit:
+
+Every Details page exposes Files and Audit tabs using Platform panels (localStorage or current persistence; pluggable later).
+
+Header Actions:
+
+List pages expose “New …”; Detail pages expose “Save”, “Back”, plus context actions (e.g., Submit for Approval / Promote). Registered via the Command Registry.
+
+Data model bias:
+
+Prefer single table + status for lifecycle (prospect→active). If two tables are unavoidable, maintain a clear link and audit continuity.
+
+Your Response Template (what you report back each time)
+What changed: brief summary in plain English.
+
+Scope: Global (platform) or Local (module: X); V1 updated or V2 added.
+
+Where: list the key files/folders you touched (no wall of paths).
+
+How to test: 3–5 click steps (URL, button to press, expected result).
+
+Migration note (if V2): single line per remaining module (“To adopt V2: update imports in <modules>”).
+
+Examples Dale will say (and how you act)
+“Add a Submit for Approval button on Customers.”
+→ Create /modules/customers/actions/submitForApproval.js; register header command on Customers Details; call Platform approvals + audit; show status badge.
+
+“Make the grid support column pinning everywhere.”
+→ Update Platform DataGrid non-breakingly. If breaking, create DataGridV2, migrate Customers only, return a migration note.
+
+“Add a new module Quotes with tabs (Overview, Files, Audit).”
+→ Scaffold module using Platform components; add routes + sidebar; no custom grids/forms.
+
+“Change lookup to show secondary text.”
+→ Update Platform Lookup (or create LookupV2 if breaking); Customers picks it up automatically.
+
+“Add a ‘Promote Customer’ action gated by ‘approved’ status.”
+→ /modules/customers/actions/promoteToActive.js, update header commands to show only when status allows; record audit.
+
+“Add a Tenders tab to Customers.”
+→ Add a TabbedForm tab; wire content; no platform changes.
+
+Guardrails the agent must enforce
+Keep the app modular. No cross-module imports. No duplicating Platform code.
+
+Prefer Platform updates over module rewrites.
+
+Use V2 for breaking changes; never silently break other modules.
+
+Always return the Response Template above.

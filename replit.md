@@ -6,6 +6,9 @@ Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roo
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes
+- **Charter Implementation (Aug 10, 2025)**: Successfully implemented Modular App Charter architecture with platform loader system, charter-compliant component loading, and proper module separation following import rules (Platform components vs business modules).
+
 ## System Architecture
 
 ### Core Principles

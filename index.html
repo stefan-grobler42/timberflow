@@ -144,7 +144,7 @@
                                 </h2>
                                 <div id="general-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
                                     <div class="accordion-body p-0">
-                                        <a href="#customers" class="list-group-item list-group-item-action border-0" data-tab="customers" onclick="launchModularSystem(); return false;">
+                                        <a href="#customers" class="list-group-item list-group-item-action border-0" data-tab="customers" onclick="launchCharterModule('Customers'); return false;">
                                             <i class="fas fa-user-tie"></i> Customers
                                         </a>
                                         <a href="#contacts" class="list-group-item list-group-item-action border-0" data-tab="contacts">
@@ -614,15 +614,15 @@
     <script src="components/template-manager.js"></script>
     <script src="components/formula-engine.js"></script>
 
-    <!-- Modular System Scripts -->
+    <!-- Platform Services (Load First) -->
     <script src="src/platform/services/api.js"></script>
     <script src="src/platform/services/db.js"></script>
     <script src="src/platform/services/defaults.js"></script>
     <script src="src/platform/services/pinned.js"></script>
     <script src="src/platform/services/recents.js"></script>
     
-    <script src="src/platform/components/DataGrid.jsx"></script>
-    <script src="src/platform/components/Lookup.jsx"></script>
+    <!-- Platform Loader (Charter Compliant) -->
+    <script src="src/platform/loader.js"></script>
     <script src="src/platform/components/LocationField.jsx"></script>
     <script src="src/platform/components/LocationPicker.jsx"></script>
     <script src="src/platform/components/Form.jsx"></script>

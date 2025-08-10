@@ -663,71 +663,94 @@ function addModularSystemButton() {
 }
 
 // Launch modular system
+// Charter-compliant function to launch modular system
 function launchModularSystem() {
-    console.log('Launching Modular System...');
-    
-    // Health check for platform components
-    performPlatformHealthCheck();
-    
-    // Initialize modular app if not already done
-    if (!window.modularApp) {
-        if (window.ModularApp) {
-            window.modularApp = new window.ModularApp();
-        } else {
-            console.error('ModularApp not loaded');
-            return;
-        }
-    }
-    
-    // Show modular system and hide original
-    window.modularApp.show();
-    
-    // Navigate to customers by default
-    window.location.hash = '/customers';
+    // Delegate to the new charter-compliant launcher
+    launchCharterModule('Customers');
 }
 
-// Health check for platform components
-function performPlatformHealthCheck() {
-    const platformComponents = [
-        'DataGrid',
-        'Form', 
-        'Lookup',
-        'LocationField',
-        'SearchBox'
-    ];
+// Charter-compliant module launcher according to the Modular App Charter
+function launchCharterModule(moduleName) {
+    console.log(`Launching Charter Module: ${moduleName}...`);
     
-    const platformServices = [
-        'api',
-        'db', 
-        'defaults'
-    ];
-    
-    let platformOK = true;
-    
-    // Check platform components
-    platformComponents.forEach(component => {
-        if (!window[component] && !window.src?.platform?.components?.[component]) {
-            console.warn(`Platform component missing: ${component}`);
-            platformOK = false;
-        }
-    });
-    
-    // Check if modular system files loaded
-    const requiredClasses = ['ModularApp', 'Header', 'Sidebar', 'Router'];
-    requiredClasses.forEach(cls => {
-        if (!window[cls]) {
-            console.warn(`Modular system class missing: ${cls}`);
-            platformOK = false;
-        }
-    });
-    
-    if (platformOK) {
-        console.log('✅ Platform OK - All required components available');
-    } else {
-        console.warn('⚠️ Platform health check failed - Some components missing');
+    // Check if platform is initialized
+    if (!window.modularApp) {
+        console.log('Platform not ready, initializing...');
+        setTimeout(() => launchCharterModule(moduleName), 100);
+        return;
     }
     
-    return platformOK;
+    // Check platform health using charter-compliant method
+    const healthy = performPlatformHealthCheck();
+    
+    if (!healthy) {
+        console.log('Platform components still loading, using available functionality...');
+    }
+    
+    // Launch the specific module according to charter
+    switch(moduleName) {
+        case 'Customers':
+            launchCustomersModule();
+            break;
+        case 'Products':
+            launchProductsModule();
+            break;
+        default:
+            console.warn(`Module ${moduleName} not implemented yet`);
+    }
+}
+
+function launchCustomersModule() {
+    console.log('Loading Customers module...');
+    
+    const customersTab = document.getElementById('customers');
+    const contentDiv = document.getElementById('customers-content');
+    
+    if (customersTab && contentDiv) {
+        // Show the customers tab
+        customersTab.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(t => {
+            if (t.id !== 'customers') t.classList.remove('active');
+        });
+        
+        // Use legacy CustomerManager for now (charter allows gradual migration)
+        if (!contentDiv.hasChildNodes() && window.CustomerManager) {
+            console.log('CustomerManager: Initializing...');
+            const customerManager = new CustomerManager(contentDiv);
+            console.log('CustomerManager: Ready');
+        }
+    }
+}
+
+function launchProductsModule() {
+    console.log('Loading Products module...');
+    // TODO: Implement charter-compliant Products module
+    console.log('Products module: Coming soon');
+}
+
+// Charter-compliant platform health check
+function performPlatformHealthCheck() {
+    // Use the new charter-compliant platform loader
+    if (window.platformLoader) {
+        const status = window.platformLoader.getHealthStatus();
+        
+        if (status.healthy) {
+            console.log('✅ Charter Platform health check passed - All components loaded');
+        } else {
+            console.log('Platform components ready:', status.loaded);
+            console.log('Platform components loading:', status.missing);
+        }
+        
+        return status.healthy;
+    }
+    
+    // Fallback to checking if ModularApp is available
+    if (window.modularApp) {
+        return window.modularApp.checkPlatformHealth();
+    }
+    
+    console.warn('⚠️ Platform loader not available');
+    return false;
 }
 
 // Global error handler for uncaught errors
