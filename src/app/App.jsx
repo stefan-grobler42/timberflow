@@ -211,7 +211,71 @@ if (document.readyState === 'loading') {
   }
 }
 
+// App V2 - Modern layout with HeaderBar and CommandRegistry
+class AppV2 {
+  constructor() {
+    this.appShell = null;
+    this.router = null;
+    this.isInitialized = false;
+    
+    this.init();
+  }
+
+  init() {
+    if (this.isInitialized) return;
+    
+    console.log('AppV2: Initializing modern app with HeaderBar...');
+    this.initializeAppShell();
+    this.initializeRouter();
+    this.isInitialized = true;
+    console.log('AppV2: Ready');
+  }
+
+  initializeAppShell() {
+    // Initialize the modern app shell with HeaderBar
+    this.appShell = new AppShellV2('app');
+  }
+
+  initializeRouter() {
+    // Initialize router with V2 routing
+    if (window.Router) {
+      this.router = new Router();
+      
+      // Override router content rendering to use AppShell
+      const originalRenderContent = this.router.renderContent;
+      this.router.renderContent = (content, route) => {
+        if (this.appShell) {
+          this.appShell.setRoute(route);
+          this.appShell.renderContent(content);
+        } else {
+          // Fallback to original rendering
+          originalRenderContent.call(this.router, content, route);
+        }
+      };
+    }
+  }
+
+  // Method to get command provider for modules
+  getCommandProvider(moduleId) {
+    return new CommandProvider(moduleId);
+  }
+
+  // Method for modules to register actions
+  setModuleActions(moduleId, actions) {
+    const commands = useCommands(moduleId);
+    commands.set(actions);
+  }
+
+  // Cleanup method
+  destroy() {
+    if (this.appShell) {
+      this.appShell.destroy();
+    }
+  }
+}
+
 // Make globally accessible
 window.ModularApp = ModularApp;
+window.AppV2 = AppV2;
 
 export default ModularApp;
