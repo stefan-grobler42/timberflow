@@ -272,22 +272,9 @@ class EnhancedDataGrid {
             });
         });
 
-        // Select all checkbox
-        const selectAllCheckbox = document.getElementById('select-all-checkbox');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                if (e.target.checked) {
-                    this.filteredData.forEach(row => this.selectedRows.add(row.id));
-                } else {
-                    this.selectedRows.clear();
-                }
-                this.updateTable();
-                this.updateSelectionInfo();
-                this.onSelectionChange(Array.from(this.selectedRows));
-            });
-        }
 
-        // Row selection
+
+        // Row selection and select all - combined into one event listener
         this.container.addEventListener('change', (e) => {
             if (e.target.classList.contains('row-checkbox')) {
                 const id = parseInt(e.target.dataset.id);
@@ -296,6 +283,15 @@ class EnhancedDataGrid {
                 } else {
                     this.selectedRows.delete(id);
                 }
+                this.updateSelectionInfo();
+                this.onSelectionChange(Array.from(this.selectedRows));
+            } else if (e.target.id === 'select-all-checkbox') {
+                if (e.target.checked) {
+                    this.filteredData.forEach(row => this.selectedRows.add(row.id));
+                } else {
+                    this.selectedRows.clear();
+                }
+                this.updateTable();
                 this.updateSelectionInfo();
                 this.onSelectionChange(Array.from(this.selectedRows));
             }
