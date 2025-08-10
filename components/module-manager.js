@@ -57,6 +57,12 @@ class ModuleManager {
             case 'customers':
                 this.loadCustomersModule();
                 break;
+            case 'formula-engine':
+                this.loadFormulaEngineModule();
+                break;
+            case 'pamir-import':
+                this.loadPamirImportModule();
+                break;
             case 'my-dashboard':
                 this.showContent('my-dashboard');
                 break;
@@ -98,11 +104,45 @@ class ModuleManager {
         // Initialize customer manager if not already done
         if (!this.moduleInstances.has('customers')) {
             try {
-                const customerManager = new CustomerManager();
+                const customerManager = new CustomerManager('customers-content');
                 this.moduleInstances.set('customers', customerManager);
                 console.log('CustomerManager initialized');
             } catch (error) {
                 console.error('Failed to initialize CustomerManager:', error);
+            }
+        }
+    }
+
+    loadFormulaEngineModule() {
+        this.showContent('formula-engine');
+        
+        // Initialize formula engine if not already done
+        if (!this.moduleInstances.has('formula-engine')) {
+            try {
+                if (window.FormulaEngine) {
+                    const formulaEngine = new window.FormulaEngine('formula-engine-content');
+                    this.moduleInstances.set('formula-engine', formulaEngine);
+                    console.log('FormulaEngine initialized');
+                }
+            } catch (error) {
+                console.error('Failed to initialize FormulaEngine:', error);
+            }
+        }
+    }
+
+    loadPamirImportModule() {
+        this.showContent('pamir-import');
+        
+        // Initialize pamir import if not already done
+        if (!this.moduleInstances.has('pamir-import')) {
+            try {
+                if (window.PamirImport) {
+                    const pamirImport = new window.PamirImport('pamir-import-content');
+                    this.moduleInstances.set('pamir-import', pamirImport);
+                    console.log('PamirImport initialized');
+                }
+            } catch (error) {
+                console.error('Failed to initialize PamirImport:', error);
             }
         }
     }

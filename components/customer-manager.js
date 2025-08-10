@@ -10,7 +10,7 @@ class CustomerManager {
         this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
-        // Enhanced grid
+        // System grid
         this.dataGrid = null;
         
         // Reference data for lookups
@@ -346,72 +346,37 @@ class CustomerManager {
                 </div>
             `;
 
-            const gridConfig = {
-                entityName: 'Customer',
-                columns: [
-                    { field: 'accountNo', header: 'Account No.', width: '120px' },
-                    { field: 'accountName', header: 'Account Name', width: '200px' },
-                    { field: 'companyType', header: 'Company Type', type: 'badge', width: '150px',
-                      badgeClasses: {
-                        'Private Company': 'bg-primary',
-                        'Close Corporation': 'bg-info',
-                        'Partnership': 'bg-success',
-                        'Sole Proprietor': 'bg-warning',
-                        'Public Company': 'bg-dark',
-                        'Trust': 'bg-secondary',
-                        'Individual': 'bg-light text-dark'
-                      }
-                    },
-                    { field: 'phone', header: 'Phone', width: '150px' },
-                    { field: 'email', header: 'Email', width: '200px' },
-                    { field: 'salesRepresentative', header: 'Sales Rep', width: '120px' },
-                    { field: 'accountType', header: 'Account Type', type: 'badge', width: '120px',
-                      badgeClasses: {
-                        'Prospect': 'bg-warning',
-                        'Customer': 'bg-success',
-                        'Supplier': 'bg-info',
-                        'Partner': 'bg-primary',
-                        'Competitor': 'bg-danger'
-                      }
-                    },
-                    { field: 'customerStatus', header: 'Customer Status', type: 'badge', width: '150px',
-                      badgeClasses: {
-                        'Prospect': 'bg-warning',
-                        'Confirmed Customer': 'bg-success',
-                        'Account Under Review': 'bg-info',
-                        'Credit Approved': 'bg-primary',
-                        'Account Closed': 'bg-danger'
-                      }
-                    },
-                    { field: 'approvalStatus', header: 'Approval Status', type: 'badge', width: '150px',
-                      badgeClasses: {
-                        'Pending': 'bg-warning',
-                        'Credit App Required': 'bg-info',
-                        'References Check': 'bg-secondary',
-                        'Payment History Review': 'bg-primary',
-                        'Approved': 'bg-success',
-                        'Rejected': 'bg-danger'
-                      }
-                    },
-                    { field: 'quotesRequested', header: 'Quotes', type: 'number', width: '80px' },
-                    { field: 'totalQuoteValue', header: 'Quote Value', type: 'currency', width: '120px' },
-                    { field: 'ordersPlaced', header: 'Orders', type: 'number', width: '80px' },
-                    { field: 'dateCreated', header: 'Date Created', type: 'date', width: '120px' },
-                    { field: 'isActive', header: 'Active', type: 'boolean', width: '80px' }
-                ],
-                onRowClick: (id) => this.editCustomer(id),
-                onNew: () => this.newCustomer(),
-                onDelete: (id) => this.deleteCustomer(id),
-                onSelectionChange: (selectedIds) => {
-                    console.log('Selected customers:', selectedIds);
-                }
-            };
+            const columns = [
+                { field: 'accountNo', header: 'Account No.', width: '120px' },
+                { field: 'accountName', header: 'Account Name', width: '200px' },
+                { field: 'companyType', header: 'Company Type', width: '150px' },
+                { field: 'phone', header: 'Phone', width: '150px' },
+                { field: 'email', header: 'Email', width: '200px' },
+                { field: 'salesRepresentative', header: 'Sales Rep', width: '120px' },
+                { field: 'accountType', header: 'Account Type', width: '120px' },
+                { field: 'customerStatus', header: 'Customer Status', width: '150px' },
+                { field: 'approvalStatus', header: 'Approval Status', width: '150px' },
+                { field: 'quotesRequested', header: 'Quotes', width: '80px' },
+                { field: 'totalQuoteValue', header: 'Quote Value', width: '120px' },
+                { field: 'ordersPlaced', header: 'Orders', width: '80px' },
+                { field: 'dateCreated', header: 'Date Created', width: '120px' },
+                { field: 'isActive', header: 'Active', width: '80px' }
+            ];
 
-            this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
+            this.dataGrid = new SystemGrid('customer-grid-container', {
+                entityName: 'Customer',
+                pageSize: 25,
+                enableSort: true,
+                enableFilter: true,
+                enableSelection: true
+            });
+            
+            // Store columns for data updates
+            this.gridColumns = columns;
         }
         
         // Update grid data
-        this.dataGrid.setData(this.data);
+        this.dataGrid.setData(this.data, this.gridColumns);
     }
 
     renderFormView() {
