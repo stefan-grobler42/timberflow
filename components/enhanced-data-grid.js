@@ -102,111 +102,6 @@ class EnhancedDataGrid {
         `;
 
         this.attachEventListeners();
-        this.addResizableColumns();
-    }
-
-    addResizableColumns() {
-        // Add CSS for column resizing
-        if (!document.getElementById('resizable-columns-css')) {
-            const style = document.createElement('style');
-            style.id = 'resizable-columns-css';
-            style.textContent = `
-                .resizable-column {
-                    min-width: 80px;
-                    max-width: 500px;
-                    position: relative;
-                }
-                .resize-handle {
-                    position: absolute;
-                    top: 0;
-                    right: 0;
-                    width: 5px;
-                    height: 100%;
-                    cursor: col-resize;
-                    background: transparent;
-                    z-index: 1001;
-                }
-                .resize-handle:hover {
-                    background: rgba(0, 123, 255, 0.3);
-                }
-                .table th.resizable-column {
-                    border-right: 2px solid #dee2e6;
-                }
-                .resizing {
-                    user-select: none;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-        
-        // Add resize event listeners
-        this.setupColumnResizing();
-    }
-
-    setupColumnResizing() {
-        // Remove existing resize event listeners to prevent duplicates
-        if (this.resizeListeners) {
-            this.resizeListeners.forEach(listener => {
-                document.removeEventListener(listener.type, listener.handler);
-            });
-        }
-        
-        this.resizeListeners = [];
-        let isResizing = false;
-        let currentColumn = null;
-        let startX = 0;
-        let startWidth = 0;
-
-        // Use event delegation for mousedown on the container
-        const mouseDownHandler = (e) => {
-            if (e.target.classList.contains('resize-handle')) {
-                console.log('Resize handle clicked! Starting resize...'); // Debug log
-                isResizing = true;
-                currentColumn = e.target.parentElement;
-                startX = e.pageX;
-                startWidth = parseInt(window.getComputedStyle(currentColumn).width, 10);
-                document.body.classList.add('resizing');
-                console.log('Initial width:', startWidth, 'Start X:', startX);
-                e.preventDefault();
-                e.stopPropagation();
-            }
-        };
-
-        const mouseMoveHandler = (e) => {
-            if (!isResizing) return;
-            
-            const width = startWidth + e.pageX - startX;
-            console.log('Resizing to width:', width); // Debug log
-            if (width >= 80 && width <= 500) {
-                currentColumn.style.width = width + 'px';
-                
-                // Update the column configuration
-                const field = currentColumn.dataset.field;
-                const columnConfig = this.columns.find(col => col.field === field);
-                if (columnConfig) {
-                    columnConfig.width = width + 'px';
-                }
-            }
-        };
-
-        const mouseUpHandler = () => {
-            if (isResizing) {
-                console.log('Resize completed!'); // Debug log
-                isResizing = false;
-                currentColumn = null;
-                document.body.classList.remove('resizing');
-            }
-        };
-
-        this.container.addEventListener('mousedown', mouseDownHandler);
-        document.addEventListener('mousemove', mouseMoveHandler);
-        document.addEventListener('mouseup', mouseUpHandler);
-        
-        // Store listeners for cleanup
-        this.resizeListeners = [
-            { type: 'mousemove', handler: mouseMoveHandler },
-            { type: 'mouseup', handler: mouseUpHandler }
-        ];
     }
 
     renderColumnMenu() {
@@ -231,14 +126,13 @@ class EnhancedDataGrid {
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header resizable-column" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; min-width: 80px; border-right: 2px solid #dee2e6;">
-                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;">
+                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; min-width: 80px; resize: horizontal; overflow: auto;">
+                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
                         </div>
-                        <div class="resize-handle" style="position: absolute; top: 0; right: -2px; width: 8px; height: 100%; cursor: col-resize; background: rgba(255,0,0,0.1); z-index: 1001;" title="Drag to resize column"></div>
                     </th>
                 `).join('')}
                 <th style="width: 120px;">Actions</th>
@@ -514,9 +408,6 @@ class EnhancedDataGrid {
         }
         this.updateSelectionInfo();
         this.updateSelectAllCheckbox();
-        
-        // Re-setup column resizing after table update
-        this.setupColumnResizing();
     }
 
     updateSelectionInfo() {
