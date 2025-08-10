@@ -77,191 +77,8 @@
     <div class="container-fluid" style="margin-top: 80px;">
         <div class="row">
             <!-- Left Sidebar Navigation -->
-            <div class="col-md-3 col-lg-3 col-xl-2">
-                <div class="sidebar-container">
-                    <!-- Pinned Section -->
-                    <div class="card mb-3 bc-card">
-                        <div class="card-header bg-light bc-collapsible-header" data-bs-toggle="collapse" data-bs-target="#pinnedCollapse" role="button" style="background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important; color: #231f20 !important; font-weight: 500 !important;">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-thumbtack me-2 text-primary"></i>
-                                <h6 class="mb-0 flex-grow-1">Pinned</h6>
-                                <i class="fas fa-chevron-down bc-collapse-icon"></i>
-                            </div>
-                        </div>
-                        <div class="collapse show" id="pinnedCollapse">
-                            <div class="list-group list-group-flush" id="pinned-items">
-                                <div class="text-center text-muted p-2 small">No pinned items</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Recent Section -->  
-                    <div class="card mb-3 bc-card">
-                        <div class="card-header bg-light bc-collapsible-header" data-bs-toggle="collapse" data-bs-target="#recentCollapse" role="button" style="background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important; color: #231f20 !important; font-weight: 500 !important;">
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-clock me-2 text-success"></i>
-                                <h6 class="mb-0 flex-grow-1">Recent</h6>
-                                <i class="fas fa-chevron-down bc-collapse-icon"></i>
-                            </div>
-                        </div>
-                        <div class="collapse show" id="recentCollapse">
-                            <div class="list-group list-group-flush" id="recent-items">
-                                <div class="text-center text-muted p-2 small">No recent activity</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Home - Main Navigation -->
-                    <div class="card">
-                        <div class="card-header bg-primary text-white" style="background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important; color: #ffffff !important; font-weight: 600 !important;">
-                            <h6 class="mb-0"><i class="fas fa-home"></i> Home</h6>
-                        </div>
-                        <div class="accordion accordion-flush" id="navigation-accordion">
-                            <!-- Dashboard -->
-                            <div class="accordion-item">
-                                <div class="accordion-header">
-                                    <a href="#my-dashboard" class="list-group-item list-group-item-action active border-0" data-tab="my-dashboard">
-                                        <i class="fas fa-chart-line"></i> My Dashboard
-                                    </a>
-                                </div>
-                            </div>
-                            
-                            <!-- Activities -->
-                            <div class="accordion-item">
-                                <div class="accordion-header">
-                                    <a href="#my-activities" class="list-group-item list-group-item-action border-0" data-tab="my-activities">
-                                        <i class="fas fa-tasks"></i> My Activities
-                                    </a>
-                                </div>
-                            </div>
-
-                            <!-- General Module -->
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#general-module">
-                                        <i class="fas fa-users me-2"></i> General
-                                    </button>
-                                </h2>
-                                <div id="general-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
-                                    <div class="accordion-body p-0">
-                                        <a href="#customers" class="list-group-item list-group-item-action border-0" data-tab="customers">
-                                            <i class="fas fa-user-tie"></i> Customers
-                                        </a>
-                                        <a href="#contacts" class="list-group-item list-group-item-action border-0" data-tab="contacts">
-                                            <i class="fas fa-address-book"></i> Contacts
-                                        </a>
-                                        <a href="#employees" class="list-group-item list-group-item-action border-0" data-tab="employees">
-                                            <i class="fas fa-users-cog"></i> Employees
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Sales Module -->
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sales-module">
-                                        <i class="fas fa-handshake me-2"></i> Sales
-                                    </button>
-                                </h2>
-                                <div id="sales-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
-                                    <div class="accordion-body p-0">
-                                        <a href="#projects" class="list-group-item list-group-item-action border-0" data-tab="projects">
-                                            <i class="fas fa-project-diagram"></i> Projects
-                                        </a>
-                                        <a href="#quotes" class="list-group-item list-group-item-action border-0" data-tab="quotes">
-                                            <i class="fas fa-file-invoice"></i> Quotes
-                                        </a>
-                                        <a href="#tenders" class="list-group-item list-group-item-action border-0" data-tab="tenders">
-                                            <i class="fas fa-file-contract"></i> Tenders
-                                        </a>
-                                        <a href="#orders" class="list-group-item list-group-item-action border-0" data-tab="orders">
-                                            <i class="fas fa-shopping-cart"></i> Orders
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Stock Module -->
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#stock-module">
-                                        <i class="fas fa-boxes me-2"></i> Stock
-                                    </button>
-                                </h2>
-                                <div id="stock-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
-                                    <div class="accordion-body p-0">
-                                        <a href="#stock-items" class="list-group-item list-group-item-action border-0" data-tab="stock-items">
-                                            <i class="fas fa-box"></i> Stock Items
-                                        </a>
-                                        <a href="#pamir-import" class="list-group-item list-group-item-action border-0" data-tab="pamir-import">
-                                            <i class="fas fa-file-import"></i> Pamir Import
-                                        </a>
-                                        <a href="#formula-engine" class="list-group-item list-group-item-action border-0" data-tab="formula-engine">
-                                            <i class="fas fa-calculator"></i> Formula Engine
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- CRM Module -->
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm-module">
-                                        <i class="fas fa-user-friends me-2"></i> CRM
-                                    </button>
-                                </h2>
-                                <div id="crm-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
-                                    <div class="accordion-body p-0">
-                                        <a href="#tasks" class="list-group-item list-group-item-action border-0" data-tab="tasks">
-                                            <i class="fas fa-tasks"></i> Tasks
-                                        </a>
-                                        <a href="#calls" class="list-group-item list-group-item-action border-0" data-tab="calls">
-                                            <i class="fas fa-phone"></i> Phone Calls
-                                        </a>
-                                        <a href="#emails" class="list-group-item list-group-item-action border-0" data-tab="emails">
-                                            <i class="fas fa-envelope"></i> Emails
-                                        </a>
-                                        <a href="#meetings" class="list-group-item list-group-item-action border-0" data-tab="meetings">
-                                            <i class="fas fa-calendar-alt"></i> Meetings
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Settings Tables Module -->
-                            <div class="accordion-item">
-                                <h2 class="accordion-header">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#settings-module">
-                                        <i class="fas fa-table me-2"></i> Settings Tables
-                                    </button>
-                                </h2>
-                                <div id="settings-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
-                                    <div class="accordion-body p-0">
-                                        <a href="#uom-table" class="list-group-item list-group-item-action border-0" data-tab="uom-table">
-                                            <i class="fas fa-balance-scale"></i> Units of Measure
-                                        </a>
-                                        <a href="#item-types-table" class="list-group-item list-group-item-action border-0" data-tab="item-types-table">
-                                            <i class="fas fa-tags"></i> Item Types
-                                        </a>
-                                        <a href="#categories-table" class="list-group-item list-group-item-action border-0" data-tab="categories-table">
-                                            <i class="fas fa-folder"></i> Categories
-                                        </a>
-                                        <a href="#company-types-table" class="list-group-item list-group-item-action border-0" data-tab="company-types-table">
-                                            <i class="fas fa-building"></i> Company Types
-                                        </a>
-                                        <a href="#account-types-table" class="list-group-item list-group-item-action border-0" data-tab="account-types-table">
-                                            <i class="fas fa-user-tag"></i> Account Types
-                                        </a>
-                                        <a href="#account-relationships-table" class="list-group-item list-group-item-action border-0" data-tab="account-relationships-table">
-                                            <i class="fas fa-link"></i> Account Relationships
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div class="col-md-3 col-lg-3 col-xl-2" id="sidebar-container">
+                <!-- Sidebar will be rendered by SystemSidebar component -->
             </div>
 
             <!-- Main Content Area -->
@@ -601,11 +418,15 @@
     <script src="components/pamir-import.js"></script>
     <script src="components/quote-builder.js"></script>
     <script src="components/stock-placeholder.js"></script>
-    <script src="components/lookup-field.js"></script>
-    <script src="components/interactive-map.js"></script>
-    <script src="components/location-picker.js"></script>
-    <script src="components/enhanced-location-field.js"></script>
-    <script src="components/enhanced-data-grid.js"></script>
+    <!-- System Components -->
+    <script src="system/defaults.js"></script>
+    <script src="components/system-sidebar.js"></script>
+    <script src="components/system-grid.js"></script>
+    <script src="components/system-lookup.js"></script>
+    <script src="components/system-location.js"></script>
+    <script src="components/module-manager.js"></script>
+    
+    <!-- Module Components -->
     <script src="components/customer-manager.js"></script>
 
     <script src="components/enhanced-pamir-parser.js"></script>
