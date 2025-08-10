@@ -19,11 +19,6 @@ class ModuleManager {
     }
 
     initializeSystemComponents() {
-        // Initialize system defaults first
-        if (window.SystemDefaults) {
-            window.SystemDefaults.initialize();
-        }
-
         // Initialize sidebar
         if (window.SystemSidebar && !window.millenniumSidebar) {
             window.millenniumSidebar = new window.SystemSidebar();
