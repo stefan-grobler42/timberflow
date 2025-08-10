@@ -54,6 +54,7 @@ Preferred communication style: Simple, everyday language.
 - **Universal Auto-Save Pattern**: Implemented system-wide auto-save functionality with change detection, undo capability, and seamless navigation without explicit save buttons - pattern to be applied across all future modules
 - **Enhanced Data Grid System**: Universal enterprise-grade data grid component with sortable columns, column visibility control, multi-select functionality, Excel export, persistent column resizing, auto-fit functionality, and Millennium branding - established as system-wide standard for all modules
 - **Centralized System Defaults**: Created `system/defaults.js` as central configuration for all core functionality (grids, lookups, maps, auto-save, validation) - single point of control for system-wide changes without module rewrites
+- **Stock Module Removal and Placeholder Implementation**: Completely removed the stock management module as requested by user and replaced with a placeholder component showing "Coming Soon" message for future development. All stock-related files, database tables, API endpoints, and component references have been removed or replaced with placeholder implementations.
 
 ## Module Structure
 
@@ -72,16 +73,11 @@ Preferred communication style: Simple, everyday language.
 - Tender management (sub-record with assemblies)
 - Order management (sub-record from quotes/tenders)
 
-### Stock Module
-- **Complex Stock Hierarchy**: Three-tier system supporting manufactured items (timber trusses), standard stock items (timber/materials), and service items (labour/transport)
-- **Variable Attributes**: Dynamic stock variants for colours, girths, finishes with configurable pricing
-- **Composite Tender Rates**: Recipe-based composite items for tender pricing (sheeting + screws + labour + transport)
-- **Unit Conversion System**: Automatic conversion between m, m2, ea with cover width calculations for sheeting
-- **Flexible BOM System**: Unique BOMs for each manufactured item (timber trusses) linked to Pamir exports
-- **Temporary Stock Codes**: 120-day expiring temporary codes for rare/custom items
-- **Material Grouping**: Collapsible groups (Roof Trusses > Timber/Plates, Hangers, Bracing, etc.)
-- **Tally System**: Interactive quantity/length capture for cut-to-length materials
-- **Pamir Integration**: Automatic BOM creation from CSV/Excel exports with variable extraction
+### Stock Module *(Removed - Placeholder Implementation)*
+- **Status**: Complete removal of stock management module as requested by user
+- **Replacement**: Placeholder component showing "Coming Soon" message
+- **Files Removed**: All stock-related JavaScript components, API files, and database schema
+- **Future Implementation**: New stock system will be implemented with different architecture when requested
 
 ### CRM Module
 - Task management (calls, emails, meetings)
