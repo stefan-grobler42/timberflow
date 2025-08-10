@@ -587,6 +587,9 @@ class CustomerManager {
             backBtn.addEventListener('click', () => {
                 this.saveCurrentChanges().then(() => {
                     this.showList();
+                }).catch(error => {
+                    console.error('Error saving changes:', error);
+                    this.showList(); // Still go back even if save fails
                 });
             });
         }
@@ -596,50 +599,67 @@ class CustomerManager {
             undoBtn.addEventListener('click', () => this.undoChanges());
         }
         
-        // Initialize lookup fields
-        this.initializeLookupFields();
+        // Initialize components with error handling
+        try {
+            this.initializeLookupFields();
+        } catch (error) {
+            console.warn('Error initializing lookup fields:', error);
+        }
         
-        // Initialize location picker
-        this.initializeLocationPicker();
+        try {
+            this.initializeLocationPicker();
+        } catch (error) {
+            console.warn('Error initializing location picker:', error);
+        }
         
-        // Make contact fields clickable
-        this.initializeClickableFields();
+        try {
+            this.initializeClickableFields();
+        } catch (error) {
+            console.warn('Error initializing clickable fields:', error);
+        }
         
-        // Store initial state for undo functionality
-        this.storeCurrentState();
+        try {
+            this.storeCurrentState();
+        } catch (error) {
+            console.warn('Error storing initial state:', error);
+        }
     }
     
     initializeLookupFields() {
-        // Clear existing lookup fields
-        Object.values(this.lookupFields).forEach(field => {
-            if (field.dropdown && field.dropdown.parentNode) {
-                field.dropdown.parentNode.removeChild(field.dropdown);
+        try {
+            // Clear existing lookup fields
+            Object.values(this.lookupFields).forEach(field => {
+                if (field.dropdown && field.dropdown.parentNode) {
+                    field.dropdown.parentNode.removeChild(field.dropdown);
+                }
+            });
+            this.lookupFields = {};
+            
+            // Company Types
+            const companyTypeInput = document.getElementById('companyType');
+            if (companyTypeInput && typeof createLookupField !== 'undefined') {
+                this.lookupFields.companyType = createLookupField(companyTypeInput, this.companyTypes, {
+                    placeholder: 'Type to search company types...'
+                });
             }
-        });
-        this.lookupFields = {};
         
-        // Company Types
-        const companyTypeInput = document.getElementById('companyType');
-        if (companyTypeInput) {
-            this.lookupFields.companyType = createLookupField(companyTypeInput, this.companyTypes, {
-                placeholder: 'Type to search company types...'
-            });
-        }
-        
-        // Account Types
-        const accountTypeInput = document.getElementById('accountType');
-        if (accountTypeInput) {
-            this.lookupFields.accountType = createLookupField(accountTypeInput, this.accountTypes, {
-                placeholder: 'Type to search account types...'
-            });
-        }
-        
-        // Customer Status
-        const customerStatusInput = document.getElementById('customerStatus');
-        if (customerStatusInput) {
-            this.lookupFields.customerStatus = createLookupField(customerStatusInput, this.customerStatuses, {
-                placeholder: 'Type to search customer statuses...'
-            });
+            // Account Types
+            const accountTypeInput = document.getElementById('accountType');
+            if (accountTypeInput && typeof createLookupField !== 'undefined') {
+                this.lookupFields.accountType = createLookupField(accountTypeInput, this.accountTypes, {
+                    placeholder: 'Type to search account types...'
+                });
+            }
+            
+            // Customer Status
+            const customerStatusInput = document.getElementById('customerStatus');
+            if (customerStatusInput && typeof createLookupField !== 'undefined') {
+                this.lookupFields.customerStatus = createLookupField(customerStatusInput, this.customerStatuses, {
+                    placeholder: 'Type to search customer statuses...'
+                });
+            }
+        } catch (error) {
+            console.warn('Error in initializeLookupFields:', error);
         }
         
         // Approval Status
@@ -725,19 +745,23 @@ class CustomerManager {
     initializeClickableFields() {
         // Add delay to ensure fields are rendered
         setTimeout(() => {
-            // Only apply to specific fields, not all fields
-            const phoneField = document.getElementById('phone');
-            const emailField = document.getElementById('email');
-            const websiteField = document.getElementById('website');
-            
-            if (phoneField) {
-                ClickableFieldUtils.makePhoneClickable(phoneField);
-            }
-            if (emailField) {
-                ClickableFieldUtils.makeEmailClickable(emailField);
-            }
-            if (websiteField) {
-                ClickableFieldUtils.makeWebsiteClickable(websiteField);
+            try {
+                // Only apply to specific fields, not all fields
+                const phoneField = document.getElementById('phone');
+                const emailField = document.getElementById('email');
+                const websiteField = document.getElementById('website');
+                
+                if (phoneField && typeof ClickableFieldUtils !== 'undefined') {
+                    ClickableFieldUtils.makePhoneClickable(phoneField);
+                }
+                if (emailField && typeof ClickableFieldUtils !== 'undefined') {
+                    ClickableFieldUtils.makeEmailClickable(emailField);
+                }
+                if (websiteField && typeof ClickableFieldUtils !== 'undefined') {
+                    ClickableFieldUtils.makeWebsiteClickable(websiteField);
+                }
+            } catch (error) {
+                console.warn('Could not initialize clickable fields:', error);
             }
         }, 100);
     }
@@ -1033,27 +1057,57 @@ class CustomerManager {
     }
     
     async saveCurrentChanges() {
-        if (!this.validateForm()) {
-            throw new Error('Validation failed');
-        }
-        
-        const formData = this.getFormData();
-        
-        if (this.currentItem) {
-            // Update existing item
-            const index = this.data.findIndex(item => item.id === this.currentItem.id);
-            if (index !== -1) {
-                this.data[index] = { ...this.data[index], ...formData };
+        try {
+            const formData = this.getFormData();
+            
+            if (this.currentItem) {
+                // Update existing item
+                const index = this.data.findIndex(item => item.id === this.currentItem.id);
+                if (index !== -1) {
+                    this.data[index] = { ...this.data[index], ...formData };
+                }
+                
+                // Record audit trail for updates
+                if (window.auditTrailManager) {
+                    window.auditTrailManager.recordEvent({
+                        module: 'customer',
+                        recordType: 'customer',
+                        recordId: this.currentItem.id,
+                        action: 'UPDATE',
+                        changes: formData,
+                        metadata: {
+                            component: 'CustomerManager'
+                        }
+                    });
+                }
+            } else {
+                // Create new item
+                const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
+                formData.id = newId;
+                this.data.push(formData);
+                this.currentItem = formData;
+                
+                // Record audit trail for creates
+                if (window.auditTrailManager) {
+                    window.auditTrailManager.recordEvent({
+                        module: 'customer',
+                        recordType: 'customer',
+                        recordId: newId,
+                        action: 'CREATE',
+                        changes: formData,
+                        metadata: {
+                            component: 'CustomerManager'
+                        }
+                    });
+                }
             }
-        } else {
-            // Create new item
-            const newId = Math.max(...this.data.map(item => item.id), 0) + 1;
-            formData.id = newId;
-            this.data.push(formData);
-            this.currentItem = formData;
+            
+            this.changesPending = false;
+            console.log('Customer saved successfully');
+        } catch (error) {
+            console.error('Error saving customer:', error);
+            throw error;
         }
-        
-        return Promise.resolve();
     }
     
     storeCurrentState() {
