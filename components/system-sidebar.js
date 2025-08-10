@@ -1,25 +1,22 @@
-// System Sidebar - Centralized Navigation Component
+// System Sidebar - Restores Original Business Central Layout
 class SystemSidebar {
     constructor() {
-        this.isCollapsed = false;
         this.pinnedItems = [];
         this.recentItems = [];
-        this.currentModule = null;
+        this.currentModule = 'my-dashboard';
         this.init();
     }
 
     init() {
         this.loadSidebarState();
-        this.setupEventListeners();
         this.render();
+        this.setupEventListeners();
     }
 
     loadSidebarState() {
-        // Load sidebar preferences from localStorage
         const sidebarState = localStorage.getItem('millennium-sidebar-state');
         if (sidebarState) {
             const state = JSON.parse(sidebarState);
-            this.isCollapsed = state.isCollapsed || false;
             this.pinnedItems = state.pinnedItems || [];
             this.recentItems = state.recentItems || [];
         }
@@ -27,7 +24,6 @@ class SystemSidebar {
 
     saveSidebarState() {
         const state = {
-            isCollapsed: this.isCollapsed,
             pinnedItems: this.pinnedItems,
             recentItems: this.recentItems
         };
@@ -35,215 +31,247 @@ class SystemSidebar {
     }
 
     render() {
-        const sidebarContainer = document.getElementById('sidebar-container');
-        if (!sidebarContainer) return;
+        const container = document.getElementById('sidebar-container');
+        if (!container) return;
 
-        sidebarContainer.innerHTML = `
-            <nav class="sidebar ${this.isCollapsed ? 'collapsed' : ''}" id="sidebar">
-                <div class="sidebar-header">
-                    <div class="d-flex align-items-center">
-                        <div class="sidebar-logo me-2">
-                            <svg width="32" height="32" viewBox="0 0 100 100" class="millennium-logo">
-                                <rect x="10" y="20" width="15" height="60" fill="#59AAD5" rx="2"/>
-                                <rect x="30" y="35" width="15" height="45" fill="#54C3D6" rx="2"/>
-                                <rect x="50" y="25" width="15" height="55" fill="#464746" rx="2"/>
-                                <rect x="70" y="40" width="15" height="40" fill="#231f20" rx="2"/>
-                                <path d="M15 15 L85 15 L50 5 Z" fill="#59AAD5" opacity="0.8"/>
-                            </svg>
+        container.innerHTML = `
+            <div class="sidebar-container">
+                <!-- Pinned Section -->
+                <div class="card mb-3 bc-card">
+                    <div class="card-header bg-light bc-collapsible-header" data-bs-toggle="collapse" data-bs-target="#pinnedCollapse" role="button" style="background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important; color: #231f20 !important; font-weight: 500 !important;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-thumbtack me-2 text-primary"></i>
+                            <h6 class="mb-0 flex-grow-1">Pinned</h6>
+                            <i class="fas fa-chevron-down bc-collapse-icon"></i>
                         </div>
-                        <span class="sidebar-title ${this.isCollapsed ? 'd-none' : ''}">Millennium ERP</span>
-                        <button class="btn btn-link p-0 ms-auto sidebar-toggle" id="sidebar-toggle">
-                            <i class="fas fa-bars text-white"></i>
-                        </button>
+                    </div>
+                    <div class="collapse show" id="pinnedCollapse">
+                        <div class="list-group list-group-flush" id="pinned-items">
+                            ${this.renderPinnedItems()}
+                        </div>
                     </div>
                 </div>
 
-                <div class="sidebar-content">
-                    <!-- Dashboard Section -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-section-header ${this.isCollapsed ? 'd-none' : ''}">
-                            <i class="fas fa-home"></i>
-                            <span>Dashboard</span>
+                <!-- Recent Section -->  
+                <div class="card mb-3 bc-card">
+                    <div class="card-header bg-light bc-collapsible-header" data-bs-toggle="collapse" data-bs-target="#recentCollapse" role="button" style="background: linear-gradient(135deg, #E6E6E6 0%, #b3b3b3 100%) !important; color: #231f20 !important; font-weight: 500 !important;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-clock me-2 text-success"></i>
+                            <h6 class="mb-0 flex-grow-1">Recent</h6>
+                            <i class="fas fa-chevron-down bc-collapse-icon"></i>
                         </div>
-                        <ul class="sidebar-menu">
-                            <li><a href="#" class="sidebar-link" data-module="my-dashboard">
-                                <i class="fas fa-tachometer-alt"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">My Dashboard</span>
-                            </a></li>
-                            <li><a href="#" class="sidebar-link" data-module="my-activities">
-                                <i class="fas fa-tasks"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">My Activities</span>
-                            </a></li>
-                        </ul>
                     </div>
-
-                    <!-- General Section -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-section-header ${this.isCollapsed ? 'd-none' : ''}">
-                            <i class="fas fa-users"></i>
-                            <span>General</span>
+                    <div class="collapse show" id="recentCollapse">
+                        <div class="list-group list-group-flush" id="recent-items">
+                            ${this.renderRecentItems()}
                         </div>
-                        <ul class="sidebar-menu">
-                            <li><a href="#" class="sidebar-link" data-module="customers">
-                                <i class="fas fa-user-friends"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Customers</span>
-                            </a></li>
-                            <li><a href="#" class="sidebar-link" data-module="contacts">
-                                <i class="fas fa-address-book"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Contacts</span>
-                            </a></li>
-                        </ul>
                     </div>
-
-                    <!-- Sales Section -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-section-header ${this.isCollapsed ? 'd-none' : ''}">
-                            <i class="fas fa-chart-line"></i>
-                            <span>Sales</span>
-                        </div>
-                        <ul class="sidebar-menu">
-                            <li><a href="#" class="sidebar-link" data-module="projects">
-                                <i class="fas fa-project-diagram"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Projects</span>
-                            </a></li>
-                            <li><a href="#" class="sidebar-link" data-module="quotes">
-                                <i class="fas fa-file-invoice-dollar"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Quotes</span>
-                            </a></li>
-                            <li><a href="#" class="sidebar-link" data-module="orders">
-                                <i class="fas fa-shopping-cart"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Orders</span>
-                            </a></li>
-                        </ul>
-                    </div>
-
-                    <!-- Stock Section -->
-                    <div class="sidebar-section">
-                        <div class="sidebar-section-header ${this.isCollapsed ? 'd-none' : ''}">
-                            <i class="fas fa-boxes"></i>
-                            <span>Stock</span>
-                        </div>
-                        <ul class="sidebar-menu">
-                            <li><a href="#" class="sidebar-link" data-module="stock-items">
-                                <i class="fas fa-box"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">Stock Items</span>
-                            </a></li>
-                        </ul>
-                    </div>
-
-                    <!-- Pinned Items -->
-                    ${this.renderPinnedItems()}
-
-                    <!-- Recent Items -->
-                    ${this.renderRecentItems()}
                 </div>
-            </nav>
+
+                <!-- Home - Main Navigation -->
+                <div class="card">
+                    <div class="card-header bg-primary text-white" style="background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%) !important; color: #ffffff !important; font-weight: 600 !important;">
+                        <h6 class="mb-0"><i class="fas fa-home"></i> Home</h6>
+                    </div>
+                    <div class="accordion accordion-flush" id="navigation-accordion">
+                        <!-- Dashboard -->
+                        <div class="accordion-item">
+                            <div class="accordion-header">
+                                <a href="#my-dashboard" class="list-group-item list-group-item-action ${this.currentModule === 'my-dashboard' ? 'active' : ''} border-0" data-module="my-dashboard">
+                                    <i class="fas fa-chart-line"></i> My Dashboard
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Activities -->
+                        <div class="accordion-item">
+                            <div class="accordion-header">
+                                <a href="#my-activities" class="list-group-item list-group-item-action ${this.currentModule === 'my-activities' ? 'active' : ''} border-0" data-module="my-activities">
+                                    <i class="fas fa-tasks"></i> My Activities
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- General Module -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#general-module">
+                                    <i class="fas fa-users me-2"></i> General
+                                </button>
+                            </h2>
+                            <div id="general-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
+                                <div class="accordion-body p-0">
+                                    <a href="#customers" class="list-group-item list-group-item-action ${this.currentModule === 'customers' ? 'active' : ''} border-0" data-module="customers">
+                                        <i class="fas fa-user-tie"></i> Customers
+                                    </a>
+                                    <a href="#contacts" class="list-group-item list-group-item-action ${this.currentModule === 'contacts' ? 'active' : ''} border-0" data-module="contacts">
+                                        <i class="fas fa-address-book"></i> Contacts
+                                    </a>
+                                    <a href="#employees" class="list-group-item list-group-item-action ${this.currentModule === 'employees' ? 'active' : ''} border-0" data-module="employees">
+                                        <i class="fas fa-users-cog"></i> Employees
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sales Module -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sales-module">
+                                    <i class="fas fa-handshake me-2"></i> Sales
+                                </button>
+                            </h2>
+                            <div id="sales-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
+                                <div class="accordion-body p-0">
+                                    <a href="#projects" class="list-group-item list-group-item-action ${this.currentModule === 'projects' ? 'active' : ''} border-0" data-module="projects">
+                                        <i class="fas fa-project-diagram"></i> Projects
+                                    </a>
+                                    <a href="#quotes" class="list-group-item list-group-item-action ${this.currentModule === 'quotes' ? 'active' : ''} border-0" data-module="quotes">
+                                        <i class="fas fa-file-invoice"></i> Quotes
+                                    </a>
+                                    <a href="#tenders" class="list-group-item list-group-item-action ${this.currentModule === 'tenders' ? 'active' : ''} border-0" data-module="tenders">
+                                        <i class="fas fa-file-contract"></i> Tenders
+                                    </a>
+                                    <a href="#orders" class="list-group-item list-group-item-action ${this.currentModule === 'orders' ? 'active' : ''} border-0" data-module="orders">
+                                        <i class="fas fa-shopping-cart"></i> Orders
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stock Module -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#stock-module">
+                                    <i class="fas fa-boxes me-2"></i> Stock
+                                </button>
+                            </h2>
+                            <div id="stock-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
+                                <div class="accordion-body p-0">
+                                    <a href="#stock-items" class="list-group-item list-group-item-action ${this.currentModule === 'stock-items' ? 'active' : ''} border-0" data-module="stock-items">
+                                        <i class="fas fa-box"></i> Stock Items
+                                    </a>
+                                    <a href="#pamir-import" class="list-group-item list-group-item-action ${this.currentModule === 'pamir-import' ? 'active' : ''} border-0" data-module="pamir-import">
+                                        <i class="fas fa-file-import"></i> Pamir Import
+                                    </a>
+                                    <a href="#formula-engine" class="list-group-item list-group-item-action ${this.currentModule === 'formula-engine' ? 'active' : ''} border-0" data-module="formula-engine">
+                                        <i class="fas fa-calculator"></i> Formula Engine
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CRM Module -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#crm-module">
+                                    <i class="fas fa-user-friends me-2"></i> CRM
+                                </button>
+                            </h2>
+                            <div id="crm-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
+                                <div class="accordion-body p-0">
+                                    <a href="#tasks" class="list-group-item list-group-item-action ${this.currentModule === 'tasks' ? 'active' : ''} border-0" data-module="tasks">
+                                        <i class="fas fa-tasks"></i> Tasks
+                                    </a>
+                                    <a href="#calls" class="list-group-item list-group-item-action ${this.currentModule === 'calls' ? 'active' : ''} border-0" data-module="calls">
+                                        <i class="fas fa-phone"></i> Phone Calls
+                                    </a>
+                                    <a href="#emails" class="list-group-item list-group-item-action ${this.currentModule === 'emails' ? 'active' : ''} border-0" data-module="emails">
+                                        <i class="fas fa-envelope"></i> Emails
+                                    </a>
+                                    <a href="#meetings" class="list-group-item list-group-item-action ${this.currentModule === 'meetings' ? 'active' : ''} border-0" data-module="meetings">
+                                        <i class="fas fa-calendar-alt"></i> Meetings
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Settings Tables Module -->
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#settings-module">
+                                    <i class="fas fa-table me-2"></i> Settings Tables
+                                </button>
+                            </h2>
+                            <div id="settings-module" class="accordion-collapse collapse" data-bs-parent="#navigation-accordion">
+                                <div class="accordion-body p-0">
+                                    <a href="#uom-table" class="list-group-item list-group-item-action ${this.currentModule === 'uom-table' ? 'active' : ''} border-0" data-module="uom-table">
+                                        <i class="fas fa-balance-scale"></i> Units of Measure
+                                    </a>
+                                    <a href="#item-types-table" class="list-group-item list-group-item-action ${this.currentModule === 'item-types-table' ? 'active' : ''} border-0" data-module="item-types-table">
+                                        <i class="fas fa-tags"></i> Item Types
+                                    </a>
+                                    <a href="#categories-table" class="list-group-item list-group-item-action ${this.currentModule === 'categories-table' ? 'active' : ''} border-0" data-module="categories-table">
+                                        <i class="fas fa-folder"></i> Categories
+                                    </a>
+                                    <a href="#company-types-table" class="list-group-item list-group-item-action ${this.currentModule === 'company-types-table' ? 'active' : ''} border-0" data-module="company-types-table">
+                                        <i class="fas fa-building"></i> Company Types
+                                    </a>
+                                    <a href="#account-types-table" class="list-group-item list-group-item-action ${this.currentModule === 'account-types-table' ? 'active' : ''} border-0" data-module="account-types-table">
+                                        <i class="fas fa-user-tag"></i> Account Types
+                                    </a>
+                                    <a href="#account-relationships-table" class="list-group-item list-group-item-action ${this.currentModule === 'account-relationships-table' ? 'active' : ''} border-0" data-module="account-relationships-table">
+                                        <i class="fas fa-link"></i> Account Relationships
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         `;
-
-        this.setupSidebarEventListeners();
     }
 
     renderPinnedItems() {
-        if (this.pinnedItems.length === 0) return '';
+        if (this.pinnedItems.length === 0) {
+            return '<div class="text-center text-muted p-2 small">No pinned items</div>';
+        }
 
-        return `
-            <div class="sidebar-section">
-                <div class="sidebar-section-header collapsible ${this.isCollapsed ? 'd-none' : ''}" data-bs-toggle="collapse" data-bs-target="#pinned-items">
-                    <i class="fas fa-thumbtack"></i>
-                    <span>Pinned</span>
-                    <i class="fas fa-chevron-down ms-auto"></i>
-                </div>
-                <div class="collapse show" id="pinned-items">
-                    <ul class="sidebar-menu">
-                        ${this.pinnedItems.map(item => `
-                            <li><a href="#" class="sidebar-link" data-module="${item.module}">
-                                <i class="${item.icon}"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">${item.name}</span>
-                            </a></li>
-                        `).join('')}
-                    </ul>
-                </div>
-            </div>
-        `;
+        return this.pinnedItems.map(item => `
+            <a href="#${item.module}" class="list-group-item list-group-item-action border-0" data-module="${item.module}">
+                <i class="${item.icon}"></i> ${item.name}
+            </a>
+        `).join('');
     }
 
     renderRecentItems() {
-        if (this.recentItems.length === 0) return '';
+        if (this.recentItems.length === 0) {
+            return '<div class="text-center text-muted p-2 small">No recent activity</div>';
+        }
 
         const limitedRecent = this.recentItems.slice(0, 3);
 
-        return `
-            <div class="sidebar-section">
-                <div class="sidebar-section-header collapsible ${this.isCollapsed ? 'd-none' : ''}" data-bs-toggle="collapse" data-bs-target="#recent-items">
-                    <i class="fas fa-clock"></i>
-                    <span>Recent</span>
-                    <i class="fas fa-chevron-down ms-auto"></i>
-                </div>
-                <div class="collapse show" id="recent-items">
-                    <ul class="sidebar-menu">
-                        ${limitedRecent.map(item => `
-                            <li><a href="#" class="sidebar-link" data-module="${item.module}">
-                                <i class="${item.icon}"></i>
-                                <span class="${this.isCollapsed ? 'd-none' : ''}">${item.name}</span>
-                            </a></li>
-                        `).join('')}
-                    </ul>
-                </div>
-            </div>
-        `;
+        return limitedRecent.map(item => `
+            <a href="#${item.module}" class="list-group-item list-group-item-action border-0" data-module="${item.module}">
+                <i class="${item.icon}"></i> ${item.name}
+            </a>
+        `).join('');
     }
 
     setupEventListeners() {
-        // Listen for module navigation events
-        document.addEventListener('millennium-navigate', (event) => {
-            this.handleModuleNavigation(event.detail);
-        });
-    }
-
-    setupSidebarEventListeners() {
-        // Toggle sidebar
-        const toggleBtn = document.getElementById('sidebar-toggle');
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => {
-                this.toggleSidebar();
-            });
-        }
-
         // Handle sidebar navigation
-        document.querySelectorAll('.sidebar-link').forEach(link => {
-            link.addEventListener('click', (e) => {
+        document.addEventListener('click', (e) => {
+            const moduleLink = e.target.closest('[data-module]');
+            if (moduleLink) {
                 e.preventDefault();
-                const module = e.currentTarget.getAttribute('data-module');
+                const module = moduleLink.getAttribute('data-module');
                 if (module) {
                     this.navigateToModule(module);
                 }
-            });
+            }
         });
-    }
 
-    toggleSidebar() {
-        this.isCollapsed = !this.isCollapsed;
-        const sidebar = document.getElementById('sidebar');
-        if (sidebar) {
-            sidebar.classList.toggle('collapsed', this.isCollapsed);
-        }
-
-        // Update text visibility
-        document.querySelectorAll('.sidebar span:not(.sidebar-title)').forEach(span => {
-            span.classList.toggle('d-none', this.isCollapsed);
+        // Listen for external navigation events
+        document.addEventListener('millennium-module-navigate', (event) => {
+            if (event.detail.module) {
+                this.navigateToModule(event.detail.module);
+            }
         });
-        
-        const title = document.querySelector('.sidebar-title');
-        if (title) {
-            title.classList.toggle('d-none', this.isCollapsed);
-        }
-
-        this.saveSidebarState();
     }
 
     navigateToModule(moduleName) {
         // Update active state
-        document.querySelectorAll('.sidebar-link').forEach(link => {
+        document.querySelectorAll('[data-module]').forEach(link => {
             link.classList.remove('active');
         });
         
@@ -255,13 +283,14 @@ class SystemSidebar {
         // Add to recent items
         this.addToRecent(moduleName);
 
-        // Dispatch navigation event
+        // Update current module
+        this.currentModule = moduleName;
+        this.saveSidebarState();
+
+        // Dispatch navigation event for module manager
         document.dispatchEvent(new CustomEvent('millennium-module-navigate', {
             detail: { module: moduleName }
         }));
-
-        this.currentModule = moduleName;
-        this.saveSidebarState();
     }
 
     addToRecent(moduleName) {
@@ -276,18 +305,28 @@ class SystemSidebar {
 
         // Keep only 3 items
         this.recentItems = this.recentItems.slice(0, 3);
+
+        // Update recent section
+        const recentContainer = document.getElementById('recent-items');
+        if (recentContainer) {
+            recentContainer.innerHTML = this.renderRecentItems();
+        }
     }
 
     getModuleInfo(moduleName) {
         const moduleMap = {
-            'my-dashboard': { name: 'My Dashboard', icon: 'fas fa-tachometer-alt' },
+            'my-dashboard': { name: 'My Dashboard', icon: 'fas fa-chart-line' },
             'my-activities': { name: 'My Activities', icon: 'fas fa-tasks' },
-            'customers': { name: 'Customers', icon: 'fas fa-user-friends' },
+            'customers': { name: 'Customers', icon: 'fas fa-user-tie' },
             'contacts': { name: 'Contacts', icon: 'fas fa-address-book' },
+            'employees': { name: 'Employees', icon: 'fas fa-users-cog' },
             'projects': { name: 'Projects', icon: 'fas fa-project-diagram' },
-            'quotes': { name: 'Quotes', icon: 'fas fa-file-invoice-dollar' },
+            'quotes': { name: 'Quotes', icon: 'fas fa-file-invoice' },
+            'tenders': { name: 'Tenders', icon: 'fas fa-file-contract' },
             'orders': { name: 'Orders', icon: 'fas fa-shopping-cart' },
-            'stock-items': { name: 'Stock Items', icon: 'fas fa-box' }
+            'stock-items': { name: 'Stock Items', icon: 'fas fa-box' },
+            'pamir-import': { name: 'Pamir Import', icon: 'fas fa-file-import' },
+            'formula-engine': { name: 'Formula Engine', icon: 'fas fa-calculator' }
         };
 
         return moduleMap[moduleName] ? { 
@@ -295,16 +334,9 @@ class SystemSidebar {
             ...moduleMap[moduleName] 
         } : null;
     }
-
-    handleModuleNavigation(details) {
-        // Handle external navigation requests
-        if (details.module) {
-            this.navigateToModule(details.module);
-        }
-    }
 }
 
-// Initialize sidebar when DOM is ready
+// Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.millenniumSidebar) {
         window.millenniumSidebar = new SystemSidebar();
