@@ -5,16 +5,16 @@ class FormulaEngine {
         this.container = document.getElementById(containerId);
         this.formulas = [];
         this.availableVariables = {};
+        this.stockItems = [];
         this.currentFormula = null;
         
-        // Note: Stock items removed - placeholder implementation
         this.init();
     }
 
     async init() {
         this.render();
         await this.loadFormulas();
-        // Stock items loading removed - placeholder implementation
+        await this.loadStockItems();
         this.setupEventListeners();
     }
 
@@ -236,11 +236,15 @@ class FormulaEngine {
         }
     }
 
-    // Stock items loading removed - placeholder implementation
     async loadStockItems() {
-        console.warn('Stock module not available - formula engine using placeholder implementation');
-        this.stockItems = [];
-        this.populateStockItemSelect();
+        try {
+            const response = await window.app.apiCall('/stock/items');
+            this.stockItems = response || [];
+            this.populateStockItemSelect();
+        } catch (error) {
+            console.error('Failed to load stock items:', error);
+            this.stockItems = [];
+        }
     }
 
     async refreshVariables() {
@@ -300,9 +304,10 @@ class FormulaEngine {
     populateStockItemSelect() {
         const select = document.getElementById('formula-stock-item');
         
-        if (select) {
-            select.innerHTML = '<option value="">Stock module not available</option>';
-        }
+        select.innerHTML = '<option value="">Select stock item...</option>' +
+            this.stockItems.map(item => `
+                <option value="${item.id}">${item.code} - ${item.description}</option>
+            `).join('');
     }
 
     displayFormulas() {

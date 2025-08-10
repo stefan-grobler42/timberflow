@@ -10,7 +10,7 @@ class CustomerManager {
         this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
-        // System grid
+        // Enhanced grid
         this.dataGrid = null;
         
         // Reference data for lookups
@@ -335,55 +335,129 @@ class CustomerManager {
     }
 
     renderListView() {
+        // Generate module header using system defaults
+        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management');
+        
         // Initialize enhanced data grid if not already done
         if (!this.dataGrid) {
             this.container.innerHTML = `
+                ${moduleHeader}
                 <div class="customer-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
-                    </div>
                     <div id="customer-grid-container"></div>
                 </div>
             `;
 
-            const columns = [
-                { field: 'accountNo', header: 'Account No.', width: '120px' },
-                { field: 'accountName', header: 'Account Name', width: '200px' },
-                { field: 'companyType', header: 'Company Type', width: '150px' },
-                { field: 'phone', header: 'Phone', width: '150px' },
-                { field: 'email', header: 'Email', width: '200px' },
-                { field: 'salesRepresentative', header: 'Sales Rep', width: '120px' },
-                { field: 'accountType', header: 'Account Type', width: '120px' },
-                { field: 'customerStatus', header: 'Customer Status', width: '150px' },
-                { field: 'approvalStatus', header: 'Approval Status', width: '150px' },
-                { field: 'quotesRequested', header: 'Quotes', width: '80px' },
-                { field: 'totalQuoteValue', header: 'Quote Value', width: '120px' },
-                { field: 'ordersPlaced', header: 'Orders', width: '80px' },
-                { field: 'dateCreated', header: 'Date Created', width: '120px' },
-                { field: 'isActive', header: 'Active', width: '80px' }
-            ];
-
-            this.dataGrid = new SystemGrid('customer-grid-container', {
+            const gridConfig = {
                 entityName: 'Customer',
-                pageSize: 25,
-                enableSort: true,
-                enableFilter: true,
-                enableSelection: true
-            });
-            
-            // Store columns for data updates
-            this.gridColumns = columns;
+                columns: [
+                    { field: 'accountNo', header: 'Account No.', width: '120px' },
+                    { field: 'accountName', header: 'Account Name', width: '200px' },
+                    { field: 'companyType', header: 'Company Type', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Private Company': 'bg-primary',
+                        'Close Corporation': 'bg-info',
+                        'Partnership': 'bg-success',
+                        'Sole Proprietor': 'bg-warning',
+                        'Public Company': 'bg-dark',
+                        'Trust': 'bg-secondary',
+                        'Individual': 'bg-light text-dark'
+                      }
+                    },
+                    { field: 'phone', header: 'Phone', width: '150px' },
+                    { field: 'email', header: 'Email', width: '200px' },
+                    { field: 'salesRepresentative', header: 'Sales Rep', width: '120px' },
+                    { field: 'accountType', header: 'Account Type', type: 'badge', width: '120px',
+                      badgeClasses: {
+                        'Prospect': 'bg-warning',
+                        'Customer': 'bg-success',
+                        'Supplier': 'bg-info',
+                        'Partner': 'bg-primary',
+                        'Competitor': 'bg-danger'
+                      }
+                    },
+                    { field: 'customerStatus', header: 'Customer Status', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Prospect': 'bg-warning',
+                        'Confirmed Customer': 'bg-success',
+                        'Account Under Review': 'bg-info',
+                        'Credit Approved': 'bg-primary',
+                        'Account Closed': 'bg-danger'
+                      }
+                    },
+                    { field: 'approvalStatus', header: 'Approval Status', type: 'badge', width: '150px',
+                      badgeClasses: {
+                        'Pending': 'bg-warning',
+                        'Credit App Required': 'bg-info',
+                        'References Check': 'bg-secondary',
+                        'Payment History Review': 'bg-primary',
+                        'Approved': 'bg-success',
+                        'Rejected': 'bg-danger'
+                      }
+                    },
+                    { field: 'quotesRequested', header: 'Quotes', type: 'number', width: '80px' },
+                    { field: 'totalQuoteValue', header: 'Quote Value', type: 'currency', width: '120px' },
+                    { field: 'ordersPlaced', header: 'Orders', type: 'number', width: '80px' },
+                    { field: 'dateCreated', header: 'Date Created', type: 'date', width: '120px' },
+                    { field: 'isActive', header: 'Active', type: 'boolean', width: '80px' }
+                ],
+                onRowClick: (id) => this.editCustomer(id),
+                onNew: () => this.newCustomer(),
+                onDelete: (id) => this.deleteCustomer(id),
+                onSelectionChange: (selectedIds) => {
+                    console.log('Selected customers:', selectedIds);
+                }
+            };
+
+            this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
         }
         
         // Update grid data
-        this.dataGrid.setData(this.data, this.gridColumns);
+        this.dataGrid.setData(this.data);
+        
+        // Setup header action handlers
+        this.setupHeaderActions();
+    }
+
+    setupHeaderActions() {
+        // Add event listeners for header actions
+        this.container.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action) {
+                e.preventDefault();
+                this.handleHeaderAction(action);
+            }
+        });
+    }
+
+    handleHeaderAction(action) {
+        switch (action) {
+            case 'new-record':
+                this.newCustomer();
+                break;
+            case 'export-excel':
+                if (this.dataGrid) {
+                    this.dataGrid.exportToExcel();
+                }
+                break;
+            case 'refresh':
+                this.render();
+                break;
+            case 'back-to-list':
+                this.currentView = 'list';
+                this.render();
+                break;
+        }
     }
 
     renderFormView() {
         const customer = this.currentItem || this.getEmptyCustomer();
         const isEdit = this.currentItem !== null;
 
+        // Generate module header for form view
+        const moduleHeader = SystemDefaults.generateModuleHeader('Customer Management', null, true);
+
         this.container.innerHTML = `
+            ${moduleHeader}
             <div class="customer-form-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -590,6 +664,8 @@ class CustomerManager {
         `;
 
         this.attachFormEventListeners();
+        
+        // Header actions already set up in attachFormEventListeners
     }
 
     attachListEventListeners() {
@@ -666,6 +742,15 @@ class CustomerManager {
         if (backBtn) {
             backBtn.addEventListener('click', () => this.handleBackToList());
         }
+        
+        // Setup header action handlers  
+        this.container.addEventListener('click', (e) => {
+            const action = e.target.getAttribute('data-action');
+            if (action === 'back-to-list') {
+                e.preventDefault();
+                this.handleBackToList();
+            }
+        });
 
         const undoBtn = document.getElementById('undo-changes-btn');
         if (undoBtn) {
