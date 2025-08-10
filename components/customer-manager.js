@@ -1,4 +1,6 @@
-// Customer Management System - Based on Account Excel Specification
+// Customer Management System - Based on Account Excel Specification [LEGACY - KEPT AS SAFETY NET]
+// NOTE: This component is preserved for rollback safety but no longer actively used
+// The new modular customer system is in src/modules/customers/
 class CustomerManager {
     constructor(containerId) {
         this.containerId = containerId;

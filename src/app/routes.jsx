@@ -136,6 +136,8 @@ class Router {
   }
 
   renderCustomersList() {
+    console.log('📋 Customers module mounted on /customers');
+    
     const mainContent = document.getElementById('main-content');
     if (mainContent) {
       mainContent.innerHTML = '<div id="customers-list-container"></div>';
@@ -143,14 +145,18 @@ class Router {
       // Dynamically load and initialize the customers index component
       if (window.CustomersIndex) {
         new window.CustomersIndex('customers-list-container');
+        console.log('✅ Customers list component initialized');
       } else {
         // Fallback if component not loaded
+        console.warn('⚠️ CustomersIndex component not available');
         mainContent.innerHTML = '<div class="alert alert-warning">Customers module not loaded</div>';
       }
     }
   }
 
   renderCustomerDetails(customerId) {
+    console.log(`📝 Customer details mounted for ID: ${customerId}`);
+    
     const mainContent = document.getElementById('main-content');
     if (mainContent) {
       mainContent.innerHTML = '<div id="customer-details-container"></div>';
@@ -158,8 +164,10 @@ class Router {
       // Dynamically load and initialize the customer details component
       if (window.CustomerDetails) {
         new window.CustomerDetails('customer-details-container', customerId);
+        console.log('✅ Customer details component initialized');
       } else {
         // Fallback if component not loaded
+        console.warn('⚠️ CustomerDetails component not available');
         mainContent.innerHTML = '<div class="alert alert-warning">Customer details module not loaded</div>';
       }
     }

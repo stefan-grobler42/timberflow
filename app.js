@@ -663,6 +663,9 @@ function addModularSystemButton() {
 function launchModularSystem() {
     console.log('Launching Modular System...');
     
+    // Health check for platform components
+    performPlatformHealthCheck();
+    
     // Initialize modular app if not already done
     if (!window.modularApp) {
         if (window.ModularApp) {
@@ -678,6 +681,50 @@ function launchModularSystem() {
     
     // Navigate to customers by default
     window.location.hash = '/customers';
+}
+
+// Health check for platform components
+function performPlatformHealthCheck() {
+    const platformComponents = [
+        'DataGrid',
+        'Form', 
+        'Lookup',
+        'LocationField',
+        'SearchBox'
+    ];
+    
+    const platformServices = [
+        'api',
+        'db', 
+        'defaults'
+    ];
+    
+    let platformOK = true;
+    
+    // Check platform components
+    platformComponents.forEach(component => {
+        if (!window[component] && !window.src?.platform?.components?.[component]) {
+            console.warn(`Platform component missing: ${component}`);
+            platformOK = false;
+        }
+    });
+    
+    // Check if modular system files loaded
+    const requiredClasses = ['ModularApp', 'Header', 'Sidebar', 'Router'];
+    requiredClasses.forEach(cls => {
+        if (!window[cls]) {
+            console.warn(`Modular system class missing: ${cls}`);
+            platformOK = false;
+        }
+    });
+    
+    if (platformOK) {
+        console.log('✅ Platform OK - All required components available');
+    } else {
+        console.warn('⚠️ Platform health check failed - Some components missing');
+    }
+    
+    return platformOK;
 }
 
 // Global error handler for uncaught errors
