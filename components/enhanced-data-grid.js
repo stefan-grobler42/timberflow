@@ -112,21 +112,77 @@ class EnhancedDataGrid {
             style.id = 'resizable-columns-css';
             style.textContent = `
                 .resizable-column {
-                    resize: horizontal !important;
-                    overflow: auto !important;
-                    min-width: 80px !important;
-                    max-width: 500px !important;
+                    min-width: 80px;
+                    max-width: 500px;
+                    position: relative;
                 }
-                .resizable-column::-webkit-resizer {
-                    background: #007bff;
-                    border-radius: 2px;
+                .resize-handle {
+                    position: absolute;
+                    top: 0;
+                    right: 0;
+                    width: 5px;
+                    height: 100%;
+                    cursor: col-resize;
+                    background: transparent;
+                    z-index: 1001;
+                }
+                .resize-handle:hover {
+                    background: rgba(0, 123, 255, 0.3);
                 }
                 .table th.resizable-column {
                     border-right: 2px solid #dee2e6;
                 }
+                .resizing {
+                    user-select: none;
+                }
             `;
             document.head.appendChild(style);
         }
+        
+        // Add resize event listeners
+        this.setupColumnResizing();
+    }
+
+    setupColumnResizing() {
+        let isResizing = false;
+        let currentColumn = null;
+        let startX = 0;
+        let startWidth = 0;
+
+        this.container.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('resize-handle')) {
+                isResizing = true;
+                currentColumn = e.target.parentElement;
+                startX = e.pageX;
+                startWidth = parseInt(window.getComputedStyle(currentColumn).width, 10);
+                document.body.classList.add('resizing');
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            const width = startWidth + e.pageX - startX;
+            if (width >= 80 && width <= 500) {
+                currentColumn.style.width = width + 'px';
+                
+                // Update the column configuration
+                const field = currentColumn.dataset.field;
+                const columnConfig = this.columns.find(col => col.field === field);
+                if (columnConfig) {
+                    columnConfig.width = width + 'px';
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                currentColumn = null;
+                document.body.classList.remove('resizing');
+            }
+        });
     }
 
     renderColumnMenu() {
@@ -151,13 +207,14 @@ class EnhancedDataGrid {
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header resizable-column" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; resize: horizontal; overflow: auto; min-width: 80px;">
+                    <th class="sortable-header resizable-column" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; min-width: 80px; border-right: 2px solid #dee2e6;">
                         <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                             <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
                         </div>
+                        <div class="resize-handle" style="position: absolute; top: 0; right: 0; width: 5px; height: 100%; cursor: col-resize; background: transparent; z-index: 1001;"></div>
                     </th>
                 `).join('')}
                 <th style="width: 120px;">Actions</th>
