@@ -6,6 +6,8 @@ class SimpleStockManager {
         this.data = [];
         this.currentView = 'list';
         this.currentItem = null;
+        this.originalItem = null; // Store original state for undo functionality
+        this.hasUnsavedChanges = false;
         this.searchTerm = '';
         
         // Reference data for lookups
@@ -227,22 +229,18 @@ class SimpleStockManager {
             <div class="stock-form-container">
                 <!-- Form Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center">
-                        <button class="btn btn-outline-secondary me-3" id="back-btn">
-                            <i class="fas fa-arrow-left me-1"></i>Back to List
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary" id="back-to-list-btn">
+                            <i class="fas fa-arrow-left"></i> Back to List
                         </button>
-                        <h3><i class="fas fa-edit me-2 text-primary"></i>${title}</h3>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn btn-success" id="save-btn">
-                            <i class="fas fa-save me-1"></i>Save
+                        <button class="btn btn-outline-warning" id="undo-changes-btn" style="display: none;">
+                            <i class="fas fa-undo"></i> Undo Changes
                         </button>
-                        ${isEdit ? `
-                            <button class="btn btn-outline-danger" id="delete-btn">
-                                <i class="fas fa-trash me-1"></i>Delete
-                            </button>
-                        ` : ''}
+                        <div id="auto-save-status" class="text-muted small" style="display: none;">
+                            <i class="fas fa-save"></i> Auto-saved
+                        </div>
                     </div>
+                    <h3><i class="fas fa-boxes me-2 text-primary"></i>${title}</h3>
                 </div>
 
                 <!-- Form Content -->
@@ -431,22 +429,34 @@ class SimpleStockManager {
     }
 
     setupFormEvents() {
-        // Back button
-        const backBtn = document.getElementById('back-btn');
+        // Store original state for undo functionality
+        if (this.currentItem) {
+            this.originalItem = JSON.parse(JSON.stringify(this.currentItem));
+        } else {
+            this.originalItem = null;
+        }
+        this.hasUnsavedChanges = false;
+
+        const form = document.getElementById('stock-form');
+        if (form) {
+            // Prevent default form submission
+            form.addEventListener('submit', (e) => e.preventDefault());
+            
+            // Add change detection
+            form.addEventListener('input', () => this.detectChanges());
+            form.addEventListener('change', () => this.detectChanges());
+        }
+
+        // Back to list button with auto-save
+        const backBtn = document.getElementById('back-to-list-btn');
         if (backBtn) {
-            backBtn.addEventListener('click', () => this.showList());
+            backBtn.addEventListener('click', () => this.handleBackToList());
         }
 
-        // Save button
-        const saveBtn = document.getElementById('save-btn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', () => this.saveItem());
-        }
-
-        // Delete button
-        const deleteBtn = document.getElementById('delete-btn');
-        if (deleteBtn) {
-            deleteBtn.addEventListener('click', () => this.deleteCurrentItem());
+        // Undo changes button
+        const undoBtn = document.getElementById('undo-changes-btn');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
         }
     }
     
@@ -507,12 +517,16 @@ class SimpleStockManager {
     showList() {
         this.currentView = 'list';
         this.currentItem = null;
+        this.originalItem = null;
+        this.hasUnsavedChanges = false;
         this.render();
     }
 
     showForm(item = null) {
         this.currentView = 'form';
         this.currentItem = item;
+        this.originalItem = null; // Will be set in setupFormEvents
+        this.hasUnsavedChanges = false;
         this.render();
     }
 
@@ -520,6 +534,109 @@ class SimpleStockManager {
         const item = this.data.find(item => item.id === id);
         if (item) {
             this.showForm(item);
+        }
+    }
+
+    // Auto-save functionality methods
+    detectChanges() {
+        if (!this.originalItem && !this.currentItem) return;
+        
+        const currentFormData = this.getFormData();
+        const hasChanges = this.originalItem ? 
+            JSON.stringify(currentFormData) !== JSON.stringify(this.originalItem) :
+            Object.values(currentFormData).some(value => value !== '' && value !== 0 && value !== false);
+        
+        if (hasChanges !== this.hasUnsavedChanges) {
+            this.hasUnsavedChanges = hasChanges;
+            this.updateUndoButtonVisibility();
+        }
+    }
+
+    updateUndoButtonVisibility() {
+        const undoBtn = document.getElementById('undo-changes-btn');
+        if (undoBtn) {
+            undoBtn.style.display = this.hasUnsavedChanges ? 'block' : 'none';
+        }
+    }
+
+    undoChanges() {
+        if (this.originalItem) {
+            this.populateForm();
+            this.hasUnsavedChanges = false;
+            this.updateUndoButtonVisibility();
+            this.showAutoSaveStatus('Changes undone');
+        }
+    }
+
+    async handleBackToList() {
+        if (this.hasUnsavedChanges) {
+            const success = await this.autoSave();
+            if (success) {
+                this.showAutoSaveStatus('Auto-saved successfully');
+                setTimeout(() => this.showList(), 500);
+            } else {
+                const proceed = confirm('Failed to save changes. Do you want to discard changes and continue?');
+                if (proceed) {
+                    this.showList();
+                }
+            }
+        } else {
+            this.showList();
+        }
+    }
+
+    async autoSave() {
+        try {
+            const formData = this.getFormData();
+            
+            if (this.currentItem) {
+                // Update existing stock item
+                const index = this.data.findIndex(item => item.id === this.currentItem.id);
+                if (index !== -1) {
+                    this.data[index] = { ...this.data[index], ...formData };
+                }
+            } else {
+                // Create new stock item
+                formData.id = Math.max(...this.data.map(item => item.id), 0) + 1;
+                this.data.push(formData);
+            }
+            
+            this.hasUnsavedChanges = false;
+            this.updateUndoButtonVisibility();
+            return true;
+        } catch (error) {
+            console.error('Auto-save failed:', error);
+            return false;
+        }
+    }
+
+    getFormData() {
+        const form = document.getElementById('stock-form');
+        if (!form) return {};
+
+        const formData = new FormData(form);
+        return {
+            itemCode: formData.get('itemCode') || '',
+            description: formData.get('description') || '',
+            itemType: this.lookupFields.itemType ? this.lookupFields.itemType.getValue() : formData.get('itemType') || '',
+            category: this.lookupFields.category ? this.lookupFields.category.getValue() : formData.get('category') || '',
+            unitCost: parseFloat(formData.get('unitCost')) || 0,
+            unitPrice: parseFloat(formData.get('unitPrice')) || 0,
+            stockUom: this.lookupFields.stockUom ? this.lookupFields.stockUom.getValue() : formData.get('stockUom') || '',
+            currentStock: parseFloat(formData.get('currentStock')) || 0,
+            minimumStock: parseFloat(formData.get('minimumStock')) || 0,
+            isActive: formData.has('isActive')
+        };
+    }
+
+    showAutoSaveStatus(message) {
+        const statusDiv = document.getElementById('auto-save-status');
+        if (statusDiv) {
+            statusDiv.innerHTML = `<i class="fas fa-check text-success"></i> ${message}`;
+            statusDiv.style.display = 'block';
+            setTimeout(() => {
+                statusDiv.style.display = 'none';
+            }, 3000);
         }
     }
 
@@ -534,47 +651,7 @@ class SimpleStockManager {
         }
     }
 
-    deleteCurrentItem() {
-        if (this.currentItem && confirm('Are you sure you want to delete this item?')) {
-            this.deleteItem(this.currentItem.id);
-            this.showList();
-        }
-    }
 
-    saveItem() {
-        const form = document.getElementById('stock-form');
-        if (!form.checkValidity()) {
-            form.classList.add('was-validated');
-            return;
-        }
-
-        const formData = new FormData(form);
-        const data = {
-            itemCode: formData.get('itemCode'),
-            description: formData.get('description'),
-            itemType: this.lookupFields.itemType ? this.lookupFields.itemType.getValue() : formData.get('itemType'),
-            category: this.lookupFields.category ? this.lookupFields.category.getValue() : formData.get('category'),
-            unitCost: parseFloat(formData.get('unitCost')) || 0,
-            unitPrice: parseFloat(formData.get('unitPrice')) || 0,
-            stockUom: this.lookupFields.stockUom ? this.lookupFields.stockUom.getValue() : formData.get('stockUom'),
-            currentStock: parseFloat(formData.get('currentStock')) || 0,
-            minimumStock: parseFloat(formData.get('minimumStock')) || 0,
-            isActive: formData.has('isActive')
-        };
-
-        if (this.currentItem) {
-            // Update existing
-            Object.assign(this.currentItem, data);
-            this.showNotification('Item updated successfully', 'success');
-        } else {
-            // Create new
-            data.id = Math.max(...this.data.map(item => item.id), 0) + 1;
-            this.data.push(data);
-            this.showNotification('Item created successfully', 'success');
-        }
-
-        this.showList();
-    }
 
     populateForm() {
         if (!this.currentItem) return;
