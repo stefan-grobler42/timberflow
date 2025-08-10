@@ -410,7 +410,10 @@ class MillenniumERP {
                 }
                 break;
             case 'customers':
+                // LEGACY: Archived CustomerManager - now using modular system
+                // Original code moved to archive/monolith/components/customer-manager.js
                 if (!this.customerManager) {
+                    console.warn('Legacy CustomerManager accessed - consider using modular system');
                     this.customerManager = new CustomerManager('customers-content');
                 }
                 break;

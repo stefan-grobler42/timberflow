@@ -12,6 +12,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (August 2025)
 
+### August 10, 2025 - Legacy System Archival
+- **Archive Created**: `archive/monolith/` directory structure for legacy customer system
+- **Archived Files**: Moved `components/customer-manager.js` (1,224 lines) to archive with safety documentation
+- **Legacy Markers**: Added deprecation comments in `app.js` and `index.html` referencing archived components
+- **Rollback Documentation**: Complete README.md with rollback instructions and migration benefits
+- **Safety Protocol**: Original files preserved with full functionality, zero data loss during transition
+
 - Implemented comprehensive project management system with hierarchical structure
 - Added CRM functionality requirements: Tasks, Mail, Phone Call tracking
 - System-wide search functionality requirement identified
