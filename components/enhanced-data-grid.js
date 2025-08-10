@@ -160,12 +160,13 @@ class EnhancedDataGrid {
         // Use event delegation for mousedown on the container
         const mouseDownHandler = (e) => {
             if (e.target.classList.contains('resize-handle')) {
-                console.log('Resize handle clicked!'); // Debug log
+                console.log('Resize handle clicked! Starting resize...'); // Debug log
                 isResizing = true;
                 currentColumn = e.target.parentElement;
                 startX = e.pageX;
                 startWidth = parseInt(window.getComputedStyle(currentColumn).width, 10);
                 document.body.classList.add('resizing');
+                console.log('Initial width:', startWidth, 'Start X:', startX);
                 e.preventDefault();
                 e.stopPropagation();
             }
@@ -175,6 +176,7 @@ class EnhancedDataGrid {
             if (!isResizing) return;
             
             const width = startWidth + e.pageX - startX;
+            console.log('Resizing to width:', width); // Debug log
             if (width >= 80 && width <= 500) {
                 currentColumn.style.width = width + 'px';
                 
@@ -189,6 +191,7 @@ class EnhancedDataGrid {
 
         const mouseUpHandler = () => {
             if (isResizing) {
+                console.log('Resize completed!'); // Debug log
                 isResizing = false;
                 currentColumn = null;
                 document.body.classList.remove('resizing');
@@ -229,13 +232,13 @@ class EnhancedDataGrid {
                 </th>
                 ${selectableColumns.map(col => `
                     <th class="sortable-header resizable-column" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''} position: relative; min-width: 80px; border-right: 2px solid #dee2e6;">
-                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        <div class="d-flex justify-content-between align-items-center" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none;">
                             <span style="overflow: hidden; text-overflow: ellipsis;">${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
                         </div>
-                        <div class="resize-handle" style="position: absolute; top: 0; right: 0; width: 5px; height: 100%; cursor: col-resize; background: transparent; z-index: 1001;"></div>
+                        <div class="resize-handle" style="position: absolute; top: 0; right: -2px; width: 8px; height: 100%; cursor: col-resize; background: rgba(255,0,0,0.1); z-index: 1001;" title="Drag to resize column"></div>
                     </th>
                 `).join('')}
                 <th style="width: 120px;">Actions</th>
