@@ -368,6 +368,7 @@ class MillenniumERP {
             localStorage.setItem('millennium-recent-items', JSON.stringify(this.recentItems));
         } catch (error) {
             console.error('Failed to save recent items:', error);
+            // Don't throw - this is a non-critical feature
         }
     }
 

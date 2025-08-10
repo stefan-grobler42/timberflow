@@ -125,57 +125,198 @@ class SimpleStockManager {
     }
 
     renderListView() {
-        console.log('Rendering list view to container:', this.container);
+        console.log('Rendering interactive grid view to container:', this.container);
+        
+        // Prepare grid data
+        const gridData = this.data.map(item => ({
+            id: item.id,
+            code: item.code,
+            description: item.description,
+            type: item.type || 'Stock Item',
+            category: item.category,
+            stock: item.stockLevel || 0,
+            price: item.price || 0,
+            status: item.isActive ? 'Active' : 'Inactive'
+        }));
+        
         this.container.innerHTML = `
             <div class="stock-manager-container">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h3><i class="fas fa-boxes me-2 text-primary"></i>Stock Items</h3>
+                    <div class="d-flex align-items-center">
+                        <h3><i class="fas fa-boxes me-2 text-primary"></i>Stock Items - Interactive Grid</h3>
+                        <div class="btn-group ms-3" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="millenniumERP.showStockViewChoice()">
+                                <i class="fas fa-exchange-alt me-1"></i>Switch View
+                            </button>
+                        </div>
+                    </div>
                     <div class="btn-group">
                         <button class="btn btn-primary" id="new-item-btn">
                             <i class="fas fa-plus me-1"></i>New Item
                         </button>
-                        <button class="btn btn-outline-secondary" id="refresh-btn">
-                            <i class="fas fa-sync-alt me-1"></i>Refresh
+                        <button class="btn btn-outline-success" id="import-excel-btn">
+                            <i class="fas fa-file-import me-1"></i>Import Excel
+                        </button>
+                        <button class="btn btn-outline-info" id="export-excel-btn">
+                            <i class="fas fa-file-export me-1"></i>Export Excel
                         </button>
                     </div>
                 </div>
 
-                <!-- Search Bar -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" id="search-input" 
-                                   placeholder="Search stock items..." value="${this.searchTerm}">
-                        </div>
+                <!-- Interactive Grid Container -->
+                <div id="stock-interactive-grid" style="min-height: 500px; border: 1px solid #dee2e6; border-radius: 0.375rem;"></div>
+                
+                <!-- Grid Statistics -->
+                <div class="mt-3 d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        <small>
+                            <i class="fas fa-info-circle me-1"></i>
+                            Click cells to edit • Tab/Arrow keys to navigate • Ctrl+C/V for copy/paste • Double-click for options
+                        </small>
                     </div>
-                </div>
-
-                <!-- Data Table -->
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Item Code</th>
-                                <th>Description</th>
-                                <th>Type</th>
-                                <th>Category</th>
-                                <th>Stock</th>
-                                <th>Unit Price</th>
-                                <th>Status</th>
-                                <th width="120">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${this.renderTableRows()}
-                        </tbody>
-                    </table>
+                    <div class="text-muted">
+                        <small>Showing ${this.data.length} stock items</small>
+                    </div>
                 </div>
             </div>
         `;
 
+        // Initialize the interactive grid
+        this.initializeInteractiveGrid(gridData);
         this.setupListEvents();
+    }
+    
+    initializeInteractiveGrid(gridData) {
+        const container = document.getElementById('stock-interactive-grid');
+        if (!container) {
+            console.error('Grid container not found');
+            return;
+        }
+        
+        // Define columns for the interactive grid
+        const columns = [
+            { key: 'code', title: 'Code', width: 120, editable: true },
+            { key: 'description', title: 'Description', width: 300, editable: true },
+            { key: 'type', title: 'Type', width: 120, editable: true },
+            { key: 'category', title: 'Category', width: 150, editable: true },
+            { key: 'stock', title: 'Stock', width: 80, editable: true, type: 'number' },
+            { key: 'price', title: 'Price', width: 100, editable: true, type: 'currency' },
+            { key: 'status', title: 'Status', width: 100, editable: true, type: 'select', options: ['Active', 'Inactive'] }
+        ];
+        
+        // Check if InteractiveGrid is available
+        if (typeof InteractiveGrid !== 'undefined') {
+            this.interactiveGrid = new InteractiveGrid(container, {
+                data: gridData,
+                columns: columns,
+                onCellChange: (rowIndex, column, newValue, oldValue) => {
+                    console.log(`Cell changed: Row ${rowIndex}, Column ${column}, ${oldValue} -> ${newValue}`);
+                    this.handleCellChange(rowIndex, column, newValue, oldValue);
+                },
+                onRowAdd: () => {
+                    this.addNewItem();
+                },
+                onRowDelete: (rowIndex) => {
+                    this.deleteItem(gridData[rowIndex].id);
+                }
+            });
+        } else {
+            // Fallback to simple table if InteractiveGrid is not available
+            container.innerHTML = `
+                <div class="alert alert-warning">
+                    <h6>Interactive Grid Not Available</h6>
+                    <p>Using basic table view. Please refresh the page to load the interactive grid.</p>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Code</th>
+                                <th>Description</th>
+                                <th>Type</th>
+                                <th>Category</th>
+                                <th>Stock</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${gridData.map(item => `
+                                <tr data-id="${item.id}">
+                                    <td><strong>${item.code}</strong></td>
+                                    <td>${item.description}</td>
+                                    <td>${item.type}</td>
+                                    <td>${item.category}</td>
+                                    <td>${item.stock}</td>
+                                    <td>R${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}</td>
+                                    <td>
+                                        <span class="badge ${item.status === 'Active' ? 'bg-success' : 'bg-secondary'}">
+                                            ${item.status}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${item.id}">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${item.id}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+    }
+    
+    handleCellChange(rowIndex, column, newValue, oldValue) {
+        // Update the data array
+        const item = this.data[rowIndex];
+        if (!item) return;
+        
+        // Map grid column to data property
+        const propertyMap = {
+            'code': 'code',
+            'description': 'description',
+            'type': 'type',
+            'category': 'category',
+            'stock': 'stockLevel',
+            'price': 'price',
+            'status': 'isActive'
+        };
+        
+        const property = propertyMap[column];
+        if (property) {
+            if (property === 'isActive') {
+                item[property] = newValue === 'Active';
+            } else if (property === 'price' || property === 'stockLevel') {
+                item[property] = parseFloat(newValue) || 0;
+            } else {
+                item[property] = newValue;
+            }
+            
+            // Record audit trail
+            if (window.universalAuditSystem) {
+                window.universalAuditSystem.recordEvent({
+                    module: 'stock',
+                    recordType: 'stock_item',
+                    recordId: item.id,
+                    action: 'UPDATE',
+                    changes: { [property]: { old: oldValue, new: newValue } },
+                    metadata: {
+                        component: 'SimpleStockManager',
+                        gridEdit: true,
+                        column: column
+                    }
+                });
+            }
+            
+            console.log('Stock item updated:', item);
+        }
     }
 
     renderTableRows() {

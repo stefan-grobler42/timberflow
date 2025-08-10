@@ -197,17 +197,26 @@ class CustomerManager {
     }
 
     renderListView() {
-        this.container.innerHTML = `
-            <div class="customer-manager-container">
-                <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
-                    <button class="btn btn-primary" id="new-customer-btn">
-                        <i class="fas fa-plus"></i> New Customer
-                    </button>
-                </div>
+        try {
+            console.log('CustomerManager: Rendering list view...');
+            this.container.innerHTML = `
+                <div class="customer-manager-container">
+                    <!-- Header -->
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center">
+                            <h2><i class="fas fa-user-tie me-2"></i>Customer Management</h2>
+                            <div class="btn-group ms-3" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="millenniumERP.showCustomerViewChoice()">
+                                    <i class="fas fa-exchange-alt me-1"></i>Switch View
+                                </button>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="new-customer-btn">
+                            <i class="fas fa-plus me-1"></i>New Customer
+                        </button>
+                    </div>
 
-                <!-- Search and Filters -->
+                    <!-- Search and Filters -->
                 <div class="card mb-4">
                     <div class="card-body">
                         <div class="row">
