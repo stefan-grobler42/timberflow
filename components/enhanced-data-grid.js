@@ -36,6 +36,33 @@ class EnhancedDataGrid {
 
     render() {
         this.container.innerHTML = `
+            <style>
+                .column-resizer {
+                    position: absolute;
+                    right: 0;
+                    top: 0;
+                    bottom: 0;
+                    width: 3px;
+                    background: transparent;
+                    cursor: col-resize;
+                    z-index: 1051;
+                }
+                .column-resizer:hover {
+                    background: #007bff;
+                }
+                .resizable-header {
+                    position: relative;
+                    overflow: hidden;
+                }
+                .resizable-table td {
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .table-responsive {
+                    max-width: 100%;
+                }
+            </style>
             <div class="enhanced-grid-container">
                 <!-- Toolbar -->
                 <div class="grid-toolbar d-flex justify-content-between align-items-center mb-3">
@@ -78,8 +105,8 @@ class EnhancedDataGrid {
                 </div>
 
                 <!-- Table Container -->
-                <div class="table-responsive">
-                    <table class="table table-hover table-striped" id="data-grid-table">
+                <div class="table-responsive" style="overflow-x: auto;">
+                    <table class="table table-hover table-striped resizable-table" id="data-grid-table" style="min-width: 100%; table-layout: fixed;">
                         <thead class="table-dark sticky-top" style="z-index: 1050;">
                             ${this.renderTableHeader()}
                         </thead>
@@ -102,6 +129,7 @@ class EnhancedDataGrid {
         `;
 
         this.attachEventListeners();
+        this.initializeColumnResizing();
     }
 
     renderColumnMenu() {
@@ -122,20 +150,26 @@ class EnhancedDataGrid {
         
         return `
             <tr>
-                <th style="width: 40px;">
+                <th class="resizable-header" style="width: 50px; min-width: 50px;">
                     <input type="checkbox" id="select-all-checkbox" class="form-check-input">
+                    <div class="column-resizer"></div>
                 </th>
                 ${selectableColumns.map(col => `
-                    <th class="sortable-header" data-field="${col.field}" style="cursor: pointer; ${col.width ? `width: ${col.width};` : ''}">
+                    <th class="sortable-header resizable-header" data-field="${col.field}" 
+                        style="cursor: pointer; width: ${col.width || '150px'}; min-width: 100px; position: relative;">
                         <div class="d-flex justify-content-between align-items-center">
-                            <span>${col.header}</span>
+                            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${col.header}</span>
                             <span class="sort-indicator">
                                 ${this.getSortIndicator(col.field)}
                             </span>
                         </div>
+                        <div class="column-resizer"></div>
                     </th>
                 `).join('')}
-                <th style="width: 120px;">Actions</th>
+                <th class="resizable-header" style="width: 120px; min-width: 100px;">
+                    Actions
+                    <div class="column-resizer"></div>
+                </th>
             </tr>
         `;
     }
@@ -260,7 +294,7 @@ class EnhancedDataGrid {
                 } else {
                     this.selectedRows.delete(id);
                 }
-                this.updateSelectionInfo();
+                this.updateSelectionDisplay();
                 this.onSelectionChange(Array.from(this.selectedRows));
             }
         });
@@ -378,6 +412,7 @@ class EnhancedDataGrid {
             thead.innerHTML = this.renderTableHeader();
         }
         this.updateSelectionInfo();
+        this.initializeColumnResizing();
     }
 
     updateSelectionInfo() {
@@ -455,5 +490,63 @@ class EnhancedDataGrid {
         this.filteredData.forEach(row => this.selectedRows.add(row.id));
         this.updateTable();
         this.onSelectionChange(Array.from(this.selectedRows));
+    }
+
+    initializeColumnResizing() {
+        let isResizing = false;
+        let startX = 0;
+        let startWidth = 0;
+        let currentTh = null;
+
+        // Add event listeners to column resizers
+        this.container.addEventListener('mousedown', (e) => {
+            if (e.target.classList.contains('column-resizer')) {
+                isResizing = true;
+                startX = e.clientX;
+                currentTh = e.target.parentElement;
+                startWidth = parseInt(window.getComputedStyle(currentTh).width, 10);
+                
+                e.preventDefault();
+                document.body.style.cursor = 'col-resize';
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+            
+            const width = startWidth + e.clientX - startX;
+            if (width > 50) { // Minimum column width
+                currentTh.style.width = width + 'px';
+                
+                // Update corresponding body cells
+                const columnIndex = Array.from(currentTh.parentElement.children).indexOf(currentTh);
+                const tbody = this.container.querySelector('#grid-tbody');
+                if (tbody) {
+                    const rows = tbody.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        const cell = row.children[columnIndex];
+                        if (cell) {
+                            cell.style.width = width + 'px';
+                        }
+                    });
+                }
+                
+                // Increase total table width to accommodate wider columns
+                const table = this.container.querySelector('#data-grid-table');
+                if (table) {
+                    const totalWidth = Array.from(currentTh.parentElement.children)
+                        .reduce((sum, th) => sum + parseInt(window.getComputedStyle(th).width, 10), 0);
+                    table.style.minWidth = totalWidth + 'px';
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                document.body.style.cursor = '';
+            }
+        });
     }
 }
