@@ -341,9 +341,14 @@ class CustomerManager {
         if (!this.dataGrid) {
             this.container.innerHTML = `
                 <div class="customer-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
+                    <div class="module-header mb-3">
+                        <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
+                        <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
                     </div>
+                    
+                    <!-- ActionBar for Customer Grid -->
+                    <div id="customer-grid-actionbar"></div>
+                    
                     <div id="customer-grid-container"></div>
                 </div>
             `;
@@ -412,8 +417,80 @@ class CustomerManager {
             this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
         }
         
+        // Initialize ActionBar for Grid View
+        this.initializeGridActionBar();
+        
         // Update grid data
         this.dataGrid.setData(this.data);
+    }
+    
+    // New method to initialize ActionBar for Grid View
+    initializeGridActionBar() {
+        const actionBarContainer = document.getElementById('customer-grid-actionbar');
+        if (actionBarContainer) {
+            // Create ActionBar HTML directly since the class might not be available
+            actionBarContainer.innerHTML = `
+                <div class="millennium-action-bar" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-primary btn-sm" id="grid-add-customer">
+                                <i class="fas fa-plus"></i> Add Customer
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-refresh">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-search">
+                                <i class="fas fa-search"></i> Advanced Search
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-filter">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-info btn-sm" id="grid-import">
+                                <i class="fas fa-upload"></i> Import
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" id="grid-export">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-columns">
+                                <i class="fas fa-columns"></i> Columns
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-print">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
+                        <div class="text-muted small">
+                            <span id="grid-selection-count"></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Attach event listeners for ActionBar buttons
+            const addBtn = document.getElementById('grid-add-customer');
+            if (addBtn) {
+                addBtn.addEventListener('click', () => this.newCustomer());
+            }
+            
+            const refreshBtn = document.getElementById('grid-refresh');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    this.loadSampleData();
+                    this.dataGrid.setData(this.data);
+                });
+            }
+            
+            const exportBtn = document.getElementById('grid-export');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    if (this.dataGrid && this.dataGrid.exportToExcel) {
+                        this.dataGrid.exportToExcel();
+                    }
+                });
+            }
+        }
     }
 
     renderFormView() {
@@ -423,20 +500,13 @@ class CustomerManager {
         this.container.innerHTML = `
             <div class="customer-form-container">
                 <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-outline-secondary" id="back-to-list-btn">
-                            <i class="fas fa-arrow-left"></i> Back to List
-                        </button>
-                        <button class="btn btn-outline-warning" id="undo-changes-btn" style="display: none;">
-                            <i class="fas fa-undo"></i> Undo Changes
-                        </button>
-                        <div id="auto-save-status" class="text-muted small" style="display: none;">
-                            <i class="fas fa-save"></i> Auto-saved
-                        </div>
-                    </div>
-                    <h3><i class="fas fa-user-tie"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
+                <div class="module-header mb-3">
+                    <h3><i class="fas fa-user-tie text-primary"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
+                    <p class="text-muted mb-0">${isEdit ? 'Modify customer information and relationships' : 'Create a new customer account'}</p>
                 </div>
+                
+                <!-- ActionBar for Form View -->
+                <div id="customer-form-actionbar"></div>
 
                 <!-- Customer Form -->
                 <form id="customer-form">
@@ -708,6 +778,9 @@ class CustomerManager {
         if (undoBtn) {
             undoBtn.addEventListener('click', () => this.undoChanges());
         }
+        
+        // Initialize ActionBar for Form View
+        this.initializeFormActionBar();
         
         // Initialize lookup fields
         this.initializeLookupFields();
@@ -1010,6 +1083,82 @@ class CustomerManager {
         }
 
         return true;
+    }
+
+    // New method to initialize ActionBar for Form View
+    initializeFormActionBar() {
+        const actionBarContainer = document.getElementById('customer-form-actionbar');
+        const isEdit = this.currentItem !== null;
+        
+        if (actionBarContainer) {
+            actionBarContainer.innerHTML = `
+                <div class="millennium-action-bar" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #2196f3; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-primary btn-sm" id="form-save">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-back">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-warning btn-sm" id="form-undo" style="display: none;">
+                                <i class="fas fa-undo"></i> Undo Changes
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-reset">
+                                <i class="fas fa-redo"></i> Reset Form
+                            </button>
+                            ${isEdit ? `
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-danger btn-sm" id="form-delete">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="form-duplicate">
+                                <i class="fas fa-copy"></i> Duplicate
+                            </button>
+                            ` : ''}
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-print">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-share">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                        <div class="text-muted small">
+                            <span id="form-auto-save-status"><i class="fas fa-save"></i> Auto-save enabled</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Attach event listeners for Form ActionBar buttons
+            const backBtn = document.getElementById('form-back');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => this.render());
+            }
+            
+            const saveBtn = document.getElementById('form-save');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveCustomer());
+            }
+            
+            const undoBtn = document.getElementById('form-undo');
+            if (undoBtn) {
+                undoBtn.addEventListener('click', () => this.undoChanges());
+            }
+            
+            if (isEdit) {
+                const deleteBtn = document.getElementById('form-delete');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => {
+                        if (confirm('Are you sure you want to delete this customer?')) {
+                            this.deleteCustomer(this.currentItem.id);
+                        }
+                    });
+                }
+            }
+        }
     }
 
     detectChanges() {
