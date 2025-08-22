@@ -337,6 +337,11 @@ class CustomerManager {
     }
 
     renderListView() {
+        // Set Command Bar context for customer grid
+        if (window.CommandBar) {
+            window.CommandBar.setContext('customer-grid');
+        }
+        
         // Initialize enhanced data grid if not already done
         if (!this.dataGrid) {
             this.container.innerHTML = `
@@ -345,9 +350,6 @@ class CustomerManager {
                         <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
                         <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
                     </div>
-                    
-                    <!-- ActionBar for Customer Grid -->
-                    <div id="customer-grid-actionbar"></div>
                     
                     <div id="customer-grid-container"></div>
                 </div>
@@ -417,14 +419,74 @@ class CustomerManager {
             this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
         }
         
-        // Initialize ActionBar for Grid View
-        this.initializeGridActionBar();
+        // Listen for Command Bar events
+        this.attachCommandBarListeners();
         
         // Update grid data
         this.dataGrid.setData(this.data);
     }
     
-    // New method to initialize ActionBar for Grid View
+    // Listen for Command Bar events
+    attachCommandBarListeners() {
+        // Remove any existing listeners
+        if (this.commandBarListener) {
+            document.removeEventListener('commandbar:execute', this.commandBarListener);
+        }
+        
+        // Create new listener
+        this.commandBarListener = (event) => {
+            const { commandId, context } = event.detail;
+            
+            // Only handle commands for customer context
+            if (!context || !context.startsWith('customer')) return;
+            
+            switch (commandId) {
+                case 'new-customer':
+                    this.newCustomer();
+                    break;
+                case 'refresh':
+                    this.loadSampleData();
+                    this.dataGrid.setData(this.data);
+                    break;
+                case 'export':
+                    if (this.dataGrid && this.dataGrid.exportToExcel) {
+                        this.dataGrid.exportToExcel();
+                    }
+                    break;
+                case 'save':
+                    this.saveCustomer();
+                    break;
+                case 'back':
+                    this.currentView = 'list';
+                    this.render();
+                    break;
+                case 'undo':
+                    this.undoChanges();
+                    break;
+                case 'reset':
+                    if (confirm('Are you sure you want to reset the form?')) {
+                        this.renderFormView();
+                    }
+                    break;
+                case 'delete':
+                    if (this.currentItem && confirm('Are you sure you want to delete this customer?')) {
+                        this.deleteCustomer(this.currentItem.id);
+                    }
+                    break;
+                case 'filter':
+                    console.log('Opening filter panel...');
+                    break;
+                case 'search':
+                    console.log('Opening advanced search...');
+                    break;
+            }
+        };
+        
+        // Add listener
+        document.addEventListener('commandbar:execute', this.commandBarListener);
+    }
+    
+    // Old method - keep for compatibility but empty
     initializeGridActionBar() {
         const actionBarContainer = document.getElementById('customer-grid-actionbar');
         if (actionBarContainer) {
@@ -497,6 +559,14 @@ class CustomerManager {
         const customer = this.currentItem || this.getEmptyCustomer();
         const isEdit = this.currentItem !== null;
 
+        // Set Command Bar context for customer form
+        if (window.CommandBar) {
+            window.CommandBar.setContext('customer-form', { 
+                isEdit: isEdit,
+                hasChanges: this.hasUnsavedChanges 
+            });
+        }
+
         this.container.innerHTML = `
             <div class="customer-form-container">
                 <!-- Header -->
@@ -504,9 +574,6 @@ class CustomerManager {
                     <h3><i class="fas fa-user-tie text-primary"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
                     <p class="text-muted mb-0">${isEdit ? 'Modify customer information and relationships' : 'Create a new customer account'}</p>
                 </div>
-                
-                <!-- ActionBar for Form View -->
-                <div id="customer-form-actionbar"></div>
 
                 <!-- Customer Form -->
                 <form id="customer-form">
@@ -779,8 +846,8 @@ class CustomerManager {
             undoBtn.addEventListener('click', () => this.undoChanges());
         }
         
-        // Initialize ActionBar for Form View
-        this.initializeFormActionBar();
+        // Listen for Command Bar events in form view
+        this.attachCommandBarListeners();
         
         // Initialize lookup fields
         this.initializeLookupFields();
