@@ -93,6 +93,7 @@ class PlatformLoader {
      */
     async loadPlatformComponents() {
         const components = [
+            { name: 'ActionBar', path: 'src/platform/components/ActionBar.jsx' },
             { name: 'DataGrid', path: 'src/platform/components/DataGrid.jsx' },
             { name: 'Form', path: 'src/platform/components/Form.jsx' },
             { name: 'Lookup', path: 'src/platform/components/Lookup.jsx' },
@@ -180,7 +181,7 @@ class PlatformLoader {
      * Get platform component health status
      */
     getHealthStatus() {
-        const required = ['DataGrid', 'Form', 'Lookup', 'LocationField', 'SearchBox'];
+        const required = ['ActionBar', 'DataGrid', 'Form', 'Lookup', 'LocationField', 'SearchBox'];
         const loaded = Array.from(this.loadedComponents);
         const missing = required.filter(comp => !this.loadedComponents.has(comp));
         

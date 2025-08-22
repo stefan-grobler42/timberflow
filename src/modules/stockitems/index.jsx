@@ -13,19 +13,15 @@ class StockItemsModule {
     render() {
         this.container.innerHTML = `
             <div class="stockitems-module">
-                <div class="module-header mb-4">
+                <div class="module-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h2><i class="fas fa-boxes text-primary"></i> Stock Items</h2>
                             <p class="text-muted mb-0">Manage inventory and stock items</p>
                         </div>
-                        <div class="module-actions">
-                            <button class="btn btn-primary" disabled>
-                                <i class="fas fa-plus"></i> Add Item
-                            </button>
-                        </div>
                     </div>
                 </div>
+                <div class="module-actionbar"></div>
                 
                 <div class="coming-soon-placeholder">
                     <div class="text-center py-5">
@@ -45,6 +41,32 @@ class StockItemsModule {
                 </div>
             </div>
         `;
+        
+        // Initialize ActionBar
+        this.initializeActionBar();
+    }
+
+    initializeActionBar() {
+        const actionBarContainer = this.container.querySelector('.module-actionbar');
+        if (actionBarContainer && window.ActionBar) {
+            this.actionBar = new ActionBar(actionBarContainer, {
+                context: 'module',
+                actions: [
+                    { id: 'add', icon: 'plus', label: 'Add Item', variant: 'primary', group: 'crud' },
+                    { id: 'categories', icon: 'folder', label: 'Categories', variant: 'outline-info', group: 'manage' },
+                    { id: 'stocktake', icon: 'clipboard-check', label: 'Stock Take', variant: 'outline-warning', group: 'operations' },
+                    { id: 'reorder', icon: 'shopping-cart', label: 'Reorder Report', variant: 'outline-danger', group: 'operations' },
+                    { id: 'refresh', icon: 'sync-alt', label: 'Refresh', variant: 'outline-secondary', group: 'view' },
+                    { id: 'barcode', icon: 'barcode', label: 'Barcode', variant: 'outline-secondary', group: 'tools' },
+                    { id: 'export', icon: 'download', label: 'Export', variant: 'outline-secondary', group: 'data' }
+                ]
+            });
+            
+            // Disable actions until module is implemented
+            ['add', 'categories', 'stocktake', 'reorder', 'barcode'].forEach(actionId => {
+                this.actionBar.disableAction(actionId);
+            });
+        }
     }
 }
 

@@ -13,19 +13,15 @@ class ProjectsModule {
     render() {
         this.container.innerHTML = `
             <div class="projects-module">
-                <div class="module-header mb-4">
+                <div class="module-header mb-3">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <h2><i class="fas fa-project-diagram text-primary"></i> Projects</h2>
                             <p class="text-muted mb-0">Manage timber roofing projects and workflows</p>
                         </div>
-                        <div class="module-actions">
-                            <button class="btn btn-primary" disabled>
-                                <i class="fas fa-plus"></i> New Project
-                            </button>
-                        </div>
                     </div>
                 </div>
+                <div class="module-actionbar"></div>
                 
                 <div class="coming-soon-placeholder">
                     <div class="text-center py-5">
@@ -45,6 +41,32 @@ class ProjectsModule {
                 </div>
             </div>
         `;
+        
+        // Initialize ActionBar
+        this.initializeActionBar();
+    }
+
+    initializeActionBar() {
+        const actionBarContainer = this.container.querySelector('.module-actionbar');
+        if (actionBarContainer && window.ActionBar) {
+            this.actionBar = new ActionBar(actionBarContainer, {
+                context: 'module',
+                actions: [
+                    { id: 'add', icon: 'plus', label: 'New Project', variant: 'primary', group: 'crud' },
+                    { id: 'templates', icon: 'clipboard-list', label: 'Templates', variant: 'outline-success', group: 'create' },
+                    { id: 'pamir', icon: 'cube', label: 'Import Pamir', variant: 'outline-info', group: 'create' },
+                    { id: 'refresh', icon: 'sync-alt', label: 'Refresh', variant: 'outline-secondary', group: 'view' },
+                    { id: 'calendar', icon: 'calendar', label: 'Calendar', variant: 'outline-secondary', group: 'view' },
+                    { id: 'gantt', icon: 'chart-bar', label: 'Gantt Chart', variant: 'outline-secondary', group: 'view' },
+                    { id: 'export', icon: 'download', label: 'Export', variant: 'outline-secondary', group: 'data' }
+                ]
+            });
+            
+            // Disable actions until module is implemented
+            ['add', 'templates', 'pamir', 'calendar', 'gantt'].forEach(actionId => {
+                this.actionBar.disableAction(actionId);
+            });
+        }
     }
 }
 

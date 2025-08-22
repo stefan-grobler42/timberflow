@@ -1,0 +1,284 @@
+/**
+ * ActionBar Styles - System-wide Action Bar Component
+ * Provides consistent styling for the taskbar/action bar throughout the system
+ */
+
+/* Base ActionBar Styles */
+.millennium-action-bar {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px 16px;
+    margin: 10px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+}
+
+.millennium-action-bar:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+
+/* Action Bar Content Layout */
+.action-bar-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+}
+
+.action-groups {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+/* Action Buttons */
+.millennium-action-bar .action-btn {
+    border-radius: 4px;
+    font-weight: 500;
+    padding: 6px 12px;
+    transition: all 0.2s ease;
+    border-width: 1px;
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
+}
+
+.millennium-action-bar .action-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.millennium-action-bar .action-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.millennium-action-bar .action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.millennium-action-bar .action-btn i {
+    margin-right: 0;
+}
+
+.millennium-action-bar .action-btn span {
+    margin-left: 6px;
+}
+
+/* Action Button Variants */
+.millennium-action-bar .btn-primary {
+    background: linear-gradient(135deg, #59AAD5 0%, #54C3D6 100%);
+    border-color: #59AAD5;
+    color: white;
+}
+
+.millennium-action-bar .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #4a96c4 0%, #47b3c5 100%);
+    border-color: #4a96c4;
+}
+
+.millennium-action-bar .btn-outline-primary {
+    border-color: #59AAD5;
+    color: #59AAD5;
+}
+
+.millennium-action-bar .btn-outline-primary:hover:not(:disabled) {
+    background: #59AAD5;
+    border-color: #59AAD5;
+    color: white;
+}
+
+.millennium-action-bar .btn-outline-secondary {
+    border-color: #6c757d;
+    color: #6c757d;
+}
+
+.millennium-action-bar .btn-outline-secondary:hover:not(:disabled) {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.millennium-action-bar .btn-outline-success {
+    border-color: #198754;
+    color: #198754;
+}
+
+.millennium-action-bar .btn-outline-success:hover:not(:disabled) {
+    background: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.millennium-action-bar .btn-outline-warning {
+    border-color: #fd7e14;
+    color: #fd7e14;
+}
+
+.millennium-action-bar .btn-outline-warning:hover:not(:disabled) {
+    background: #fd7e14;
+    border-color: #fd7e14;
+    color: white;
+}
+
+.millennium-action-bar .btn-outline-danger {
+    border-color: #dc3545;
+    color: #dc3545;
+}
+
+.millennium-action-bar .btn-outline-danger:hover:not(:disabled) {
+    background: #dc3545;
+    border-color: #dc3545;
+    color: white;
+}
+
+.millennium-action-bar .btn-outline-info {
+    border-color: #0dcaf0;
+    color: #0dcaf0;
+}
+
+.millennium-action-bar .btn-outline-info:hover:not(:disabled) {
+    background: #0dcaf0;
+    border-color: #0dcaf0;
+    color: white;
+}
+
+/* Action Separators */
+.action-separator {
+    width: 1px;
+    height: 20px;
+    background: #dee2e6;
+    margin: 0 8px;
+    flex-shrink: 0;
+}
+
+/* Action Status */
+.action-info small {
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-style: italic;
+}
+
+/* Context-specific Styles */
+.action-bar-module {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-color: #dee2e6;
+}
+
+.action-bar-record {
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border-color: #2196f3;
+}
+
+.action-bar-form {
+    background: linear-gradient(135deg, #f3e5f5 0%, #e1bee7 100%);
+    border-color: #9c27b0;
+}
+
+.action-bar-grid {
+    background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+    border-color: #4caf50;
+}
+
+/* Size Variations */
+.action-bar-small {
+    padding: 6px 12px;
+}
+
+.action-bar-small .action-btn {
+    padding: 4px 8px;
+    font-size: 0.875rem;
+}
+
+.action-bar-large {
+    padding: 16px 20px;
+}
+
+.action-bar-large .action-btn {
+    padding: 8px 16px;
+    font-size: 1.1rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .millennium-action-bar {
+        padding: 8px 12px;
+    }
+    
+    .action-groups {
+        flex-wrap: wrap;
+    }
+    
+    .millennium-action-bar .action-btn span {
+        display: none;
+    }
+    
+    .millennium-action-bar .action-btn {
+        padding: 6px 8px;
+        min-width: 36px;
+        justify-content: center;
+    }
+    
+    .action-separator {
+        display: none;
+    }
+}
+
+@media (max-width: 576px) {
+    .action-bar-content {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+    
+    .action-info {
+        text-align: center;
+    }
+}
+
+/* Animation for status updates */
+.action-info small {
+    transition: opacity 0.3s ease;
+}
+
+.action-info small:empty {
+    opacity: 0;
+}
+
+/* Focus and accessibility */
+.millennium-action-bar .action-btn:focus {
+    outline: 2px solid #59AAD5;
+    outline-offset: 2px;
+}
+
+.millennium-action-bar .action-btn:focus:not(:focus-visible) {
+    outline: none;
+}
+
+/* Loading states */
+.millennium-action-bar .action-btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.millennium-action-bar .action-btn.loading::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border: 2px solid transparent;
+    border-top: 2px solid currentColor;
+    border-radius: 50%;
+    animation: button-loading-spinner 1s linear infinite;
+}
+
+@keyframes button-loading-spinner {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
