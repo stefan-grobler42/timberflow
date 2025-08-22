@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ActionBar Test</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="src/platform/styles/actionbar.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>ActionBar Test</h1>
+        <div class="module-header mb-3">
+            <h2><i class="fas fa-users text-primary"></i> Test Module</h2>
+            <p class="text-muted mb-0">Test module description</p>
+        </div>
+        <div id="test-actionbar"></div>
+        <p class="mt-4">If you see an action bar above this text, it's working correctly.</p>
+    </div>
+    
+    <script src="src/platform/components/ActionBar.jsx"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('test-actionbar');
+            if (container && window.ActionBar) {
+                const actionBar = new ActionBar(container, {
+                    context: 'module',
+                    actions: [
+                        { id: 'add', icon: 'plus', label: 'Add New', variant: 'primary', group: 'crud' },
+                        { id: 'refresh', icon: 'sync-alt', label: 'Refresh', variant: 'outline-secondary', group: 'view' },
+                        { id: 'export', icon: 'download', label: 'Export', variant: 'outline-secondary', group: 'data' }
+                    ]
+                });
+                console.log('ActionBar test initialized');
+            } else {
+                console.error('ActionBar not found or container missing');
+            }
+        });
+    </script>
+</body>
+</html>

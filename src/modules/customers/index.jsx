@@ -1,8 +1,5 @@
 // Customers Module - Main Component (List View)
-// Copied and adapted from components/customer-manager.js
-import { DataGrid } from '../../platform/components/DataGrid.jsx';
-import { db } from '../../platform/services/db.js';
-import { defaults } from '../../platform/services/defaults.js';
+// Charter-compliant module without ES6 imports
 
 class CustomersIndex {
     constructor(containerId) {

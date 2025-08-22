@@ -42,12 +42,14 @@ class ContactsModule {
             </div>
         `;
         
-        // Initialize ActionBar
-        this.initializeActionBar();
+        // Initialize ActionBar with timeout to ensure DOM is ready
+        setTimeout(() => this.initializeActionBar(), 100);
     }
 
     initializeActionBar() {
         const actionBarContainer = this.container.querySelector('.module-actionbar');
+        console.log('Initializing Contacts ActionBar...', actionBarContainer);
+        
         if (actionBarContainer && window.ActionBar) {
             this.actionBar = new ActionBar(actionBarContainer, {
                 context: 'module',
@@ -61,9 +63,16 @@ class ContactsModule {
                 ]
             });
             
+            console.log('Contacts ActionBar created successfully');
+            
             // Disable actions until module is implemented
             ['add', 'search', 'filter', 'import'].forEach(actionId => {
                 this.actionBar.disableAction(actionId);
+            });
+        } else {
+            console.error('ActionBar container not found or ActionBar class not available', {
+                container: actionBarContainer,
+                ActionBarClass: window.ActionBar
             });
         }
     }
