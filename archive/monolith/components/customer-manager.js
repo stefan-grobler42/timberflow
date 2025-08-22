@@ -337,18 +337,65 @@ class CustomerManager {
     }
 
     renderListView() {
-        // Set Command Bar context for customer grid
-        if (window.CommandBar) {
-            window.CommandBar.setContext('customer-grid');
-        }
-        
         // Initialize enhanced data grid if not already done
         if (!this.dataGrid) {
             this.container.innerHTML = `
                 <div class="customer-manager-container">
-                    <div class="module-header mb-3">
+                    <div class="module-header mb-2">
                         <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
                         <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
+                    </div>
+                    
+                    <!-- Module Action Bar -->
+                    <div class="module-action-bar" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 12px; margin-bottom: 16px;">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2">
+                                <!-- Primary Actions -->
+                                <button class="btn btn-primary btn-sm" id="btn-new-customer">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
+                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- View Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-refresh">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-filter">
+                                    <i class="fas fa-filter"></i> Filter
+                                </button>
+                                
+                                <!-- Search Bar -->
+                                <div class="input-group input-group-sm ms-2" style="width: 250px;">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="grid-quick-search" placeholder="Quick search...">
+                                </div>
+                                
+                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Data Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-import">
+                                    <i class="fas fa-upload"></i> Import
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-export">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
+                                
+                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- View Options -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-columns">
+                                    <i class="fas fa-columns"></i> Columns
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-print">
+                                    <i class="fas fa-print"></i> Print
+                                </button>
+                            </div>
+                            
+                            <!-- Status Area -->
+                            <div class="text-muted small">
+                                <span id="grid-record-count">Loading...</span>
+                            </div>
+                        </div>
                     </div>
                     
                     <div id="customer-grid-container"></div>
@@ -419,14 +466,165 @@ class CustomerManager {
             this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
         }
         
-        // Listen for Command Bar events
-        this.attachCommandBarListeners();
+        // Attach action bar event listeners
+        this.attachGridActionBarListeners();
         
         // Update grid data
         this.dataGrid.setData(this.data);
+        
+        // Update record count
+        this.updateRecordCount();
     }
     
-    // Listen for Command Bar events
+    attachGridActionBarListeners() {
+        // New button
+        const newBtn = document.getElementById('btn-new-customer');
+        if (newBtn) {
+            newBtn.addEventListener('click', () => this.newCustomer());
+        }
+        
+        // Refresh button
+        const refreshBtn = document.getElementById('btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadSampleData();
+                this.dataGrid.setData(this.data);
+                this.updateRecordCount();
+            });
+        }
+        
+        // Export button
+        const exportBtn = document.getElementById('btn-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                if (this.dataGrid && this.dataGrid.exportToExcel) {
+                    this.dataGrid.exportToExcel();
+                }
+            });
+        }
+        
+        // Quick search
+        const searchInput = document.getElementById('grid-quick-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filtered = this.data.filter(customer => 
+                    customer.accountName.toLowerCase().includes(searchTerm) ||
+                    customer.accountNo.toLowerCase().includes(searchTerm) ||
+                    customer.email.toLowerCase().includes(searchTerm)
+                );
+                this.dataGrid.setData(filtered);
+                this.updateRecordCount(filtered.length);
+            });
+        }
+        
+        // Filter button
+        const filterBtn = document.getElementById('btn-filter');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', () => {
+                console.log('Opening filter panel...');
+                // TODO: Implement filter panel
+            });
+        }
+        
+        // Import button
+        const importBtn = document.getElementById('btn-import');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                console.log('Opening import dialog...');
+                // TODO: Implement import functionality
+            });
+        }
+        
+        // Columns button
+        const columnsBtn = document.getElementById('btn-columns');
+        if (columnsBtn) {
+            columnsBtn.addEventListener('click', () => {
+                console.log('Opening column selector...');
+                // TODO: Implement column selector
+            });
+        }
+        
+        // Print button
+        const printBtn = document.getElementById('btn-print');
+        if (printBtn) {
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+        }
+    }
+    
+    updateRecordCount(count = null) {
+        const countElement = document.getElementById('grid-record-count');
+        if (countElement) {
+            const recordCount = count !== null ? count : this.data.length;
+            countElement.textContent = `${recordCount} record${recordCount !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    attachFormActionBarListeners() {
+        // Save button
+        const saveBtn = document.getElementById('btn-save-customer');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveCustomer());
+        }
+        
+        // Back to list button
+        const backBtn = document.getElementById('btn-back-to-list');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this.currentView = 'list';
+                this.render();
+            });
+        }
+        
+        // Undo button
+        const undoBtn = document.getElementById('btn-undo-changes');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
+        }
+        
+        // Reset button
+        const resetBtn = document.getElementById('btn-reset-form');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset the form?')) {
+                    this.renderFormView();
+                }
+            });
+        }
+        
+        // Delete button (if editing)
+        const deleteBtn = document.getElementById('btn-delete-customer');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete this customer?')) {
+                    this.deleteCustomer(this.currentItem.id);
+                }
+            });
+        }
+        
+        // Duplicate button
+        const duplicateBtn = document.getElementById('btn-duplicate-customer');
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', () => {
+                const duplicated = { ...this.currentItem };
+                delete duplicated.id;
+                duplicated.accountNo = duplicated.accountNo + '-COPY';
+                duplicated.accountName = duplicated.accountName + ' (Copy)';
+                this.currentItem = duplicated;
+                this.renderFormView();
+            });
+        }
+        
+        // Print button
+        const printBtn = document.getElementById('btn-print-form');
+        if (printBtn) {
+            printBtn.addEventListener('click', () => window.print());
+        }
+    }
+    
+    // Old method kept for compatibility
     attachCommandBarListeners() {
         // Remove any existing listeners
         if (this.commandBarListener) {
@@ -559,20 +757,61 @@ class CustomerManager {
         const customer = this.currentItem || this.getEmptyCustomer();
         const isEdit = this.currentItem !== null;
 
-        // Set Command Bar context for customer form
-        if (window.CommandBar) {
-            window.CommandBar.setContext('customer-form', { 
-                isEdit: isEdit,
-                hasChanges: this.hasUnsavedChanges 
-            });
-        }
-
         this.container.innerHTML = `
             <div class="customer-form-container">
                 <!-- Header -->
-                <div class="module-header mb-3">
-                    <h3><i class="fas fa-user-tie text-primary"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
-                    <p class="text-muted mb-0">${isEdit ? 'Modify customer information and relationships' : 'Create a new customer account'}</p>
+                <div class="module-header mb-2">
+                    <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
+                    <p class="text-muted mb-0">${isEdit ? 'Edit Customer' : 'New Customer'}</p>
+                </div>
+                
+                <!-- Form Action Bar -->
+                <div class="module-action-bar" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 8px 12px; margin-bottom: 16px;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Primary Actions -->
+                            <button class="btn btn-primary btn-sm" id="btn-save-customer">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-back-to-list">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            
+                            <!-- Edit Actions -->
+                            <button class="btn btn-outline-warning btn-sm" id="btn-undo-changes" style="display: none;">
+                                <i class="fas fa-undo"></i> Undo Changes
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-reset-form">
+                                <i class="fas fa-redo"></i> Reset
+                            </button>
+                            
+                            ${isEdit ? `
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-danger btn-sm" id="btn-delete-customer">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="btn-duplicate-customer">
+                                <i class="fas fa-copy"></i> Duplicate
+                            </button>
+                            ` : ''}
+                            
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            
+                            <!-- Additional Actions -->
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-print-form">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-share-form">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                        
+                        <!-- Status Area -->
+                        <div class="text-muted small">
+                            <span id="form-save-status"><i class="fas fa-circle text-success"></i> Auto-save enabled</span>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Customer Form -->
@@ -846,8 +1085,8 @@ class CustomerManager {
             undoBtn.addEventListener('click', () => this.undoChanges());
         }
         
-        // Listen for Command Bar events in form view
-        this.attachCommandBarListeners();
+        // Attach form action bar event listeners
+        this.attachFormActionBarListeners();
         
         // Initialize lookup fields
         this.initializeLookupFields();
