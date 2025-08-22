@@ -346,58 +346,83 @@ class CustomerManager {
                         <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
                     </div>
                     
-                    <!-- Module Action Bar -->
-                    <div class="module-action-bar" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 12px; margin-bottom: 16px;">
+                    <!-- SINGLE ACTION BAR WITH EVERYTHING -->
+                    <div class="module-action-bar" style="background: linear-gradient(to bottom, #ffffff, #f8f9fa); border: 1px solid #dee2e6; border-radius: 4px; padding: 10px 16px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
                         <div class="d-flex align-items-center justify-content-between">
-                            <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-2" style="flex-wrap: nowrap;">
                                 <!-- Primary Actions -->
-                                <button class="btn btn-primary btn-sm" id="btn-new-customer">
+                                <button class="btn btn-primary btn-sm" id="btn-new-customer" style="min-width: 70px;">
                                     <i class="fas fa-plus"></i> New
                                 </button>
-                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
                                 
-                                <!-- View Actions -->
-                                <button class="btn btn-outline-secondary btn-sm" id="btn-refresh">
-                                    <i class="fas fa-sync-alt"></i> Refresh
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Edit Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-edit" disabled>
+                                    <i class="fas fa-edit"></i> Edit
                                 </button>
+                                <button class="btn btn-outline-danger btn-sm" id="btn-delete" disabled>
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Search Bar -->
+                                <div class="input-group input-group-sm" style="width: 300px;">
+                                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="grid-quick-search" placeholder="Search customers...">
+                                </div>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-advanced-search">
+                                    <i class="fas fa-search-plus"></i>
+                                </button>
+                                
                                 <button class="btn btn-outline-secondary btn-sm" id="btn-filter">
                                     <i class="fas fa-filter"></i> Filter
                                 </button>
                                 
-                                <!-- Search Bar -->
-                                <div class="input-group input-group-sm ms-2" style="width: 250px;">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    <input type="text" class="form-control" id="grid-quick-search" placeholder="Quick search...">
-                                </div>
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
                                 
-                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                                <!-- View Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-refresh" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-columns" title="Column Options">
+                                    <i class="fas fa-columns"></i>
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
                                 
                                 <!-- Data Actions -->
-                                <button class="btn btn-outline-secondary btn-sm" id="btn-import">
-                                    <i class="fas fa-upload"></i> Import
+                                <button class="btn btn-outline-success btn-sm" id="btn-export">
+                                    <i class="fas fa-file-excel"></i> Export
                                 </button>
-                                <button class="btn btn-outline-secondary btn-sm" id="btn-export">
-                                    <i class="fas fa-download"></i> Export
+                                <button class="btn btn-outline-info btn-sm" id="btn-import">
+                                    <i class="fas fa-file-import"></i> Import
                                 </button>
                                 
-                                <div style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
                                 
-                                <!-- View Options -->
-                                <button class="btn btn-outline-secondary btn-sm" id="btn-columns">
-                                    <i class="fas fa-columns"></i> Columns
+                                <!-- Other Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-print" title="Print">
+                                    <i class="fas fa-print"></i>
                                 </button>
-                                <button class="btn btn-outline-secondary btn-sm" id="btn-print">
-                                    <i class="fas fa-print"></i> Print
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-help" title="Help">
+                                    <i class="fas fa-question-circle"></i>
                                 </button>
                             </div>
                             
                             <!-- Status Area -->
-                            <div class="text-muted small">
-                                <span id="grid-record-count">Loading...</span>
+                            <div class="text-muted small" style="white-space: nowrap;">
+                                <span id="grid-record-count">0 records</span> | 
+                                <span id="grid-selected-count">0 selected</span>
                             </div>
                         </div>
                     </div>
                     
+                    <!-- CLEAN GRID AREA - NO BUTTONS HERE -->
                     <div id="customer-grid-container"></div>
                 </div>
             `;
@@ -477,10 +502,72 @@ class CustomerManager {
     }
     
     attachGridActionBarListeners() {
+        // Store reference to selected rows
+        this.selectedRows = [];
+        
         // New button
         const newBtn = document.getElementById('btn-new-customer');
         if (newBtn) {
             newBtn.addEventListener('click', () => this.newCustomer());
+        }
+        
+        // Edit button
+        const editBtn = document.getElementById('btn-edit');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                if (this.selectedRows.length === 1) {
+                    this.editCustomer(this.selectedRows[0]);
+                }
+            });
+        }
+        
+        // Delete button
+        const deleteBtn = document.getElementById('btn-delete');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (this.selectedRows.length > 0) {
+                    const msg = this.selectedRows.length === 1 
+                        ? 'Are you sure you want to delete this customer?' 
+                        : `Are you sure you want to delete ${this.selectedRows.length} customers?`;
+                    if (confirm(msg)) {
+                        this.selectedRows.forEach(id => this.deleteCustomer(id));
+                        this.selectedRows = [];
+                        this.updateSelectionButtons([]);
+                    }
+                }
+            });
+        }
+        
+        // Quick search
+        const searchInput = document.getElementById('grid-quick-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filtered = this.data.filter(customer => 
+                    customer.accountName.toLowerCase().includes(searchTerm) ||
+                    customer.accountNo.toLowerCase().includes(searchTerm) ||
+                    customer.email.toLowerCase().includes(searchTerm) ||
+                    customer.phone.toLowerCase().includes(searchTerm)
+                );
+                this.dataGrid.setData(filtered);
+                this.updateRecordCount(filtered.length);
+            });
+        }
+        
+        // Advanced search button
+        const advancedSearchBtn = document.getElementById('btn-advanced-search');
+        if (advancedSearchBtn) {
+            advancedSearchBtn.addEventListener('click', () => {
+                console.log('Opening advanced search...');
+            });
+        }
+        
+        // Filter button
+        const filterBtn = document.getElementById('btn-filter');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', () => {
+                console.log('Opening filter panel...');
+            });
         }
         
         // Refresh button
@@ -490,6 +577,14 @@ class CustomerManager {
                 this.loadSampleData();
                 this.dataGrid.setData(this.data);
                 this.updateRecordCount();
+            });
+        }
+        
+        // Columns button
+        const columnsBtn = document.getElementById('btn-columns');
+        if (columnsBtn) {
+            columnsBtn.addEventListener('click', () => {
+                console.log('Opening column selector...');
             });
         }
         
@@ -503,45 +598,11 @@ class CustomerManager {
             });
         }
         
-        // Quick search
-        const searchInput = document.getElementById('grid-quick-search');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                const searchTerm = e.target.value.toLowerCase();
-                const filtered = this.data.filter(customer => 
-                    customer.accountName.toLowerCase().includes(searchTerm) ||
-                    customer.accountNo.toLowerCase().includes(searchTerm) ||
-                    customer.email.toLowerCase().includes(searchTerm)
-                );
-                this.dataGrid.setData(filtered);
-                this.updateRecordCount(filtered.length);
-            });
-        }
-        
-        // Filter button
-        const filterBtn = document.getElementById('btn-filter');
-        if (filterBtn) {
-            filterBtn.addEventListener('click', () => {
-                console.log('Opening filter panel...');
-                // TODO: Implement filter panel
-            });
-        }
-        
         // Import button
         const importBtn = document.getElementById('btn-import');
         if (importBtn) {
             importBtn.addEventListener('click', () => {
                 console.log('Opening import dialog...');
-                // TODO: Implement import functionality
-            });
-        }
-        
-        // Columns button
-        const columnsBtn = document.getElementById('btn-columns');
-        if (columnsBtn) {
-            columnsBtn.addEventListener('click', () => {
-                console.log('Opening column selector...');
-                // TODO: Implement column selector
             });
         }
         
@@ -551,6 +612,47 @@ class CustomerManager {
             printBtn.addEventListener('click', () => {
                 window.print();
             });
+        }
+        
+        // Help button
+        const helpBtn = document.getElementById('btn-help');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                alert('Customer Management Help\n\n' +
+                      '• Click New to add a customer\n' +
+                      '• Select rows and click Edit/Delete\n' +
+                      '• Use Search to find customers\n' +
+                      '• Export data to Excel\n' +
+                      '• Import from Excel or CSV');
+            });
+        }
+    }
+    
+    selectRow(id) {
+        // Handle row selection for action bar buttons
+        const customer = this.data.find(c => c.id === id);
+        if (customer) {
+            // For now, just edit on click
+            this.editCustomer(id);
+        }
+    }
+    
+    updateSelectionButtons(selectedIds) {
+        this.selectedRows = selectedIds;
+        const editBtn = document.getElementById('btn-edit');
+        const deleteBtn = document.getElementById('btn-delete');
+        const selectedCount = document.getElementById('grid-selected-count');
+        
+        if (editBtn) {
+            editBtn.disabled = selectedIds.length !== 1;
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.disabled = selectedIds.length === 0;
+        }
+        
+        if (selectedCount) {
+            selectedCount.textContent = `${selectedIds.length} selected`;
         }
     }
     
