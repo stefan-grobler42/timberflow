@@ -341,9 +341,88 @@ class CustomerManager {
         if (!this.dataGrid) {
             this.container.innerHTML = `
                 <div class="customer-manager-container">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
+                    <div class="module-header mb-2">
+                        <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
+                        <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
                     </div>
+                    
+                    <!-- SINGLE ACTION BAR WITH EVERYTHING -->
+                    <div class="module-action-bar" style="background: linear-gradient(to bottom, #ffffff, #f8f9fa); border: 1px solid #dee2e6; border-radius: 4px; padding: 10px 16px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08);">
+                        <div class="d-flex align-items-center justify-content-between">
+                            <div class="d-flex align-items-center gap-2" style="flex-wrap: nowrap;">
+                                <!-- Primary Actions -->
+                                <button class="btn btn-primary btn-sm" id="btn-new-customer" style="min-width: 70px;">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Edit Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-edit" disabled>
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="btn-delete" disabled>
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Search Bar -->
+                                <div class="input-group input-group-sm" style="width: 300px;">
+                                    <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="grid-quick-search" placeholder="Search customers...">
+                                </div>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-advanced-search">
+                                    <i class="fas fa-search-plus"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-filter">
+                                    <i class="fas fa-filter"></i> Filter
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- View Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-refresh" title="Refresh">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-columns" title="Column Options">
+                                    <i class="fas fa-columns"></i>
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Data Actions -->
+                                <button class="btn btn-outline-success btn-sm" id="btn-export">
+                                    <i class="fas fa-file-excel"></i> Export
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" id="btn-import">
+                                    <i class="fas fa-file-import"></i> Import
+                                </button>
+                                
+                                <div style="width: 1px; height: 24px; background: #dee2e6; margin: 0 8px;"></div>
+                                
+                                <!-- Other Actions -->
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-print" title="Print">
+                                    <i class="fas fa-print"></i>
+                                </button>
+                                
+                                <button class="btn btn-outline-secondary btn-sm" id="btn-help" title="Help">
+                                    <i class="fas fa-question-circle"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Status Area -->
+                            <div class="text-muted small" style="white-space: nowrap;">
+                                <span id="grid-record-count">0 records</span> | 
+                                <span id="grid-selected-count">0 selected</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- CLEAN GRID AREA - NO BUTTONS HERE -->
                     <div id="customer-grid-container"></div>
                 </div>
             `;
@@ -412,8 +491,368 @@ class CustomerManager {
             this.dataGrid = new EnhancedDataGrid('customer-grid-container', gridConfig);
         }
         
+        // Attach action bar event listeners
+        this.attachGridActionBarListeners();
+        
         // Update grid data
         this.dataGrid.setData(this.data);
+        
+        // Update record count
+        this.updateRecordCount();
+    }
+    
+    attachGridActionBarListeners() {
+        // Store reference to selected rows
+        this.selectedRows = [];
+        
+        // New button
+        const newBtn = document.getElementById('btn-new-customer');
+        if (newBtn) {
+            newBtn.addEventListener('click', () => this.newCustomer());
+        }
+        
+        // Edit button
+        const editBtn = document.getElementById('btn-edit');
+        if (editBtn) {
+            editBtn.addEventListener('click', () => {
+                if (this.selectedRows.length === 1) {
+                    this.editCustomer(this.selectedRows[0]);
+                }
+            });
+        }
+        
+        // Delete button
+        const deleteBtn = document.getElementById('btn-delete');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (this.selectedRows.length > 0) {
+                    const msg = this.selectedRows.length === 1 
+                        ? 'Are you sure you want to delete this customer?' 
+                        : `Are you sure you want to delete ${this.selectedRows.length} customers?`;
+                    if (confirm(msg)) {
+                        this.selectedRows.forEach(id => this.deleteCustomer(id));
+                        this.selectedRows = [];
+                        this.updateSelectionButtons([]);
+                    }
+                }
+            });
+        }
+        
+        // Quick search
+        const searchInput = document.getElementById('grid-quick-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filtered = this.data.filter(customer => 
+                    customer.accountName.toLowerCase().includes(searchTerm) ||
+                    customer.accountNo.toLowerCase().includes(searchTerm) ||
+                    customer.email.toLowerCase().includes(searchTerm) ||
+                    customer.phone.toLowerCase().includes(searchTerm)
+                );
+                this.dataGrid.setData(filtered);
+                this.updateRecordCount(filtered.length);
+            });
+        }
+        
+        // Advanced search button
+        const advancedSearchBtn = document.getElementById('btn-advanced-search');
+        if (advancedSearchBtn) {
+            advancedSearchBtn.addEventListener('click', () => {
+                console.log('Opening advanced search...');
+            });
+        }
+        
+        // Filter button
+        const filterBtn = document.getElementById('btn-filter');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', () => {
+                console.log('Opening filter panel...');
+            });
+        }
+        
+        // Refresh button
+        const refreshBtn = document.getElementById('btn-refresh');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadSampleData();
+                this.dataGrid.setData(this.data);
+                this.updateRecordCount();
+            });
+        }
+        
+        // Columns button
+        const columnsBtn = document.getElementById('btn-columns');
+        if (columnsBtn) {
+            columnsBtn.addEventListener('click', () => {
+                console.log('Opening column selector...');
+            });
+        }
+        
+        // Export button
+        const exportBtn = document.getElementById('btn-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                if (this.dataGrid && this.dataGrid.exportToExcel) {
+                    this.dataGrid.exportToExcel();
+                }
+            });
+        }
+        
+        // Import button
+        const importBtn = document.getElementById('btn-import');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                console.log('Opening import dialog...');
+            });
+        }
+        
+        // Print button
+        const printBtn = document.getElementById('btn-print');
+        if (printBtn) {
+            printBtn.addEventListener('click', () => {
+                window.print();
+            });
+        }
+        
+        // Help button
+        const helpBtn = document.getElementById('btn-help');
+        if (helpBtn) {
+            helpBtn.addEventListener('click', () => {
+                alert('Customer Management Help\n\n' +
+                      '• Click New to add a customer\n' +
+                      '• Select rows and click Edit/Delete\n' +
+                      '• Use Search to find customers\n' +
+                      '• Export data to Excel\n' +
+                      '• Import from Excel or CSV');
+            });
+        }
+    }
+    
+    selectRow(id) {
+        // Handle row selection for action bar buttons
+        const customer = this.data.find(c => c.id === id);
+        if (customer) {
+            // For now, just edit on click
+            this.editCustomer(id);
+        }
+    }
+    
+    updateSelectionButtons(selectedIds) {
+        this.selectedRows = selectedIds;
+        const editBtn = document.getElementById('btn-edit');
+        const deleteBtn = document.getElementById('btn-delete');
+        const selectedCount = document.getElementById('grid-selected-count');
+        
+        if (editBtn) {
+            editBtn.disabled = selectedIds.length !== 1;
+        }
+        
+        if (deleteBtn) {
+            deleteBtn.disabled = selectedIds.length === 0;
+        }
+        
+        if (selectedCount) {
+            selectedCount.textContent = `${selectedIds.length} selected`;
+        }
+    }
+    
+    updateRecordCount(count = null) {
+        const countElement = document.getElementById('grid-record-count');
+        if (countElement) {
+            const recordCount = count !== null ? count : this.data.length;
+            countElement.textContent = `${recordCount} record${recordCount !== 1 ? 's' : ''}`;
+        }
+    }
+    
+    attachFormActionBarListeners() {
+        // Save button
+        const saveBtn = document.getElementById('btn-save-customer');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveCustomer());
+        }
+        
+        // Back to list button
+        const backBtn = document.getElementById('btn-back-to-list');
+        if (backBtn) {
+            backBtn.addEventListener('click', () => {
+                this.currentView = 'list';
+                this.render();
+            });
+        }
+        
+        // Undo button
+        const undoBtn = document.getElementById('btn-undo-changes');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => this.undoChanges());
+        }
+        
+        // Reset button
+        const resetBtn = document.getElementById('btn-reset-form');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to reset the form?')) {
+                    this.renderFormView();
+                }
+            });
+        }
+        
+        // Delete button (if editing)
+        const deleteBtn = document.getElementById('btn-delete-customer');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete this customer?')) {
+                    this.deleteCustomer(this.currentItem.id);
+                }
+            });
+        }
+        
+        // Duplicate button
+        const duplicateBtn = document.getElementById('btn-duplicate-customer');
+        if (duplicateBtn) {
+            duplicateBtn.addEventListener('click', () => {
+                const duplicated = { ...this.currentItem };
+                delete duplicated.id;
+                duplicated.accountNo = duplicated.accountNo + '-COPY';
+                duplicated.accountName = duplicated.accountName + ' (Copy)';
+                this.currentItem = duplicated;
+                this.renderFormView();
+            });
+        }
+        
+        // Print button
+        const printBtn = document.getElementById('btn-print-form');
+        if (printBtn) {
+            printBtn.addEventListener('click', () => window.print());
+        }
+    }
+    
+    // Old method kept for compatibility
+    attachCommandBarListeners() {
+        // Remove any existing listeners
+        if (this.commandBarListener) {
+            document.removeEventListener('commandbar:execute', this.commandBarListener);
+        }
+        
+        // Create new listener
+        this.commandBarListener = (event) => {
+            const { commandId, context } = event.detail;
+            
+            // Only handle commands for customer context
+            if (!context || !context.startsWith('customer')) return;
+            
+            switch (commandId) {
+                case 'new-customer':
+                    this.newCustomer();
+                    break;
+                case 'refresh':
+                    this.loadSampleData();
+                    this.dataGrid.setData(this.data);
+                    break;
+                case 'export':
+                    if (this.dataGrid && this.dataGrid.exportToExcel) {
+                        this.dataGrid.exportToExcel();
+                    }
+                    break;
+                case 'save':
+                    this.saveCustomer();
+                    break;
+                case 'back':
+                    this.currentView = 'list';
+                    this.render();
+                    break;
+                case 'undo':
+                    this.undoChanges();
+                    break;
+                case 'reset':
+                    if (confirm('Are you sure you want to reset the form?')) {
+                        this.renderFormView();
+                    }
+                    break;
+                case 'delete':
+                    if (this.currentItem && confirm('Are you sure you want to delete this customer?')) {
+                        this.deleteCustomer(this.currentItem.id);
+                    }
+                    break;
+                case 'filter':
+                    console.log('Opening filter panel...');
+                    break;
+                case 'search':
+                    console.log('Opening advanced search...');
+                    break;
+            }
+        };
+        
+        // Add listener
+        document.addEventListener('commandbar:execute', this.commandBarListener);
+    }
+    
+    // Old method - keep for compatibility but empty
+    initializeGridActionBar() {
+        const actionBarContainer = document.getElementById('customer-grid-actionbar');
+        if (actionBarContainer) {
+            // Create ActionBar HTML directly since the class might not be available
+            actionBarContainer.innerHTML = `
+                <div class="millennium-action-bar" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-primary btn-sm" id="grid-add-customer">
+                                <i class="fas fa-plus"></i> Add Customer
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-refresh">
+                                <i class="fas fa-sync-alt"></i> Refresh
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-search">
+                                <i class="fas fa-search"></i> Advanced Search
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-filter">
+                                <i class="fas fa-filter"></i> Filter
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-info btn-sm" id="grid-import">
+                                <i class="fas fa-upload"></i> Import
+                            </button>
+                            <button class="btn btn-outline-success btn-sm" id="grid-export">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-columns">
+                                <i class="fas fa-columns"></i> Columns
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="grid-print">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                        </div>
+                        <div class="text-muted small">
+                            <span id="grid-selection-count"></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Attach event listeners for ActionBar buttons
+            const addBtn = document.getElementById('grid-add-customer');
+            if (addBtn) {
+                addBtn.addEventListener('click', () => this.newCustomer());
+            }
+            
+            const refreshBtn = document.getElementById('grid-refresh');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    this.loadSampleData();
+                    this.dataGrid.setData(this.data);
+                });
+            }
+            
+            const exportBtn = document.getElementById('grid-export');
+            if (exportBtn) {
+                exportBtn.addEventListener('click', () => {
+                    if (this.dataGrid && this.dataGrid.exportToExcel) {
+                        this.dataGrid.exportToExcel();
+                    }
+                });
+            }
+        }
     }
 
     renderFormView() {
@@ -423,19 +862,58 @@ class CustomerManager {
         this.container.innerHTML = `
             <div class="customer-form-container">
                 <!-- Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-outline-secondary" id="back-to-list-btn">
-                            <i class="fas fa-arrow-left"></i> Back to List
-                        </button>
-                        <button class="btn btn-outline-warning" id="undo-changes-btn" style="display: none;">
-                            <i class="fas fa-undo"></i> Undo Changes
-                        </button>
-                        <div id="auto-save-status" class="text-muted small" style="display: none;">
-                            <i class="fas fa-save"></i> Auto-saved
+                <div class="module-header mb-2">
+                    <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
+                    <p class="text-muted mb-0">${isEdit ? 'Edit Customer' : 'New Customer'}</p>
+                </div>
+                
+                <!-- Form Action Bar -->
+                <div class="module-action-bar" style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 4px; padding: 8px 12px; margin-bottom: 16px;">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Primary Actions -->
+                            <button class="btn btn-primary btn-sm" id="btn-save-customer">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-back-to-list">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            
+                            <!-- Edit Actions -->
+                            <button class="btn btn-outline-warning btn-sm" id="btn-undo-changes" style="display: none;">
+                                <i class="fas fa-undo"></i> Undo Changes
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-reset-form">
+                                <i class="fas fa-redo"></i> Reset
+                            </button>
+                            
+                            ${isEdit ? `
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-danger btn-sm" id="btn-delete-customer">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="btn-duplicate-customer">
+                                <i class="fas fa-copy"></i> Duplicate
+                            </button>
+                            ` : ''}
+                            
+                            <div style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            
+                            <!-- Additional Actions -->
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-print-form">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="btn-share-form">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                        
+                        <!-- Status Area -->
+                        <div class="text-muted small">
+                            <span id="form-save-status"><i class="fas fa-circle text-success"></i> Auto-save enabled</span>
                         </div>
                     </div>
-                    <h3><i class="fas fa-user-tie"></i> ${isEdit ? 'Edit Customer' : 'New Customer'}</h3>
                 </div>
 
                 <!-- Customer Form -->
@@ -708,6 +1186,9 @@ class CustomerManager {
         if (undoBtn) {
             undoBtn.addEventListener('click', () => this.undoChanges());
         }
+        
+        // Attach form action bar event listeners
+        this.attachFormActionBarListeners();
         
         // Initialize lookup fields
         this.initializeLookupFields();
@@ -1010,6 +1491,82 @@ class CustomerManager {
         }
 
         return true;
+    }
+
+    // New method to initialize ActionBar for Form View
+    initializeFormActionBar() {
+        const actionBarContainer = document.getElementById('customer-form-actionbar');
+        const isEdit = this.currentItem !== null;
+        
+        if (actionBarContainer) {
+            actionBarContainer.innerHTML = `
+                <div class="millennium-action-bar" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border: 1px solid #2196f3; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-primary btn-sm" id="form-save">
+                                <i class="fas fa-save"></i> Save
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-back">
+                                <i class="fas fa-arrow-left"></i> Back to List
+                            </button>
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-warning btn-sm" id="form-undo" style="display: none;">
+                                <i class="fas fa-undo"></i> Undo Changes
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-reset">
+                                <i class="fas fa-redo"></i> Reset Form
+                            </button>
+                            ${isEdit ? `
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-danger btn-sm" id="form-delete">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" id="form-duplicate">
+                                <i class="fas fa-copy"></i> Duplicate
+                            </button>
+                            ` : ''}
+                            <div class="action-separator" style="width: 1px; height: 20px; background: #2196f3; margin: 0 8px;"></div>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-print">
+                                <i class="fas fa-print"></i> Print
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="form-share">
+                                <i class="fas fa-share"></i> Share
+                            </button>
+                        </div>
+                        <div class="text-muted small">
+                            <span id="form-auto-save-status"><i class="fas fa-save"></i> Auto-save enabled</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Attach event listeners for Form ActionBar buttons
+            const backBtn = document.getElementById('form-back');
+            if (backBtn) {
+                backBtn.addEventListener('click', () => this.render());
+            }
+            
+            const saveBtn = document.getElementById('form-save');
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveCustomer());
+            }
+            
+            const undoBtn = document.getElementById('form-undo');
+            if (undoBtn) {
+                undoBtn.addEventListener('click', () => this.undoChanges());
+            }
+            
+            if (isEdit) {
+                const deleteBtn = document.getElementById('form-delete');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => {
+                        if (confirm('Are you sure you want to delete this customer?')) {
+                            this.deleteCustomer(this.currentItem.id);
+                        }
+                    });
+                }
+            }
+        }
     }
 
     detectChanges() {
