@@ -42,38 +42,67 @@ class ContactsModule {
             </div>
         `;
         
-        // Initialize ActionBar with timeout to ensure DOM is ready
-        setTimeout(() => this.initializeActionBar(), 100);
+        // Initialize ActionBar immediately - DOM should be ready after innerHTML
+        this.initializeActionBar();
     }
 
     initializeActionBar() {
         const actionBarContainer = this.container.querySelector('.module-actionbar');
-        console.log('Initializing Contacts ActionBar...', actionBarContainer);
+        console.log('🔧 Contacts ActionBar Debug:', {
+            container: actionBarContainer,
+            ActionBarClass: window.ActionBar,
+            modularApp: window.modularApp
+        });
         
-        if (actionBarContainer && window.ActionBar) {
-            this.actionBar = new ActionBar(actionBarContainer, {
-                context: 'module',
-                actions: [
-                    { id: 'add', icon: 'plus', label: 'Add Contact', variant: 'primary', group: 'crud' },
-                    { id: 'refresh', icon: 'sync-alt', label: 'Refresh', variant: 'outline-secondary', group: 'view' },
-                    { id: 'search', icon: 'search', label: 'Search', variant: 'outline-secondary', group: 'view' },
-                    { id: 'filter', icon: 'filter', label: 'Filter', variant: 'outline-secondary', group: 'view' },
-                    { id: 'export', icon: 'download', label: 'Export', variant: 'outline-secondary', group: 'data' },
-                    { id: 'import', icon: 'upload', label: 'Import', variant: 'outline-secondary', group: 'data', disabled: true }
-                ]
-            });
-            
-            console.log('Contacts ActionBar created successfully');
-            
-            // Disable actions until module is implemented
-            ['add', 'search', 'filter', 'import'].forEach(actionId => {
-                this.actionBar.disableAction(actionId);
-            });
+        if (actionBarContainer) {
+            if (window.ActionBar) {
+                console.log('✅ Creating Contacts ActionBar...');
+                try {
+                    this.actionBar = new ActionBar(actionBarContainer, {
+                        context: 'module',
+                        actions: [
+                            { id: 'add', icon: 'plus', label: 'Add Contact', variant: 'primary', group: 'crud' },
+                            { id: 'refresh', icon: 'sync-alt', label: 'Refresh', variant: 'outline-secondary', group: 'view' },
+                            { id: 'search', icon: 'search', label: 'Search', variant: 'outline-secondary', group: 'view' },
+                            { id: 'filter', icon: 'filter', label: 'Filter', variant: 'outline-secondary', group: 'view' },
+                            { id: 'export', icon: 'download', label: 'Export', variant: 'outline-secondary', group: 'data' },
+                            { id: 'import', icon: 'upload', label: 'Import', variant: 'outline-secondary', group: 'data', disabled: true }
+                        ]
+                    });
+                    
+                    console.log('✅ Contacts ActionBar created successfully!');
+                    
+                    // Disable actions until module is implemented
+                    ['add', 'search', 'filter', 'import'].forEach(actionId => {
+                        this.actionBar.disableAction(actionId);
+                    });
+                    
+                    // Add visual confirmation
+                    const statusDiv = document.createElement('div');
+                    statusDiv.innerHTML = '<small class="text-success">ActionBar loaded successfully!</small>';
+                    actionBarContainer.appendChild(statusDiv);
+                    
+                } catch (error) {
+                    console.error('❌ Error creating ActionBar:', error);
+                }
+            } else {
+                console.error('❌ ActionBar class not available on window');
+                // Add manual ActionBar as fallback
+                actionBarContainer.innerHTML = `
+                    <div class="millennium-action-bar" style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; padding: 8px 12px; margin: 8px 0;">
+                        <div class="d-flex align-items-center">
+                            <button class="btn btn-primary btn-sm me-2" disabled><i class="fas fa-plus"></i> Add Contact</button>
+                            <button class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-sync-alt"></i> Refresh</button>
+                            <button class="btn btn-outline-secondary btn-sm me-2" disabled><i class="fas fa-search"></i> Search</button>
+                            <button class="btn btn-outline-secondary btn-sm me-2" disabled><i class="fas fa-filter"></i> Filter</button>
+                            <button class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-download"></i> Export</button>
+                            <button class="btn btn-outline-secondary btn-sm" disabled><i class="fas fa-upload"></i> Import</button>
+                        </div>
+                    </div>
+                `;
+            }
         } else {
-            console.error('ActionBar container not found or ActionBar class not available', {
-                container: actionBarContainer,
-                ActionBarClass: window.ActionBar
-            });
+            console.error('❌ ActionBar container (.module-actionbar) not found in DOM');
         }
     }
 }
