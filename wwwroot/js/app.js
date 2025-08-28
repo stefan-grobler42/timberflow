@@ -270,24 +270,27 @@ var CustomerModule = {
     getFormTemplate: function() {
         return `
         <div class="form-container">
-            <!-- Command Bar -->
-            <div class="command-bar">
-                <div class="command-group">
-                    <button class="btn btn-primary" onclick="CustomerModule.saveForm()">
-                        <i class="fas fa-save"></i> Save
-                    </button>
-                    <button class="btn btn-outline-primary" onclick="CustomerModule.saveAndNew()">
-                        <i class="fas fa-plus"></i> Save & New
-                    </button>
-                    <button class="btn btn-outline-secondary" onclick="CustomerModule.cancelForm()">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    ${this.selectedId ? '<button class="btn btn-outline-danger" onclick="CustomerModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
-                </div>
-            </div>
-            
             <div class="form-header d-flex justify-content-between align-items-center">
                 <h3><i class="fas fa-user-tie"></i> ${this.selectedId ? 'Edit' : 'New'} Customer</h3>
+            </div>
+            
+            <!-- Standard Command Bar -->
+            <div class="millennium-action-bar" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-primary btn-sm" onclick="CustomerModule.saveForm()">
+                            <i class="fas fa-save"></i> Save
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="CustomerModule.saveAndNew()">
+                            <i class="fas fa-plus"></i> Save & New
+                        </button>
+                        <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.cancelForm()">
+                            <i class="fas fa-arrow-left"></i> Back to List
+                        </button>
+                        ${this.selectedId ? '<div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div><button class="btn btn-outline-danger btn-sm" onclick="CustomerModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
+                    </div>
+                </div>
             </div>
             
             <ul class="nav nav-tabs mt-3" role="tablist">
@@ -302,13 +305,13 @@ var CustomerModule = {
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#status-relationship">
-                        <i class="fas fa-shield-alt"></i> Status & Relationship
+                    <a class="nav-link" data-bs-toggle="tab" href="#address">
+                        <i class="fas fa-map-marker-alt"></i> Address
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#address">
-                        <i class="fas fa-map-marker-alt"></i> Address
+                    <a class="nav-link" data-bs-toggle="tab" href="#status-relationship">
+                        <i class="fas fa-shield-alt"></i> Status & Relationship
                     </a>
                 </li>
             </ul>
@@ -673,14 +676,34 @@ var CustomerModule = {
     
     // Initialize lookup fields
     initLookupFields: function() {
-        var companyTypes = ['Private Company', 'Close Corporation', 'Partnership', 'Sole Proprietor', 'Trust', 'Individual'];
-        var salesReps = ['John Smith', 'Sarah Johnson', 'Mike Brown', 'Lisa Davis'];
+        // Load company types from API
+        $.get('/api/LookupsApi/company-types', function(data) {
+            var items = data.map(item => item.Name);
+            CustomerModule.setupLookup('CompanyType', 'companyTypeDropdown', items);
+        }).fail(function() {
+            // Fallback to static data
+            var companyTypes = ['Private Company', 'Close Corporation', 'Partnership', 'Sole Proprietor', 'Trust', 'Individual'];
+            CustomerModule.setupLookup('CompanyType', 'companyTypeDropdown', companyTypes);
+        });
         
-        // Company Type lookup
-        this.setupLookup('CompanyType', 'companyTypeDropdown', companyTypes);
+        // Load account types from API
+        $.get('/api/LookupsApi/account-types', function(data) {
+            var items = data.map(item => item.Name);
+            CustomerModule.setupLookup('AccountType', 'accountTypeDropdown', items);
+        }).fail(function() {
+            var accountTypes = ['Prospect', 'Customer', 'Partner'];
+            CustomerModule.setupLookup('AccountType', 'accountTypeDropdown', accountTypes);
+        });
         
-        // Sales Rep lookup
-        this.setupLookup('SalesRepresentative', 'salesRepDropdown', salesReps);
+        // Load sales representatives from API
+        $.get('/api/UsersApi/sales-representatives', function(data) {
+            var items = data.map(item => item.FullName);
+            CustomerModule.setupLookup('SalesRepresentative', 'salesRepDropdown', items);
+        }).fail(function() {
+            // Fallback to static data  
+            var salesReps = ['John Smith', 'Sarah Johnson', 'Mike Brown', 'Lisa Davis'];
+            CustomerModule.setupLookup('SalesRepresentative', 'salesRepDropdown', salesReps);
+        });
     },
     
     // Setup lookup field
