@@ -1,0 +1,58 @@
+{
+  "Version": 1,
+  "Hash": "wRk5e2r+LBygsi2flnz2z/QD+JDVRAzmY/SL62yf7js=",
+  "Source": "MillenniumERP",
+  "BasePath": "_content/MillenniumERP",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "MillenniumERP/wwwroot",
+      "Source": "MillenniumERP",
+      "ContentRoot": "/home/runner/workspace/wwwroot/",
+      "BasePath": "_content/MillenniumERP",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "/home/runner/workspace/wwwroot/css/site.css",
+      "SourceId": "MillenniumERP",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/runner/workspace/wwwroot/",
+      "BasePath": "_content/MillenniumERP",
+      "RelativePath": "css/site.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/css/site.css"
+    },
+    {
+      "Identity": "/home/runner/workspace/wwwroot/millennium-logo.png",
+      "SourceId": "MillenniumERP",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/runner/workspace/wwwroot/",
+      "BasePath": "_content/MillenniumERP",
+      "RelativePath": "millennium-logo.png",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/millennium-logo.png"
+    }
+  ]
+}

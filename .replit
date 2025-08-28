@@ -1,8 +1,8 @@
-modules = ["nodejs-20", "python-3.11", "postgresql-16", "python3"]
+modules = ["nodejs-20", "python-3.11", "postgresql-16", "python3", "dotnet-8"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales"]
+packages = ["glibcLocales", "dotnet-sdk_8"]
 
 [workflows]
 runButton = "Project"
@@ -14,16 +14,19 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Server"
+args = "DotNetServer"
 
 [[workflows.workflow]]
-name = "Server"
+name = "DotNetServer"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm start"
+args = "dotnet run"
 waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
 
 [[ports]]
 localPort = 5000
