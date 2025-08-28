@@ -119,110 +119,355 @@
     </div>
 </div>
 
-<!-- Customer Form Modal -->
+<!-- Enhanced Customer Form Modal with Tabs -->
 <div class="modal fade" id="customerModal" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title" id="modalTitle">New Customer</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="customerForm">
                     <input type="hidden" id="customerId">
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Account Name <span class="text-danger">*</span></label>
-                                <input type="text" class="form-control" id="accountName" required>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Company Type</label>
-                                <select class="form-select" id="companyType">
-                                    <option value="Private Company">Private Company</option>
-                                    <option value="Close Corporation">Close Corporation</option>
-                                    <option value="Partnership">Partnership</option>
-                                    <option value="Sole Proprietor">Sole Proprietor</option>
-                                    <option value="Trust">Trust</option>
-                                    <option value="Individual">Individual</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Tabs Navigation -->
+                    <ul class="nav nav-tabs mb-3" id="customerTabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" data-bs-toggle="tab" href="#generalTab">
+                                <i class="fas fa-info-circle me-1"></i> General
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#addressTab">
+                                <i class="fas fa-map-marker-alt me-1"></i> Address & Location
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#contactTab">
+                                <i class="fas fa-address-book me-1"></i> Contacts
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#financialTab">
+                                <i class="fas fa-dollar-sign me-1"></i> Financial
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" data-bs-toggle="tab" href="#notesTab">
+                                <i class="fas fa-sticky-note me-1"></i> Notes
+                            </a>
+                        </li>
+                    </ul>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Company Registration No</label>
-                                <input type="text" class="form-control" id="companyRegistrationNo">
+                    <!-- Tab Content -->
+                    <div class="tab-content">
+                        <!-- General Tab -->
+                        <div class="tab-pane fade show active" id="generalTab">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Account Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control" id="accountName" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Account Number</label>
+                                        <input type="text" class="form-control" id="accountNo" readonly>
+                                        <small class="text-muted">Auto-generated</small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Company Type</label>
+                                        <select class="form-select" id="companyType">
+                                            <option value="Private Company">Private Company</option>
+                                            <option value="Close Corporation">Close Corporation</option>
+                                            <option value="Partnership">Partnership</option>
+                                            <option value="Sole Proprietor">Sole Proprietor</option>
+                                            <option value="Trust">Trust</option>
+                                            <option value="Individual">Individual</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Account Type</label>
+                                        <select class="form-select" id="accountType">
+                                            <option value="Prospect">Prospect</option>
+                                            <option value="Customer">Customer</option>
+                                            <option value="Supplier">Supplier</option>
+                                            <option value="Partner">Partner</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Customer Status</label>
+                                        <select class="form-select" id="customerStatus">
+                                            <option value="Prospect">Prospect</option>
+                                            <option value="Confirmed Customer">Confirmed Customer</option>
+                                            <option value="Account Under Review">Account Under Review</option>
+                                            <option value="Credit Approved">Credit Approved</option>
+                                            <option value="Account Closed">Account Closed</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Company Registration No</label>
+                                        <input type="text" class="form-control" id="companyRegistrationNo">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">VAT Registration No</label>
+                                        <input type="text" class="form-control" id="vatRegistrationNo">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Phone</label>
+                                        <input type="tel" class="form-control" id="phone">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="email">
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mb-3">
+                                        <label class="form-label">Website</label>
+                                        <input type="url" class="form-control" id="website" placeholder="https://">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Sales Representative</label>
+                                        <select class="form-select" id="salesRepresentative">
+                                            <option value="">Select Representative</option>
+                                            <option value="John Smith">John Smith</option>
+                                            <option value="Sarah Johnson">Sarah Johnson</option>
+                                            <option value="Mike Brown">Mike Brown</option>
+                                            <option value="Lisa Davis">Lisa Davis</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Approval Status</label>
+                                        <select class="form-select" id="approvalStatus">
+                                            <option value="Pending">Pending</option>
+                                            <option value="Credit App Required">Credit App Required</option>
+                                            <option value="References Check">References Check</option>
+                                            <option value="Payment History Review">Payment History Review</option>
+                                            <option value="Approved">Approved</option>
+                                            <option value="Rejected">Rejected</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">Active Account</label>
                             </div>
                         </div>
-                        <div class="col-md-6">
+                        
+                        <!-- Address & Location Tab -->
+                        <div class="tab-pane fade" id="addressTab">
                             <div class="mb-3">
-                                <label class="form-label">VAT Registration No</label>
-                                <input type="text" class="form-control" id="vatRegistrationNo">
+                                <label class="form-label">Address Search</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" id="addressSearch" placeholder="Start typing an address...">
+                                    <button class="btn btn-outline-secondary" type="button" id="btnUseMyLocation">
+                                        <i class="fas fa-location-arrow"></i> Use My Location
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <div class="mb-3">
+                                        <label class="form-label">Street Address</label>
+                                        <input type="text" class="form-control" id="streetAddress">
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">City</label>
+                                                <input type="text" class="form-control" id="city">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Province/State</label>
+                                                <input type="text" class="form-control" id="province">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Postal Code</label>
+                                                <input type="text" class="form-control" id="postalCode">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Country</label>
+                                                <input type="text" class="form-control" id="country" value="South Africa">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Location Map</label>
+                                    <div id="mapContainer" style="height: 300px; border: 1px solid #dee2e6; border-radius: 4px;">
+                                        <div class="text-center text-muted" style="padding-top: 140px;">
+                                            <i class="fas fa-map-marker-alt fa-2x"></i>
+                                            <p>Enter address to view map</p>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Drag pin to adjust location</small>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Latitude</label>
+                                        <input type="text" class="form-control" id="latitude" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Longitude</label>
+                                        <input type="text" class="form-control" id="longitude" readonly>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Phone</label>
-                                <input type="tel" class="form-control" id="phone">
+                        
+                        <!-- Contacts Tab -->
+                        <div class="tab-pane fade" id="contactTab">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6>Contact Persons</h6>
+                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddContact">
+                                    <i class="fas fa-plus"></i> Add Contact
+                                </button>
+                            </div>
+                            
+                            <div id="contactsList">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i> No contacts added yet. Click "Add Contact" to add a contact person.
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="email">
+                        
+                        <!-- Financial Tab -->
+                        <div class="tab-pane fade" id="financialTab">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Credit Limit</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">R</span>
+                                            <input type="number" class="form-control" id="creditLimit" step="0.01">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Payment Terms</label>
+                                        <select class="form-select" id="paymentTerms">
+                                            <option value="COD">Cash on Delivery</option>
+                                            <option value="7 Days">7 Days</option>
+                                            <option value="15 Days">15 Days</option>
+                                            <option value="30 Days" selected>30 Days</option>
+                                            <option value="45 Days">45 Days</option>
+                                            <option value="60 Days">60 Days</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Bank Name</label>
+                                        <input type="text" class="form-control" id="bankName">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Bank Account Number</label>
+                                        <input type="text" class="form-control" id="bankAccountNo">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Branch Code</label>
+                                        <input type="text" class="form-control" id="branchCode">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Tax Exemption</label>
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="taxExempt">
+                                            <label class="form-check-label" for="taxExempt">Tax Exempt Customer</label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
+                        
+                        <!-- Notes Tab -->
+                        <div class="tab-pane fade" id="notesTab">
                             <div class="mb-3">
-                                <label class="form-label">Customer Status</label>
-                                <select class="form-select" id="customerStatus">
-                                    <option value="Prospect">Prospect</option>
-                                    <option value="Confirmed Customer">Confirmed Customer</option>
-                                    <option value="Account Under Review">Account Under Review</option>
-                                    <option value="Credit Approved">Credit Approved</option>
-                                    <option value="Account Closed">Account Closed</option>
-                                </select>
+                                <label class="form-label">Internal Notes</label>
+                                <textarea class="form-control" id="internalNotes" rows="4" placeholder="Notes visible only to staff..."></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Special Instructions</label>
+                                <textarea class="form-control" id="specialInstructions" rows="4" placeholder="Delivery instructions, preferences, etc..."></textarea>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Tags</label>
+                                <input type="text" class="form-control" id="tags" placeholder="Enter tags separated by commas">
+                                <small class="text-muted">e.g., VIP, Wholesale, Government</small>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Sales Representative</label>
-                                <select class="form-select" id="salesRepresentative">
-                                    <option value="John Smith">John Smith</option>
-                                    <option value="Sarah Johnson">Sarah Johnson</option>
-                                    <option value="Mike Brown">Mike Brown</option>
-                                    <option value="Lisa Davis">Lisa Davis</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Address</label>
-                        <textarea class="form-control" id="address" rows="2"></textarea>
-                    </div>
-                    
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="isActive" checked>
-                        <label class="form-check-label" for="isActive">Active</label>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="btnSave">Save</button>
+                <button type="button" class="btn btn-primary" id="btnSave">
+                    <i class="fas fa-save me-1"></i> Save Customer
+                </button>
             </div>
         </div>
     </div>
@@ -542,9 +787,138 @@ class CustomerManager {
     }
 }
 
+// Google Maps Integration
+class LocationManager {
+    constructor() {
+        this.map = null;
+        this.marker = null;
+        this.autocomplete = null;
+    }
+
+    initAddressAutocomplete() {
+        const addressInput = document.getElementById('addressSearch');
+        if (!addressInput || !google?.maps?.places) return;
+
+        this.autocomplete = new google.maps.places.Autocomplete(addressInput, {
+            componentRestrictions: { country: 'ZA' },
+            fields: ['address_components', 'geometry', 'formatted_address']
+        });
+
+        this.autocomplete.addListener('place_changed', () => {
+            const place = this.autocomplete.getPlace();
+            if (place.geometry) {
+                this.updateAddressFields(place);
+                this.showLocationOnMap(place.geometry.location);
+            }
+        });
+    }
+
+    updateAddressFields(place) {
+        let streetNumber = '';
+        let streetName = '';
+        let city = '';
+        let province = '';
+        let postalCode = '';
+        let country = 'South Africa';
+
+        place.address_components.forEach(component => {
+            const type = component.types[0];
+            switch(type) {
+                case 'street_number':
+                    streetNumber = component.long_name;
+                    break;
+                case 'route':
+                    streetName = component.long_name;
+                    break;
+                case 'locality':
+                    city = component.long_name;
+                    break;
+                case 'administrative_area_level_1':
+                    province = component.long_name;
+                    break;
+                case 'postal_code':
+                    postalCode = component.long_name;
+                    break;
+                case 'country':
+                    country = component.long_name;
+                    break;
+            }
+        });
+
+        document.getElementById('streetAddress').value = streetNumber ? `${streetNumber} ${streetName}` : streetName;
+        document.getElementById('city').value = city;
+        document.getElementById('province').value = province;
+        document.getElementById('postalCode').value = postalCode;
+        document.getElementById('country').value = country;
+        document.getElementById('latitude').value = place.geometry.location.lat();
+        document.getElementById('longitude').value = place.geometry.location.lng();
+    }
+
+    showLocationOnMap(location) {
+        const mapContainer = document.getElementById('mapContainer');
+        if (!mapContainer) return;
+
+        if (!this.map) {
+            this.map = new google.maps.Map(mapContainer, {
+                zoom: 15,
+                center: location,
+                mapTypeControl: false
+            });
+        } else {
+            this.map.setCenter(location);
+        }
+
+        if (this.marker) {
+            this.marker.setMap(null);
+        }
+
+        this.marker = new google.maps.Marker({
+            position: location,
+            map: this.map,
+            draggable: true
+        });
+
+        this.marker.addListener('dragend', (event) => {
+            document.getElementById('latitude').value = event.latLng.lat();
+            document.getElementById('longitude').value = event.latLng.lng();
+        });
+    }
+
+    useCurrentLocation() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                const location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude
+                };
+                this.showLocationOnMap(location);
+                document.getElementById('latitude').value = location.lat;
+                document.getElementById('longitude').value = location.lng;
+            }, (error) => {
+                alert('Unable to get your location. Please enter address manually.');
+            });
+        } else {
+            alert('Geolocation is not supported by your browser.');
+        }
+    }
+}
+
 // Initialize when page loads
+let locationManager;
 document.addEventListener('DOMContentLoaded', () => {
     new CustomerManager();
+    locationManager = new LocationManager();
+    
+    // Initialize address autocomplete when modal opens
+    document.getElementById('customerModal').addEventListener('shown.bs.modal', () => {
+        setTimeout(() => locationManager.initAddressAutocomplete(), 100);
+    });
+    
+    // Use my location button
+    const btnLocation = document.getElementById('btnUseMyLocation');
+    if (btnLocation) {
+        btnLocation.addEventListener('click', () => locationManager.useCurrentLocation());
+    }
 });
 </script>
 }

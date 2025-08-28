@@ -46,9 +46,105 @@
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div class="container-fluid mt-3">
-        @RenderBody()
+    <!-- Main Layout with Sidebar -->
+    <div class="d-flex" style="min-height: calc(100vh - 56px);">
+        <!-- Sidebar -->
+        <nav class="sidebar bg-light border-end" style="width: 250px; position: sticky; top: 56px; height: calc(100vh - 56px); overflow-y: auto;">
+            <div class="p-3">
+                <h6 class="text-uppercase text-muted mb-3">Main Menu</h6>
+                
+                <!-- CRM Section -->
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2"><i class="fas fa-users"></i> CRM</h6>
+                    <div class="list-group list-group-flush">
+                        <a href="/Customer" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-user-tie me-2"></i> Customers
+                        </a>
+                        <a href="/Contact" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-address-book me-2"></i> Contacts
+                        </a>
+                        <a href="/Employee" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-id-badge me-2"></i> Employees
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Projects Section -->
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2"><i class="fas fa-project-diagram"></i> Projects</h6>
+                    <div class="list-group list-group-flush">
+                        <a href="/Project" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-building me-2"></i> Projects
+                        </a>
+                        <a href="/Quote" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-file-invoice-dollar me-2"></i> Quotes
+                        </a>
+                        <a href="/Tender" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-gavel me-2"></i> Tenders
+                        </a>
+                        <a href="/Order" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-shopping-cart me-2"></i> Orders
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Inventory Section -->
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2"><i class="fas fa-warehouse"></i> Inventory</h6>
+                    <div class="list-group list-group-flush">
+                        <a href="/Product" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-cube me-2"></i> Products
+                        </a>
+                        <a href="/StockItem" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-boxes me-2"></i> Stock Items
+                        </a>
+                        <a href="/Category" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-tags me-2"></i> Categories
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Communication Section -->
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2"><i class="fas fa-comments"></i> Communication</h6>
+                    <div class="list-group list-group-flush">
+                        <a href="/Task" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-tasks me-2"></i> Tasks
+                        </a>
+                        <a href="/PhoneCall" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-phone me-2"></i> Phone Calls
+                        </a>
+                        <a href="/Email" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-envelope me-2"></i> Emails
+                        </a>
+                        <a href="/Meeting" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-calendar-alt me-2"></i> Meetings
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Settings Section -->
+                <div class="mb-3">
+                    <h6 class="text-primary mb-2"><i class="fas fa-cog"></i> Settings</h6>
+                    <div class="list-group list-group-flush">
+                        <a href="/CompanyType" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-building-circle-check me-2"></i> Company Types
+                        </a>
+                        <a href="/AccountType" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-user-cog me-2"></i> Account Types
+                        </a>
+                        <a href="/UnitOfMeasure" class="list-group-item list-group-item-action py-2">
+                            <i class="fas fa-ruler me-2"></i> Units of Measure
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <!-- Main Content Area -->
+        <div class="flex-fill p-4" style="background-color: #f8f9fa;">
+            @RenderBody()
+        </div>
     </div>
 
     <!-- Bootstrap JS -->
@@ -56,6 +152,14 @@
     
     <!-- jQuery (optional, for certain features) -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Google Maps -->
+    <script>
+        function initMap() {
+            // Google Maps will be initialized when needed
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBVqg9EqO9p0gd4mJJLu9s7sZdF-Q_5gjQ&libraries=places&callback=initMap" async defer></script>
     
     @RenderSection("Scripts", required: false)
 </body>
