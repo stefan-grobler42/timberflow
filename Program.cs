@@ -43,4 +43,8 @@ app.MapControllerRoute(
 
 app.MapRazorPages();
 
+// Configure to listen on port 5000 and bind to all interfaces
+app.Urls.Clear();
+app.Urls.Add("http://0.0.0.0:5000");
+
 app.Run();
