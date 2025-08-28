@@ -83,21 +83,20 @@ var MillenniumApp = {
     
     // Show notification
     showNotification: function(message, type) {
-        var alertClass = type === 'success' ? 'alert-success' : 
-                        type === 'error' ? 'alert-danger' : 
-                        type === 'warning' ? 'alert-warning' : 'alert-info';
+        type = type || 'info';
+        var alertClass = 'alert-' + (type === 'error' ? 'danger' : type);
         
-        var notification = $('<div class="alert ' + alertClass + ' alert-dismissible fade show position-fixed" style="top: 70px; right: 20px; z-index: 9999;">' +
-                           message +
-                           '<button type="button" class="btn-close" data-bs-dismiss="alert"></button>' +
-                           '</div>');
+        var alertHtml = `
+        <div class="alert ${alertClass} alert-dismissible fade show" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
+            <strong>${type.charAt(0).toUpperCase() + type.slice(1)}:</strong> ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
         
-        $('body').append(notification);
+        $('body').append(alertHtml);
         
+        // Auto dismiss after 5 seconds
         setTimeout(function() {
-            notification.fadeOut(function() {
-                $(this).remove();
-            });
+            $('.alert').last().alert('close');
         }, 5000);
     },
     
@@ -271,27 +270,40 @@ var CustomerModule = {
     getFormTemplate: function() {
         return `
         <div class="form-container">
-            <div class="form-header d-flex justify-content-between align-items-center">
-                <h3><i class="fas fa-user-tie"></i> ${this.selectedId ? 'Edit' : 'New'} Customer</h3>
-                <div>
-                    <button class="btn btn-secondary btn-sm" onclick="CustomerModule.cancelForm()">
-                        <i class="fas fa-times"></i> Cancel
-                    </button>
-                    <button class="btn btn-primary btn-sm ms-2" onclick="CustomerModule.saveForm()">
+            <!-- Command Bar -->
+            <div class="command-bar">
+                <div class="command-group">
+                    <button class="btn btn-primary" onclick="CustomerModule.saveForm()">
                         <i class="fas fa-save"></i> Save
                     </button>
+                    <button class="btn btn-outline-primary" onclick="CustomerModule.saveAndNew()">
+                        <i class="fas fa-plus"></i> Save & New
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="CustomerModule.cancelForm()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    ${this.selectedId ? '<button class="btn btn-outline-danger" onclick="CustomerModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
                 </div>
+            </div>
+            
+            <div class="form-header d-flex justify-content-between align-items-center">
+                <h3><i class="fas fa-user-tie"></i> ${this.selectedId ? 'Edit' : 'New'} Customer</h3>
             </div>
             
             <ul class="nav nav-tabs mt-3" role="tablist">
                 <li class="nav-item">
-                    <a class="nav-link active" data-bs-toggle="tab" href="#general">
-                        <i class="fas fa-info-circle"></i> General
+                    <a class="nav-link active" data-bs-toggle="tab" href="#basic-info">
+                        <i class="fas fa-info-circle"></i> Basic Information
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#contact">
-                        <i class="fas fa-phone"></i> Contact
+                        <i class="fas fa-address-book"></i> Contact
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" data-bs-toggle="tab" href="#status-relationship">
+                        <i class="fas fa-shield-alt"></i> Status & Relationship
                     </a>
                 </li>
                 <li class="nav-item">
@@ -299,16 +311,11 @@ var CustomerModule = {
                         <i class="fas fa-map-marker-alt"></i> Address
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" data-bs-toggle="tab" href="#financial">
-                        <i class="fas fa-dollar-sign"></i> Financial
-                    </a>
-                </li>
             </ul>
             
             <div class="tab-content mt-3">
-                <!-- General Tab -->
-                <div class="tab-pane fade show active" id="general">
+                <!-- Basic Information Tab -->
+                <div class="tab-pane fade show active" id="basic-info">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -387,8 +394,8 @@ var CustomerModule = {
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Primary Contact</label>
-                                <input type="text" class="form-control" id="PrimaryContact">
+                                <label class="form-label">Notes</label>
+                                <textarea class="form-control" id="Notes" rows="2" placeholder="Additional notes about this customer..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -396,17 +403,129 @@ var CustomerModule = {
                 
                 <!-- Contact Tab -->
                 <div class="tab-pane fade" id="contact">
+                    <!-- Primary Contact Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-user"></i> Primary Contact</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Contact Name</label>
+                                        <input type="text" class="form-control" id="PrimaryContactName">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Position/Title</label>
+                                        <input type="text" class="form-control" id="PrimaryContactTitle">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Phone</label>
+                                        <input type="tel" class="form-control" id="Phone">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Mobile</label>
+                                        <input type="tel" class="form-control" id="Mobile">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="Email">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Website</label>
+                                        <input type="url" class="form-control" id="Website" placeholder="https://">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Contacts Section -->
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0"><i class="fas fa-address-book"></i> Additional Contacts</h5>
+                            <button class="btn btn-sm btn-primary" onclick="CustomerModule.addContact()">
+                                <i class="fas fa-plus"></i> Add Contact
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="contact-search mb-3">
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                    <input type="text" class="form-control" placeholder="Search contacts..." id="contactSearch">
+                                    <button class="btn btn-outline-secondary" onclick="CustomerModule.clearContactSearch()">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="contacts-grid">
+                                <table class="table table-hover" id="contactsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Title</th>
+                                            <th>Phone</th>
+                                            <th>Email</th>
+                                            <th width="100">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="contactsTableBody">
+                                        <!-- Contacts will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Status & Relationship Tab -->
+                <div class="tab-pane fade" id="status-relationship">
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Phone</label>
-                                <input type="tel" class="form-control" id="Phone">
+                                <label class="form-label">Customer Status <i class="fas fa-lock text-warning" title="Locked field - requires approval"></i></label>
+                                <div class="input-group">
+                                    <select class="form-select" id="CustomerStatus" disabled>
+                                        <option value="Prospect">Prospect</option>
+                                        <option value="Confirmed Customer">Confirmed Customer</option>
+                                        <option value="Credit Approved">Credit Approved</option>
+                                        <option value="Account Under Review">Account Under Review</option>
+                                        <option value="Account Closed">Account Closed</option>
+                                    </select>
+                                    <button class="btn btn-outline-warning" onclick="CustomerModule.requestStatusChange()" title="Request Status Change">
+                                        <i class="fas fa-key"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Status changes require approval from authorized personnel</small>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Mobile</label>
-                                <input type="tel" class="form-control" id="Mobile">
+                                <label class="form-label">Account Type</label>
+                                <div class="lookup-field">
+                                    <div class="input-group">
+                                        <input type="text" class="form-control lookup-input" id="AccountType" 
+                                               placeholder="Type to search..." data-lookup="accountType">
+                                        <button class="btn btn-outline-secondary lookup-trigger" type="button">
+                                            <i class="fas fa-search"></i>
+                                        </button>
+                                    </div>
+                                    <div class="lookup-dropdown" id="accountTypeDropdown"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -414,14 +533,43 @@ var CustomerModule = {
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="Email">
+                                <label class="form-label">Credit Limit (ZAR)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">R</span>
+                                    <input type="number" class="form-control currency-input" id="CreditLimit" step="0.01">
+                                </div>
                             </div>
                         </div>
                         <div class="col-md-6">
                             <div class="mb-3">
-                                <label class="form-label">Website</label>
-                                <input type="url" class="form-control" id="Website" placeholder="https://">
+                                <label class="form-label">Payment Terms</label>
+                                <select class="form-select" id="PaymentTerms">
+                                    <option value="COD">Cash on Delivery</option>
+                                    <option value="7 Days">7 Days</option>
+                                    <option value="15 Days">15 Days</option>
+                                    <option value="30 Days" selected>30 Days</option>
+                                    <option value="45 Days">45 Days</option>
+                                    <option value="60 Days">60 Days</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Discount %</label>
+                                <input type="number" class="form-control" id="Discount" min="0" max="100" step="0.01">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3 mt-4">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="TaxExempt">
+                                    <label class="form-check-label" for="TaxExempt">
+                                        Tax Exempt (VAT Rate: 15%)
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -474,30 +622,6 @@ var CustomerModule = {
                         <div id="locationMap" class="map-container"></div>
                     </div>
                 </div>
-                
-                <!-- Financial Tab -->
-                <div class="tab-pane fade" id="financial">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Credit Limit (ZAR)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R</span>
-                                    <input type="number" class="form-control currency-input" id="CreditLimit" step="0.01">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Payment Terms</label>
-                                <select class="form-select" id="PaymentTerms">
-                                    <option value="COD">Cash on Delivery</option>
-                                    <option value="7 Days">7 Days</option>
-                                    <option value="15 Days">15 Days</option>
-                                    <option value="30 Days" selected>30 Days</option>
-                                    <option value="45 Days">45 Days</option>
-                                    <option value="60 Days">60 Days</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -944,6 +1068,108 @@ var CustomerModule = {
     // Cancel form
     cancelForm: function() {
         this.loadList();
+    },
+    
+    // Save and New
+    saveAndNew: function() {
+        var customer = this.getFormData();
+        if (!customer) return false;
+        
+        var url = this.selectedId ? '/api/customer/' + this.selectedId : '/api/customer';
+        var method = this.selectedId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(customer),
+            success: function() {
+                MillenniumApp.showNotification('Customer saved successfully. Ready for new customer.', 'success');
+                CustomerModule.selectedId = null;
+                CustomerModule.loadForm();
+            },
+            error: function() {
+                MillenniumApp.showNotification('Failed to save customer', 'error');
+            }
+        });
+        return true;
+    },
+    
+    // Get form data
+    getFormData: function() {
+        var customer = {
+            AccountName: $('#AccountName').val(),
+            CompanyType: $('#CompanyType').val(),
+            CompanyRegistrationNo: $('#CompanyRegistrationNo').val(),
+            VatRegistrationNo: $('#VatRegistrationNo').val(),
+            CustomerStatus: $('#CustomerStatus').val(),
+            SalesRepresentative: $('#SalesRepresentative').val(),
+            PrimaryContactName: $('#PrimaryContactName').val(),
+            PrimaryContactTitle: $('#PrimaryContactTitle').val(),
+            Phone: $('#Phone').val(),
+            Mobile: $('#Mobile').val(),
+            Email: $('#Email').val(),
+            Website: $('#Website').val(),
+            StreetAddress: $('#StreetAddress').val(),
+            City: $('#City').val(),
+            Province: $('#Province').val(),
+            PostalCode: $('#PostalCode').val(),
+            Country: $('#Country').val(),
+            AccountType: $('#AccountType').val(),
+            CreditLimit: parseFloat($('#CreditLimit').val() || 0),
+            PaymentTerms: $('#PaymentTerms').val(),
+            Discount: parseFloat($('#Discount').val() || 0),
+            TaxExempt: $('#TaxExempt').is(':checked'),
+            Notes: $('#Notes').val()
+        };
+        
+        // Get map coordinates
+        if (this.marker) {
+            var position = this.marker.getPosition();
+            customer.Latitude = position.lat();
+            customer.Longitude = position.lng();
+        }
+        
+        // Validation
+        if (!customer.AccountName) {
+            MillenniumApp.showNotification('Account Name is required', 'warning');
+            return null;
+        }
+        
+        return customer;
+    },
+    
+    // Delete form
+    deleteForm: function() {
+        if (this.selectedId && confirm('Are you sure you want to delete this customer?')) {
+            $.ajax({
+                url: '/api/customer/' + this.selectedId,
+                method: 'DELETE',
+                success: function() {
+                    MillenniumApp.showNotification('Customer deleted successfully', 'success');
+                    CustomerModule.cancelForm();
+                },
+                error: function() {
+                    MillenniumApp.showNotification('Error deleting customer', 'error');
+                }
+            });
+        }
+    },
+    
+    // Request status change
+    requestStatusChange: function() {
+        var currentStatus = $('#CustomerStatus').val();
+        MillenniumApp.showNotification('Status change request functionality will be implemented with approval workflow', 'info');
+    },
+    
+    // Add contact
+    addContact: function() {
+        MillenniumApp.showNotification('Contact management functionality will be implemented with full CRUD operations', 'info');
+    },
+    
+    // Clear contact search
+    clearContactSearch: function() {
+        $('#contactSearch').val('');
     },
     
     // Delete record
