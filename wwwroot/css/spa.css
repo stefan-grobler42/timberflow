@@ -116,6 +116,28 @@
     }
 }
 
+/* Action bar in SPA context */
+.action-bar {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.action-bar .btn-group {
+    margin-right: 10px;
+}
+
+.action-bar .search-box {
+    flex: 0 0 250px;
+    margin-left: auto;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .sidebar {
@@ -129,5 +151,16 @@
     
     #main-content {
         margin-left: 0 !important;
+    }
+    
+    .action-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .action-bar .search-box {
+        margin-left: 0;
+        flex: 1;
+        margin-top: 10px;
     }
 }

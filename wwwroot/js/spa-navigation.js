@@ -142,11 +142,23 @@ class SPANavigator {
                 // Extract body content
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                const moduleContent = doc.querySelector('.customer-management-container') || 
-                                     doc.querySelector('#app-container') || 
-                                     doc.querySelector('body').innerHTML;
                 
-                content = moduleContent.outerHTML || moduleContent;
+                // Look for the main content container
+                let moduleContent = doc.querySelector('.customer-management-container');
+                if (moduleContent) {
+                    content = moduleContent.outerHTML;
+                } else {
+                    // If no container found, get the entire body content
+                    const bodyContent = doc.querySelector('body');
+                    if (bodyContent) {
+                        // Remove script tags to avoid re-execution
+                        const scripts = bodyContent.querySelectorAll('script');
+                        scripts.forEach(script => script.remove());
+                        content = bodyContent.innerHTML;
+                    } else {
+                        content = html;
+                    }
+                }
                 this.moduleCache[moduleName] = content;
             }
             
