@@ -704,14 +704,18 @@ class CustomerManager {
         document.getElementById('modalTitle').textContent = 'Edit Customer';
         document.getElementById('customerId').value = customer.id;
         document.getElementById('accountName').value = customer.accountName;
-        document.getElementById('companyType').value = customer.companyType;
+        document.getElementById('accountNo').value = customer.accountNo || '';
+        document.getElementById('companyType').value = customer.companyType || 'Private Company';
+        document.getElementById('accountType').value = customer.accountType || 'Customer';
         document.getElementById('companyRegistrationNo').value = customer.companyRegistrationNo || '';
         document.getElementById('vatRegistrationNo').value = customer.vatRegistrationNo || '';
         document.getElementById('phone').value = customer.phone || '';
         document.getElementById('email').value = customer.email || '';
-        document.getElementById('customerStatus').value = customer.customerStatus;
-        document.getElementById('salesRepresentative').value = customer.salesRepresentative;
-        document.getElementById('address').value = customer.address || '';
+        document.getElementById('website').value = customer.website || '';
+        document.getElementById('customerStatus').value = customer.customerStatus || 'Prospect';
+        document.getElementById('salesRepresentative').value = customer.salesRepresentative || '';
+        document.getElementById('approvalStatus').value = customer.approvalStatus || 'Pending';
+        document.getElementById('streetAddress').value = customer.address || '';
         document.getElementById('isActive').checked = customer.isActive;
 
         const modal = new bootstrap.Modal(document.getElementById('customerModal'));
@@ -723,16 +727,17 @@ class CustomerManager {
         const customer = {
             accountName: document.getElementById('accountName').value,
             companyType: document.getElementById('companyType').value,
+            accountType: document.getElementById('accountType').value,
             companyRegistrationNo: document.getElementById('companyRegistrationNo').value,
             vatRegistrationNo: document.getElementById('vatRegistrationNo').value,
             phone: document.getElementById('phone').value,
             email: document.getElementById('email').value,
+            website: document.getElementById('website').value,
             customerStatus: document.getElementById('customerStatus').value,
             salesRepresentative: document.getElementById('salesRepresentative').value,
-            address: document.getElementById('address').value,
-            isActive: document.getElementById('isActive').checked,
-            accountType: 'Customer',
-            approvalStatus: 'Pending'
+            approvalStatus: document.getElementById('approvalStatus').value,
+            address: document.getElementById('streetAddress').value,
+            isActive: document.getElementById('isActive').checked
         };
 
         try {

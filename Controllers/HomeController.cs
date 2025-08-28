@@ -6,8 +6,8 @@ namespace MillenniumERP.Controllers
     {
         public IActionResult Index()
         {
-            // Redirect to Customer module by default
-            return RedirectToAction("Index", "Customer");
+            // Return the SPA home page
+            return View();
         }
     }
 }

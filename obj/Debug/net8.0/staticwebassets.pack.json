@@ -5,6 +5,14 @@
       "PackagePath": "staticwebassets/css/site.css"
     },
     {
+      "Id": "/home/runner/workspace/wwwroot/css/spa.css",
+      "PackagePath": "staticwebassets/css/spa.css"
+    },
+    {
+      "Id": "/home/runner/workspace/wwwroot/js/spa-navigation.js",
+      "PackagePath": "staticwebassets/js/spa-navigation.js"
+    },
+    {
       "Id": "/home/runner/workspace/wwwroot/millennium-logo.png",
       "PackagePath": "staticwebassets/millennium-logo.png"
     },
