@@ -1,44 +1,233 @@
 @{
-    ViewData["Title"] = "Millennium Timber Roof ERP";
-    Layout = "_LayoutSPA";
+    ViewData["Title"] = "Home";
+    Layout = "_Layout";
 }
 
-<div id="app-container">
-    <!-- Default welcome screen -->
-    <div id="module-content" class="h-100">
-        <div class="d-flex flex-column align-items-center justify-content-center h-100">
-            <img src="/millennium-logo.png" alt="Millennium" style="width: 200px; margin-bottom: 30px;">
-            <h1 class="text-primary mb-4">Welcome to Millennium Timber Roof ERP</h1>
-            <p class="lead text-muted mb-5">Select a module from the sidebar to begin</p>
+<div class="d-flex" id="wrapper">
+    <!-- Sidebar -->
+    <nav id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <img src="/millennium-logo.png" alt="Millennium" class="logo">
+            <h4>Millennium ERP</h4>
+        </div>
+        
+        <ul class="list-unstyled components">
+            <!-- CRM Section -->
+            <p class="sidebar-section-title">
+                <i class="fas fa-users"></i> CRM
+            </p>
+            <li>
+                <a href="#" data-module="customer" class="sidebar-link">
+                    <i class="fas fa-user-tie"></i>
+                    <span>Customers</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-module="contact" class="sidebar-link">
+                    <i class="fas fa-address-book"></i>
+                    <span>Contacts</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-module="employee" class="sidebar-link">
+                    <i class="fas fa-id-badge"></i>
+                    <span>Employees</span>
+                </a>
+            </li>
             
-            <div class="row g-4" style="max-width: 800px;">
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <i class="fas fa-users fa-3x text-primary mb-3"></i>
-                            <h5>Customer Management</h5>
-                            <p class="text-muted small">Manage customers, contacts, and relationships</p>
+            <!-- Projects Section -->
+            <p class="sidebar-section-title">
+                <i class="fas fa-project-diagram"></i> Projects
+            </p>
+            <li>
+                <a href="#" data-module="project" class="sidebar-link">
+                    <i class="fas fa-building"></i>
+                    <span>Projects</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-module="quote" class="sidebar-link">
+                    <i class="fas fa-file-invoice-dollar"></i>
+                    <span>Quotes</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-module="order" class="sidebar-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Orders</span>
+                </a>
+            </li>
+            
+            <!-- Inventory Section -->
+            <p class="sidebar-section-title">
+                <i class="fas fa-warehouse"></i> Inventory
+            </p>
+            <li>
+                <a href="#" data-module="product" class="sidebar-link">
+                    <i class="fas fa-cube"></i>
+                    <span>Products</span>
+                </a>
+            </li>
+            <li>
+                <a href="#" data-module="stock" class="sidebar-link">
+                    <i class="fas fa-boxes"></i>
+                    <span>Stock Items</span>
+                </a>
+            </li>
+        </ul>
+        
+        <!-- Sidebar Toggle Button -->
+        <div class="sidebar-toggle">
+            <button id="sidebarCollapse" class="btn btn-sm btn-dark">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Page Content -->
+    <div id="content" class="content-area">
+        <!-- Top Navigation Bar -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-light top-navbar">
+            <div class="container-fluid">
+                <button type="button" id="sidebarToggle" class="btn btn-link">
+                    <i class="fas fa-bars"></i>
+                </button>
+                
+                <div class="ms-auto d-flex align-items-center">
+                    <div class="dropdown">
+                        <button class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-user-circle"></i> Admin User
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-user"></i> Profile</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <div class="container-fluid mt-3" id="mainContent">
+            <!-- Dynamic content will be loaded here -->
+            <div class="welcome-screen">
+                <h1>Welcome to Millennium Timber Roof ERP</h1>
+                <p class="lead">Select a module from the sidebar to begin</p>
+                
+                <div class="row mt-5">
+                    <div class="col-md-4">
+                        <div class="card module-card" data-module="customer">
+                            <div class="card-body text-center">
+                                <i class="fas fa-user-tie fa-3x text-primary mb-3"></i>
+                                <h5 class="card-title">Customer Management</h5>
+                                <p class="card-text">Manage customer information, contacts, and relationships</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card module-card" data-module="quote">
+                            <div class="card-body text-center">
+                                <i class="fas fa-file-invoice-dollar fa-3x text-success mb-3"></i>
+                                <h5 class="card-title">Quotations</h5>
+                                <p class="card-text">Create and manage quotations for customers</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card module-card" data-module="project">
+                            <div class="card-body text-center">
+                                <i class="fas fa-building fa-3x text-warning mb-3"></i>
+                                <h5 class="card-title">Projects</h5>
+                                <p class="card-text">Track and manage construction projects</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <i class="fas fa-file-invoice-dollar fa-3x text-success mb-3"></i>
-                            <h5>Quotes & Orders</h5>
-                            <p class="text-muted small">Create quotes, manage orders and tenders</p>
-                        </div>
-                    </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Customer Templates (Hidden) -->
+<div id="templates" style="display: none;">
+    <!-- Customer List View Template -->
+    <div id="customerListTemplate">
+        <div class="module-header mb-3">
+            <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
+            <p class="text-muted">Manage customer information and relationships</p>
+        </div>
+        
+        <!-- Action Bar -->
+        <div class="action-bar mb-3">
+            <div class="action-group">
+                <button class="btn btn-primary btn-sm" onclick="CustomerModule.newRecord()">
+                    <i class="fas fa-plus"></i> New
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="CustomerModule.editRecord()" id="btnEdit" disabled>
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="CustomerModule.deleteRecord()" id="btnDelete" disabled>
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+            
+            <div class="action-separator"></div>
+            
+            <div class="action-group">
+                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.refreshGrid()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.showFilter()">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.columnSelector()">
+                    <i class="fas fa-columns"></i> Columns
+                </button>
+            </div>
+            
+            <div class="action-separator"></div>
+            
+            <div class="action-group">
+                <button class="btn btn-outline-success btn-sm" onclick="CustomerModule.exportExcel()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="CustomerModule.importData()">
+                    <i class="fas fa-file-import"></i> Import
+                </button>
+            </div>
+            
+            <div class="action-search ms-auto">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Search customers..." id="customerSearch">
                 </div>
-                <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <i class="fas fa-warehouse fa-3x text-info mb-3"></i>
-                            <h5>Inventory</h5>
-                            <p class="text-muted small">Track products, stock levels and categories</p>
-                        </div>
-                    </div>
-                </div>
+            </div>
+        </div>
+        
+        <!-- Data Grid -->
+        <div class="card">
+            <div class="card-body p-0">
+                <table id="customerGrid" class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th width="40">
+                                <input type="checkbox" class="form-check-input" id="selectAll">
+                            </th>
+                            <th>Account No</th>
+                            <th>Account Name</th>
+                            <th>Company Type</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th>Status</th>
+                            <th>Sales Rep</th>
+                            <th>Credit Limit</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
         </div>
     </div>

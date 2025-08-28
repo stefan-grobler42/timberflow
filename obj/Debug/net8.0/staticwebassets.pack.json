@@ -1,24 +1,12 @@
 {
   "Files": [
     {
-      "Id": "/home/runner/workspace/wwwroot/css/millennium.css",
-      "PackagePath": "staticwebassets/css/millennium.css"
+      "Id": "/home/runner/workspace/wwwroot/css/app.css",
+      "PackagePath": "staticwebassets/css/app.css"
     },
     {
-      "Id": "/home/runner/workspace/wwwroot/css/site.css",
-      "PackagePath": "staticwebassets/css/site.css"
-    },
-    {
-      "Id": "/home/runner/workspace/wwwroot/css/spa.css",
-      "PackagePath": "staticwebassets/css/spa.css"
-    },
-    {
-      "Id": "/home/runner/workspace/wwwroot/js/site.js",
-      "PackagePath": "staticwebassets/js/site.js"
-    },
-    {
-      "Id": "/home/runner/workspace/wwwroot/js/spa-navigation.js",
-      "PackagePath": "staticwebassets/js/spa-navigation.js"
+      "Id": "/home/runner/workspace/wwwroot/js/app.js",
+      "PackagePath": "staticwebassets/js/app.js"
     },
     {
       "Id": "/home/runner/workspace/wwwroot/millennium-logo.png",

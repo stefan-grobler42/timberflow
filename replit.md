@@ -9,8 +9,14 @@ Technology stack preference: Microsoft stack (ASP.NET Core, C#, Razor Views)
 Architecture preference: Clean MVC pattern with proper separation of concerns for team collaboration
 
 ## Recent Changes
-- **Charter Implementation (Aug 10, 2025)**: Successfully implemented Modular App Charter architecture with platform loader system, charter-compliant component loading, and proper module separation following import rules (Platform components vs business modules).
-- **Complete Module Structure (Aug 10, 2025)**: Created 17 charter-compliant modules with "Coming Soon" placeholders - Contacts, Employees, Projects, Quotes, Tenders, Orders, Stock Items, Tasks, Phone Calls, Emails, Meetings, Units of Measure, Item Types, Categories, Company Types, Account Types, Account Relationships. All modules ready for implementation with corresponding database schema.
+- **Complete Microsoft Stack Rebuild (Jan 27, 2025)**: Completely rebuilt application using pure Microsoft stack (ASP.NET Core MVC, C#, Razor Views) as a true single-page application. No page navigation - everything loads dynamically in the same page.
+- **Customer Module Implementation (Jan 27, 2025)**: Fully implemented Customer module with:
+  - DataTables grid with sorting, paging, search
+  - Consolidated action bar with all controls (New, Edit, Delete, Filter, Export, Import)
+  - Searchable lookup fields with type-to-filter and hourglass dialog for full browsing
+  - Google Maps integration for addresses with autocomplete, mini interactive map, and current location support
+  - ZAR currency fields with 15% default VAT rate
+  - Sample data with 5 realistic South African customers
 
 ## System Architecture
 

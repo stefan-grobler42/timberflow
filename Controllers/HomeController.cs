@@ -6,7 +6,11 @@ namespace MillenniumERP.Controllers
     {
         public IActionResult Index()
         {
-            // Return the SPA home page
+            return View();
+        }
+
+        public IActionResult Error()
+        {
             return View();
         }
     }
