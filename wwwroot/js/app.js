@@ -288,7 +288,8 @@ var CustomerModule = {
                         <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.cancelForm()">
                             <i class="fas fa-arrow-left"></i> Back to List
                         </button>
-                        ${this.selectedId ? '<div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div><button class="btn btn-outline-danger btn-sm" onclick="CustomerModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
+                        ${this.selectedId ? '<div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div><button class="btn btn-outline-warning btn-sm" onclick="CustomerModule.requestStatusChange()"><i class="fas fa-key"></i> Request Status Change</button>' : ''}
+                        ${this.selectedId ? '<button class="btn btn-outline-danger btn-sm ms-2" onclick="CustomerModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
                     </div>
                 </div>
             </div>
@@ -501,18 +502,13 @@ var CustomerModule = {
                         <div class="col-md-6">
                             <div class="mb-3">
                                 <label class="form-label">Customer Status <i class="fas fa-lock text-warning" title="Locked field - requires approval"></i></label>
-                                <div class="input-group">
-                                    <select class="form-select" id="CustomerStatus" disabled>
-                                        <option value="Prospect">Prospect</option>
-                                        <option value="Confirmed Customer">Confirmed Customer</option>
-                                        <option value="Credit Approved">Credit Approved</option>
-                                        <option value="Account Under Review">Account Under Review</option>
-                                        <option value="Account Closed">Account Closed</option>
-                                    </select>
-                                    <button class="btn btn-outline-warning" onclick="CustomerModule.requestStatusChange()" title="Request Status Change">
-                                        <i class="fas fa-key"></i>
-                                    </button>
-                                </div>
+                                <select class="form-select" id="CustomerStatus" disabled>
+                                    <option value="Prospect">Prospect</option>
+                                    <option value="Confirmed Customer">Confirmed Customer</option>
+                                    <option value="Credit Approved">Credit Approved</option>
+                                    <option value="Account Under Review">Account Under Review</option>
+                                    <option value="Account Closed">Account Closed</option>
+                                </select>
                                 <small class="text-muted">Status changes require approval from authorized personnel</small>
                             </div>
                         </div>
@@ -623,41 +619,6 @@ var CustomerModule = {
                     <div class="mb-3">
                         <label class="form-label">Location Map</label>
                         <div id="locationMap" class="map-container"></div>
-                    </div>
-                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Discount %</label>
-                                <input type="number" class="form-control" id="Discount" min="0" max="100" step="0.01">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3 mt-4">
-                                <div class="form-check">
-                                    <input type="checkbox" class="form-check-input" id="TaxExempt">
-                                    <label class="form-check-label" for="TaxExempt">
-                                        Tax Exempt (VAT Rate: 15%)
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Current Balance (ZAR)</label>
-                                <div class="input-group">
-                                    <span class="input-group-text">R</span>
-                                    <input type="number" class="form-control currency-input" id="CurrentBalance" step="0.01" readonly>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
