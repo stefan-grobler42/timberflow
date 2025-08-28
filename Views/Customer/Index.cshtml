@@ -1,929 +1,304 @@
+@model IEnumerable<MillenniumERP.Models.CustomerViewModel>
 @{
     ViewData["Title"] = "Customer Management";
-    Layout = null; // No layout for AJAX loaded content
+    Layout = "_Layout";
 }
 
-<div class="customer-management-container">
-    <!-- Module Header -->
-    <div class="module-header mb-3">
-        <h2><i class="fas fa-user-tie text-primary"></i> Customer Management</h2>
-        <p class="text-muted mb-0">Manage customer information, contacts, and relationships</p>
-    </div>
-
-    <!-- CONSOLIDATED ACTION BAR -->
-    <div class="action-bar">
-        <div class="action-bar-content">
-            <!-- Left side actions -->
-            <div class="action-bar-left">
-                <!-- Primary Actions -->
-                <button type="button" class="btn btn-primary btn-sm" id="btnNew">
-                    <i class="fas fa-plus"></i> New
-                </button>
-                
-                <div class="action-separator"></div>
-                
-                <!-- Edit Actions -->
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnEdit" disabled>
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button type="button" class="btn btn-outline-danger btn-sm" id="btnDelete" disabled>
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-                
-                <div class="action-separator"></div>
-                
-                <!-- Search -->
-                <div class="search-container">
-                    <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
-                        <input type="text" class="form-control" id="searchInput" placeholder="Search customers...">
-                    </div>
-                </div>
-                
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnAdvancedSearch" title="Advanced Search">
-                    <i class="fas fa-search-plus"></i>
-                </button>
-                
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnFilter">
-                    <i class="fas fa-filter"></i> Filter
-                </button>
-                
-                <div class="action-separator"></div>
-                
-                <!-- View Actions -->
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRefresh" title="Refresh">
-                    <i class="fas fa-sync-alt"></i>
-                </button>
-                
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnColumns" title="Column Options">
-                    <i class="fas fa-columns"></i>
-                </button>
-                
-                <div class="action-separator"></div>
-                
-                <!-- Data Actions -->
-                <button type="button" class="btn btn-outline-success btn-sm" id="btnExport">
-                    <i class="fas fa-file-excel"></i> Export
-                </button>
-                <button type="button" class="btn btn-outline-info btn-sm" id="btnImport">
-                    <i class="fas fa-file-import"></i> Import
-                </button>
-                
-                <div class="action-separator"></div>
-                
-                <!-- Other Actions -->
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrint" title="Print">
-                    <i class="fas fa-print"></i>
-                </button>
-                
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnHelp" title="Help">
-                    <i class="fas fa-question-circle"></i>
-                </button>
-            </div>
-            
-            <!-- Right side status -->
-            <div class="action-bar-right">
-                <span class="text-muted small">
-                    <span id="recordCount">0 records</span> | 
-                    <span id="selectedCount">0 selected</span>
-                </span>
-            </div>
-        </div>
-    </div>
-
-    <!-- DATA GRID ONLY - NO BUTTONS HERE -->
-    <div class="grid-container">
-        <table class="table table-hover table-sm" id="customerGrid">
-            <thead class="table-light">
-                <tr>
-                    <th style="width: 30px;">
-                        <input type="checkbox" id="selectAll" class="form-check-input">
-                    </th>
-                    <th>Account No</th>
-                    <th>Account Name</th>
-                    <th>Company Type</th>
-                    <th>Phone</th>
-                    <th>Email</th>
-                    <th>Sales Rep</th>
-                    <th>Status</th>
-                    <th>Approval</th>
-                    <th>Quotes</th>
-                    <th>Orders</th>
-                    <th>Active</th>
-                </tr>
-            </thead>
-            <tbody id="customerTableBody">
-                <!-- Data will be loaded here -->
-            </tbody>
-        </table>
-    </div>
+<!-- Module Header -->
+<div class="module-header">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="/">Home</a></li>
+            <li class="breadcrumb-item active">Customers</li>
+        </ol>
+    </nav>
+    <h1><i class="fas fa-user-tie text-primary"></i> Customer Management</h1>
 </div>
 
-<!-- Enhanced Customer Form Modal with Tabs -->
-<div class="modal fade" id="customerModal" tabindex="-1">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="modalTitle">New Customer</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="customerForm">
-                    <input type="hidden" id="customerId">
-                    
-                    <!-- Tabs Navigation -->
-                    <ul class="nav nav-tabs mb-3" id="customerTabs">
-                        <li class="nav-item">
-                            <a class="nav-link active" data-bs-toggle="tab" href="#generalTab">
-                                <i class="fas fa-info-circle me-1"></i> General
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#addressTab">
-                                <i class="fas fa-map-marker-alt me-1"></i> Address & Location
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#contactTab">
-                                <i class="fas fa-address-book me-1"></i> Contacts
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#financialTab">
-                                <i class="fas fa-dollar-sign me-1"></i> Financial
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" data-bs-toggle="tab" href="#notesTab">
-                                <i class="fas fa-sticky-note me-1"></i> Notes
-                            </a>
-                        </li>
-                    </ul>
-                    
-                    <!-- Tab Content -->
-                    <div class="tab-content">
-                        <!-- General Tab -->
-                        <div class="tab-pane fade show active" id="generalTab">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Account Name <span class="text-danger">*</span></label>
-                                        <input type="text" class="form-control" id="accountName" required>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Account Number</label>
-                                        <input type="text" class="form-control" id="accountNo" readonly>
-                                        <small class="text-muted">Auto-generated</small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Company Type</label>
-                                        <select class="form-select" id="companyType">
-                                            <option value="Private Company">Private Company</option>
-                                            <option value="Close Corporation">Close Corporation</option>
-                                            <option value="Partnership">Partnership</option>
-                                            <option value="Sole Proprietor">Sole Proprietor</option>
-                                            <option value="Trust">Trust</option>
-                                            <option value="Individual">Individual</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Account Type</label>
-                                        <select class="form-select" id="accountType">
-                                            <option value="Prospect">Prospect</option>
-                                            <option value="Customer">Customer</option>
-                                            <option value="Supplier">Supplier</option>
-                                            <option value="Partner">Partner</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Customer Status</label>
-                                        <select class="form-select" id="customerStatus">
-                                            <option value="Prospect">Prospect</option>
-                                            <option value="Confirmed Customer">Confirmed Customer</option>
-                                            <option value="Account Under Review">Account Under Review</option>
-                                            <option value="Credit Approved">Credit Approved</option>
-                                            <option value="Account Closed">Account Closed</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Company Registration No</label>
-                                        <input type="text" class="form-control" id="companyRegistrationNo">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">VAT Registration No</label>
-                                        <input type="text" class="form-control" id="vatRegistrationNo">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Phone</label>
-                                        <input type="tel" class="form-control" id="phone">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" class="form-control" id="email">
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <div class="mb-3">
-                                        <label class="form-label">Website</label>
-                                        <input type="url" class="form-control" id="website" placeholder="https://">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Sales Representative</label>
-                                        <select class="form-select" id="salesRepresentative">
-                                            <option value="">Select Representative</option>
-                                            <option value="John Smith">John Smith</option>
-                                            <option value="Sarah Johnson">Sarah Johnson</option>
-                                            <option value="Mike Brown">Mike Brown</option>
-                                            <option value="Lisa Davis">Lisa Davis</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Approval Status</label>
-                                        <select class="form-select" id="approvalStatus">
-                                            <option value="Pending">Pending</option>
-                                            <option value="Credit App Required">Credit App Required</option>
-                                            <option value="References Check">References Check</option>
-                                            <option value="Payment History Review">Payment History Review</option>
-                                            <option value="Approved">Approved</option>
-                                            <option value="Rejected">Rejected</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="isActive" checked>
-                                <label class="form-check-label" for="isActive">Active Account</label>
-                            </div>
-                        </div>
-                        
-                        <!-- Address & Location Tab -->
-                        <div class="tab-pane fade" id="addressTab">
-                            <div class="mb-3">
-                                <label class="form-label">Address Search</label>
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    <input type="text" class="form-control" id="addressSearch" placeholder="Start typing an address...">
-                                    <button class="btn btn-outline-secondary" type="button" id="btnUseMyLocation">
-                                        <i class="fas fa-location-arrow"></i> Use My Location
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <div class="mb-3">
-                                        <label class="form-label">Street Address</label>
-                                        <input type="text" class="form-control" id="streetAddress">
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">City</label>
-                                                <input type="text" class="form-control" id="city">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Province/State</label>
-                                                <input type="text" class="form-control" id="province">
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Postal Code</label>
-                                                <input type="text" class="form-control" id="postalCode">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Country</label>
-                                                <input type="text" class="form-control" id="country" value="South Africa">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label class="form-label">Location Map</label>
-                                    <div id="mapContainer" style="height: 300px; border: 1px solid #dee2e6; border-radius: 4px;">
-                                        <div class="text-center text-muted" style="padding-top: 140px;">
-                                            <i class="fas fa-map-marker-alt fa-2x"></i>
-                                            <p>Enter address to view map</p>
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">Drag pin to adjust location</small>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Latitude</label>
-                                        <input type="text" class="form-control" id="latitude" readonly>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Longitude</label>
-                                        <input type="text" class="form-control" id="longitude" readonly>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Contacts Tab -->
-                        <div class="tab-pane fade" id="contactTab">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h6>Contact Persons</h6>
-                                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddContact">
-                                    <i class="fas fa-plus"></i> Add Contact
-                                </button>
-                            </div>
-                            
-                            <div id="contactsList">
-                                <div class="alert alert-info">
-                                    <i class="fas fa-info-circle"></i> No contacts added yet. Click "Add Contact" to add a contact person.
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Financial Tab -->
-                        <div class="tab-pane fade" id="financialTab">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Credit Limit</label>
-                                        <div class="input-group">
-                                            <span class="input-group-text">R</span>
-                                            <input type="number" class="form-control" id="creditLimit" step="0.01">
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Payment Terms</label>
-                                        <select class="form-select" id="paymentTerms">
-                                            <option value="COD">Cash on Delivery</option>
-                                            <option value="7 Days">7 Days</option>
-                                            <option value="15 Days">15 Days</option>
-                                            <option value="30 Days" selected>30 Days</option>
-                                            <option value="45 Days">45 Days</option>
-                                            <option value="60 Days">60 Days</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Bank Name</label>
-                                        <input type="text" class="form-control" id="bankName">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Bank Account Number</label>
-                                        <input type="text" class="form-control" id="bankAccountNo">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Branch Code</label>
-                                        <input type="text" class="form-control" id="branchCode">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Tax Exemption</label>
-                                        <div class="form-check">
-                                            <input type="checkbox" class="form-check-input" id="taxExempt">
-                                            <label class="form-check-label" for="taxExempt">Tax Exempt Customer</label>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Notes Tab -->
-                        <div class="tab-pane fade" id="notesTab">
-                            <div class="mb-3">
-                                <label class="form-label">Internal Notes</label>
-                                <textarea class="form-control" id="internalNotes" rows="4" placeholder="Notes visible only to staff..."></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Special Instructions</label>
-                                <textarea class="form-control" id="specialInstructions" rows="4" placeholder="Delivery instructions, preferences, etc..."></textarea>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Tags</label>
-                                <input type="text" class="form-control" id="tags" placeholder="Enter tags separated by commas">
-                                <small class="text-muted">e.g., VIP, Wholesale, Government</small>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="btnSave">
-                    <i class="fas fa-save me-1"></i> Save Customer
-                </button>
-            </div>
+<!-- Action Bar -->
+<div class="action-bar">
+    <div class="btn-group">
+        <button type="button" class="btn btn-primary btn-sm" id="btnNew">
+            <i class="fas fa-plus"></i> New
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm" id="btnEdit" disabled>
+            <i class="fas fa-edit"></i> Edit
+        </button>
+        <button type="button" class="btn btn-outline-danger btn-sm" id="btnDelete" disabled>
+            <i class="fas fa-trash"></i> Delete
+        </button>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnRefresh">
+            <i class="fas fa-sync"></i> Refresh
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnFilter">
+            <i class="fas fa-filter"></i> Filter
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnColumns">
+            <i class="fas fa-columns"></i> Columns
+        </button>
+    </div>
+    
+    <div class="divider"></div>
+    
+    <div class="btn-group">
+        <button type="button" class="btn btn-outline-success btn-sm" id="btnExport">
+            <i class="fas fa-file-excel"></i> Export
+        </button>
+        <button type="button" class="btn btn-outline-info btn-sm" id="btnImport">
+            <i class="fas fa-file-import"></i> Import
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="btnPrint">
+            <i class="fas fa-print"></i> Print
+        </button>
+    </div>
+    
+    <div class="search-box">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text"><i class="fas fa-search"></i></span>
+            <input type="text" class="form-control" id="searchBox" placeholder="Search customers...">
         </div>
     </div>
 </div>
 
-<style>
-/* Action Bar Styles */
-.action-bar {
-    background: linear-gradient(to bottom, #ffffff, #f8f9fa);
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 10px 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-}
+<!-- Data Grid -->
+<div class="data-grid-container">
+    <table id="customerTable" class="table table-hover">
+        <thead>
+            <tr>
+                <th width="40">
+                    <input type="checkbox" id="selectAll" class="form-check-input">
+                </th>
+                <th>Account No</th>
+                <th>Account Name</th>
+                <th>Company Type</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th>Sales Rep</th>
+                <th width="100">Actions</th>
+            </tr>
+        </thead>
+        <tbody id="customerTableBody">
+            <!-- Data will be loaded here -->
+        </tbody>
+    </table>
+</div>
 
-.action-bar-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.action-bar-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-}
-
-.action-separator {
-    width: 1px;
-    height: 24px;
-    background: #dee2e6;
-    margin: 0 4px;
-}
-
-.search-container {
-    width: 300px;
-}
-
-.grid-container {
-    background: white;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    overflow-x: auto;
-}
-
-.table {
-    margin-bottom: 0;
-}
-
-/* Badge styles for status columns */
-.badge-status {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
-}
-</style>
+<!-- Customer Form Modal -->
+<partial name="_CustomerForm" />
 
 @section Scripts {
-<script>
-class CustomerManager {
-    constructor() {
-        this.customers = [];
-        this.selectedIds = new Set();
-        this.init();
-    }
-
-    async init() {
-        await this.loadCustomers();
-        this.attachEventListeners();
-    }
-
-    async loadCustomers() {
-        try {
-            const response = await fetch('/api/customerapi');
-            this.customers = await response.json();
-            this.renderGrid();
-            this.updateCounts();
-        } catch (error) {
-            console.error('Error loading customers:', error);
-        }
-    }
-
-    renderGrid() {
-        const tbody = document.getElementById('customerTableBody');
-        tbody.innerHTML = this.customers.map(customer => `
-            <tr data-id="${customer.id}">
-                <td><input type="checkbox" class="form-check-input row-select" data-id="${customer.id}"></td>
-                <td>${customer.accountNo}</td>
-                <td><strong>${customer.accountName}</strong></td>
-                <td><span class="badge bg-secondary">${customer.companyType}</span></td>
-                <td>${customer.phone || '-'}</td>
-                <td>${customer.email || '-'}</td>
-                <td>${customer.salesRepresentative || '-'}</td>
-                <td>${this.getStatusBadge(customer.customerStatus)}</td>
-                <td>${this.getApprovalBadge(customer.approvalStatus)}</td>
-                <td class="text-center">${customer.quotesRequested}</td>
-                <td class="text-center">${customer.ordersPlaced}</td>
-                <td class="text-center">
-                    ${customer.isActive 
-                        ? '<i class="fas fa-check text-success"></i>' 
-                        : '<i class="fas fa-times text-danger"></i>'}
-                </td>
-            </tr>
-        `).join('');
-
-        // Reattach row selection listeners
-        this.attachRowSelectionListeners();
-    }
-
-    getStatusBadge(status) {
-        const classes = {
-            'Prospect': 'bg-warning',
-            'Confirmed Customer': 'bg-success',
-            'Account Under Review': 'bg-info',
-            'Credit Approved': 'bg-primary',
-            'Account Closed': 'bg-danger'
-        };
-        return `<span class="badge ${classes[status] || 'bg-secondary'}">${status}</span>`;
-    }
-
-    getApprovalBadge(status) {
-        const classes = {
-            'Pending': 'bg-warning',
-            'Approved': 'bg-success',
-            'Rejected': 'bg-danger',
-            'Credit App Required': 'bg-info'
-        };
-        return `<span class="badge ${classes[status] || 'bg-secondary'}">${status}</span>`;
-    }
-
-    attachEventListeners() {
-        // New button
-        document.getElementById('btnNew').addEventListener('click', () => this.newCustomer());
-        
-        // Edit button
-        document.getElementById('btnEdit').addEventListener('click', () => this.editSelected());
-        
-        // Delete button
-        document.getElementById('btnDelete').addEventListener('click', () => this.deleteSelected());
-        
-        // Refresh button
-        document.getElementById('btnRefresh').addEventListener('click', () => this.loadCustomers());
-        
-        // Search input
-        document.getElementById('searchInput').addEventListener('input', (e) => this.search(e.target.value));
-        
-        // Export button
-        document.getElementById('btnExport').addEventListener('click', () => this.export());
-        
-        // Save button in modal
-        document.getElementById('btnSave').addEventListener('click', () => this.saveCustomer());
-        
-        // Select all checkbox
-        document.getElementById('selectAll').addEventListener('change', (e) => this.selectAll(e.target.checked));
-    }
-
-    attachRowSelectionListeners() {
-        document.querySelectorAll('.row-select').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                const id = parseInt(e.target.dataset.id);
-                if (e.target.checked) {
-                    this.selectedIds.add(id);
-                } else {
-                    this.selectedIds.delete(id);
-                }
-                this.updateSelectionButtons();
-            });
-        });
-
-        // Double-click to edit
-        document.querySelectorAll('#customerTableBody tr').forEach(row => {
-            row.addEventListener('dblclick', () => {
-                const id = parseInt(row.dataset.id);
-                this.editCustomer(id);
-            });
-        });
-    }
-
-    updateSelectionButtons() {
-        const editBtn = document.getElementById('btnEdit');
-        const deleteBtn = document.getElementById('btnDelete');
-        
-        editBtn.disabled = this.selectedIds.size !== 1;
-        deleteBtn.disabled = this.selectedIds.size === 0;
-        
-        document.getElementById('selectedCount').textContent = `${this.selectedIds.size} selected`;
-    }
-
-    updateCounts() {
-        document.getElementById('recordCount').textContent = `${this.customers.length} records`;
-    }
-
-    selectAll(checked) {
-        document.querySelectorAll('.row-select').forEach(checkbox => {
-            checkbox.checked = checked;
-            const id = parseInt(checkbox.dataset.id);
-            if (checked) {
-                this.selectedIds.add(id);
-            } else {
-                this.selectedIds.delete(id);
-            }
-        });
-        this.updateSelectionButtons();
-    }
-
-    search(term) {
-        const rows = document.querySelectorAll('#customerTableBody tr');
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(term.toLowerCase()) ? '' : 'none';
-        });
-    }
-
-    newCustomer() {
-        document.getElementById('modalTitle').textContent = 'New Customer';
-        document.getElementById('customerForm').reset();
-        document.getElementById('customerId').value = '';
-        const modal = new bootstrap.Modal(document.getElementById('customerModal'));
-        modal.show();
-    }
-
-    editSelected() {
-        if (this.selectedIds.size === 1) {
-            const id = Array.from(this.selectedIds)[0];
-            this.editCustomer(id);
-        }
-    }
-
-    editCustomer(id) {
-        const customer = this.customers.find(c => c.id === id);
-        if (!customer) return;
-
-        document.getElementById('modalTitle').textContent = 'Edit Customer';
-        document.getElementById('customerId').value = customer.id;
-        document.getElementById('accountName').value = customer.accountName;
-        document.getElementById('accountNo').value = customer.accountNo || '';
-        document.getElementById('companyType').value = customer.companyType || 'Private Company';
-        document.getElementById('accountType').value = customer.accountType || 'Customer';
-        document.getElementById('companyRegistrationNo').value = customer.companyRegistrationNo || '';
-        document.getElementById('vatRegistrationNo').value = customer.vatRegistrationNo || '';
-        document.getElementById('phone').value = customer.phone || '';
-        document.getElementById('email').value = customer.email || '';
-        document.getElementById('website').value = customer.website || '';
-        document.getElementById('customerStatus').value = customer.customerStatus || 'Prospect';
-        document.getElementById('salesRepresentative').value = customer.salesRepresentative || '';
-        document.getElementById('approvalStatus').value = customer.approvalStatus || 'Pending';
-        document.getElementById('streetAddress').value = customer.address || '';
-        document.getElementById('isActive').checked = customer.isActive;
-
-        const modal = new bootstrap.Modal(document.getElementById('customerModal'));
-        modal.show();
-    }
-
-    async saveCustomer() {
-        const id = document.getElementById('customerId').value;
-        const customer = {
-            accountName: document.getElementById('accountName').value,
-            companyType: document.getElementById('companyType').value,
-            accountType: document.getElementById('accountType').value,
-            companyRegistrationNo: document.getElementById('companyRegistrationNo').value,
-            vatRegistrationNo: document.getElementById('vatRegistrationNo').value,
-            phone: document.getElementById('phone').value,
-            email: document.getElementById('email').value,
-            website: document.getElementById('website').value,
-            customerStatus: document.getElementById('customerStatus').value,
-            salesRepresentative: document.getElementById('salesRepresentative').value,
-            approvalStatus: document.getElementById('approvalStatus').value,
-            address: document.getElementById('streetAddress').value,
-            isActive: document.getElementById('isActive').checked
-        };
-
-        try {
-            const url = id ? `/api/customerapi/${id}` : '/api/customerapi';
-            const method = id ? 'PUT' : 'POST';
+    <script>
+        $(document).ready(function() {
+            var selectedCustomers = [];
+            var customerDataTable;
             
-            const response = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(customer)
-            });
-
-            if (response.ok) {
-                bootstrap.Modal.getInstance(document.getElementById('customerModal')).hide();
-                await this.loadCustomers();
+            // Initialize DataTable
+            function initializeDataTable() {
+                customerDataTable = $('#customerTable').DataTable({
+                    ajax: {
+                        url: '/api/customer',
+                        dataSrc: ''
+                    },
+                    columns: [
+                        {
+                            data: null,
+                            orderable: false,
+                            render: function(data, type, row) {
+                                return '<input type="checkbox" class="form-check-input row-select" value="' + row.id + '">';
+                            }
+                        },
+                        { data: 'accountNo' },
+                        { data: 'accountName' },
+                        { data: 'companyType' },
+                        { data: 'phone' },
+                        { data: 'email' },
+                        {
+                            data: 'customerStatus',
+                            render: function(data) {
+                                var badgeClass = 'badge-status ';
+                                if (data === 'Confirmed Customer') badgeClass += 'active';
+                                else if (data === 'Account Closed') badgeClass += 'inactive';
+                                else badgeClass += 'pending';
+                                return '<span class="' + badgeClass + '">' + data + '</span>';
+                            }
+                        },
+                        { data: 'salesRepresentative' },
+                        {
+                            data: null,
+                            orderable: false,
+                            render: function(data, type, row) {
+                                return `
+                                    <button class="btn btn-sm btn-outline-primary edit-btn" data-id="${row.id}" title="Edit">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger delete-btn" data-id="${row.id}" title="Delete">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                `;
+                            }
+                        }
+                    ],
+                    dom: 'rtip',
+                    pageLength: 25,
+                    order: [[1, 'asc']],
+                    language: {
+                        emptyTable: "No customers found",
+                        info: "Showing _START_ to _END_ of _TOTAL_ customers",
+                        infoEmpty: "No customers to show",
+                        infoFiltered: "(filtered from _MAX_ total customers)"
+                    }
+                });
             }
-        } catch (error) {
-            console.error('Error saving customer:', error);
-            alert('Error saving customer');
-        }
-    }
-
-    async deleteSelected() {
-        if (this.selectedIds.size === 0) return;
-        
-        const message = this.selectedIds.size === 1 
-            ? 'Are you sure you want to delete this customer?'
-            : `Are you sure you want to delete ${this.selectedIds.size} customers?`;
             
-        if (!confirm(message)) return;
-
-        try {
-            const ids = Array.from(this.selectedIds);
-            const response = await fetch('/api/customerapi/bulk-delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(ids)
+            // Load customers
+            function loadCustomers() {
+                customerDataTable.ajax.reload();
+            }
+            
+            // Initialize on page load
+            initializeDataTable();
+            
+            // Search functionality
+            $('#searchBox').on('keyup', function() {
+                customerDataTable.search(this.value).draw();
             });
-
-            if (response.ok) {
-                this.selectedIds.clear();
-                await this.loadCustomers();
-            }
-        } catch (error) {
-            console.error('Error deleting customers:', error);
-            alert('Error deleting customers');
-        }
-    }
-
-    async export() {
-        window.location.href = '/api/customerapi/export';
-    }
-}
-
-// Google Maps Integration
-class LocationManager {
-    constructor() {
-        this.map = null;
-        this.marker = null;
-        this.autocomplete = null;
-    }
-
-    initAddressAutocomplete() {
-        const addressInput = document.getElementById('addressSearch');
-        if (!addressInput || !google?.maps?.places) return;
-
-        this.autocomplete = new google.maps.places.Autocomplete(addressInput, {
-            componentRestrictions: { country: 'ZA' },
-            fields: ['address_components', 'geometry', 'formatted_address']
-        });
-
-        this.autocomplete.addListener('place_changed', () => {
-            const place = this.autocomplete.getPlace();
-            if (place.geometry) {
-                this.updateAddressFields(place);
-                this.showLocationOnMap(place.geometry.location);
-            }
-        });
-    }
-
-    updateAddressFields(place) {
-        let streetNumber = '';
-        let streetName = '';
-        let city = '';
-        let province = '';
-        let postalCode = '';
-        let country = 'South Africa';
-
-        place.address_components.forEach(component => {
-            const type = component.types[0];
-            switch(type) {
-                case 'street_number':
-                    streetNumber = component.long_name;
-                    break;
-                case 'route':
-                    streetName = component.long_name;
-                    break;
-                case 'locality':
-                    city = component.long_name;
-                    break;
-                case 'administrative_area_level_1':
-                    province = component.long_name;
-                    break;
-                case 'postal_code':
-                    postalCode = component.long_name;
-                    break;
-                case 'country':
-                    country = component.long_name;
-                    break;
-            }
-        });
-
-        document.getElementById('streetAddress').value = streetNumber ? `${streetNumber} ${streetName}` : streetName;
-        document.getElementById('city').value = city;
-        document.getElementById('province').value = province;
-        document.getElementById('postalCode').value = postalCode;
-        document.getElementById('country').value = country;
-        document.getElementById('latitude').value = place.geometry.location.lat();
-        document.getElementById('longitude').value = place.geometry.location.lng();
-    }
-
-    showLocationOnMap(location) {
-        const mapContainer = document.getElementById('mapContainer');
-        if (!mapContainer) return;
-
-        if (!this.map) {
-            this.map = new google.maps.Map(mapContainer, {
-                zoom: 15,
-                center: location,
-                mapTypeControl: false
+            
+            // Select all checkbox
+            $('#selectAll').on('change', function() {
+                $('.row-select').prop('checked', this.checked);
+                updateActionButtons();
             });
-        } else {
-            this.map.setCenter(location);
-        }
-
-        if (this.marker) {
-            this.marker.setMap(null);
-        }
-
-        this.marker = new google.maps.Marker({
-            position: location,
-            map: this.map,
-            draggable: true
-        });
-
-        this.marker.addListener('dragend', (event) => {
-            document.getElementById('latitude').value = event.latLng.lat();
-            document.getElementById('longitude').value = event.latLng.lng();
-        });
-    }
-
-    useCurrentLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const location = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude
+            
+            // Row selection
+            $(document).on('change', '.row-select', function() {
+                updateActionButtons();
+            });
+            
+            // Update action buttons based on selection
+            function updateActionButtons() {
+                var selectedCount = $('.row-select:checked').length;
+                $('#btnEdit').prop('disabled', selectedCount !== 1);
+                $('#btnDelete').prop('disabled', selectedCount === 0);
+            }
+            
+            // New customer
+            $('#btnNew').on('click', function() {
+                $('#customerForm')[0].reset();
+                $('#customerId').val('');
+                $('#modalTitle').text('New Customer');
+                $('#customerModal').modal('show');
+            });
+            
+            // Edit customer
+            $('#btnEdit').on('click', function() {
+                var selectedId = $('.row-select:checked').first().val();
+                editCustomer(selectedId);
+            });
+            
+            $(document).on('click', '.edit-btn', function() {
+                var customerId = $(this).data('id');
+                editCustomer(customerId);
+            });
+            
+            function editCustomer(id) {
+                $.get('/api/customer/' + id, function(customer) {
+                    $('#customerId').val(customer.id);
+                    $('#accountName').val(customer.accountName);
+                    $('#accountNo').val(customer.accountNo);
+                    $('#companyType').val(customer.companyType);
+                    $('#phone').val(customer.phone);
+                    $('#email').val(customer.email);
+                    $('#customerStatus').val(customer.customerStatus);
+                    $('#salesRepresentative').val(customer.salesRepresentative);
+                    $('#modalTitle').text('Edit Customer');
+                    $('#customerModal').modal('show');
+                });
+            }
+            
+            // Delete customer
+            $('#btnDelete').on('click', function() {
+                var selectedIds = $('.row-select:checked').map(function() {
+                    return $(this).val();
+                }).get();
+                
+                MillenniumERP.confirm('Are you sure you want to delete ' + selectedIds.length + ' customer(s)?', function() {
+                    deleteCustomers(selectedIds);
+                });
+            });
+            
+            $(document).on('click', '.delete-btn', function() {
+                var customerId = $(this).data('id');
+                MillenniumERP.confirm('Are you sure you want to delete this customer?', function() {
+                    deleteCustomers([customerId]);
+                });
+            });
+            
+            function deleteCustomers(ids) {
+                $.ajax({
+                    url: '/api/customer',
+                    type: 'DELETE',
+                    data: JSON.stringify(ids),
+                    contentType: 'application/json',
+                    success: function() {
+                        MillenniumERP.showNotification('Customer(s) deleted successfully', 'success');
+                        loadCustomers();
+                    },
+                    error: function() {
+                        MillenniumERP.showNotification('Error deleting customer(s)', 'danger');
+                    }
+                });
+            }
+            
+            // Save customer
+            $('#btnSave').on('click', function() {
+                var customer = {
+                    id: $('#customerId').val(),
+                    accountName: $('#accountName').val(),
+                    accountNo: $('#accountNo').val(),
+                    companyType: $('#companyType').val(),
+                    companyRegistrationNo: $('#companyRegistrationNo').val(),
+                    vatRegistrationNo: $('#vatRegistrationNo').val(),
+                    phone: $('#phone').val(),
+                    email: $('#email').val(),
+                    customerStatus: $('#customerStatus').val(),
+                    salesRepresentative: $('#salesRepresentative').val(),
+                    isActive: $('#isActive').is(':checked')
                 };
-                this.showLocationOnMap(location);
-                document.getElementById('latitude').value = location.lat;
-                document.getElementById('longitude').value = location.lng;
-            }, (error) => {
-                alert('Unable to get your location. Please enter address manually.');
+                
+                var url = customer.id ? '/api/customer/' + customer.id : '/api/customer';
+                var method = customer.id ? 'PUT' : 'POST';
+                
+                $.ajax({
+                    url: url,
+                    type: method,
+                    data: JSON.stringify(customer),
+                    contentType: 'application/json',
+                    success: function() {
+                        $('#customerModal').modal('hide');
+                        MillenniumERP.showNotification('Customer saved successfully', 'success');
+                        loadCustomers();
+                    },
+                    error: function() {
+                        MillenniumERP.showNotification('Error saving customer', 'danger');
+                    }
+                });
             });
-        } else {
-            alert('Geolocation is not supported by your browser.');
-        }
-    }
-}
-
-// Initialize when page loads
-let locationManager;
-document.addEventListener('DOMContentLoaded', () => {
-    new CustomerManager();
-    locationManager = new LocationManager();
-    
-    // Initialize address autocomplete when modal opens
-    document.getElementById('customerModal').addEventListener('shown.bs.modal', () => {
-        setTimeout(() => locationManager.initAddressAutocomplete(), 100);
-    });
-    
-    // Use my location button
-    const btnLocation = document.getElementById('btnUseMyLocation');
-    if (btnLocation) {
-        btnLocation.addEventListener('click', () => locationManager.useCurrentLocation());
-    }
-});
-</script>
+            
+            // Refresh
+            $('#btnRefresh').on('click', function() {
+                loadCustomers();
+            });
+            
+            // Export to Excel
+            $('#btnExport').on('click', function() {
+                window.location.href = '/api/customer/export';
+            });
+        });
+    </script>
 }

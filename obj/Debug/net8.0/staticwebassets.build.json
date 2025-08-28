@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "FVa4LkNKDLfk1Py869JNL6uTy9AZI/7tgs1Jf0IG8oQ=",
+  "Hash": "gwrFXeZLJCs7hCCvtnPEQKV59iToo4LnI4Ubnd457Nk=",
   "Source": "MillenniumERP",
   "BasePath": "_content/MillenniumERP",
   "Mode": "Default",
@@ -16,6 +16,25 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "/home/runner/workspace/wwwroot/css/millennium.css",
+      "SourceId": "MillenniumERP",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/runner/workspace/wwwroot/",
+      "BasePath": "_content/MillenniumERP",
+      "RelativePath": "css/millennium.css",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/css/millennium.css"
+    },
     {
       "Identity": "/home/runner/workspace/wwwroot/css/site.css",
       "SourceId": "MillenniumERP",
@@ -53,6 +72,25 @@
       "CopyToOutputDirectory": "Never",
       "CopyToPublishDirectory": "PreserveNewest",
       "OriginalItemSpec": "wwwroot/css/spa.css"
+    },
+    {
+      "Identity": "/home/runner/workspace/wwwroot/js/site.js",
+      "SourceId": "MillenniumERP",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/runner/workspace/wwwroot/",
+      "BasePath": "_content/MillenniumERP",
+      "RelativePath": "js/site.js",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/js/site.js"
     },
     {
       "Identity": "/home/runner/workspace/wwwroot/js/spa-navigation.js",
