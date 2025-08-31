@@ -1,7 +1,7 @@
 // Millennium Timber Roof ERP - Single Page Application
-// Version 2.1 - Address Autocomplete Fixed with OpenStreetMap
+// Version 3.0 - NEW Address Search Field Added
 
-console.log('Loading Millennium ERP v2.1 - OpenStreetMap autocomplete enabled');
+console.log('Loading Millennium ERP v3.0 - NEW Address Search field added');
 
 // Global app namespace
 var MillenniumApp = {
@@ -581,7 +581,14 @@ var CustomerModule = {
                 <div class="tab-pane fade" id="address">
                     <div class="mb-3">
                         <label class="form-label">Street Address</label>
-                        <input type="text" class="form-control" id="StreetAddress" placeholder="Start typing an address to search...">
+                        <input type="text" class="form-control" id="StreetAddress" placeholder="Enter street address manually">
+                    </div>
+                    
+                    <div class="mb-3" style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
+                        <label class="form-label"><strong>Address Search (New Feature)</strong></label>
+                        <input type="text" class="form-control" id="AddressSearchNew" placeholder="Type here to search for real addresses...">
+                        <div id="addressSuggestionsNew" style="position: relative;"></div>
+                        <small class="text-muted">Start typing (min 3 characters) to see address suggestions</small>
                     </div>
                     
                     <div class="row">
@@ -620,15 +627,15 @@ var CustomerModule = {
     
     // Initialize form components
     initFormComponents: function() {
-        console.log('Initializing form components v2.1...');
+        console.log('Initializing form components v3.0...');
         
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize OpenStreetMap address autocomplete after DOM is ready
+        // Initialize NEW address search field
         setTimeout(() => {
-            console.log('Setting up OpenStreetMap address autocomplete...');
-            this.initAddressAutocomplete();
+            console.log('Setting up NEW address search field...');
+            this.initNewAddressSearch();
         }, 500);
     },
     
@@ -763,7 +770,154 @@ var CustomerModule = {
         modal.show();
     },
     
-    // Initialize OpenStreetMap/Nominatim address autocomplete
+    // NEW Address Search Implementation - Clean start
+    initNewAddressSearch: function() {
+        console.log('[NEW Address Search v3.0] Initializing...');
+        
+        var searchInput = document.getElementById('AddressSearchNew');
+        if (!searchInput) {
+            console.log('[NEW Address Search] Input not found, retrying...');
+            setTimeout(() => CustomerModule.initNewAddressSearch(), 500);
+            return;
+        }
+        
+        console.log('[NEW Address Search] Input found! Setting up handlers...');
+        
+        var searchTimer = null;
+        var suggestionsDiv = document.getElementById('addressSuggestionsNew');
+        
+        // Create suggestions container
+        if (!suggestionsDiv) {
+            suggestionsDiv = document.createElement('div');
+            suggestionsDiv.id = 'addressSuggestionsNew';
+            suggestionsDiv.style.cssText = 'position: absolute; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 2px;';
+            searchInput.parentNode.appendChild(suggestionsDiv);
+        }
+        
+        // Add input handler
+        searchInput.addEventListener('input', function(e) {
+            var query = e.target.value.trim();
+            console.log('[NEW Address Search] User typed:', query);
+            
+            clearTimeout(searchTimer);
+            
+            if (query.length < 3) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            
+            // Debounce search
+            searchTimer = setTimeout(() => {
+                console.log('[NEW Address Search] Searching for:', query);
+                performAddressSearch(query);
+            }, 300);
+        });
+        
+        // Perform the actual search
+        function performAddressSearch(query) {
+            console.log('[NEW Address Search] Making API request to Nominatim...');
+            
+            // Show loading
+            suggestionsDiv.innerHTML = '<div style="padding: 10px;">Searching...</div>';
+            suggestionsDiv.style.display = 'block';
+            
+            // Use Nominatim API
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=5&addressdetails=1`)
+                .then(response => {
+                    console.log('[NEW Address Search] API response received');
+                    return response.json();
+                })
+                .then(results => {
+                    console.log('[NEW Address Search] Results:', results.length, 'addresses found');
+                    
+                    if (results.length === 0) {
+                        suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #666;">No addresses found</div>';
+                        return;
+                    }
+                    
+                    // Clear suggestions
+                    suggestionsDiv.innerHTML = '';
+                    
+                    // Add each result
+                    results.forEach(result => {
+                        var item = document.createElement('div');
+                        item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+                        item.innerHTML = `<strong>${result.display_name}</strong>`;
+                        
+                        // Hover effect
+                        item.onmouseover = function() {
+                            this.style.backgroundColor = '#f0f0f0';
+                        };
+                        item.onmouseout = function() {
+                            this.style.backgroundColor = 'white';
+                        };
+                        
+                        // Click handler
+                        item.onclick = function() {
+                            console.log('[NEW Address Search] Address selected:', result.display_name);
+                            
+                            // Fill in the address fields
+                            var address = result.address || {};
+                            
+                            // Fill Street Address
+                            var streetParts = [];
+                            if (address.house_number) streetParts.push(address.house_number);
+                            if (address.road) streetParts.push(address.road);
+                            document.getElementById('StreetAddress').value = streetParts.join(' ') || result.display_name.split(',')[0];
+                            
+                            // Fill City
+                            var city = address.city || address.town || address.suburb || address.village || '';
+                            document.getElementById('City').value = city;
+                            
+                            // Fill Province
+                            var province = address.state || address.province || '';
+                            document.getElementById('Province').value = province;
+                            
+                            // Fill Postal Code
+                            var postalCode = address.postcode || '';
+                            document.getElementById('PostalCode').value = postalCode;
+                            
+                            // Fill Country
+                            document.getElementById('Country').value = address.country || 'South Africa';
+                            
+                            // Clear search field and hide suggestions
+                            searchInput.value = '';
+                            suggestionsDiv.style.display = 'none';
+                            
+                            // Store coordinates
+                            if (result.lat && result.lon) {
+                                CustomerModule.currentLatitude = parseFloat(result.lat);
+                                CustomerModule.currentLongitude = parseFloat(result.lon);
+                                console.log('[NEW Address Search] Coordinates stored:', CustomerModule.currentLatitude, CustomerModule.currentLongitude);
+                            }
+                            
+                            // Show success message
+                            searchInput.style.borderColor = '#28a745';
+                            setTimeout(() => {
+                                searchInput.style.borderColor = '';
+                            }, 2000);
+                        };
+                        
+                        suggestionsDiv.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    console.error('[NEW Address Search] Error:', error);
+                    suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #dc3545;">Error searching addresses. Please try again.</div>';
+                });
+        }
+        
+        // Hide suggestions when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+        
+        console.log('[NEW Address Search] Setup complete!');
+    },
+    
+    // Initialize OpenStreetMap/Nominatim address autocomplete (OLD - keeping for reference)
     initAddressAutocomplete: function() {
         console.log('[Address Autocomplete v2.1] Starting initialization...');
         
