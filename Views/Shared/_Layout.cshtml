@@ -34,7 +34,7 @@
     
     
     <!-- Custom Scripts -->
-    <script src="~/js/app.js" asp-append-version="true"></script>
+    <script src="~/js/app.js?v=@DateTime.Now.Ticks" asp-append-version="true"></script>
     
     @await RenderSectionAsync("Scripts", required: false)
 </body>
