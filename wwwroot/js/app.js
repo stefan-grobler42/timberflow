@@ -1,4 +1,7 @@
 // Millennium Timber Roof ERP - Single Page Application
+// Version 2.0 - Address Autocomplete Fixed
+
+console.log('Loading Millennium ERP v2.0 - Cache cleared');
 
 // Global app namespace
 var MillenniumApp = {
@@ -880,134 +883,6 @@ var CustomerModule = {
         });
     },
     
-    
-    // Map display removed - using address autocomplete only
-    initMap_removed: function() {
-        var mapElement = document.getElementById('locationMap');
-        if (!mapElement) return;
-        
-        // Check if Google Maps is available
-        if (window.googleMapsError || (typeof google === 'undefined' || !google.maps)) {
-            // Show fallback message
-            mapElement.innerHTML = `
-                <div class="alert alert-info m-3">
-                    <i class="fas fa-map-marked-alt"></i> Map view is currently unavailable.
-                    <br>You can still enter addresses manually.
-                </div>`;
-            mapElement.style.height = '150px';
-            return;
-        }
-        
-        if (!window.googleMapsReady) {
-            setTimeout(() => this.initMap(), 500);
-            return;
-        }
-        
-        // Default to Johannesburg
-        var defaultLocation = { lat: -26.2041, lng: 28.0473 };
-        
-        try {
-            // Map display removed - only using autocomplete
-                center: defaultLocation,
-                zoom: 12,
-                mapTypeControl: false
-            });
-            
-            // Marker removed - only using autocomplete
-                position: defaultLocation,
-                map: this.map,
-                draggable: true
-            });
-        } catch (error) {
-            console.log('Could not initialize map:', error);
-            mapElement.innerHTML = `
-                <div class="alert alert-warning m-3">
-                    <i class="fas fa-exclamation-triangle"></i> Unable to load map.
-                    <br>Please enter address manually.
-                </div>`;
-            return;
-        }
-        
-        // Update address when marker is dragged
-        this.marker.addListener('dragend', function() {
-            var position = CustomerModule.marker.getPosition();
-            CustomerModule.reverseGeocode(position.lat(), position.lng());
-        });
-        
-        // Click on map to move marker
-        this.map.addListener('click', function(e) {
-            CustomerModule.marker.setPosition(e.latLng);
-            CustomerModule.reverseGeocode(e.latLng.lat(), e.latLng.lng());
-        });
-    },
-    
-    // Removed reverse geocode
-    reverseGeocode_removed: function(lat, lng) {
-        var geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ location: { lat: lat, lng: lng } }, function(results, status) {
-            if (status === 'OK' && results[0]) {
-                var place = results[0];
-                
-                // Parse address components
-                var streetNumber = '';
-                var streetName = '';
-                var city = '';
-                var province = '';
-                var postalCode = '';
-                
-                place.address_components.forEach(function(component) {
-                    var types = component.types;
-                    if (types.includes('street_number')) {
-                        streetNumber = component.long_name;
-                    } else if (types.includes('route')) {
-                        streetName = component.long_name;
-                    } else if (types.includes('locality')) {
-                        city = component.long_name;
-                    } else if (types.includes('administrative_area_level_1')) {
-                        province = component.long_name;
-                    } else if (types.includes('postal_code')) {
-                        postalCode = component.long_name;
-                    }
-                });
-                
-                // Update form fields
-                $('#StreetAddress').val(streetNumber + ' ' + streetName);
-                $('#City').val(city);
-                $('#Province').val(province);
-                $('#PostalCode').val(postalCode);
-            }
-        });
-    },
-    
-    // Removed location feature
-    useCurrentLocation_removed: function() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(function(position) {
-                var lat = position.coords.latitude;
-                var lng = position.coords.longitude;
-                
-                // Check if map is available
-                if (CustomerModule.map && CustomerModule.marker && window.google && google.maps) {
-                    // Update map
-                    var location = new google.maps.LatLng(lat, lng);
-                    CustomerModule.map.setCenter(location);
-                    CustomerModule.marker.setPosition(location);
-                    CustomerModule.map.setZoom(16);
-                    
-                    // Reverse geocode to get address
-                    CustomerModule.reverseGeocode(lat, lng);
-                } else {
-                    // Just show coordinates if map is not available
-                    MillenniumApp.showNotification(`Location: ${lat.toFixed(6)}, ${lng.toFixed(6)}`, 'info');
-                }
-            }, function(error) {
-                MillenniumApp.showNotification('Unable to get current location', 'warning');
-            });
-        } else {
-            MillenniumApp.showNotification('Geolocation is not supported by this browser', 'warning');
-        }
-    },
-    
     // Bind form events
     bindFormEvents: function() {
         // Currency formatting
@@ -1030,12 +905,10 @@ var CustomerModule = {
             }
         });
         
-        // Update map if coordinates exist
-        if (customer.Latitude && customer.Longitude && this.map) {
-            var location = new google.maps.LatLng(customer.Latitude, customer.Longitude);
-            this.map.setCenter(location);
-            this.marker.setPosition(location);
-            this.map.setZoom(16);
+        // Store coordinates if they exist
+        if (customer.Latitude && customer.Longitude) {
+            this.currentLatitude = customer.Latitude;
+            this.currentLongitude = customer.Longitude;
         }
     },
     
@@ -1064,11 +937,10 @@ var CustomerModule = {
             TaxExempt: $('#TaxExempt').is(':checked')
         };
         
-        // Get map coordinates
-        if (this.marker) {
-            var position = this.marker.getPosition();
-            customer.Latitude = position.lat();
-            customer.Longitude = position.lng();
+        // Get stored coordinates
+        if (this.currentLatitude && this.currentLongitude) {
+            customer.Latitude = this.currentLatitude;
+            customer.Longitude = this.currentLongitude;
         }
         
         // Validation
@@ -1154,11 +1026,10 @@ var CustomerModule = {
             Notes: $('#Notes').val()
         };
         
-        // Get map coordinates
-        if (this.marker) {
-            var position = this.marker.getPosition();
-            customer.Latitude = position.lat();
-            customer.Longitude = position.lng();
+        // Get stored coordinates
+        if (this.currentLatitude && this.currentLongitude) {
+            customer.Latitude = this.currentLatitude;
+            customer.Longitude = this.currentLongitude;
         }
         
         // Validation
