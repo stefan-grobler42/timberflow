@@ -757,8 +757,16 @@ var CustomerModule = {
     
     // Initialize OpenStreetMap/Nominatim address autocomplete
     initAddressAutocomplete: function() {
+        console.log('Initializing OpenStreetMap address autocomplete...');
+        
         var input = document.getElementById('StreetAddress');
-        if (!input) return;
+        if (!input) {
+            console.log('Street Address input not found - retrying in 500ms');
+            setTimeout(() => CustomerModule.initAddressAutocomplete(), 500);
+            return;
+        }
+        
+        console.log('Street Address input found, setting up autocomplete');
         
         var searchTimeout = null;
         var dropdown = null;
@@ -772,11 +780,13 @@ var CustomerModule = {
         
         // Search function using Nominatim API
         function searchAddresses(query) {
+            console.log('Searching for addresses with query:', query);
             if (query.length < 3) {
                 dropdown.style.display = 'none';
                 return;
             }
             
+            console.log('Making API request to OpenStreetMap Nominatim...');
             // Use Nominatim API (OpenStreetMap) - free and no API key required
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=5&addressdetails=1`)
                 .then(response => response.json())
@@ -848,6 +858,7 @@ var CustomerModule = {
         
         // Add input event listener
         input.addEventListener('input', function(e) {
+            console.log('Address input changed:', e.target.value);
             clearTimeout(searchTimeout);
             searchTimeout = setTimeout(function() {
                 searchAddresses(e.target.value);
