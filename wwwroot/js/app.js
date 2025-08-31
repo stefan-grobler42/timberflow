@@ -581,14 +581,9 @@ var CustomerModule = {
                 <div class="tab-pane fade" id="address">
                     <div class="mb-3">
                         <label class="form-label">Street Address</label>
-                        <input type="text" class="form-control" id="StreetAddress" placeholder="Enter street address manually">
-                    </div>
-                    
-                    <div class="mb-3" style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
-                        <label class="form-label"><strong>Address Search (New Feature)</strong></label>
-                        <input type="text" class="form-control" id="AddressSearchNew" placeholder="Type here to search for real addresses...">
-                        <div id="addressSuggestionsNew" style="position: relative;"></div>
-                        <small class="text-muted">Start typing (min 3 characters) to see address suggestions</small>
+                        <input type="text" class="form-control" id="StreetAddress" placeholder="Type to search for addresses (min 3 characters)...">
+                        <div id="addressSuggestions" style="position: relative;"></div>
+                        <small class="text-muted">Start typing to see real address suggestions</small>
                     </div>
                     
                     <div class="row">
@@ -620,6 +615,14 @@ var CustomerModule = {
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Interactive Map -->
+                    <div class="mb-3">
+                        <label class="form-label">Location Map</label>
+                        <div id="addressMap" style="height: 300px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666;">
+                            <div id="mapContent">Select an address above to view location on map</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>`;
@@ -632,10 +635,10 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize NEW address search field
+        // Initialize enhanced address search field
         setTimeout(() => {
-            console.log('Setting up NEW address search field...');
-            this.initNewAddressSearch();
+            console.log('Setting up enhanced address search field...');
+            this.initEnhancedAddressSearch();
         }, 500);
     },
     
@@ -770,26 +773,28 @@ var CustomerModule = {
         modal.show();
     },
     
-    // NEW Address Search Implementation - Clean start
-    initNewAddressSearch: function() {
-        console.log('[NEW Address Search v3.0] Initializing...');
+    // Enhanced Address Search Implementation with Map
+    initEnhancedAddressSearch: function() {
+        console.log('[Enhanced Address Search v3.0] Initializing...');
         
-        var searchInput = document.getElementById('AddressSearchNew');
+        var searchInput = document.getElementById('StreetAddress');
         if (!searchInput) {
-            console.log('[NEW Address Search] Input not found, retrying...');
-            setTimeout(() => CustomerModule.initNewAddressSearch(), 500);
+            console.log('[Enhanced Address Search] Input not found, retrying...');
+            setTimeout(() => CustomerModule.initEnhancedAddressSearch(), 500);
             return;
         }
         
-        console.log('[NEW Address Search] Input found! Setting up handlers...');
+        console.log('[Enhanced Address Search] Input found! Setting up handlers...');
         
         var searchTimer = null;
-        var suggestionsDiv = document.getElementById('addressSuggestionsNew');
+        var suggestionsDiv = document.getElementById('addressSuggestions');
+        var mapDiv = document.getElementById('addressMap');
+        var currentMarker = null;
         
         // Create suggestions container
         if (!suggestionsDiv) {
             suggestionsDiv = document.createElement('div');
-            suggestionsDiv.id = 'addressSuggestionsNew';
+            suggestionsDiv.id = 'addressSuggestions';
             suggestionsDiv.style.cssText = 'position: absolute; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 2px;';
             searchInput.parentNode.appendChild(suggestionsDiv);
         }
@@ -797,7 +802,7 @@ var CustomerModule = {
         // Add input handler
         searchInput.addEventListener('input', function(e) {
             var query = e.target.value.trim();
-            console.log('[NEW Address Search] User typed:', query);
+            console.log('[Enhanced Address Search] User typed:', query);
             
             clearTimeout(searchTimer);
             
@@ -808,14 +813,40 @@ var CustomerModule = {
             
             // Debounce search
             searchTimer = setTimeout(() => {
-                console.log('[NEW Address Search] Searching for:', query);
+                console.log('[Enhanced Address Search] Searching for:', query);
                 performAddressSearch(query);
             }, 300);
         });
         
+        // Function to update map with location
+        function updateMap(lat, lon, address) {
+            console.log('[Enhanced Address Search] Updating map with coordinates:', lat, lon);
+            
+            // Create OpenStreetMap with marker
+            var mapHtml = `
+                <div style="position: relative; height: 100%; width: 100%;">
+                    <iframe
+                        width="100%"
+                        height="100%"
+                        frameborder="0"
+                        scrolling="no"
+                        marginheight="0"
+                        marginwidth="0"
+                        src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lon}"
+                        style="border: none; border-radius: 5px;">
+                    </iframe>
+                    <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 5px 8px; border-radius: 3px; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        📍 ${address}
+                    </div>
+                </div>
+            `;
+            
+            mapDiv.innerHTML = mapHtml;
+        }
+        
         // Perform the actual search
         function performAddressSearch(query) {
-            console.log('[NEW Address Search] Making API request to Nominatim...');
+            console.log('[Enhanced Address Search] Making API request to Nominatim...');
             
             // Show loading
             suggestionsDiv.innerHTML = '<div style="padding: 10px;">Searching...</div>';
@@ -824,11 +855,11 @@ var CustomerModule = {
             // Use Nominatim API
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=5&addressdetails=1`)
                 .then(response => {
-                    console.log('[NEW Address Search] API response received');
+                    console.log('[Enhanced Address Search] API response received');
                     return response.json();
                 })
                 .then(results => {
-                    console.log('[NEW Address Search] Results:', results.length, 'addresses found');
+                    console.log('[Enhanced Address Search] Results:', results.length, 'addresses found');
                     
                     if (results.length === 0) {
                         suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #666;">No addresses found</div>';
@@ -854,16 +885,13 @@ var CustomerModule = {
                         
                         // Click handler
                         item.onclick = function() {
-                            console.log('[NEW Address Search] Address selected:', result.display_name);
+                            console.log('[Enhanced Address Search] Address selected:', result.display_name);
                             
                             // Fill in the address fields
                             var address = result.address || {};
                             
-                            // Fill Street Address
-                            var streetParts = [];
-                            if (address.house_number) streetParts.push(address.house_number);
-                            if (address.road) streetParts.push(address.road);
-                            document.getElementById('StreetAddress').value = streetParts.join(' ') || result.display_name.split(',')[0];
+                            // Fill Street Address with full display name
+                            searchInput.value = result.display_name;
                             
                             // Fill City
                             var city = address.city || address.town || address.suburb || address.village || '';
@@ -880,18 +908,16 @@ var CustomerModule = {
                             // Fill Country
                             document.getElementById('Country').value = address.country || 'South Africa';
                             
-                            // Clear search field and hide suggestions
-                            searchInput.value = '';
+                            // Hide suggestions
                             suggestionsDiv.style.display = 'none';
                             
-                            // Store coordinates
+                            // Update map with location
                             if (result.lat && result.lon) {
-                                CustomerModule.currentLatitude = parseFloat(result.lat);
-                                CustomerModule.currentLongitude = parseFloat(result.lon);
-                                console.log('[NEW Address Search] Coordinates stored:', CustomerModule.currentLatitude, CustomerModule.currentLongitude);
+                                updateMap(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
+                                console.log('[Enhanced Address Search] Map updated with coordinates:', result.lat, result.lon);
                             }
                             
-                            // Show success message
+                            // Show success feedback
                             searchInput.style.borderColor = '#28a745';
                             setTimeout(() => {
                                 searchInput.style.borderColor = '';
@@ -902,7 +928,7 @@ var CustomerModule = {
                     });
                 })
                 .catch(error => {
-                    console.error('[NEW Address Search] Error:', error);
+                    console.error('[Enhanced Address Search] Error:', error);
                     suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #dc3545;">Error searching addresses. Please try again.</div>';
                 });
         }
@@ -914,7 +940,7 @@ var CustomerModule = {
             }
         });
         
-        console.log('[NEW Address Search] Setup complete!');
+        console.log('[Enhanced Address Search] Setup complete with map integration!');
     },
     
     // Initialize OpenStreetMap/Nominatim address autocomplete (OLD - keeping for reference)
