@@ -362,13 +362,6 @@ body {
     background: #e7f3ff;
 }
 
-/* Map Container */
-.map-container {
-    height: 200px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    margin-top: 10px;
-}
 
 /* Currency Input */
 .currency-input {

@@ -32,22 +32,6 @@
     <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     
-    <!-- Google Maps -->
-    <script>
-        window.initMap = function() {
-            // Map will be initialized when needed
-            window.googleMapsReady = true;
-            window.googleMapsError = false;
-        }
-        
-        window.gm_authFailure = function() {
-            // Handle authentication failure
-            window.googleMapsError = true;
-            console.warn('Google Maps authentication failed - using fallback');
-        }
-    </script>
-    <!-- Note: Google Maps requires valid API key - using placeholder for now -->
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initMap" onerror="window.googleMapsError=true;"></script>
     
     <!-- Custom Scripts -->
     <script src="~/js/app.js" asp-append-version="true"></script>

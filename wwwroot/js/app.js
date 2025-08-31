@@ -578,12 +578,7 @@ var CustomerModule = {
                 <div class="tab-pane fade" id="address">
                     <div class="mb-3">
                         <label class="form-label">Street Address</label>
-                        <div class="input-group">
-                            <input type="text" class="form-control" id="StreetAddress" placeholder="Start typing address...">
-                            <button class="btn btn-outline-secondary" type="button" onclick="CustomerModule.useCurrentLocation()">
-                                <i class="fas fa-map-marker-alt"></i> Use My Location
-                            </button>
-                        </div>
+                        <input type="text" class="form-control" id="StreetAddress" placeholder="Enter street address...">
                     </div>
                     
                     <div class="row">
@@ -615,11 +610,6 @@ var CustomerModule = {
                             </div>
                         </div>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Location Map</label>
-                        <div id="locationMap" class="map-container"></div>
-                    </div>
                 </div>
             </div>
         </div>`;
@@ -629,10 +619,6 @@ var CustomerModule = {
     initFormComponents: function() {
         // Initialize lookup fields
         this.initLookupFields();
-        
-        // Initialize Google Maps
-        this.initAddressAutocomplete();
-        this.initMap();
     },
     
     // Initialize lookup fields
@@ -766,8 +752,8 @@ var CustomerModule = {
         modal.show();
     },
     
-    // Initialize address autocomplete
-    initAddressAutocomplete: function() {
+    // Removed Google Maps autocomplete
+    initAddressAutocomplete_removed: function() {
         // Check if Google Maps is available and not in error state
         if (window.googleMapsError || (typeof google === 'undefined' || !google.maps)) {
             console.log('Google Maps not available - address autocomplete disabled');
@@ -834,8 +820,8 @@ var CustomerModule = {
         });
     },
     
-    // Initialize map
-    initMap: function() {
+    // Removed Google Maps
+    initMap_removed: function() {
         var mapElement = document.getElementById('locationMap');
         if (!mapElement) return;
         
@@ -894,8 +880,8 @@ var CustomerModule = {
         });
     },
     
-    // Reverse geocode
-    reverseGeocode: function(lat, lng) {
+    // Removed reverse geocode
+    reverseGeocode_removed: function(lat, lng) {
         var geocoder = new google.maps.Geocoder();
         geocoder.geocode({ location: { lat: lat, lng: lng } }, function(results, status) {
             if (status === 'OK' && results[0]) {
@@ -932,8 +918,8 @@ var CustomerModule = {
         });
     },
     
-    // Use current location
-    useCurrentLocation: function() {
+    // Removed location feature
+    useCurrentLocation_removed: function() {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
                 var lat = position.coords.latitude;
