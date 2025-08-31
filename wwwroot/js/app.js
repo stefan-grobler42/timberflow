@@ -1,13 +1,25 @@
 // Millennium Timber Roof ERP - Single Page Application
 // Version 3.0 - NEW Address Search Field Added
 
-console.log('Loading Millennium ERP v3.0 - NEW Address Search field added');
+console.log('Loading Millennium ERP v3.0 - Google Maps Integration');
+
+// Global Google Maps initialization
+function initializeGoogleMaps() {
+    console.log('[Google Maps] API loaded successfully');
+    window.googleMapsLoaded = true;
+    
+    // Initialize address search if already on customer page
+    if (window.CustomerModule && typeof CustomerModule.initGoogleMapsAddressSearch === 'function') {
+        CustomerModule.initGoogleMapsAddressSearch();
+    }
+}
 
 // Global app namespace
 var MillenniumApp = {
     currentModule: null,
     selectedRecords: [],
     dataTable: null,
+    googleMapsLoaded: false,
     
     // Initialize the application
     init: function() {
@@ -635,10 +647,10 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize enhanced address search field
+        // Initialize Google Maps address search field
         setTimeout(() => {
-            console.log('Setting up enhanced address search field...');
-            this.initEnhancedAddressSearch();
+            console.log('Setting up Google Maps address search field...');
+            this.initGoogleMapsAddressSearch();
         }, 500);
     },
     
@@ -773,174 +785,162 @@ var CustomerModule = {
         modal.show();
     },
     
-    // Enhanced Address Search Implementation with Map
-    initEnhancedAddressSearch: function() {
-        console.log('[Enhanced Address Search v3.0] Initializing...');
+    // Google Maps Address Search Implementation with Map
+    initGoogleMapsAddressSearch: function() {
+        console.log('[Google Maps Address Search] Initializing...');
         
         var searchInput = document.getElementById('StreetAddress');
+        var mapDiv = document.getElementById('addressMap');
+        
         if (!searchInput) {
-            console.log('[Enhanced Address Search] Input not found, retrying...');
-            setTimeout(() => CustomerModule.initEnhancedAddressSearch(), 500);
+            console.log('[Google Maps Address Search] Input not found, retrying...');
+            setTimeout(() => CustomerModule.initGoogleMapsAddressSearch(), 500);
             return;
         }
         
-        console.log('[Enhanced Address Search] Input found! Setting up handlers...');
-        
-        var searchTimer = null;
-        var suggestionsDiv = document.getElementById('addressSuggestions');
-        var mapDiv = document.getElementById('addressMap');
-        var currentMarker = null;
-        
-        // Create suggestions container
-        if (!suggestionsDiv) {
-            suggestionsDiv = document.createElement('div');
-            suggestionsDiv.id = 'addressSuggestions';
-            suggestionsDiv.style.cssText = 'position: absolute; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; z-index: 9999; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 2px;';
-            searchInput.parentNode.appendChild(suggestionsDiv);
+        if (!window.googleMapsLoaded || !window.google) {
+            console.log('[Google Maps Address Search] Google Maps not loaded yet, retrying...');
+            setTimeout(() => CustomerModule.initGoogleMapsAddressSearch(), 1000);
+            return;
         }
         
-        // Add input handler
-        searchInput.addEventListener('input', function(e) {
-            var query = e.target.value.trim();
-            console.log('[Enhanced Address Search] User typed:', query);
+        console.log('[Google Maps Address Search] Setting up Google Places Autocomplete...');
+        
+        var map = null;
+        var marker = null;
+        
+        // Initialize Google Maps for South Africa
+        var southAfricaBounds = new google.maps.LatLngBounds(
+            new google.maps.LatLng(-34.8191663, 16.2816),  // Southwest
+            new google.maps.LatLng(-22.125, 32.8914)       // Northeast
+        );
+        
+        // Create Google Places Autocomplete
+        var autocomplete = new google.maps.places.Autocomplete(searchInput, {
+            bounds: southAfricaBounds,
+            componentRestrictions: { country: 'za' },
+            fields: ['place_id', 'geometry', 'name', 'formatted_address', 'address_components'],
+            types: ['address']
+        });
+        
+        console.log('[Google Maps Address Search] Places Autocomplete created');
+        
+        // Initialize Google Map
+        function initializeMap(center = { lat: -25.7479, lng: 28.2293 }) { // Default to Pretoria
+            if (!mapDiv) return;
             
-            clearTimeout(searchTimer);
+            map = new google.maps.Map(mapDiv, {
+                zoom: 10,
+                center: center,
+                mapTypeId: 'roadmap'
+            });
             
-            if (query.length < 3) {
-                suggestionsDiv.style.display = 'none';
+            marker = new google.maps.Marker({
+                map: map,
+                anchorPoint: new google.maps.Point(0, -29)
+            });
+            
+            console.log('[Google Maps Address Search] Map initialized');
+        }
+        
+        // Initialize the map
+        initializeMap();
+        
+        // Function to update map with location
+        function updateMapWithPlace(place) {
+            console.log('[Google Maps Address Search] Updating map with place:', place.formatted_address);
+            
+            if (!map || !marker) {
+                console.log('[Google Maps Address Search] Map not initialized yet');
                 return;
             }
             
-            // Debounce search
-            searchTimer = setTimeout(() => {
-                console.log('[Enhanced Address Search] Searching for:', query);
-                performAddressSearch(query);
-            }, 300);
-        });
-        
-        // Function to update map with location
-        function updateMap(lat, lon, address) {
-            console.log('[Enhanced Address Search] Updating map with coordinates:', lat, lon);
+            var location = place.geometry.location;
             
-            // Create OpenStreetMap with marker
-            var mapHtml = `
-                <div style="position: relative; height: 100%; width: 100%;">
-                    <iframe
-                        width="100%"
-                        height="100%"
-                        frameborder="0"
-                        scrolling="no"
-                        marginheight="0"
-                        marginwidth="0"
-                        src="https://www.openstreetmap.org/export/embed.html?bbox=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}&layer=mapnik&marker=${lat},${lon}"
-                        style="border: none; border-radius: 5px;">
-                    </iframe>
-                    <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,0.9); padding: 5px 8px; border-radius: 3px; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                        📍 ${address}
-                    </div>
-                </div>
-            `;
+            // Update marker position
+            marker.setPosition(location);
+            marker.setVisible(true);
             
-            mapDiv.innerHTML = mapHtml;
+            // Center and zoom map
+            map.setCenter(location);
+            map.setZoom(17);
+            
+            // Add info window
+            var infoWindow = new google.maps.InfoWindow({
+                content: `<div style="padding: 5px;"><strong>${place.formatted_address}</strong></div>`
+            });
+            
+            marker.addListener('click', function() {
+                infoWindow.open(map, marker);
+            });
+            
+            console.log('[Google Maps Address Search] Map updated successfully');
         }
         
-        // Perform the actual search
-        function performAddressSearch(query) {
-            console.log('[Enhanced Address Search] Making API request to Nominatim...');
+        // Handle place selection from autocomplete
+        autocomplete.addListener('place_changed', function() {
+            var place = autocomplete.getPlace();
+            console.log('[Google Maps Address Search] Place selected:', place);
             
-            // Show loading
-            suggestionsDiv.innerHTML = '<div style="padding: 10px;">Searching...</div>';
-            suggestionsDiv.style.display = 'block';
-            
-            // Use Nominatim API
-            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=5&addressdetails=1`)
-                .then(response => {
-                    console.log('[Enhanced Address Search] API response received');
-                    return response.json();
-                })
-                .then(results => {
-                    console.log('[Enhanced Address Search] Results:', results.length, 'addresses found');
-                    
-                    if (results.length === 0) {
-                        suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #666;">No addresses found</div>';
-                        return;
-                    }
-                    
-                    // Clear suggestions
-                    suggestionsDiv.innerHTML = '';
-                    
-                    // Add each result
-                    results.forEach(result => {
-                        var item = document.createElement('div');
-                        item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
-                        item.innerHTML = `<strong>${result.display_name}</strong>`;
-                        
-                        // Hover effect
-                        item.onmouseover = function() {
-                            this.style.backgroundColor = '#f0f0f0';
-                        };
-                        item.onmouseout = function() {
-                            this.style.backgroundColor = 'white';
-                        };
-                        
-                        // Click handler
-                        item.onclick = function() {
-                            console.log('[Enhanced Address Search] Address selected:', result.display_name);
-                            
-                            // Fill in the address fields
-                            var address = result.address || {};
-                            
-                            // Fill Street Address with full display name
-                            searchInput.value = result.display_name;
-                            
-                            // Fill City
-                            var city = address.city || address.town || address.suburb || address.village || '';
-                            document.getElementById('City').value = city;
-                            
-                            // Fill Province
-                            var province = address.state || address.province || '';
-                            document.getElementById('Province').value = province;
-                            
-                            // Fill Postal Code
-                            var postalCode = address.postcode || '';
-                            document.getElementById('PostalCode').value = postalCode;
-                            
-                            // Fill Country
-                            document.getElementById('Country').value = address.country || 'South Africa';
-                            
-                            // Hide suggestions
-                            suggestionsDiv.style.display = 'none';
-                            
-                            // Update map with location
-                            if (result.lat && result.lon) {
-                                updateMap(parseFloat(result.lat), parseFloat(result.lon), result.display_name);
-                                console.log('[Enhanced Address Search] Map updated with coordinates:', result.lat, result.lon);
-                            }
-                            
-                            // Show success feedback
-                            searchInput.style.borderColor = '#28a745';
-                            setTimeout(() => {
-                                searchInput.style.borderColor = '';
-                            }, 2000);
-                        };
-                        
-                        suggestionsDiv.appendChild(item);
-                    });
-                })
-                .catch(error => {
-                    console.error('[Enhanced Address Search] Error:', error);
-                    suggestionsDiv.innerHTML = '<div style="padding: 10px; color: #dc3545;">Error searching addresses. Please try again.</div>';
-                });
-        }
-        
-        // Hide suggestions when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
-                suggestionsDiv.style.display = 'none';
+            if (!place.geometry) {
+                console.log('[Google Maps Address Search] No geometry available for place');
+                return;
             }
+            
+            // Fill address fields from place details
+            fillAddressFields(place);
+            
+            // Update map
+            updateMapWithPlace(place);
+            
+            // Show success feedback
+            searchInput.style.borderColor = '#28a745';
+            setTimeout(() => {
+                searchInput.style.borderColor = '';
+            }, 2000);
         });
         
-        console.log('[Enhanced Address Search] Setup complete with map integration!');
+        // Function to fill address fields from Google Places result
+        function fillAddressFields(place) {
+            console.log('[Google Maps Address Search] Filling address fields:', place.formatted_address);
+            
+            // Initialize field values
+            var streetNumber = '';
+            var route = '';
+            var city = '';
+            var province = '';
+            var postalCode = '';
+            var country = 'South Africa';
+            
+            // Parse address components
+            place.address_components.forEach(function(component) {
+                var types = component.types;
+                
+                if (types.includes('street_number')) {
+                    streetNumber = component.long_name;
+                } else if (types.includes('route')) {
+                    route = component.long_name;
+                } else if (types.includes('locality') || types.includes('sublocality_level_1')) {
+                    city = component.long_name;
+                } else if (types.includes('administrative_area_level_1')) {
+                    province = component.long_name;
+                } else if (types.includes('postal_code')) {
+                    postalCode = component.long_name;
+                } else if (types.includes('country')) {
+                    country = component.long_name;
+                }
+            });
+            
+            // Fill the form fields
+            document.getElementById('City').value = city;
+            document.getElementById('Province').value = province;
+            document.getElementById('PostalCode').value = postalCode;
+            document.getElementById('Country').value = country;
+            
+            console.log('[Google Maps Address Search] Address fields filled successfully');
+        }
+        
+        console.log('[Google Maps Address Search] Setup complete with map integration!');
     },
     
     // Initialize OpenStreetMap/Nominatim address autocomplete (OLD - keeping for reference)
