@@ -620,20 +620,8 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize or retry address autocomplete
-        this.setupAddressAutocomplete();
-    },
-    
-    // Setup address autocomplete with retry
-    setupAddressAutocomplete: function() {
-        if (window.googlePlacesReady) {
-            this.initAddressAutocomplete();
-        } else {
-            // Retry after a short delay
-            setTimeout(() => {
-                this.setupAddressAutocomplete();
-            }, 500);
-        }
+        // Initialize OpenStreetMap address autocomplete
+        this.initAddressAutocomplete();
     },
     
     // Initialize lookup fields
@@ -767,86 +755,118 @@ var CustomerModule = {
         modal.show();
     },
     
-    // Initialize address autocomplete
+    // Initialize OpenStreetMap/Nominatim address autocomplete
     initAddressAutocomplete: function() {
-        console.log('Initializing address autocomplete...');
-        
-        // Check if Google Maps is available
-        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
-            console.log('Google Maps Places API not available');
-            return;
-        }
-        
         var input = document.getElementById('StreetAddress');
-        if (!input) {
-            console.log('Street Address input not found');
-            return;
-        }
+        if (!input) return;
         
-        console.log('Creating autocomplete for Street Address field');
+        var searchTimeout = null;
+        var dropdown = null;
         
-        try {
-            // Create autocomplete with South Africa bias
-            var autocomplete = new google.maps.places.Autocomplete(input, {
-                types: ['address'],
-                componentRestrictions: { country: 'za' }
-            });
+        // Create dropdown for suggestions
+        dropdown = document.createElement('div');
+        dropdown.className = 'address-suggestions-dropdown';
+        dropdown.style.cssText = 'position: absolute; width: 100%; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; z-index: 1000; display: none; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        input.parentNode.style.position = 'relative';
+        input.parentNode.appendChild(dropdown);
+        
+        // Search function using Nominatim API
+        function searchAddresses(query) {
+            if (query.length < 3) {
+                dropdown.style.display = 'none';
+                return;
+            }
             
-            console.log('Autocomplete successfully created for Street Address');
-            
-            // Handle place selection
-            autocomplete.addListener('place_changed', function() {
-                console.log('Place selected');
-                var place = autocomplete.getPlace();
-                
-                if (!place.geometry) {
-                    console.log('No details available for: ' + place.name);
-                    return;
-                }
-                
-                // Parse address components
-                var streetNumber = '';
-                var streetName = '';
-                var city = '';
-                var province = '';
-                var postalCode = '';
-                var country = 'South Africa';
-                
-                if (place.address_components) {
-                    place.address_components.forEach(function(component) {
-                        var types = component.types;
-                        if (types.includes('street_number')) {
-                            streetNumber = component.long_name;
-                        } else if (types.includes('route')) {
-                            streetName = component.long_name;
-                        } else if (types.includes('locality')) {
-                            city = component.long_name;
-                        } else if (types.includes('administrative_area_level_1')) {
-                            province = component.long_name;
-                        } else if (types.includes('postal_code')) {
-                            postalCode = component.long_name;
-                        } else if (types.includes('country')) {
-                            country = component.long_name;
-                        }
+            // Use Nominatim API (OpenStreetMap) - free and no API key required
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=za&limit=5&addressdetails=1`)
+                .then(response => response.json())
+                .then(data => {
+                    dropdown.innerHTML = '';
+                    if (data.length === 0) {
+                        dropdown.innerHTML = '<div style="padding: 10px; color: #999;">No addresses found</div>';
+                        dropdown.style.display = 'block';
+                        return;
+                    }
+                    
+                    data.forEach(function(place) {
+                        var item = document.createElement('div');
+                        item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #f0f0f0;';
+                        item.textContent = place.display_name;
+                        
+                        item.onmouseover = function() {
+                            this.style.backgroundColor = '#f5f5f5';
+                        };
+                        item.onmouseout = function() {
+                            this.style.backgroundColor = 'white';
+                        };
+                        
+                        item.onclick = function() {
+                            // Fill in the address fields
+                            var addr = place.address || {};
+                            
+                            // Set street address
+                            var streetParts = [];
+                            if (addr.house_number) streetParts.push(addr.house_number);
+                            if (addr.road) streetParts.push(addr.road);
+                            if (streetParts.length > 0) {
+                                $('#StreetAddress').val(streetParts.join(' '));
+                            } else {
+                                $('#StreetAddress').val(place.display_name.split(',')[0]);
+                            }
+                            
+                            // Set city
+                            $('#City').val(addr.city || addr.town || addr.village || addr.municipality || '');
+                            
+                            // Set province/state
+                            $('#Province').val(addr.state || addr.province || '');
+                            
+                            // Set postal code
+                            $('#PostalCode').val(addr.postcode || '');
+                            
+                            // Set country
+                            $('#Country').val(addr.country || 'South Africa');
+                            
+                            // Store coordinates
+                            if (place.lat && place.lon) {
+                                CustomerModule.currentLatitude = parseFloat(place.lat);
+                                CustomerModule.currentLongitude = parseFloat(place.lon);
+                            }
+                            
+                            dropdown.style.display = 'none';
+                        };
+                        
+                        dropdown.appendChild(item);
                     });
-                }
-                
-                // Update form fields
-                $('#StreetAddress').val((streetNumber + ' ' + streetName).trim());
-                $('#City').val(city);
-                $('#Province').val(province);
-                $('#PostalCode').val(postalCode);
-                $('#Country').val(country);
-                
-                // Store coordinates if available
-                if (place.geometry.location) {
-                    CustomerModule.currentLatitude = place.geometry.location.lat();
-                    CustomerModule.currentLongitude = place.geometry.location.lng();
-                }
-            });
-        } catch (error) {
-            console.log('Could not initialize autocomplete:', error);
+                    
+                    dropdown.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Address search error:', error);
+                    dropdown.style.display = 'none';
+                });
         }
+        
+        // Add input event listener
+        input.addEventListener('input', function(e) {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(function() {
+                searchAddresses(e.target.value);
+            }, 300); // Debounce for 300ms
+        });
+        
+        // Hide dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        // Focus event - show suggestions if there's text
+        input.addEventListener('focus', function(e) {
+            if (e.target.value.length >= 3) {
+                searchAddresses(e.target.value);
+            }
+        });
     },
     
     // Removed Google Maps autocomplete (old version)
