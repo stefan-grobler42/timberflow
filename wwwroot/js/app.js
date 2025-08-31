@@ -620,8 +620,8 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize address autocomplete if Google Maps is ready
-        if (window.googleMapsReady) {
+        // Initialize address autocomplete if Google Places is ready
+        if (window.googlePlacesReady) {
             this.initAddressAutocomplete();
         }
     },
@@ -897,7 +897,7 @@ var CustomerModule = {
         });
     },
     
-    // Removed Google Maps
+    // Map display removed - using address autocomplete only
     initMap_removed: function() {
         var mapElement = document.getElementById('locationMap');
         if (!mapElement) return;
@@ -923,13 +923,13 @@ var CustomerModule = {
         var defaultLocation = { lat: -26.2041, lng: 28.0473 };
         
         try {
-            this.map = new google.maps.Map(mapElement, {
+            // Map display removed - only using autocomplete
                 center: defaultLocation,
                 zoom: 12,
                 mapTypeControl: false
             });
             
-            this.marker = new google.maps.Marker({
+            // Marker removed - only using autocomplete
                 position: defaultLocation,
                 map: this.map,
                 draggable: true

@@ -33,16 +33,16 @@
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     
     
-    <!-- Google Maps for Address Autocomplete -->
+    <!-- Google Places API for Address Autocomplete Only -->
     <script>
-        window.initMap = function() {
-            window.googleMapsReady = true;
+        window.initPlaces = function() {
+            window.googlePlacesReady = true;
             if (window.CustomerModule && window.CustomerModule.initAddressAutocomplete) {
                 window.CustomerModule.initAddressAutocomplete();
             }
         }
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initMap"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initPlaces"></script>
     
     <!-- Custom Scripts -->
     <script src="~/js/app.js" asp-append-version="true"></script>
