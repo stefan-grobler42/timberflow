@@ -578,7 +578,7 @@ var CustomerModule = {
                 <div class="tab-pane fade" id="address">
                     <div class="mb-3">
                         <label class="form-label">Street Address</label>
-                        <input type="text" class="form-control" id="StreetAddress" placeholder="Enter street address...">
+                        <input type="text" class="form-control" id="StreetAddress" placeholder="Start typing an address to search...">
                     </div>
                     
                     <div class="row">
@@ -619,6 +619,11 @@ var CustomerModule = {
     initFormComponents: function() {
         // Initialize lookup fields
         this.initLookupFields();
+        
+        // Initialize address autocomplete if Google Maps is ready
+        if (window.googleMapsReady) {
+            this.initAddressAutocomplete();
+        }
     },
     
     // Initialize lookup fields
@@ -752,7 +757,79 @@ var CustomerModule = {
         modal.show();
     },
     
-    // Removed Google Maps autocomplete
+    // Initialize address autocomplete
+    initAddressAutocomplete: function() {
+        // Check if Google Maps is available
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
+            console.log('Google Maps Places API not available');
+            return;
+        }
+        
+        var input = document.getElementById('StreetAddress');
+        if (!input) return;
+        
+        try {
+            // Create autocomplete with South Africa bias
+            var autocomplete = new google.maps.places.Autocomplete(input, {
+                types: ['address'],
+                componentRestrictions: { country: 'za' }
+            });
+            
+            // Handle place selection
+            autocomplete.addListener('place_changed', function() {
+                var place = autocomplete.getPlace();
+                
+                if (!place.geometry) {
+                    console.log('No details available for: ' + place.name);
+                    return;
+                }
+                
+                // Parse address components
+                var streetNumber = '';
+                var streetName = '';
+                var city = '';
+                var province = '';
+                var postalCode = '';
+                var country = 'South Africa';
+                
+                if (place.address_components) {
+                    place.address_components.forEach(function(component) {
+                        var types = component.types;
+                        if (types.includes('street_number')) {
+                            streetNumber = component.long_name;
+                        } else if (types.includes('route')) {
+                            streetName = component.long_name;
+                        } else if (types.includes('locality')) {
+                            city = component.long_name;
+                        } else if (types.includes('administrative_area_level_1')) {
+                            province = component.long_name;
+                        } else if (types.includes('postal_code')) {
+                            postalCode = component.long_name;
+                        } else if (types.includes('country')) {
+                            country = component.long_name;
+                        }
+                    });
+                }
+                
+                // Update form fields
+                $('#StreetAddress').val((streetNumber + ' ' + streetName).trim());
+                $('#City').val(city);
+                $('#Province').val(province);
+                $('#PostalCode').val(postalCode);
+                $('#Country').val(country);
+                
+                // Store coordinates if available
+                if (place.geometry.location) {
+                    CustomerModule.currentLatitude = place.geometry.location.lat();
+                    CustomerModule.currentLongitude = place.geometry.location.lng();
+                }
+            });
+        } catch (error) {
+            console.log('Could not initialize autocomplete:', error);
+        }
+    },
+    
+    // Removed Google Maps autocomplete (old version)
     initAddressAutocomplete_removed: function() {
         // Check if Google Maps is available and not in error state
         if (window.googleMapsError || (typeof google === 'undefined' || !google.maps)) {
