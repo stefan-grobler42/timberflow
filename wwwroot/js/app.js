@@ -1,7 +1,7 @@
 // Millennium Timber Roof ERP - Single Page Application
-// Version 2.0 - Address Autocomplete Fixed
+// Version 2.1 - Address Autocomplete Fixed with OpenStreetMap
 
-console.log('Loading Millennium ERP v2.0 - Cache cleared');
+console.log('Loading Millennium ERP v2.1 - OpenStreetMap autocomplete enabled');
 
 // Global app namespace
 var MillenniumApp = {
@@ -620,11 +620,16 @@ var CustomerModule = {
     
     // Initialize form components
     initFormComponents: function() {
+        console.log('Initializing form components v2.1...');
+        
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize OpenStreetMap address autocomplete
-        this.initAddressAutocomplete();
+        // Initialize OpenStreetMap address autocomplete after DOM is ready
+        setTimeout(() => {
+            console.log('Setting up OpenStreetMap address autocomplete...');
+            this.initAddressAutocomplete();
+        }, 500);
     },
     
     // Initialize lookup fields
@@ -760,16 +765,21 @@ var CustomerModule = {
     
     // Initialize OpenStreetMap/Nominatim address autocomplete
     initAddressAutocomplete: function() {
-        console.log('Initializing OpenStreetMap address autocomplete...');
+        console.log('[Address Autocomplete v2.1] Starting initialization...');
         
         var input = document.getElementById('StreetAddress');
         if (!input) {
-            console.log('Street Address input not found - retrying in 500ms');
+            console.log('[Address Autocomplete] Street Address input not found - will retry...');
             setTimeout(() => CustomerModule.initAddressAutocomplete(), 500);
             return;
         }
         
-        console.log('Street Address input found, setting up autocomplete');
+        console.log('[Address Autocomplete] Input field found! Setting up OpenStreetMap/Nominatim...');
+        
+        // Remove any existing event listeners
+        var newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        input = newInput;
         
         var searchTimeout = null;
         var dropdown = null;
