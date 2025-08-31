@@ -33,19 +33,20 @@
     <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
     
     
+    <!-- Custom Scripts -->
+    <script src="~/js/app.js" asp-append-version="true"></script>
+    
     <!-- Google Places API for Address Autocomplete Only -->
     <script>
         window.initPlaces = function() {
             window.googlePlacesReady = true;
+            console.log('Google Places API loaded');
             if (window.CustomerModule && window.CustomerModule.initAddressAutocomplete) {
                 window.CustomerModule.initAddressAutocomplete();
             }
         }
     </script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=@Environment.GetEnvironmentVariable("GOOGLE_API_KEY")&libraries=places&callback=initPlaces"></script>
-    
-    <!-- Custom Scripts -->
-    <script src="~/js/app.js" asp-append-version="true"></script>
     
     @await RenderSectionAsync("Scripts", required: false)
 </body>

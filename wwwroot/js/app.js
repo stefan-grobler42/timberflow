@@ -620,9 +620,19 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize address autocomplete if Google Places is ready
+        // Initialize or retry address autocomplete
+        this.setupAddressAutocomplete();
+    },
+    
+    // Setup address autocomplete with retry
+    setupAddressAutocomplete: function() {
         if (window.googlePlacesReady) {
             this.initAddressAutocomplete();
+        } else {
+            // Retry after a short delay
+            setTimeout(() => {
+                this.setupAddressAutocomplete();
+            }, 500);
         }
     },
     
@@ -759,6 +769,8 @@ var CustomerModule = {
     
     // Initialize address autocomplete
     initAddressAutocomplete: function() {
+        console.log('Initializing address autocomplete...');
+        
         // Check if Google Maps is available
         if (typeof google === 'undefined' || !google.maps || !google.maps.places) {
             console.log('Google Maps Places API not available');
@@ -766,7 +778,12 @@ var CustomerModule = {
         }
         
         var input = document.getElementById('StreetAddress');
-        if (!input) return;
+        if (!input) {
+            console.log('Street Address input not found');
+            return;
+        }
+        
+        console.log('Creating autocomplete for Street Address field');
         
         try {
             // Create autocomplete with South Africa bias
@@ -775,8 +792,11 @@ var CustomerModule = {
                 componentRestrictions: { country: 'za' }
             });
             
+            console.log('Autocomplete successfully created for Street Address');
+            
             // Handle place selection
             autocomplete.addListener('place_changed', function() {
+                console.log('Place selected');
                 var place = autocomplete.getPlace();
                 
                 if (!place.geometry) {
