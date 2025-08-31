@@ -42,7 +42,7 @@
             }
         }
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY_HERE&libraries=places&callback=initPlaces"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=@Environment.GetEnvironmentVariable("GOOGLE_API_KEY")&libraries=places&callback=initPlaces"></script>
     
     <!-- Custom Scripts -->
     <script src="~/js/app.js" asp-append-version="true"></script>
