@@ -124,6 +124,63 @@ var MillenniumApp = {
     // Format currency
     formatCurrency: function(amount) {
         return 'R ' + parseFloat(amount || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    },
+    
+    // Universal column resizing function
+    enableColumnResizing: function(tableSelector) {
+        var isResizing = false;
+        var startX, startWidth, currentTh, table;
+        
+        // Add resize handles to column headers
+        $(tableSelector + ' thead th').each(function(index) {
+            if (index === 0) return; // Skip checkbox column
+            
+            var $th = $(this);
+            // Remove existing handles first
+            $th.find('.resize-handle').remove();
+            
+            var $handle = $('<div class="resize-handle"></div>');
+            $th.append($handle);
+            
+            $handle.on('mousedown', function(e) {
+                isResizing = true;
+                currentTh = $th;
+                startX = e.pageX;
+                startWidth = $th.outerWidth();
+                table = $(tableSelector).DataTable();
+                
+                $('body').addClass('col-resizing');
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+        
+        // Handle mouse movement for resizing (only bind once)
+        if (!window.columnResizeHandlerBound) {
+            $(document).on('mousemove.columnResize', function(e) {
+                if (!isResizing) return;
+                
+                var diff = e.pageX - startX;
+                var newWidth = Math.max(50, startWidth + diff);
+                
+                currentTh.css('width', newWidth + 'px');
+                if (table) {
+                    table.columns.adjust();
+                }
+            });
+            
+            // Handle mouse up to stop resizing
+            $(document).on('mouseup.columnResize', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    currentTh = null;
+                    table = null;
+                    $('body').removeClass('col-resizing');
+                }
+            });
+            
+            window.columnResizeHandlerBound = true;
+        }
     }
 };
 
@@ -225,8 +282,10 @@ var CustomerModule = {
                     }
                 }
             ],
-            dom: 'Bfrtip',
+            dom: 'Brtip', // Remove 'f' (filter) and length change
             pageLength: 25,
+            lengthChange: false,
+            searching: false,
             order: [[2, 'asc']], // Sort by Account Name
             responsive: true,
             autoWidth: false,
@@ -271,48 +330,7 @@ var CustomerModule = {
     
     // Enable manual column resizing
     enableColumnResizing: function() {
-        var table = MillenniumApp.dataTable;
-        var isResizing = false;
-        var startX, startWidth, currentTh;
-        
-        // Add resize handles to column headers
-        $('#customerGrid thead th').each(function(index) {
-            if (index === 0) return; // Skip checkbox column
-            
-            var $th = $(this);
-            var $handle = $('<div class="resize-handle"></div>');
-            $th.append($handle);
-            
-            $handle.on('mousedown', function(e) {
-                isResizing = true;
-                currentTh = $th;
-                startX = e.pageX;
-                startWidth = $th.outerWidth();
-                
-                $('body').addClass('col-resizing');
-                e.preventDefault();
-            });
-        });
-        
-        // Handle mouse movement for resizing
-        $(document).on('mousemove', function(e) {
-            if (!isResizing) return;
-            
-            var diff = e.pageX - startX;
-            var newWidth = Math.max(50, startWidth + diff);
-            
-            currentTh.width(newWidth);
-            table.columns.adjust();
-        });
-        
-        // Handle mouse up to stop resizing
-        $(document).on('mouseup', function() {
-            if (isResizing) {
-                isResizing = false;
-                currentTh = null;
-                $('body').removeClass('col-resizing');
-            }
-        });
+        MillenniumApp.enableColumnResizing('#customerGrid');
     },
     
     // Bind list events
@@ -2684,8 +2702,10 @@ var UsersModule = {
                     }
                 }
             ],
-            dom: 'Bfrtip',
+            dom: 'Brtip', // Remove 'f' (filter) and length change
             pageLength: 25,
+            lengthChange: false,
+            searching: false,
             order: [[2, 'asc']],
             responsive: true,
             autoWidth: false,
@@ -2700,7 +2720,11 @@ var UsersModule = {
                 emptyTable: "No users found",
                 info: "Showing _START_ to _END_ of _TOTAL_ users"
             },
-            stateSave: true
+            stateSave: true,
+            initComplete: function() {
+                // Enable column resizing
+                MillenniumApp.enableColumnResizing('#usersGrid');
+            }
         });
     },
     
@@ -2814,7 +2838,10 @@ var SettingsModule = {
                     }
                 }
             ],
+            dom: 'rtip', // Remove buttons, filter, and length change
             pageLength: 25,
+            lengthChange: false,
+            searching: false,
             order: [[1, 'asc']],
             responsive: true,
             autoWidth: false,
@@ -2823,6 +2850,10 @@ var SettingsModule = {
             ],
             language: {
                 emptyTable: "No company types found"
+            },
+            initComplete: function() {
+                // Enable column resizing
+                MillenniumApp.enableColumnResizing('#companyTypesGrid');
             }
         });
         
@@ -2846,7 +2877,10 @@ var SettingsModule = {
                     }
                 }
             ],
+            dom: 'rtip', // Remove buttons, filter, and length change
             pageLength: 25,
+            lengthChange: false,
+            searching: false,
             order: [[1, 'asc']],
             responsive: true,
             autoWidth: false,
@@ -2855,6 +2889,10 @@ var SettingsModule = {
             ],
             language: {
                 emptyTable: "No account types found"
+            },
+            initComplete: function() {
+                // Enable column resizing
+                MillenniumApp.enableColumnResizing('#accountTypesGrid');
             }
         });
     },
