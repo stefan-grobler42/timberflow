@@ -155,18 +155,43 @@ var CustomerModule = {
             columns: [
                 { 
                     data: null,
+                    title: "",
+                    width: "40px",
                     orderable: false,
+                    className: "select-checkbox",
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input row-select" value="' + row.Id + '">';
                     }
                 },
-                { data: 'AccountNo' },
-                { data: 'AccountName' },
-                { data: 'CompanyType' },
-                { data: 'Phone' },
-                { data: 'Email' },
+                { 
+                    data: 'AccountNo',
+                    title: "Account #",
+                    width: "100px"
+                },
+                { 
+                    data: 'AccountName',
+                    title: "Account Name",
+                    width: "200px"
+                },
+                { 
+                    data: 'CompanyType',
+                    title: "Company Type",
+                    width: "120px"
+                },
+                { 
+                    data: 'Phone',
+                    title: "Phone",
+                    width: "130px"
+                },
+                { 
+                    data: 'Email',
+                    title: "Email",
+                    width: "180px"
+                },
                 { 
                     data: 'CustomerStatus',
+                    title: "Status",
+                    width: "120px",
                     render: function(data) {
                         var badgeClass = 'badge-status ';
                         if (data === 'Confirmed Customer') badgeClass += 'active';
@@ -176,28 +201,117 @@ var CustomerModule = {
                         return '<span class="' + badgeClass + '">' + data + '</span>';
                     }
                 },
-                { data: 'SalesRepresentative' },
+                { 
+                    data: 'SalesRepresentative',
+                    title: "Sales Rep",
+                    width: "130px"
+                },
                 { 
                     data: 'CreditLimit',
+                    title: "Credit Limit",
+                    width: "120px",
+                    className: "text-end",
                     render: function(data) {
                         return MillenniumApp.formatCurrency(data);
                     }
                 },
                 { 
                     data: 'CurrentBalance',
+                    title: "Balance",
+                    width: "120px",
+                    className: "text-end",
                     render: function(data) {
                         return MillenniumApp.formatCurrency(data);
                     }
                 }
             ],
-            dom: 'rtip',
+            dom: 'Bfrtip',
             pageLength: 25,
-            order: [[1, 'asc']],
+            order: [[2, 'asc']], // Sort by Account Name
+            scrollX: true,
+            scrollCollapse: true,
+            responsive: true,
+            columnDefs: [
+                {
+                    targets: [0], // Checkbox column
+                    className: 'select-checkbox'
+                },
+                {
+                    targets: [8, 9], // Currency columns
+                    className: 'text-end'
+                }
+            ],
+            buttons: [
+                {
+                    extend: 'colvis',
+                    text: '<i class="fas fa-columns"></i> Columns',
+                    className: 'btn btn-sm btn-secondary'
+                }
+            ],
             language: {
                 emptyTable: "No customers found",
                 info: "Showing _START_ to _END_ of _TOTAL_ customers",
                 infoEmpty: "No customers to show",
-                infoFiltered: "(filtered from _MAX_ total)"
+                infoFiltered: "(filtered from _MAX_ total)",
+                search: "Search customers:",
+                lengthMenu: "Show _MENU_ customers per page"
+            },
+            stateSave: true,
+            stateDuration: 60 * 60 * 24 * 7, // Save state for 1 week
+            initComplete: function() {
+                // Add custom styling to make columns resizable
+                this.api().columns().every(function() {
+                    $(this.header()).css('position', 'relative');
+                });
+                
+                // Enable column resizing with mouse
+                CustomerModule.enableColumnResizing();
+            }
+        });
+    },
+    
+    // Enable manual column resizing
+    enableColumnResizing: function() {
+        var table = MillenniumApp.dataTable;
+        var isResizing = false;
+        var startX, startWidth, currentTh;
+        
+        // Add resize handles to column headers
+        $('#customerGrid thead th').each(function(index) {
+            if (index === 0) return; // Skip checkbox column
+            
+            var $th = $(this);
+            var $handle = $('<div class="resize-handle"></div>');
+            $th.append($handle);
+            
+            $handle.on('mousedown', function(e) {
+                isResizing = true;
+                currentTh = $th;
+                startX = e.pageX;
+                startWidth = $th.outerWidth();
+                
+                $('body').addClass('col-resizing');
+                e.preventDefault();
+            });
+        });
+        
+        // Handle mouse movement for resizing
+        $(document).on('mousemove', function(e) {
+            if (!isResizing) return;
+            
+            var diff = e.pageX - startX;
+            var newWidth = Math.max(50, startWidth + diff);
+            
+            currentTh.width(newWidth);
+            table.columns.adjust();
+        });
+        
+        // Handle mouse up to stop resizing
+        $(document).on('mouseup', function() {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                $('body').removeClass('col-resizing');
             }
         });
     },

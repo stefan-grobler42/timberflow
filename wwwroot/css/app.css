@@ -393,3 +393,75 @@ body {
         width: 100%;
     }
 }
+
+/* DataTables Column Resizing */
+.resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    background: transparent;
+    z-index: 10;
+}
+
+.resize-handle:hover {
+    background: rgba(89, 170, 213, 0.3);
+}
+
+.col-resizing {
+    cursor: col-resize !important;
+    user-select: none;
+}
+
+.col-resizing * {
+    cursor: col-resize !important;
+}
+
+/* Enhanced DataTable Controls */
+.dataTables_wrapper .dataTables_length,
+.dataTables_wrapper .dataTables_filter {
+    margin-bottom: 10px;
+}
+
+.dataTables_wrapper .dataTables_buttons {
+    margin-bottom: 10px;
+}
+
+.dt-buttons {
+    margin-right: 10px;
+}
+
+.dt-button {
+    margin-right: 5px !important;
+}
+
+/* Responsive DataTable */
+table.dataTable {
+    border-collapse: separate !important;
+}
+
+table.dataTable thead th {
+    position: relative;
+    border-right: 1px solid #ddd;
+}
+
+table.dataTable thead th:last-child {
+    border-right: none;
+}
+
+/* Column visibility button styling */
+.dt-button-collection {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* DataTable scrolling improvements */
+.dataTables_scrollHead {
+    border-bottom: 1px solid #ddd;
+}
+
+.dataTables_scrollBody {
+    border-top: none;
+}
