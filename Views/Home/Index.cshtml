@@ -248,4 +248,195 @@
             </div>
         </div>
     </div>
+    
+    <!-- Users List View Template -->
+    <div id="usersListTemplate">
+        <div class="module-header mb-3">
+            <h2><i class="fas fa-users-cog"></i> User Management</h2>
+            <p class="text-muted">Manage system users, roles and permissions</p>
+        </div>
+        
+        <!-- Action Bar -->
+        <div class="action-bar mb-3">
+            <div class="action-group">
+                <button class="btn btn-primary btn-sm" onclick="UsersModule.newRecord()">
+                    <i class="fas fa-plus"></i> New
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="UsersModule.editRecord()" id="btnEditUser" disabled>
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm" onclick="UsersModule.deleteRecord()" id="btnDeleteUser" disabled>
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+            
+            <div class="action-separator"></div>
+            
+            <div class="action-group">
+                <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.refreshGrid()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.showFilter()">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.columnSelector()">
+                    <i class="fas fa-columns"></i> Columns
+                </button>
+            </div>
+            
+            <div class="action-separator"></div>
+            
+            <div class="action-group">
+                <button class="btn btn-outline-success btn-sm" onclick="UsersModule.exportExcel()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="UsersModule.importData()">
+                    <i class="fas fa-file-import"></i> Import
+                </button>
+            </div>
+            
+            <div class="action-search ms-auto">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" placeholder="Search users..." id="userSearch">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Data Grid -->
+        <div class="card">
+            <div class="card-body p-0">
+                <table id="usersGrid" class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th width="40">
+                                <input type="checkbox" class="form-check-input" id="selectAllUsers">
+                            </th>
+                            <th>User Code</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Role</th>
+                            <th>Phone</th>
+                            <th>Status</th>
+                            <th>Hire Date</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Settings List View Template -->
+    <div id="settingsListTemplate">
+        <div class="module-header mb-3">
+            <h2><i class="fas fa-sliders-h"></i> Settings Management</h2>
+            <p class="text-muted">Manage lookup tables and system settings</p>
+        </div>
+        
+        <!-- Settings Tabs -->
+        <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="company-types-tab" data-bs-toggle="tab" data-bs-target="#company-types" type="button" role="tab">
+                    <i class="fas fa-building"></i> Company Types
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="account-types-tab" data-bs-toggle="tab" data-bs-target="#account-types" type="button" role="tab">
+                    <i class="fas fa-user-tag"></i> Account Types
+                </button>
+            </li>
+        </ul>
+        
+        <!-- Tab Content -->
+        <div class="tab-content" id="settingsTabsContent">
+            <!-- Company Types Tab -->
+            <div class="tab-pane fade show active" id="company-types" role="tabpanel">
+                <div class="action-bar mb-3 mt-3">
+                    <div class="action-group">
+                        <button class="btn btn-primary btn-sm" onclick="SettingsModule.newCompanyType()">
+                            <i class="fas fa-plus"></i> New Company Type
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="SettingsModule.editCompanyType()" id="btnEditCompanyType" disabled>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="SettingsModule.deleteCompanyType()" id="btnDeleteCompanyType" disabled>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                    
+                    <div class="action-search ms-auto">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Search company types..." id="companyTypeSearch">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body p-0">
+                        <table id="companyTypesGrid" class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th width="40">
+                                        <input type="checkbox" class="form-check-input" id="selectAllCompanyTypes">
+                                    </th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Types Tab -->
+            <div class="tab-pane fade" id="account-types" role="tabpanel">
+                <div class="action-bar mb-3 mt-3">
+                    <div class="action-group">
+                        <button class="btn btn-primary btn-sm" onclick="SettingsModule.newAccountType()">
+                            <i class="fas fa-plus"></i> New Account Type
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="SettingsModule.editAccountType()" id="btnEditAccountType" disabled>
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="SettingsModule.deleteAccountType()" id="btnDeleteAccountType" disabled>
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                    
+                    <div class="action-search ms-auto">
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text"><i class="fas fa-search"></i></span>
+                            <input type="text" class="form-control" placeholder="Search account types..." id="accountTypeSearch">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-body p-0">
+                        <table id="accountTypesGrid" class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th width="40">
+                                        <input type="checkbox" class="form-check-input" id="selectAllAccountTypes">
+                                    </th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>

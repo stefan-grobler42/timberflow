@@ -2619,7 +2619,359 @@ var SettingsModule = {
     }
 };
 
+// Users Module
+var UsersModule = {
+    users: [],
+    selectedId: null,
+    
+    // Load users list view
+    loadList: function() {
+        var template = $('#usersListTemplate').html();
+        $('#mainContent').html(template);
+        
+        this.initDataTable();
+        this.bindListEvents();
+        this.loadData();
+    },
+    
+    // Initialize DataTable
+    initDataTable: function() {
+        if (MillenniumApp.dataTable) {
+            MillenniumApp.dataTable.destroy();
+        }
+        
+        MillenniumApp.dataTable = $('#usersGrid').DataTable({
+            columns: [
+                { 
+                    data: null,
+                    title: "",
+                    width: "40px",
+                    orderable: false,
+                    className: "select-checkbox",
+                    render: function(data, type, row) {
+                        return '<input type="checkbox" class="form-check-input row-select" value="' + row.Id + '">';
+                    }
+                },
+                { data: 'UserCode', title: "User Code", width: "100px" },
+                { data: 'FullName', title: "Full Name", width: "180px" },
+                { data: 'Email', title: "Email", width: "200px" },
+                { data: 'Department', title: "Department", width: "120px" },
+                { data: 'Position', title: "Position", width: "150px" },
+                { 
+                    data: 'Role',
+                    title: "Role",
+                    width: "100px",
+                    render: function(data) {
+                        var badgeClass = data === 'admin' ? 'badge bg-danger' : 
+                                       data === 'manager' ? 'badge bg-warning' : 'badge bg-info';
+                        return '<span class="' + badgeClass + '">' + (data || 'User') + '</span>';
+                    }
+                },
+                { data: 'Phone', title: "Phone", width: "130px" },
+                { 
+                    data: 'IsActive',
+                    title: "Status",
+                    width: "80px",
+                    render: function(data) {
+                        return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    }
+                },
+                { 
+                    data: 'HireDate',
+                    title: "Hire Date",
+                    width: "100px",
+                    render: function(data) {
+                        return data ? new Date(data).toLocaleDateString() : '';
+                    }
+                }
+            ],
+            dom: 'Bfrtip',
+            pageLength: 25,
+            order: [[2, 'asc']],
+            scrollX: true,
+            responsive: true,
+            buttons: [
+                {
+                    extend: 'colvis',
+                    text: '<i class="fas fa-columns"></i> Columns',
+                    className: 'btn btn-sm btn-secondary'
+                }
+            ],
+            language: {
+                emptyTable: "No users found",
+                info: "Showing _START_ to _END_ of _TOTAL_ users"
+            },
+            stateSave: true
+        });
+    },
+    
+    // Bind list events
+    bindListEvents: function() {
+        $('#userSearch').on('keyup', function() {
+            MillenniumApp.dataTable.search(this.value).draw();
+        });
+        
+        $('#selectAllUsers').on('change', function() {
+            $('.row-select').prop('checked', this.checked);
+            UsersModule.updateButtonState();
+        });
+        
+        $(document).on('change', '.row-select', function() {
+            UsersModule.updateButtonState();
+        });
+    },
+    
+    // Load data from API
+    loadData: function() {
+        $.get('/api/UsersApi')
+            .done(data => {
+                this.users = data;
+                MillenniumApp.dataTable.clear().rows.add(data).draw();
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to load users', 'error');
+            });
+    },
+    
+    // Update button states
+    updateButtonState: function() {
+        var selected = $('.row-select:checked').length;
+        $('#btnEditUser').prop('disabled', selected !== 1);
+        $('#btnDeleteUser').prop('disabled', selected === 0);
+    },
+    
+    // Refresh grid
+    refreshGrid: function() {
+        this.loadData();
+        MillenniumApp.showNotification('Users refreshed', 'success');
+    },
+    
+    // Placeholder methods
+    newRecord: function() {
+        MillenniumApp.showNotification('User creation coming soon', 'info');
+    },
+    
+    editRecord: function() {
+        MillenniumApp.showNotification('User editing coming soon', 'info');
+    },
+    
+    deleteRecord: function() {
+        MillenniumApp.showNotification('User deletion coming soon', 'info');
+    },
+    
+    showFilter: function() {
+        MillenniumApp.showNotification('User filtering coming soon', 'info');
+    },
+    
+    columnSelector: function() {
+        MillenniumApp.showNotification('Column selector coming soon', 'info');
+    },
+    
+    exportExcel: function() {
+        MillenniumApp.showNotification('Excel export coming soon', 'info');
+    },
+    
+    importData: function() {
+        MillenniumApp.showNotification('Data import coming soon', 'info');
+    }
+};
+
+// Settings Module
+var SettingsModule = {
+    companyTypes: [],
+    accountTypes: [],
+    selectedCompanyTypeId: null,
+    selectedAccountTypeId: null,
+    
+    // Load settings list view
+    loadList: function() {
+        var template = $('#settingsListTemplate').html();
+        $('#mainContent').html(template);
+        
+        this.initDataTables();
+        this.bindEvents();
+        this.loadData();
+    },
+    
+    // Initialize DataTables
+    initDataTables: function() {
+        // Company Types DataTable
+        this.companyTypesTable = $('#companyTypesGrid').DataTable({
+            columns: [
+                { 
+                    data: null,
+                    width: "40px",
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return '<input type="checkbox" class="form-check-input company-type-select" value="' + row.Id + '">';
+                    }
+                },
+                { data: 'Code', width: "100px" },
+                { data: 'Name', width: "200px" },
+                { data: 'Description', width: "300px" },
+                { 
+                    data: 'IsActive',
+                    width: "80px",
+                    render: function(data) {
+                        return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    }
+                }
+            ],
+            pageLength: 25,
+            order: [[1, 'asc']],
+            language: {
+                emptyTable: "No company types found"
+            }
+        });
+        
+        // Account Types DataTable
+        this.accountTypesTable = $('#accountTypesGrid').DataTable({
+            columns: [
+                { 
+                    data: null,
+                    width: "40px",
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return '<input type="checkbox" class="form-check-input account-type-select" value="' + row.Id + '">';
+                    }
+                },
+                { data: 'Code', width: "100px" },
+                { data: 'Name', width: "200px" },
+                { data: 'Description', width: "300px" },
+                { 
+                    data: 'IsActive',
+                    width: "80px",
+                    render: function(data) {
+                        return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    }
+                }
+            ],
+            pageLength: 25,
+            order: [[1, 'asc']],
+            language: {
+                emptyTable: "No account types found"
+            }
+        });
+    },
+    
+    // Bind events
+    bindEvents: function() {
+        // Search functionality
+        $('#companyTypeSearch').on('keyup', function() {
+            SettingsModule.companyTypesTable.search(this.value).draw();
+        });
+        
+        $('#accountTypeSearch').on('keyup', function() {
+            SettingsModule.accountTypesTable.search(this.value).draw();
+        });
+        
+        // Selection events
+        $('#selectAllCompanyTypes').on('change', function() {
+            $('.company-type-select').prop('checked', this.checked);
+            SettingsModule.updateCompanyTypeButtons();
+        });
+        
+        $('#selectAllAccountTypes').on('change', function() {
+            $('.account-type-select').prop('checked', this.checked);
+            SettingsModule.updateAccountTypeButtons();
+        });
+        
+        $(document).on('change', '.company-type-select', function() {
+            SettingsModule.updateCompanyTypeButtons();
+        });
+        
+        $(document).on('change', '.account-type-select', function() {
+            SettingsModule.updateAccountTypeButtons();
+        });
+    },
+    
+    // Load data from APIs
+    loadData: function() {
+        // Load Company Types
+        $.get('/api/LookupsApi/company-types')
+            .done(data => {
+                this.companyTypes = data;
+                this.companyTypesTable.clear().rows.add(data).draw();
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to load company types', 'error');
+            });
+        
+        // Load Account Types
+        $.get('/api/LookupsApi/account-types')
+            .done(data => {
+                this.accountTypes = data;
+                this.accountTypesTable.clear().rows.add(data).draw();
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to load account types', 'error');
+            });
+    },
+    
+    // Update button states
+    updateCompanyTypeButtons: function() {
+        var selected = $('.company-type-select:checked').length;
+        $('#btnEditCompanyType').prop('disabled', selected !== 1);
+        $('#btnDeleteCompanyType').prop('disabled', selected === 0);
+    },
+    
+    updateAccountTypeButtons: function() {
+        var selected = $('.account-type-select:checked').length;
+        $('#btnEditAccountType').prop('disabled', selected !== 1);
+        $('#btnDeleteAccountType').prop('disabled', selected === 0);
+    },
+    
+    // Placeholder methods for Company Types
+    newCompanyType: function() {
+        MillenniumApp.showNotification('Company Type creation coming soon', 'info');
+    },
+    
+    editCompanyType: function() {
+        MillenniumApp.showNotification('Company Type editing coming soon', 'info');
+    },
+    
+    deleteCompanyType: function() {
+        MillenniumApp.showNotification('Company Type deletion coming soon', 'info');
+    },
+    
+    // Placeholder methods for Account Types
+    newAccountType: function() {
+        MillenniumApp.showNotification('Account Type creation coming soon', 'info');
+    },
+    
+    editAccountType: function() {
+        MillenniumApp.showNotification('Account Type editing coming soon', 'info');
+    },
+    
+    deleteAccountType: function() {
+        MillenniumApp.showNotification('Account Type deletion coming soon', 'info');
+    }
+};
+
 // Initialize app when document ready
 $(document).ready(function() {
     MillenniumApp.init();
+    
+    // Module click handlers
+    $(document).on('click', '.sidebar-link[data-module]', function(e) {
+        e.preventDefault();
+        var module = $(this).data('module');
+        
+        if (module === 'customer') {
+            CustomerModule.loadList();
+        } else if (module === 'users') {
+            UsersModule.loadList();
+        } else if (module === 'settings') {
+            SettingsModule.loadList();
+        } else {
+            // Placeholder for other modules
+            $('#mainContent').html('<div class="alert alert-info m-4"><h4>Coming Soon!</h4><p>This module is under development.</p></div>');
+        }
+        
+        $('.sidebar-link').removeClass('active');
+        $(this).addClass('active');
+    });
+    
+    // Load customer module by default
+    CustomerModule.loadList();
 });// Force cache refresh 1756651202
