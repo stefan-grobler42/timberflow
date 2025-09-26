@@ -81,6 +81,12 @@ var MillenniumApp = {
             case 'customer':
                 CustomerModule.loadList();
                 break;
+            case 'users':
+                UserModule.loadList();
+                break;
+            case 'settings':
+                SettingsModule.loadList();
+                break;
             default:
                 this.showComingSoon(module);
         }
@@ -1929,6 +1935,573 @@ var CustomerModule = {
         if (skipped > 0) message += `, ${skipped} skipped`;
         
         MillenniumApp.showNotification(message, 'success');
+    }
+};
+
+// User Module
+var UserModule = {
+    users: [],
+    selectedId: null,
+    
+    // Load user list view
+    loadList: function() {
+        var html = `
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-users"></i> User Management</h2>
+            <div class="action-bar d-flex gap-2">
+                <button class="btn btn-primary" onclick="UserModule.showForm()">
+                    <i class="fas fa-plus"></i> New User
+                </button>
+                <button class="btn btn-secondary" onclick="UserModule.refreshData()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-body">
+                <table id="userGrid" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" class="form-check-input" id="selectAllUsers">
+                            </th>
+                            <th>Code</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Position</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>`;
+        
+        $('#mainContent').html(html);
+        this.initDataTable();
+        this.loadData();
+    },
+    
+    // Initialize DataTable
+    initDataTable: function() {
+        MillenniumApp.dataTable = $('#userGrid').DataTable({
+            columns: [
+                { 
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return '<input type="checkbox" class="form-check-input row-select" value="' + row.Id + '">';
+                    }
+                },
+                { data: 'UserCode' },
+                { 
+                    data: null,
+                    render: function(data, type, row) {
+                        return row.FirstName + ' ' + row.LastName;
+                    }
+                },
+                { data: 'Email' },
+                { data: 'Department' },
+                { data: 'Position' },
+                { 
+                    data: 'Role',
+                    render: function(data) {
+                        var badgeClass = '';
+                        switch(data.toLowerCase()) {
+                            case 'admin': badgeClass = 'bg-danger'; break;
+                            case 'manager': badgeClass = 'bg-warning'; break;
+                            case 'sales': badgeClass = 'bg-success'; break;
+                            default: badgeClass = 'bg-secondary';
+                        }
+                        return `<span class="badge ${badgeClass}">${data}</span>`;
+                    }
+                },
+                { 
+                    data: 'IsActive',
+                    render: function(data) {
+                        return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="UserModule.editUser(${row.Id})" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="UserModule.deleteUser(${row.Id})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                    }
+                }
+            ],
+            pageLength: 25,
+            order: [[2, 'asc']]
+        });
+    },
+    
+    // Load users data
+    loadData: function() {
+        $.get('/api/UsersApi')
+            .done(data => {
+                this.users = data;
+                MillenniumApp.dataTable.clear().rows.add(data).draw();
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to load users', 'error');
+            });
+    },
+    
+    // Refresh data
+    refreshData: function() {
+        this.loadData();
+        MillenniumApp.showNotification('Users refreshed', 'success');
+    },
+    
+    // Show user form
+    showForm: function(id = null) {
+        var user = id ? this.users.find(u => u.Id === id) : null;
+        var title = user ? 'Edit User' : 'New User';
+        
+        var modalHtml = `
+        <div class="modal fade" id="userModal" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="userForm">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">First Name *</label>
+                                        <input type="text" class="form-control" id="FirstName" required 
+                                               value="${user ? user.FirstName : ''}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Last Name *</label>
+                                        <input type="text" class="form-control" id="LastName" required 
+                                               value="${user ? user.LastName : ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" class="form-control" id="Email" 
+                                               value="${user ? user.Email : ''}">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Phone</label>
+                                        <input type="text" class="form-control" id="Phone" 
+                                               value="${user ? (user.Phone || '') : ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Department</label>
+                                        <select class="form-select" id="Department">
+                                            <option value="">Select Department</option>
+                                            <option value="Sales" ${user && user.Department === 'Sales' ? 'selected' : ''}>Sales</option>
+                                            <option value="Administration" ${user && user.Department === 'Administration' ? 'selected' : ''}>Administration</option>
+                                            <option value="Operations" ${user && user.Department === 'Operations' ? 'selected' : ''}>Operations</option>
+                                            <option value="Finance" ${user && user.Department === 'Finance' ? 'selected' : ''}>Finance</option>
+                                            <option value="Management" ${user && user.Department === 'Management' ? 'selected' : ''}>Management</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Position</label>
+                                        <input type="text" class="form-control" id="Position" 
+                                               value="${user ? (user.Position || '') : ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Role *</label>
+                                        <select class="form-select" id="Role" required>
+                                            <option value="">Select Role</option>
+                                            <option value="user" ${user && user.Role === 'user' ? 'selected' : ''}>User</option>
+                                            <option value="sales" ${user && user.Role === 'sales' ? 'selected' : ''}>Sales</option>
+                                            <option value="manager" ${user && user.Role === 'manager' ? 'selected' : ''}>Manager</option>
+                                            <option value="admin" ${user && user.Role === 'admin' ? 'selected' : ''}>Administrator</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Hire Date</label>
+                                        <input type="date" class="form-control" id="HireDate" 
+                                               value="${user && user.HireDate ? user.HireDate.split('T')[0] : ''}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Address</label>
+                                <textarea class="form-control" id="Address" rows="3">${user ? (user.Address || '') : ''}</textarea>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="IsActive" 
+                                       ${user ? (user.IsActive ? 'checked' : '') : 'checked'}>
+                                <label class="form-check-label" for="IsActive">Active User</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="UserModule.saveUser(${user ? user.Id : 'null'})">
+                            ${user ? 'Update' : 'Create'} User
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        $('body').append(modalHtml);
+        var modal = new bootstrap.Modal(document.getElementById('userModal'));
+        
+        $('#userModal').on('hidden.bs.modal', function() {
+            $(this).remove();
+        });
+        
+        modal.show();
+    },
+    
+    // Edit user
+    editUser: function(id) {
+        this.showForm(id);
+    },
+    
+    // Save user
+    saveUser: function(id) {
+        var userData = {
+            FirstName: $('#FirstName').val(),
+            LastName: $('#LastName').val(),
+            Email: $('#Email').val(),
+            Phone: $('#Phone').val(),
+            Department: $('#Department').val(),
+            Position: $('#Position').val(),
+            Role: $('#Role').val(),
+            HireDate: $('#HireDate').val() || null,
+            Address: $('#Address').val(),
+            IsActive: $('#IsActive').is(':checked')
+        };
+        
+        var url = id ? `/api/UsersApi/${id}` : '/api/UsersApi';
+        var method = id ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(userData)
+        })
+        .done(() => {
+            bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+            this.loadData();
+            MillenniumApp.showNotification(`User ${id ? 'updated' : 'created'} successfully`, 'success');
+        })
+        .fail(() => {
+            MillenniumApp.showNotification(`Failed to ${id ? 'update' : 'create'} user`, 'error');
+        });
+    },
+    
+    // Delete user
+    deleteUser: function(id) {
+        if (!confirm('Are you sure you want to deactivate this user?')) return;
+        
+        $.ajax({
+            url: `/api/UsersApi/${id}`,
+            method: 'DELETE'
+        })
+        .done(() => {
+            this.loadData();
+            MillenniumApp.showNotification('User deactivated successfully', 'success');
+        })
+        .fail(() => {
+            MillenniumApp.showNotification('Failed to deactivate user', 'error');
+        });
+    }
+};
+
+// Settings Module
+var SettingsModule = {
+    currentTable: 'company-types',
+    data: [],
+    
+    // Load settings list view
+    loadList: function() {
+        var html = `
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="fas fa-cog"></i> System Settings</h2>
+            <div class="action-bar d-flex gap-2">
+                <button class="btn btn-primary" onclick="SettingsModule.showForm()">
+                    <i class="fas fa-plus"></i> New Item
+                </button>
+                <button class="btn btn-secondary" onclick="SettingsModule.refreshData()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Lookup Tables</h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action active" 
+                           onclick="SettingsModule.switchTable('company-types')">
+                            <i class="fas fa-building"></i> Company Types
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" 
+                           onclick="SettingsModule.switchTable('account-types')">
+                            <i class="fas fa-user-tag"></i> Account Types
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0" id="tableTitle">Company Types</h6>
+                    </div>
+                    <div class="card-body">
+                        <table id="settingsGrid" class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th width="50">
+                                        <input type="checkbox" class="form-check-input" id="selectAllSettings">
+                                    </th>
+                                    <th>Code</th>
+                                    <th>Name</th>
+                                    <th>Description</th>
+                                    <th>Sort Order</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        $('#mainContent').html(html);
+        this.initDataTable();
+        this.loadData();
+    },
+    
+    // Initialize DataTable
+    initDataTable: function() {
+        MillenniumApp.dataTable = $('#settingsGrid').DataTable({
+            columns: [
+                { 
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return '<input type="checkbox" class="form-check-input row-select" value="' + row.Id + '">';
+                    }
+                },
+                { data: 'Code' },
+                { data: 'Name' },
+                { data: 'Description' },
+                { data: 'SortOrder' },
+                { 
+                    data: 'IsActive',
+                    render: function(data) {
+                        return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
+                    }
+                },
+                {
+                    data: null,
+                    orderable: false,
+                    render: function(data, type, row) {
+                        return `
+                            <div class="btn-group btn-group-sm">
+                                <button class="btn btn-outline-primary" onclick="SettingsModule.editItem(${row.Id})" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-outline-danger" onclick="SettingsModule.deleteItem(${row.Id})" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>`;
+                    }
+                }
+            ],
+            pageLength: 25,
+            order: [[4, 'asc'], [2, 'asc']]
+        });
+    },
+    
+    // Switch lookup table
+    switchTable: function(tableName) {
+        this.currentTable = tableName;
+        
+        // Update active menu item
+        $('.list-group-item').removeClass('active');
+        $('[onclick*="' + tableName + '"]').addClass('active');
+        
+        // Update title
+        var titles = {
+            'company-types': 'Company Types',
+            'account-types': 'Account Types'
+        };
+        $('#tableTitle').text(titles[tableName] || tableName);
+        
+        this.loadData();
+    },
+    
+    // Load data
+    loadData: function() {
+        $.get(`/api/LookupsApi/${this.currentTable}`)
+            .done(data => {
+                this.data = data;
+                MillenniumApp.dataTable.clear().rows.add(data).draw();
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to load data', 'error');
+            });
+    },
+    
+    // Refresh data
+    refreshData: function() {
+        this.loadData();
+        MillenniumApp.showNotification('Data refreshed', 'success');
+    },
+    
+    // Show form
+    showForm: function(id = null) {
+        var item = id ? this.data.find(i => i.Id === id) : null;
+        var title = item ? 'Edit Item' : 'New Item';
+        
+        var modalHtml = `
+        <div class="modal fade" id="settingsModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${title}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="settingsForm">
+                            <div class="mb-3">
+                                <label class="form-label">Code *</label>
+                                <input type="text" class="form-control" id="Code" required 
+                                       value="${item ? item.Code : ''}" placeholder="e.g., PTC, LLC">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Name *</label>
+                                <input type="text" class="form-control" id="Name" required 
+                                       value="${item ? item.Name : ''}" placeholder="e.g., Private Company">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Description</label>
+                                <textarea class="form-control" id="Description" rows="3" 
+                                          placeholder="Optional description">${item ? (item.Description || '') : ''}</textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Sort Order</label>
+                                <input type="number" class="form-control" id="SortOrder" 
+                                       value="${item ? (item.SortOrder || 0) : 0}" min="0">
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="IsActive" 
+                                       ${item ? (item.IsActive ? 'checked' : '') : 'checked'}>
+                                <label class="form-check-label" for="IsActive">Active</label>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="SettingsModule.saveItem(${item ? item.Id : 'null'})">
+                            ${item ? 'Update' : 'Create'} Item
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        
+        $('body').append(modalHtml);
+        var modal = new bootstrap.Modal(document.getElementById('settingsModal'));
+        
+        $('#settingsModal').on('hidden.bs.modal', function() {
+            $(this).remove();
+        });
+        
+        modal.show();
+    },
+    
+    // Edit item
+    editItem: function(id) {
+        this.showForm(id);
+    },
+    
+    // Save item
+    saveItem: function(id) {
+        var itemData = {
+            Code: $('#Code').val(),
+            Name: $('#Name').val(),
+            Description: $('#Description').val(),
+            SortOrder: parseInt($('#SortOrder').val()) || 0,
+            IsActive: $('#IsActive').is(':checked')
+        };
+        
+        var url = id ? `/api/LookupsApi/${this.currentTable}/${id}` : `/api/LookupsApi/${this.currentTable}`;
+        var method = id ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(itemData)
+        })
+        .done(() => {
+            bootstrap.Modal.getInstance(document.getElementById('settingsModal')).hide();
+            this.loadData();
+            MillenniumApp.showNotification(`Item ${id ? 'updated' : 'created'} successfully`, 'success');
+        })
+        .fail(() => {
+            MillenniumApp.showNotification(`Failed to ${id ? 'update' : 'create'} item`, 'error');
+        });
+    },
+    
+    // Delete item
+    deleteItem: function(id) {
+        if (!confirm('Are you sure you want to deactivate this item?')) return;
+        
+        $.ajax({
+            url: `/api/LookupsApi/${this.currentTable}/${id}`,
+            method: 'DELETE'
+        })
+        .done(() => {
+            this.loadData();
+            MillenniumApp.showNotification('Item deactivated successfully', 'success');
+        })
+        .fail(() => {
+            MillenniumApp.showNotification('Failed to deactivate item', 'error');
+        });
     }
 };
 

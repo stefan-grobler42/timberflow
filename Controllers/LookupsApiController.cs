@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MillenniumERP.Models;
+using Npgsql;
 
 namespace MillenniumERP.Controllers
 {
@@ -7,128 +8,331 @@ namespace MillenniumERP.Controllers
     [Route("api/[controller]")]
     public class LookupsApiController : ControllerBase
     {
-        // Company Types lookup data
-        private static List<LookupItem> _companyTypes = new List<LookupItem>
-        {
-            new LookupItem { Id = 1, Code = "SP", Name = "Sole Proprietor", IsActive = true, SortOrder = 1 },
-            new LookupItem { Id = 2, Code = "PTC", Name = "Private Company", IsActive = true, SortOrder = 2 },
-            new LookupItem { Id = 3, Code = "PBC", Name = "Public Company", IsActive = true, SortOrder = 3 },
-            new LookupItem { Id = 4, Code = "CC", Name = "Close Corporation", IsActive = true, SortOrder = 4 },
-            new LookupItem { Id = 5, Code = "PT", Name = "Partnership", IsActive = true, SortOrder = 5 },
-            new LookupItem { Id = 6, Code = "TR", Name = "Trust", IsActive = true, SortOrder = 6 },
-            new LookupItem { Id = 7, Code = "IND", Name = "Individual", IsActive = true, SortOrder = 7 }
-        };
+        private readonly IConfiguration _configuration;
 
-        // Account Types lookup data
-        private static List<LookupItem> _accountTypes = new List<LookupItem>
+        public LookupsApiController(IConfiguration configuration)
         {
-            new LookupItem { Id = 1, Code = "PROS", Name = "Prospect", IsActive = true, SortOrder = 1 },
-            new LookupItem { Id = 2, Code = "CUST", Name = "Customer", IsActive = true, SortOrder = 2 },
-            new LookupItem { Id = 3, Code = "SUPP", Name = "Supplier", IsActive = true, SortOrder = 3 },
-            new LookupItem { Id = 4, Code = "PART", Name = "Partner", IsActive = true, SortOrder = 4 },
-            new LookupItem { Id = 5, Code = "COMP", Name = "Competitor", IsActive = true, SortOrder = 5 }
-        };
+            _configuration = configuration;
+        }
 
-        // Customer Status lookup data (locked field)
-        private static List<CustomerStatusItem> _customerStatuses = new List<CustomerStatusItem>
+        private string GetConnectionString()
         {
-            new CustomerStatusItem { Id = 1, Code = "PROS", Name = "Prospect", IsActive = true, SortOrder = 1, RequiresApproval = false, AllowedRoles = new[] { "User", "Sales", "Manager", "Director", "Accountant" } },
-            new CustomerStatusItem { Id = 2, Code = "PEND", Name = "Pending Approval", IsActive = true, SortOrder = 2, RequiresApproval = true, AllowedRoles = new[] { "Manager", "Director", "Accountant" } },
-            new CustomerStatusItem { Id = 3, Code = "CONF", Name = "Confirmed Customer", IsActive = true, SortOrder = 3, RequiresApproval = true, AllowedRoles = new[] { "Manager", "Director", "Accountant" } },
-            new CustomerStatusItem { Id = 4, Code = "REV", Name = "Account Under Review", IsActive = true, SortOrder = 4, RequiresApproval = true, AllowedRoles = new[] { "Director", "Accountant" } },
-            new CustomerStatusItem { Id = 5, Code = "APPR", Name = "Credit Approved", IsActive = true, SortOrder = 5, RequiresApproval = true, AllowedRoles = new[] { "Director", "Accountant" } },
-            new CustomerStatusItem { Id = 6, Code = "CLOS", Name = "Account Closed", IsActive = true, SortOrder = 6, RequiresApproval = true, AllowedRoles = new[] { "Director", "Accountant" } }
-        };
+            var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+            if (string.IsNullOrEmpty(databaseUrl))
+            {
+                throw new InvalidOperationException("DATABASE_URL environment variable not found");
+            }
 
-        // Approval Status lookup data
-        private static List<LookupItem> _approvalStatuses = new List<LookupItem>
-        {
-            new LookupItem { Id = 1, Code = "PEND", Name = "Pending", IsActive = true, SortOrder = 1 },
-            new LookupItem { Id = 2, Code = "CREQ", Name = "Credit App Required", IsActive = true, SortOrder = 2 },
-            new LookupItem { Id = 3, Code = "RCHK", Name = "References Check", IsActive = true, SortOrder = 3 },
-            new LookupItem { Id = 4, Code = "PHREV", Name = "Payment History Review", IsActive = true, SortOrder = 4 },
-            new LookupItem { Id = 5, Code = "APPR", Name = "Approved", IsActive = true, SortOrder = 5 },
-            new LookupItem { Id = 6, Code = "REJ", Name = "Rejected", IsActive = true, SortOrder = 6 }
-        };
+            // Convert PostgreSQL URI to Npgsql connection string
+            if (databaseUrl.StartsWith("postgresql://") || databaseUrl.StartsWith("postgres://"))
+            {
+                var uri = new Uri(databaseUrl);
+                var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = uri.Host,
+                    Port = uri.Port == -1 ? 5432 : uri.Port,
+                    Database = uri.AbsolutePath.TrimStart('/'),
+                    SslMode = SslMode.Require
+                };
 
-        // Relationship Types lookup data
-        private static List<LookupItem> _relationshipTypes = new List<LookupItem>
-        {
-            new LookupItem { Id = 1, Code = "CUST", Name = "Customer", IsActive = true, SortOrder = 1 },
-            new LookupItem { Id = 2, Code = "SUB", Name = "Subsidiary", IsActive = true, SortOrder = 2 },
-            new LookupItem { Id = 3, Code = "PAR", Name = "Parent Company", IsActive = true, SortOrder = 3 },
-            new LookupItem { Id = 4, Code = "JV", Name = "Joint Venture", IsActive = true, SortOrder = 4 },
-            new LookupItem { Id = 5, Code = "SUPP", Name = "Supplier", IsActive = true, SortOrder = 5 },
-            new LookupItem { Id = 6, Code = "PART", Name = "Partner", IsActive = true, SortOrder = 6 }
-        };
+                if (!string.IsNullOrEmpty(uri.UserInfo))
+                {
+                    var userInfo = uri.UserInfo.Split(':');
+                    builder.Username = Uri.UnescapeDataString(userInfo[0]);
+                    if (userInfo.Length > 1)
+                    {
+                        builder.Password = Uri.UnescapeDataString(userInfo[1]);
+                    }
+                }
+
+                return builder.ConnectionString;
+            }
+
+            return databaseUrl;
+        }
 
         [HttpGet("company-types")]
         public ActionResult<IEnumerable<LookupItem>> GetCompanyTypes()
         {
-            return Ok(_companyTypes.Where(ct => ct.IsActive).OrderBy(ct => ct.SortOrder));
+            var items = new List<LookupItem>();
+
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT id, code, name, description, is_active, sort_order 
+                    FROM company_types 
+                    WHERE is_active = true 
+                    ORDER BY sort_order, name";
+
+                using var command = new NpgsqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    items.Add(new LookupItem
+                    {
+                        Id = reader.GetInt32(0), // id
+                        Code = reader.GetString(1), // code  
+                        Name = reader.GetString(2), // name
+                        Description = reader["description"] as string,
+                        IsActive = reader.GetBoolean(4), // is_active
+                        SortOrder = reader["sort_order"] as int? ?? 0
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+
+            return Ok(items);
         }
 
         [HttpGet("account-types")]
         public ActionResult<IEnumerable<LookupItem>> GetAccountTypes()
         {
-            return Ok(_accountTypes.Where(at => at.IsActive).OrderBy(at => at.SortOrder));
-        }
+            var items = new List<LookupItem>();
 
-        [HttpGet("customer-statuses")]
-        public ActionResult<IEnumerable<CustomerStatusItem>> GetCustomerStatuses()
-        {
-            return Ok(_customerStatuses.Where(cs => cs.IsActive).OrderBy(cs => cs.SortOrder));
-        }
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-        [HttpGet("approval-statuses")]
-        public ActionResult<IEnumerable<LookupItem>> GetApprovalStatuses()
-        {
-            return Ok(_approvalStatuses.Where(ap => ap.IsActive).OrderBy(ap => ap.SortOrder));
-        }
+                var query = @"
+                    SELECT id, code, name, description, is_active, sort_order 
+                    FROM account_types 
+                    WHERE is_active = true 
+                    ORDER BY sort_order, name";
 
-        [HttpGet("relationship-types")]
-        public ActionResult<IEnumerable<LookupItem>> GetRelationshipTypes()
-        {
-            return Ok(_relationshipTypes.Where(rt => rt.IsActive).OrderBy(rt => rt.SortOrder));
+                using var command = new NpgsqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    items.Add(new LookupItem
+                    {
+                        Id = reader.GetInt32(0), // id
+                        Code = reader.GetString(1), // code  
+                        Name = reader.GetString(2), // name
+                        Description = reader["description"] as string,
+                        IsActive = reader.GetBoolean(4), // is_active
+                        SortOrder = reader["sort_order"] as int? ?? 0
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+
+            return Ok(items);
         }
 
         // CRUD operations for Company Types
         [HttpPost("company-types")]
         public ActionResult<LookupItem> CreateCompanyType(LookupItem companyType)
         {
-            companyType.Id = _companyTypes.Max(ct => ct.Id) + 1;
-            companyType.IsActive = true;
-            _companyTypes.Add(companyType);
-            return CreatedAtAction(nameof(GetCompanyTypes), companyType);
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    INSERT INTO company_types (code, name, description, is_active, sort_order, created_at)
+                    VALUES (@code, @name, @description, @is_active, @sort_order, @created_at)
+                    RETURNING id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@code", companyType.Code);
+                command.Parameters.AddWithValue("@name", companyType.Name);
+                command.Parameters.AddWithValue("@description", companyType.Description ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@is_active", companyType.IsActive);
+                command.Parameters.AddWithValue("@sort_order", companyType.SortOrder);
+                command.Parameters.AddWithValue("@created_at", DateTime.Now);
+
+                var newId = (int)command.ExecuteScalar();
+                companyType.Id = newId;
+
+                return CreatedAtAction(nameof(GetCompanyTypes), companyType);
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpPut("company-types/{id}")]
         public IActionResult UpdateCompanyType(int id, LookupItem companyType)
         {
-            var existing = _companyTypes.FirstOrDefault(ct => ct.Id == id);
-            if (existing == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            existing.Code = companyType.Code;
-            existing.Name = companyType.Name;
-            existing.Description = companyType.Description;
-            existing.SortOrder = companyType.SortOrder;
-            existing.IsActive = companyType.IsActive;
+                var query = @"
+                    UPDATE company_types 
+                    SET code = @code, name = @name, description = @description, 
+                        is_active = @is_active, sort_order = @sort_order, updated_at = @updated_at
+                    WHERE id = @id";
 
-            return NoContent();
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@code", companyType.Code);
+                command.Parameters.AddWithValue("@name", companyType.Name);
+                command.Parameters.AddWithValue("@description", companyType.Description ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@is_active", companyType.IsActive);
+                command.Parameters.AddWithValue("@sort_order", companyType.SortOrder);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpDelete("company-types/{id}")]
         public IActionResult DeleteCompanyType(int id)
         {
-            var companyType = _companyTypes.FirstOrDefault(ct => ct.Id == id);
-            if (companyType == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            companyType.IsActive = false;
-            return NoContent();
+                var query = "UPDATE company_types SET is_active = false, updated_at = @updated_at WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
-        // Similar CRUD operations for other lookup types can be added as needed
+        // CRUD operations for Account Types
+        [HttpPost("account-types")]
+        public ActionResult<LookupItem> CreateAccountType(LookupItem accountType)
+        {
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    INSERT INTO account_types (code, name, description, is_active, sort_order, created_at)
+                    VALUES (@code, @name, @description, @is_active, @sort_order, @created_at)
+                    RETURNING id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@code", accountType.Code);
+                command.Parameters.AddWithValue("@name", accountType.Name);
+                command.Parameters.AddWithValue("@description", accountType.Description ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@is_active", accountType.IsActive);
+                command.Parameters.AddWithValue("@sort_order", accountType.SortOrder);
+                command.Parameters.AddWithValue("@created_at", DateTime.Now);
+
+                var newId = (int)command.ExecuteScalar();
+                accountType.Id = newId;
+
+                return CreatedAtAction(nameof(GetAccountTypes), accountType);
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+        }
+
+        [HttpPut("account-types/{id}")]
+        public IActionResult UpdateAccountType(int id, LookupItem accountType)
+        {
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    UPDATE account_types 
+                    SET code = @code, name = @name, description = @description, 
+                        is_active = @is_active, sort_order = @sort_order, updated_at = @updated_at
+                    WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@code", accountType.Code);
+                command.Parameters.AddWithValue("@name", accountType.Name);
+                command.Parameters.AddWithValue("@description", accountType.Description ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@is_active", accountType.IsActive);
+                command.Parameters.AddWithValue("@sort_order", accountType.SortOrder);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+        }
+
+        [HttpDelete("account-types/{id}")]
+        public IActionResult DeleteAccountType(int id)
+        {
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = "UPDATE account_types SET is_active = false, updated_at = @updated_at WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in Lookups: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+        }
     }
 }

@@ -1,8 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MillenniumERP.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Npgsql;
 
 namespace MillenniumERP.Controllers
 {
@@ -10,230 +8,272 @@ namespace MillenniumERP.Controllers
     [Route("api/customer")]
     public class CustomerApiController : ControllerBase
     {
-        private static List<CustomerModel> _customers = new List<CustomerModel>
+        private readonly IConfiguration _configuration;
+
+        public CustomerApiController(IConfiguration configuration)
         {
-            new CustomerModel 
-            { 
-                Id = 1,
-                AccountNo = "ACC001",
-                AccountName = "ABC Construction (Pty) Ltd",
-                CompanyType = "Private Company",
-                CompanyRegistrationNo = "2020/123456/07",
-                VatRegistrationNo = "4123456789",
-                Phone = "+27 11 234 5678",
-                Mobile = "+27 82 345 6789",
-                Email = "accounts@abcconstruction.co.za",
-                Website = "https://www.abcconstruction.co.za",
-                CustomerStatus = "Confirmed Customer",
-                SalesRepresentative = "John Smith",
-                PrimaryContact = "Mike Johnson",
-                StreetAddress = "123 Main Road, Sandton",
-                City = "Johannesburg",
-                Province = "Gauteng",
-                PostalCode = "2196",
-                Country = "South Africa",
-                Latitude = -26.1076,
-                Longitude = 28.0567,
-                CreditLimit = 500000,
-                PaymentTerms = "30 Days",
-                Discount = 5,
-                TaxExempt = false,
-                CurrentBalance = 125000,
-                IsActive = true,
-                CreatedDate = DateTime.Now.AddMonths(-6)
-            },
-            new CustomerModel 
-            { 
-                Id = 2,
-                AccountNo = "ACC002",
-                AccountName = "XYZ Developers CC",
-                CompanyType = "Close Corporation",
-                CompanyRegistrationNo = "2019/234567/23",
-                VatRegistrationNo = "4234567890",
-                Phone = "+27 21 456 7890",
-                Mobile = "+27 83 456 7890",
-                Email = "info@xyzdev.co.za",
-                Website = "https://www.xyzdev.co.za",
-                CustomerStatus = "Credit Approved",
-                SalesRepresentative = "Sarah Johnson",
-                PrimaryContact = "Peter Brown",
-                StreetAddress = "456 Beach Road, Sea Point",
-                City = "Cape Town",
-                Province = "Western Cape",
-                PostalCode = "8005",
-                Country = "South Africa",
-                Latitude = -33.9249,
-                Longitude = 18.4241,
-                CreditLimit = 750000,
-                PaymentTerms = "45 Days",
-                Discount = 7.5m,
-                TaxExempt = false,
-                CurrentBalance = 325000,
-                IsActive = true,
-                CreatedDate = DateTime.Now.AddMonths(-12)
-            },
-            new CustomerModel 
-            { 
-                Id = 3,
-                AccountNo = "ACC003",
-                AccountName = "Premium Roofing Solutions",
-                CompanyType = "Partnership",
-                CompanyRegistrationNo = "2021/345678/08",
-                VatRegistrationNo = "4345678901",
-                Phone = "+27 31 567 8901",
-                Mobile = "+27 84 567 8901",
-                Email = "sales@premiumroofing.co.za",
-                Website = "",
-                CustomerStatus = "Prospect",
-                SalesRepresentative = "Mike Brown",
-                PrimaryContact = "Jane Wilson",
-                StreetAddress = "789 Industrial Avenue, Pinetown",
-                City = "Durban",
-                Province = "KwaZulu-Natal",
-                PostalCode = "3610",
-                Country = "South Africa",
-                Latitude = -29.8587,
-                Longitude = 31.0218,
-                CreditLimit = 250000,
-                PaymentTerms = "COD",
-                Discount = 0,
-                TaxExempt = false,
-                CurrentBalance = 0,
-                IsActive = true,
-                CreatedDate = DateTime.Now.AddMonths(-2)
-            },
-            new CustomerModel 
-            { 
-                Id = 4,
-                AccountNo = "ACC004",
-                AccountName = "Green Building Contractors",
-                CompanyType = "Private Company",
-                CompanyRegistrationNo = "2018/456789/07",
-                VatRegistrationNo = "4456789012",
-                Phone = "+27 12 678 9012",
-                Mobile = "+27 85 678 9012",
-                Email = "projects@greenbuilding.co.za",
-                Website = "https://www.greenbuilding.co.za",
-                CustomerStatus = "Account Under Review",
-                SalesRepresentative = "Lisa Davis",
-                PrimaryContact = "Tom Anderson",
-                StreetAddress = "321 Church Street, Arcadia",
-                City = "Pretoria",
-                Province = "Gauteng",
-                PostalCode = "0083",
-                Country = "South Africa",
-                Latitude = -25.7461,
-                Longitude = 28.2382,
-                CreditLimit = 1000000,
-                PaymentTerms = "60 Days",
-                Discount = 10,
-                TaxExempt = true,
-                CurrentBalance = 450000,
-                IsActive = true,
-                CreatedDate = DateTime.Now.AddMonths(-18)
-            },
-            new CustomerModel 
-            { 
-                Id = 5,
-                AccountNo = "ACC005",
-                AccountName = "Coastal Properties Trust",
-                CompanyType = "Trust",
-                CompanyRegistrationNo = "IT2022/001",
-                VatRegistrationNo = "4567890123",
-                Phone = "+27 41 789 0123",
-                Mobile = "+27 86 789 0123",
-                Email = "admin@coastalproperties.co.za",
-                Website = "",
-                CustomerStatus = "Account Closed",
-                SalesRepresentative = "John Smith",
-                PrimaryContact = "Mary Thompson",
-                StreetAddress = "654 Marine Drive, Summerstrand",
-                City = "Port Elizabeth",
-                Province = "Eastern Cape",
-                PostalCode = "6001",
-                Country = "South Africa",
-                Latitude = -33.9608,
-                Longitude = 25.6022,
-                CreditLimit = 0,
-                PaymentTerms = "30 Days",
-                Discount = 0,
-                TaxExempt = false,
-                CurrentBalance = 0,
-                IsActive = false,
-                CreatedDate = DateTime.Now.AddMonths(-24)
+            _configuration = configuration;
+        }
+
+        private string GetConnectionString()
+        {
+            var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+            if (string.IsNullOrEmpty(databaseUrl))
+            {
+                throw new InvalidOperationException("DATABASE_URL environment variable not found");
             }
-        };
+
+            // Convert PostgreSQL URI to Npgsql connection string
+            if (databaseUrl.StartsWith("postgresql://") || databaseUrl.StartsWith("postgres://"))
+            {
+                var uri = new Uri(databaseUrl);
+                var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = uri.Host,
+                    Port = uri.Port == -1 ? 5432 : uri.Port,
+                    Database = uri.AbsolutePath.TrimStart('/'),
+                    SslMode = SslMode.Require
+                };
+
+                if (!string.IsNullOrEmpty(uri.UserInfo))
+                {
+                    var userInfo = uri.UserInfo.Split(':');
+                    builder.Username = Uri.UnescapeDataString(userInfo[0]);
+                    if (userInfo.Length > 1)
+                    {
+                        builder.Password = Uri.UnescapeDataString(userInfo[1]);
+                    }
+                }
+
+                return builder.ConnectionString;
+            }
+
+            return databaseUrl;
+        }
 
         [HttpGet]
         public ActionResult<IEnumerable<CustomerModel>> GetCustomers()
         {
-            return Ok(_customers.Where(c => c.IsActive));
+            var customers = new List<CustomerModel>();
+
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT c.id, c.customer_code, c.name, c.company_name, c.email, c.phone, 
+                           c.address, c.city, c.province, c.postal_code, c.country, 
+                           c.status, c.gps_coordinates, c.notes, c.created_at, c.updated_at,
+                           ct.name as company_type_name
+                    FROM customers c
+                    LEFT JOIN company_types ct ON c.customer_type_id = ct.id
+                    ORDER BY c.name";
+
+                using var command = new NpgsqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    customers.Add(new CustomerModel
+                    {
+                        Id = reader.GetInt32(0), // id
+                        AccountNo = reader["customer_code"] as string ?? "",
+                        AccountName = reader["name"] as string ?? "",
+                        CompanyType = reader["company_type_name"] as string ?? "",
+                        Phone = reader["phone"] as string ?? "",
+                        Email = reader["email"] as string ?? "",
+                        CustomerStatus = reader["status"] as string ?? "Active",
+                        StreetAddress = reader["address"] as string ?? "",
+                        City = reader["city"] as string ?? "",
+                        Province = reader["province"] as string ?? "",
+                        PostalCode = reader["postal_code"] as string ?? "",
+                        Country = reader["country"] as string ?? "",
+                        IsActive = true,
+                        CreatedDate = reader["created_at"] as DateTime? ?? DateTime.Now
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in GetCustomers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+
+            return Ok(customers);
         }
 
         [HttpGet("{id}")]
         public ActionResult<CustomerModel> GetCustomer(int id)
         {
-            var customer = _customers.FirstOrDefault(c => c.Id == id);
-            if (customer == null)
-                return NotFound();
-            return Ok(customer);
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT c.id, c.customer_code, c.name, c.company_name, c.email, c.phone, 
+                           c.address, c.city, c.province, c.postal_code, c.country, 
+                           c.status, c.gps_coordinates, c.notes, c.created_at, c.updated_at,
+                           ct.name as company_type_name
+                    FROM customers c
+                    LEFT JOIN company_types ct ON c.customer_type_id = ct.id
+                    WHERE c.id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                using var reader = command.ExecuteReader();
+
+                if (reader.Read())
+                {
+                    var customer = new CustomerModel
+                    {
+                        Id = reader.GetInt32(0), // id
+                        AccountNo = reader["customer_code"] as string ?? "",
+                        AccountName = reader["name"] as string ?? "",
+                        CompanyType = reader["company_type_name"] as string ?? "",
+                        Phone = reader["phone"] as string ?? "",
+                        Email = reader["email"] as string ?? "",
+                        CustomerStatus = reader["status"] as string ?? "Active",
+                        StreetAddress = reader["address"] as string ?? "",
+                        City = reader["city"] as string ?? "",
+                        Province = reader["province"] as string ?? "",
+                        PostalCode = reader["postal_code"] as string ?? "",
+                        Country = reader["country"] as string ?? "",
+                        IsActive = true,
+                        CreatedDate = reader["created_at"] as DateTime? ?? DateTime.Now
+                    };
+                    return Ok(customer);
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in GetCustomer: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpPost]
         public ActionResult<CustomerModel> CreateCustomer(CustomerModel customer)
         {
-            customer.Id = _customers.Max(c => c.Id) + 1;
-            customer.AccountNo = $"ACC{customer.Id:D3}";
-            customer.CreatedDate = DateTime.Now;
-            customer.IsActive = true;
-            _customers.Add(customer);
-            return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                // Generate customer code
+                var codeQuery = "SELECT COALESCE(MAX(CAST(SUBSTRING(customer_code, 4) AS INTEGER)), 0) + 1 FROM customers WHERE customer_code ~ '^CUS[0-9]+$'";
+                using var codeCommand = new NpgsqlCommand(codeQuery, connection);
+                var nextNumber = (int)(codeCommand.ExecuteScalar() ?? 1);
+                customer.AccountNo = $"CUS{nextNumber:D3}";
+
+                var query = @"
+                    INSERT INTO customers (customer_code, name, company_name, email, phone, 
+                                         address, city, province, postal_code, country, 
+                                         status, created_at)
+                    VALUES (@customer_code, @name, @company_name, @email, @phone, 
+                            @address, @city, @province, @postal_code, @country, 
+                            @status, @created_at)
+                    RETURNING id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@customer_code", customer.AccountNo);
+                command.Parameters.AddWithValue("@name", customer.AccountName ?? "");
+                command.Parameters.AddWithValue("@company_name", customer.AccountName ?? "");
+                command.Parameters.AddWithValue("@email", customer.Email ?? "");
+                command.Parameters.AddWithValue("@phone", customer.Phone ?? "");
+                command.Parameters.AddWithValue("@address", customer.StreetAddress ?? "");
+                command.Parameters.AddWithValue("@city", customer.City ?? "");
+                command.Parameters.AddWithValue("@province", customer.Province ?? "");
+                command.Parameters.AddWithValue("@postal_code", customer.PostalCode ?? "");
+                command.Parameters.AddWithValue("@country", customer.Country ?? "");
+                command.Parameters.AddWithValue("@status", customer.CustomerStatus ?? "Active");
+                command.Parameters.AddWithValue("@created_at", DateTime.Now);
+
+                var newId = (int)command.ExecuteScalar();
+                customer.Id = newId;
+                customer.CreatedDate = DateTime.Now;
+
+                return CreatedAtAction(nameof(GetCustomer), new { id = customer.Id }, customer);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in CreateCustomer: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpPut("{id}")]
         public IActionResult UpdateCustomer(int id, CustomerModel customer)
         {
-            var existing = _customers.FirstOrDefault(c => c.Id == id);
-            if (existing == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            // Update properties
-            existing.AccountName = customer.AccountName;
-            existing.CompanyType = customer.CompanyType;
-            existing.CompanyRegistrationNo = customer.CompanyRegistrationNo;
-            existing.VatRegistrationNo = customer.VatRegistrationNo;
-            existing.Phone = customer.Phone;
-            existing.Mobile = customer.Mobile;
-            existing.Email = customer.Email;
-            existing.Website = customer.Website;
-            existing.CustomerStatus = customer.CustomerStatus;
-            existing.SalesRepresentative = customer.SalesRepresentative;
-            existing.PrimaryContact = customer.PrimaryContact;
-            existing.StreetAddress = customer.StreetAddress;
-            existing.City = customer.City;
-            existing.Province = customer.Province;
-            existing.PostalCode = customer.PostalCode;
-            existing.Country = customer.Country;
-            existing.Latitude = customer.Latitude;
-            existing.Longitude = customer.Longitude;
-            existing.CreditLimit = customer.CreditLimit;
-            existing.PaymentTerms = customer.PaymentTerms;
-            existing.Discount = customer.Discount;
-            existing.TaxExempt = customer.TaxExempt;
-            existing.ModifiedDate = DateTime.Now;
+                var query = @"
+                    UPDATE customers 
+                    SET name = @name, company_name = @company_name, email = @email, 
+                        phone = @phone, address = @address, city = @city, 
+                        province = @province, postal_code = @postal_code, country = @country, 
+                        status = @status, updated_at = @updated_at
+                    WHERE id = @id";
 
-            return NoContent();
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@name", customer.AccountName ?? "");
+                command.Parameters.AddWithValue("@company_name", customer.AccountName ?? "");
+                command.Parameters.AddWithValue("@email", customer.Email ?? "");
+                command.Parameters.AddWithValue("@phone", customer.Phone ?? "");
+                command.Parameters.AddWithValue("@address", customer.StreetAddress ?? "");
+                command.Parameters.AddWithValue("@city", customer.City ?? "");
+                command.Parameters.AddWithValue("@province", customer.Province ?? "");
+                command.Parameters.AddWithValue("@postal_code", customer.PostalCode ?? "");
+                command.Parameters.AddWithValue("@country", customer.Country ?? "");
+                command.Parameters.AddWithValue("@status", customer.CustomerStatus ?? "Active");
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in UpdateCustomer: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpDelete("{id}")]
         public IActionResult DeleteCustomer(int id)
         {
-            var customer = _customers.FirstOrDefault(c => c.Id == id);
-            if (customer == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            customer.IsActive = false;
-            return NoContent();
+                var query = "DELETE FROM customers WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Database error in DeleteCustomer: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
     }
 }

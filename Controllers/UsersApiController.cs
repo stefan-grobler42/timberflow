@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using MillenniumERP.Models;
+using Npgsql;
 
 namespace MillenniumERP.Controllers
 {
@@ -7,141 +8,338 @@ namespace MillenniumERP.Controllers
     [Route("api/[controller]")]
     public class UsersApiController : ControllerBase
     {
-        // Mock user data for sales representatives and system users
-        private static List<UserModel> _users = new List<UserModel>
+        private readonly IConfiguration _configuration;
+
+        public UsersApiController(IConfiguration configuration)
         {
-            new UserModel 
-            { 
-                Id = 1,
-                UserCode = "USR001",
-                FirstName = "John",
-                LastName = "Smith",
-                Email = "john.smith@millennium.co.za",
-                Phone = "+27 11 234 5678",
-                Department = "Sales",
-                Position = "Senior Sales Representative",
-                Role = "Sales",
-                IsActive = true,
-                HireDate = DateTime.Now.AddYears(-3)
-            },
-            new UserModel 
-            { 
-                Id = 2,
-                UserCode = "USR002",
-                FirstName = "Sarah",
-                LastName = "Johnson",
-                Email = "sarah.johnson@millennium.co.za",
-                Phone = "+27 21 345 6789",
-                Department = "Sales",
-                Position = "Sales Manager",
-                Role = "Manager",
-                IsActive = true,
-                HireDate = DateTime.Now.AddYears(-5)
-            },
-            new UserModel 
-            { 
-                Id = 3,
-                UserCode = "USR003",
-                FirstName = "Mike",
-                LastName = "Brown",
-                Email = "mike.brown@millennium.co.za",
-                Phone = "+27 31 456 7890",
-                Department = "Sales",
-                Position = "Sales Representative",
-                Role = "Sales",
-                IsActive = true,
-                HireDate = DateTime.Now.AddYears(-2)
-            },
-            new UserModel 
-            { 
-                Id = 4,
-                UserCode = "USR004",
-                FirstName = "Lisa",
-                LastName = "Davis",
-                Email = "lisa.davis@millennium.co.za",
-                Phone = "+27 41 567 8901",
-                Department = "Finance",
-                Position = "Senior Accountant",
-                Role = "Accountant",
-                IsActive = true,
-                HireDate = DateTime.Now.AddYears(-4)
-            },
-            new UserModel 
-            { 
-                Id = 5,
-                UserCode = "USR005",
-                FirstName = "David",
-                LastName = "Wilson",
-                Email = "david.wilson@millennium.co.za",
-                Phone = "+27 11 678 9012",
-                Department = "Management",
-                Position = "Operations Director",
-                Role = "Director",
-                IsActive = true,
-                HireDate = DateTime.Now.AddYears(-8)
+            _configuration = configuration;
+        }
+
+        private string GetConnectionString()
+        {
+            var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+            if (string.IsNullOrEmpty(databaseUrl))
+            {
+                throw new InvalidOperationException("DATABASE_URL environment variable not found");
             }
-        };
+
+            // Convert PostgreSQL URI to Npgsql connection string
+            if (databaseUrl.StartsWith("postgresql://") || databaseUrl.StartsWith("postgres://"))
+            {
+                var uri = new Uri(databaseUrl);
+                var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = uri.Host,
+                    Port = uri.Port == -1 ? 5432 : uri.Port,
+                    Database = uri.AbsolutePath.TrimStart('/'),
+                    SslMode = SslMode.Require
+                };
+
+                if (!string.IsNullOrEmpty(uri.UserInfo))
+                {
+                    var userInfo = uri.UserInfo.Split(':');
+                    builder.Username = Uri.UnescapeDataString(userInfo[0]);
+                    if (userInfo.Length > 1)
+                    {
+                        builder.Password = Uri.UnescapeDataString(userInfo[1]);
+                    }
+                }
+
+                return builder.ConnectionString;
+            }
+
+            return databaseUrl;
+        }
 
         [HttpGet]
         public ActionResult<IEnumerable<UserModel>> GetUsers()
         {
-            return Ok(_users.Where(u => u.IsActive));
+            var users = new List<UserModel>();
+
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT id, employee_code, first_name, last_name, email, phone, 
+                           department, position, role, is_active, hire_date, address, 
+                           emergency_contact, emergency_phone, created_at, updated_at
+                    FROM employees 
+                    WHERE is_active = true 
+                    ORDER BY first_name, last_name";
+
+                using var command = new NpgsqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    users.Add(new UserModel
+                    {
+                        Id = reader.GetInt32(0), // id
+                        UserCode = reader["employee_code"] as string ?? "",
+                        FirstName = reader["first_name"] as string ?? "",
+                        LastName = reader["last_name"] as string ?? "",
+                        Email = reader["email"] as string ?? "",
+                        Phone = reader["phone"] as string,
+                        Department = reader["department"] as string,
+                        Position = reader["position"] as string,
+                        Role = reader["role"] as string ?? "user",
+                        IsActive = reader["is_active"] as bool? ?? true,
+                        HireDate = reader["hire_date"] as DateTime?,
+                        Address = reader["address"] as string,
+                        EmergencyContact = reader["emergency_contact"] as string,
+                        EmergencyPhone = reader["emergency_phone"] as string,
+                        CreatedAt = reader["created_at"] as DateTime? ?? DateTime.Now,
+                        UpdatedAt = reader["updated_at"] as DateTime?
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+
+            return Ok(users);
         }
 
         [HttpGet("sales-representatives")]
         public ActionResult<IEnumerable<UserModel>> GetSalesRepresentatives()
         {
-            return Ok(_users.Where(u => u.IsActive && (u.Role == "Sales" || u.Role == "Manager")).OrderBy(u => u.FirstName));
+            var salesReps = new List<UserModel>();
+
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT id, employee_code, first_name, last_name, email, phone, 
+                           department, position, role, is_active, hire_date, address, 
+                           emergency_contact, emergency_phone, created_at, updated_at
+                    FROM employees 
+                    WHERE is_active = true 
+                      AND (role = 'sales' OR role = 'manager' OR department = 'Sales')
+                    ORDER BY first_name, last_name";
+
+                using var command = new NpgsqlCommand(query, connection);
+                using var reader = command.ExecuteReader();
+
+                while (reader.Read())
+                {
+                    salesReps.Add(new UserModel
+                    {
+                        Id = reader.GetInt32(0), // id
+                        UserCode = reader["employee_code"] as string ?? "",
+                        FirstName = reader["first_name"] as string ?? "",
+                        LastName = reader["last_name"] as string ?? "",
+                        Email = reader["email"] as string ?? "",
+                        Phone = reader["phone"] as string,
+                        Department = reader["department"] as string,
+                        Position = reader["position"] as string,
+                        Role = reader["role"] as string ?? "user",
+                        IsActive = reader["is_active"] as bool? ?? true,
+                        HireDate = reader["hire_date"] as DateTime?,
+                        Address = reader["address"] as string,
+                        EmergencyContact = reader["emergency_contact"] as string,
+                        EmergencyPhone = reader["emergency_phone"] as string,
+                        CreatedAt = reader["created_at"] as DateTime? ?? DateTime.Now,
+                        UpdatedAt = reader["updated_at"] as DateTime?
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
+
+            return Ok(salesReps);
         }
 
         [HttpGet("{id}")]
         public ActionResult<UserModel> GetUser(int id)
         {
-            var user = _users.FirstOrDefault(u => u.Id == id);
-            if (user == null)
-                return NotFound();
-            return Ok(user);
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                var query = @"
+                    SELECT id, employee_code, first_name, last_name, email, phone, 
+                           department, position, role, is_active, hire_date, address, 
+                           emergency_contact, emergency_phone, created_at, updated_at
+                    FROM employees 
+                    WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                using var reader = command.ExecuteReader();
+
+                if (reader.Read())
+                {
+                    var user = new UserModel
+                    {
+                        Id = reader.GetInt32(0), // id
+                        UserCode = reader["employee_code"] as string ?? "",
+                        FirstName = reader["first_name"] as string ?? "",
+                        LastName = reader["last_name"] as string ?? "",
+                        Email = reader["email"] as string ?? "",
+                        Phone = reader["phone"] as string,
+                        Department = reader["department"] as string,
+                        Position = reader["position"] as string,
+                        Role = reader["role"] as string ?? "user",
+                        IsActive = reader["is_active"] as bool? ?? true,
+                        HireDate = reader["hire_date"] as DateTime?,
+                        Address = reader["address"] as string,
+                        EmergencyContact = reader["emergency_contact"] as string,
+                        EmergencyPhone = reader["emergency_phone"] as string,
+                        CreatedAt = reader["created_at"] as DateTime? ?? DateTime.Now,
+                        UpdatedAt = reader["updated_at"] as DateTime?
+                    };
+                    return Ok(user);
+                }
+                else
+                {
+                    return NotFound();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpPost]
         public ActionResult<UserModel> CreateUser(UserModel user)
         {
-            user.Id = _users.Max(u => u.Id) + 1;
-            user.UserCode = $"USR{user.Id:D3}";
-            user.IsActive = true;
-            user.HireDate = DateTime.Now;
-            _users.Add(user);
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
+
+                // Generate employee code
+                var codeQuery = "SELECT COALESCE(MAX(CAST(SUBSTRING(employee_code, 4) AS INTEGER)), 0) + 1 FROM employees WHERE employee_code ~ '^EMP[0-9]+$'";
+                using var codeCommand = new NpgsqlCommand(codeQuery, connection);
+                var nextNumber = (int)(codeCommand.ExecuteScalar() ?? 1);
+                user.UserCode = $"EMP{nextNumber:D3}";
+
+                var query = @"
+                    INSERT INTO employees (employee_code, first_name, last_name, email, phone, 
+                                         department, position, role, is_active, hire_date, address, 
+                                         emergency_contact, emergency_phone, created_at)
+                    VALUES (@employee_code, @first_name, @last_name, @email, @phone, 
+                            @department, @position, @role, @is_active, @hire_date, @address, 
+                            @emergency_contact, @emergency_phone, @created_at)
+                    RETURNING id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@employee_code", user.UserCode);
+                command.Parameters.AddWithValue("@first_name", user.FirstName);
+                command.Parameters.AddWithValue("@last_name", user.LastName);
+                command.Parameters.AddWithValue("@email", user.Email ?? "");
+                command.Parameters.AddWithValue("@phone", user.Phone ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@department", user.Department ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@position", user.Position ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@role", user.Role);
+                command.Parameters.AddWithValue("@is_active", user.IsActive);
+                command.Parameters.AddWithValue("@hire_date", user.HireDate ?? DateTime.Now);
+                command.Parameters.AddWithValue("@address", user.Address ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@emergency_contact", user.EmergencyContact ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@emergency_phone", user.EmergencyPhone ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@created_at", DateTime.Now);
+
+                var newId = (int)command.ExecuteScalar();
+                user.Id = newId;
+                user.CreatedAt = DateTime.Now;
+
+                return CreatedAtAction(nameof(GetUser), new { id = user.Id }, user);
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpPut("{id}")]
         public IActionResult UpdateUser(int id, UserModel user)
         {
-            var existing = _users.FirstOrDefault(u => u.Id == id);
-            if (existing == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            existing.FirstName = user.FirstName;
-            existing.LastName = user.LastName;
-            existing.Email = user.Email;
-            existing.Phone = user.Phone;
-            existing.Department = user.Department;
-            existing.Position = user.Position;
-            existing.Role = user.Role;
-            existing.IsActive = user.IsActive;
+                var query = @"
+                    UPDATE employees 
+                    SET first_name = @first_name, last_name = @last_name, email = @email, 
+                        phone = @phone, department = @department, position = @position, 
+                        role = @role, is_active = @is_active, address = @address, 
+                        emergency_contact = @emergency_contact, emergency_phone = @emergency_phone, 
+                        updated_at = @updated_at
+                    WHERE id = @id";
 
-            return NoContent();
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@first_name", user.FirstName);
+                command.Parameters.AddWithValue("@last_name", user.LastName);
+                command.Parameters.AddWithValue("@email", user.Email ?? "");
+                command.Parameters.AddWithValue("@phone", user.Phone ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@department", user.Department ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@position", user.Position ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@role", user.Role);
+                command.Parameters.AddWithValue("@is_active", user.IsActive);
+                command.Parameters.AddWithValue("@address", user.Address ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@emergency_contact", user.EmergencyContact ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@emergency_phone", user.EmergencyPhone ?? (object)DBNull.Value);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
 
         [HttpDelete("{id}")]
         public IActionResult DeleteUser(int id)
         {
-            var user = _users.FirstOrDefault(u => u.Id == id);
-            if (user == null)
-                return NotFound();
+            try
+            {
+                using var connection = new NpgsqlConnection(GetConnectionString());
+                connection.Open();
 
-            user.IsActive = false;
-            return NoContent();
+                var query = "UPDATE employees SET is_active = false, updated_at = @updated_at WHERE id = @id";
+
+                using var command = new NpgsqlCommand(query, connection);
+                command.Parameters.AddWithValue("@id", id);
+                command.Parameters.AddWithValue("@updated_at", DateTime.Now);
+
+                var rowsAffected = command.ExecuteNonQuery();
+                if (rowsAffected == 0)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                // Log the actual error for debugging (not shown to client)
+                Console.WriteLine($"Database error in GetUsers: {ex.Message}");
+                return StatusCode(500, "Database connection error");
+            }
         }
     }
 }

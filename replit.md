@@ -10,13 +10,18 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
 
 ## Recent Changes
 - **Complete Microsoft Stack Rebuild (Jan 27, 2025)**: Completely rebuilt application using pure Microsoft stack (ASP.NET Core MVC, C#, Razor Views) as a true single-page application. No page navigation - everything loads dynamically in the same page.
+- **Database Integration Completion (Sept 26, 2025)**: Fully completed database integration for all core APIs:
+  - **Customer API**: Converted from mock data to full PostgreSQL database integration with complete CRUD operations
+  - **Users API**: Database-driven user management with sales representative lookup functionality
+  - **Lookups API**: Complete settings management for company types, account types, and other configurable lists
+  - **Security Hardening**: Removed unsafe TrustServerCertificate settings from all database connections
+  - **Sample Data**: Added realistic customer records (ABC Construction, XYZ Developers, Smith Family Home) for testing
 - **Customer Module Implementation (Jan 27, 2025)**: Fully implemented Customer module with:
   - DataTables grid with sorting, paging, search
   - Consolidated action bar with all controls (New, Edit, Delete, Filter, Export, Import)
   - Searchable lookup fields with type-to-filter and hourglass dialog for full browsing
   - Google Maps integration for addresses with autocomplete, mini interactive map, and current location support
   - ZAR currency fields with 15% default VAT rate
-  - Sample data with 5 realistic South African customers
 
 ## System Architecture
 
