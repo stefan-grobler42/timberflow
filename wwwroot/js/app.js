@@ -228,9 +228,8 @@ var CustomerModule = {
             dom: 'Bfrtip',
             pageLength: 25,
             order: [[2, 'asc']], // Sort by Account Name
-            scrollX: true,
-            scrollCollapse: true,
             responsive: true,
+            autoWidth: false,
             columnDefs: [
                 {
                     targets: [0], // Checkbox column
@@ -2688,8 +2687,8 @@ var UsersModule = {
             dom: 'Bfrtip',
             pageLength: 25,
             order: [[2, 'asc']],
-            scrollX: true,
             responsive: true,
+            autoWidth: false,
             buttons: [
                 {
                     extend: 'colvis',
@@ -2800,18 +2799,16 @@ var SettingsModule = {
             columns: [
                 { 
                     data: null,
-                    width: "40px",
                     orderable: false,
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input company-type-select" value="' + row.Id + '">';
                     }
                 },
-                { data: 'Code', width: "100px" },
-                { data: 'Name', width: "200px" },
-                { data: 'Description', width: "300px" },
+                { data: 'Code' },
+                { data: 'Name' },
+                { data: 'Description' },
                 { 
                     data: 'IsActive',
-                    width: "80px",
                     render: function(data) {
                         return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
                     }
@@ -2819,6 +2816,11 @@ var SettingsModule = {
             ],
             pageLength: 25,
             order: [[1, 'asc']],
+            responsive: true,
+            autoWidth: false,
+            columnDefs: [
+                { targets: 0, width: "40px" }
+            ],
             language: {
                 emptyTable: "No company types found"
             }
@@ -2829,18 +2831,16 @@ var SettingsModule = {
             columns: [
                 { 
                     data: null,
-                    width: "40px",
                     orderable: false,
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input account-type-select" value="' + row.Id + '">';
                     }
                 },
-                { data: 'Code', width: "100px" },
-                { data: 'Name', width: "200px" },
-                { data: 'Description', width: "300px" },
+                { data: 'Code' },
+                { data: 'Name' },
+                { data: 'Description' },
                 { 
                     data: 'IsActive',
-                    width: "80px",
                     render: function(data) {
                         return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
                     }
@@ -2848,6 +2848,11 @@ var SettingsModule = {
             ],
             pageLength: 25,
             order: [[1, 'asc']],
+            responsive: true,
+            autoWidth: false,
+            columnDefs: [
+                { targets: 0, width: "40px" }
+            ],
             language: {
                 emptyTable: "No account types found"
             }
