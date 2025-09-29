@@ -229,9 +229,9 @@ var MillenniumApp = {
                 var $tableElement = table.table().node();
                 var $container = $($tableElement).closest('.dataTables_wrapper');
                 
-                // Remove table-layout fixed to prevent column truncation
+                // CRITICAL: Set table layout to fixed and disable DataTables auto-adjustment
                 $($tableElement).css({
-                    'table-layout': 'auto',
+                    'table-layout': 'fixed',
                     'width': 'auto'
                 });
                 
@@ -241,21 +241,23 @@ var MillenniumApp = {
                     totalWidth += $(this).outerWidth();
                 });
                 
-                // Set table width to accommodate all columns without affecting container
-                $($tableElement).css('width', Math.max(totalWidth, $container.width()) + 'px');
+                // Set table width to be at least as wide as all columns combined
+                var minTableWidth = Math.max(totalWidth + 20, $container.width()); // Add 20px buffer
+                $($tableElement).css('width', minTableWidth + 'px');
                 
-                // Ensure container width remains absolutely fixed
+                // Ensure container width remains absolutely fixed with horizontal scroll
                 var fixedWidth = $container.data('fixedWidth');
                 if (fixedWidth) {
                     $container.css({
                         'width': fixedWidth + 'px',
                         'max-width': fixedWidth + 'px',
                         'min-width': fixedWidth + 'px',
-                        'overflow-x': 'auto'
+                        'overflow-x': 'auto',
+                        'overflow-y': 'visible'
                     });
                 }
                 
-                table.columns.adjust();
+                // DO NOT call table.columns.adjust() - it ruins our manual sizing
                 
                 // Save column width to localStorage
                 var tableId = $(tableSelector).attr('id');
