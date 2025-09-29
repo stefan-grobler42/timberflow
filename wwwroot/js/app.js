@@ -130,12 +130,19 @@ var MillenniumApp = {
     enableColumnResizing: function(tableSelector) {
         var self = this;
         var isResizing = false;
-        var startX, startWidth, currentTh, table, tableWrapper;
+        var startX, startWidth, currentTh, table, tableContainer;
         
-        // Enable horizontal scrolling for the table
+        // Ensure table has proper container with fixed boundaries
         var $table = $(tableSelector);
-        if (!$table.closest('.table-responsive').length) {
-            $table.wrap('<div class="table-responsive" style="overflow-x: auto;"></div>');
+        var $container = $table.closest('.dataTables_wrapper');
+        
+        // Set up container to respect layout boundaries
+        if ($container.length) {
+            $container.css({
+                'overflow-x': 'auto',
+                'max-width': '100%',
+                'position': 'relative'
+            });
         }
         
         // Add resize handles to column headers
@@ -156,7 +163,7 @@ var MillenniumApp = {
                 startX = e.pageX;
                 startWidth = $th.outerWidth();
                 table = $(tableSelector).DataTable();
-                tableWrapper = $table.closest('.table-responsive')[0];
+                tableContainer = $table.closest('.dataTables_wrapper')[0];
                 
                 $('body').addClass('col-resizing');
                 $('body').css('user-select', 'none');
@@ -172,17 +179,20 @@ var MillenniumApp = {
             var diff = e.pageX - startX;
             var newWidth = Math.max(50, startWidth + diff);
             
-            // Set the column width without affecting others
+            // Set the column width within container boundaries
             currentTh.css({
                 'width': newWidth + 'px',
                 'min-width': newWidth + 'px',
                 'max-width': newWidth + 'px'
             });
             
-            // Allow table to grow horizontally
+            // Keep table within its allocated space - let it scroll internally if needed
             if (table) {
                 var $tableElement = table.table().node();
-                $($tableElement).css('width', 'auto');
+                $($tableElement).css({
+                    'width': 'auto',
+                    'table-layout': 'fixed'
+                });
                 table.columns.adjust();
             }
         });
@@ -193,7 +203,7 @@ var MillenniumApp = {
                 isResizing = false;
                 currentTh = null;
                 table = null;
-                tableWrapper = null;
+                tableContainer = null;
                 
                 // Clean up cursor and selection
                 $('body').removeClass('col-resizing');
@@ -213,7 +223,7 @@ var MillenniumApp = {
                 isResizing = false;
                 currentTh = null;
                 table = null;
-                tableWrapper = null;
+                tableContainer = null;
                 
                 $('body').removeClass('col-resizing');
                 $('body').css('user-select', '');
