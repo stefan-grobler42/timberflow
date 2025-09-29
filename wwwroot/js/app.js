@@ -136,12 +136,24 @@ var MillenniumApp = {
         var $table = $(tableSelector);
         var $container = $table.closest('.dataTables_wrapper');
         
-        // Set up container to respect layout boundaries
+        // Set up container with FIXED width - no expanding allowed
         if ($container.length) {
+            // Capture the current width and fix it permanently
+            var containerWidth = $container.width();
+            $container.data('fixedWidth', containerWidth);
             $container.css({
+                'width': containerWidth + 'px',
+                'max-width': containerWidth + 'px',
+                'min-width': containerWidth + 'px',
                 'overflow-x': 'auto',
-                'max-width': '100%',
-                'position': 'relative'
+                'position': 'relative',
+                'box-sizing': 'border-box'
+            });
+            
+            // Make sure the table can grow inside the fixed container
+            $table.css({
+                'min-width': '100%',
+                'width': 'auto'
             });
         }
         
@@ -186,14 +198,25 @@ var MillenniumApp = {
                 'max-width': newWidth + 'px'
             });
             
-            // Keep table within its allocated space - let it scroll internally if needed
+            // Allow table to grow inside the FIXED container - container never expands
             if (table) {
                 var $tableElement = table.table().node();
                 $($tableElement).css({
                     'width': 'auto',
-                    'table-layout': 'fixed'
+                    'min-width': '100%'
                 });
                 table.columns.adjust();
+                
+                // Ensure container width remains absolutely fixed
+                var $container = $($tableElement).closest('.dataTables_wrapper');
+                var fixedWidth = $container.data('fixedWidth');
+                if (fixedWidth) {
+                    $container.css({
+                        'width': fixedWidth + 'px',
+                        'max-width': fixedWidth + 'px',
+                        'min-width': fixedWidth + 'px'
+                    });
+                }
             }
         });
         
