@@ -157,6 +157,28 @@ var MillenniumApp = {
             });
         }
         
+        // Restore saved column widths first
+        var tableId = $(tableSelector).attr('id');
+        if (tableId) {
+            var savedWidths = localStorage.getItem(tableId + '_columnWidths');
+            if (savedWidths) {
+                try {
+                    var columnWidths = JSON.parse(savedWidths);
+                    $(tableSelector + ' thead th').each(function(index) {
+                        if (columnWidths[index]) {
+                            $(this).css({
+                                'width': columnWidths[index] + 'px',
+                                'min-width': columnWidths[index] + 'px',
+                                'max-width': columnWidths[index] + 'px'
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.log('Failed to restore column widths:', e);
+                }
+            }
+        }
+        
         // Add resize handles to column headers
         $(tableSelector + ' thead th').each(function(index) {
             if (index === 0) return; // Skip checkbox column
@@ -201,10 +223,23 @@ var MillenniumApp = {
             // Allow table to grow inside the FIXED container - container never expands
             if (table) {
                 var $tableElement = table.table().node();
+                
+                // Remove table-layout fixed to prevent column truncation
                 $($tableElement).css({
                     'width': 'auto',
-                    'min-width': '100%'
+                    'min-width': '100%',
+                    'table-layout': 'auto'
                 });
+                
+                // Calculate total width needed
+                var totalWidth = 0;
+                $(tableSelector + ' thead th').each(function() {
+                    totalWidth += $(this).outerWidth();
+                });
+                
+                // Set table width to accommodate all columns
+                $($tableElement).css('width', Math.max(totalWidth, $container.width()) + 'px');
+                
                 table.columns.adjust();
                 
                 // Ensure container width remains absolutely fixed
@@ -216,6 +251,19 @@ var MillenniumApp = {
                         'max-width': fixedWidth + 'px',
                         'min-width': fixedWidth + 'px'
                     });
+                }
+                
+                // Save column width to localStorage
+                var tableId = $(tableSelector).attr('id');
+                if (tableId) {
+                    var columnWidths = {};
+                    $(tableSelector + ' thead th').each(function(index) {
+                        var width = $(this).outerWidth();
+                        if (width > 0) {
+                            columnWidths[index] = width;
+                        }
+                    });
+                    localStorage.setItem(tableId + '_columnWidths', JSON.stringify(columnWidths));
                 }
             }
         });
