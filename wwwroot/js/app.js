@@ -128,59 +128,63 @@ var MillenniumApp = {
     
     // Universal column resizing function
     enableColumnResizing: function(tableSelector) {
+        var table = $(tableSelector).DataTable();
         var isResizing = false;
-        var startX, startWidth, currentTh, table;
+        var startX, startWidth, currentTh, currentCol;
         
-        // Add resize handles to column headers
+        // Add resize handles to column headers (skip first checkbox column)
         $(tableSelector + ' thead th').each(function(index) {
             if (index === 0) return; // Skip checkbox column
             
             var $th = $(this);
-            // Remove existing handles first
+            
+            // Remove existing handles
             $th.find('.resize-handle').remove();
             
+            // Add resize handle
             var $handle = $('<div class="resize-handle"></div>');
             $th.append($handle);
             
+            // Bind mousedown event to start resizing
             $handle.on('mousedown', function(e) {
-                isResizing = true;
-                currentTh = $th;
-                startX = e.pageX;
-                startWidth = $th.outerWidth();
-                table = $(tableSelector).DataTable();
-                
-                $('body').addClass('col-resizing');
                 e.preventDefault();
                 e.stopPropagation();
+                
+                isResizing = true;
+                currentTh = $th;
+                currentCol = index;
+                startX = e.pageX;
+                startWidth = $th.outerWidth();
+                
+                $('body').addClass('col-resizing');
+                
+                // Bind global mouse events for dragging
+                $(document).on('mousemove.resize', function(e) {
+                    if (!isResizing) return;
+                    
+                    var diff = e.pageX - startX;
+                    var newWidth = Math.max(50, startWidth + diff);
+                    
+                    // Set the column width
+                    currentTh.css('width', newWidth + 'px');
+                    
+                    // Adjust DataTable columns
+                    table.columns.adjust().draw(false);
+                });
+                
+                $(document).on('mouseup.resize', function() {
+                    if (isResizing) {
+                        isResizing = false;
+                        $('body').removeClass('col-resizing');
+                        $(document).off('mousemove.resize mouseup.resize');
+                        
+                        // Clean up
+                        currentTh = null;
+                        currentCol = null;
+                    }
+                });
             });
         });
-        
-        // Handle mouse movement for resizing (only bind once)
-        if (!window.columnResizeHandlerBound) {
-            $(document).on('mousemove.columnResize', function(e) {
-                if (!isResizing) return;
-                
-                var diff = e.pageX - startX;
-                var newWidth = Math.max(50, startWidth + diff);
-                
-                currentTh.css('width', newWidth + 'px');
-                if (table) {
-                    table.columns.adjust();
-                }
-            });
-            
-            // Handle mouse up to stop resizing
-            $(document).on('mouseup.columnResize', function() {
-                if (isResizing) {
-                    isResizing = false;
-                    currentTh = null;
-                    table = null;
-                    $('body').removeClass('col-resizing');
-                }
-            });
-            
-            window.columnResizeHandlerBound = true;
-        }
     }
 };
 
