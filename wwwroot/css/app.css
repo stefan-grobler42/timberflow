@@ -259,39 +259,41 @@ body {
 /* Column Resizing Styles */
 .table thead th {
     position: relative;
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6 !important;
 }
 
 .table thead th .resize-handle {
-    position: absolute;
-    right: -3px;
-    top: 0;
-    height: 100%;
-    width: 8px;
-    cursor: col-resize;
-    user-select: none;
-    background: rgba(89, 170, 213, 0.2);
-    border-right: 2px solid #59AAD5;
-    z-index: 999;
-    opacity: 1;
-    transition: all 0.2s ease;
+    position: absolute !important;
+    right: -4px !important;
+    top: 0 !important;
+    height: 100% !important;
+    width: 10px !important;
+    cursor: col-resize !important;
+    user-select: none !important;
+    background: #59AAD5 !important;
+    border: none !important;
+    z-index: 9999 !important;
+    opacity: 0.8 !important;
+    transition: all 0.2s ease !important;
+    border-radius: 2px !important;
 }
 
-.table thead th .resize-handle:hover,
+.table thead th .resize-handle:hover {
+    opacity: 1 !important;
+    background: #54C3D6 !important;
+    width: 12px !important;
+    right: -5px !important;
+}
+
 .table thead th:hover .resize-handle {
-    opacity: 1;
-    background: rgba(89, 170, 213, 0.6);
-    border-right-color: #54C3D6;
-    border-right-width: 3px;
+    opacity: 1 !important;
+    background: #54C3D6 !important;
 }
 
-/* Show resize handles clearly */
-.table thead th:nth-child(n+2) {
-    border-right: 1px solid #dee2e6;
-}
-
-.table thead th:nth-child(n+2):hover {
-    border-right: 2px solid #59AAD5;
+/* Make sure handles are always visible */
+.table thead th:nth-child(n+2) .resize-handle {
+    display: block !important;
+    visibility: visible !important;
 }
 
 body.col-resizing {
