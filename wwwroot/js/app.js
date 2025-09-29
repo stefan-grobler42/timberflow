@@ -345,8 +345,8 @@ var CustomerModule = {
                     $(this.header()).css('position', 'relative');
                 });
                 
-                // Enable column resizing with mouse
-                CustomerModule.enableColumnResizing();
+                // Enable column resizing
+                MillenniumApp.enableColumnResizing('#customerGrid');
             }
         });
     },
