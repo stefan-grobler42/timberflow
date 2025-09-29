@@ -911,11 +911,8 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize Google Maps address search field
-        setTimeout(() => {
-            console.log('Setting up Google Maps address search field...');
-            this.initGoogleMapsAddressSearch();
-        }, 500);
+        // Google Maps functionality is now handled by EnhancedLocationField component
+        // No longer need the old initGoogleMapsAddressSearch function
     },
     
     // Initialize lookup fields
