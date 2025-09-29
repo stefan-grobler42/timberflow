@@ -257,13 +257,18 @@ body {
 }
 
 /* Column Resizing Styles */
+.table thead th {
+    position: relative;
+}
+
 .table thead th .resize-handle {
     position: absolute;
-    top: 0;
     right: 0;
-    bottom: 0;
-    width: 5px;
+    top: 0;
+    height: 100%;
+    width: 8px;
     cursor: col-resize;
+    user-select: none;
     background: transparent;
     border-right: 2px solid transparent;
     z-index: 999;

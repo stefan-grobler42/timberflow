@@ -130,60 +130,78 @@ var MillenniumApp = {
     enableColumnResizing: function(tableSelector) {
         var table = $(tableSelector).DataTable();
         var isResizing = false;
-        var startX, startWidth, currentTh, currentCol;
+        var startX, startWidth, currentCol;
         
-        // Add resize handles to column headers (skip first checkbox column)
-        $(tableSelector + ' thead th').each(function(index) {
-            if (index === 0) return; // Skip checkbox column
-            
-            var $th = $(this);
-            
-            // Remove existing handles
-            $th.find('.resize-handle').remove();
-            
-            // Add resize handle
-            var $handle = $('<div class="resize-handle"></div>');
-            $th.append($handle);
-            
-            // Bind mousedown event to start resizing
-            $handle.on('mousedown', function(e) {
-                e.preventDefault();
-                e.stopPropagation();
+        function addResizeHandles() {
+            // Add resize handles to column headers (skip first checkbox column)
+            $(tableSelector + ' thead th').each(function(index) {
+                if (index === 0) return; // Skip checkbox column
                 
-                isResizing = true;
-                currentTh = $th;
-                currentCol = index;
-                startX = e.pageX;
-                startWidth = $th.outerWidth();
+                var $th = $(this);
                 
-                $('body').addClass('col-resizing');
+                // Remove existing handles
+                $th.find('.resize-handle').remove();
                 
-                // Bind global mouse events for dragging
-                $(document).on('mousemove.resize', function(e) {
-                    if (!isResizing) return;
+                // Add resize handle
+                var $handle = $('<div class="resize-handle"></div>');
+                $th.append($handle);
+                
+                // Bind mousedown event to start resizing
+                $handle.on('mousedown', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     
-                    var diff = e.pageX - startX;
-                    var newWidth = Math.max(50, startWidth + diff);
+                    isResizing = true;
+                    currentCol = table.column(index);
+                    startX = e.pageX;
+                    startWidth = $th.outerWidth();
                     
-                    // Set the column width
-                    currentTh.css('width', newWidth + 'px');
+                    $('body').addClass('col-resizing');
                     
-                    // Adjust DataTable columns
-                    table.columns.adjust().draw(false);
-                });
-                
-                $(document).on('mouseup.resize', function() {
-                    if (isResizing) {
-                        isResizing = false;
-                        $('body').removeClass('col-resizing');
-                        $(document).off('mousemove.resize mouseup.resize');
+                    // Bind global mouse events for dragging
+                    $(document).on('mousemove.resize', function(e) {
+                        if (!isResizing) return;
                         
-                        // Clean up
-                        currentTh = null;
-                        currentCol = null;
-                    }
+                        var diff = e.pageX - startX;
+                        var newWidth = Math.max(50, startWidth + diff);
+                        
+                        // Set width on both header and all cells in the column
+                        $(currentCol.header()).css('width', newWidth + 'px');
+                        $(currentCol.nodes()).css('width', newWidth + 'px');
+                    });
+                    
+                    $(document).on('mouseup.resize', function() {
+                        if (isResizing) {
+                            isResizing = false;
+                            $('body').removeClass('col-resizing');
+                            $(document).off('mousemove.resize mouseup.resize');
+                            
+                            // Adjust table and enable horizontal scroll if needed
+                            table.columns.adjust();
+                            
+                            // Calculate total width of all columns
+                            var totalWidth = 0;
+                            $(tableSelector + ' thead th').each(function() {
+                                totalWidth += $(this).outerWidth();
+                            });
+                            
+                            // Set table width to allow horizontal scrolling
+                            $(table.table().node()).css('width', totalWidth + 'px');
+                            
+                            // Clean up
+                            currentCol = null;
+                        }
+                    });
                 });
             });
+        }
+        
+        // Initial setup
+        addResizeHandles();
+        
+        // Rebind handles after DataTable redraws
+        table.off('.resize').on('draw.dt.resize column-visibility.dt.resize', function() {
+            addResizeHandles();
         });
     }
 };
@@ -291,8 +309,9 @@ var CustomerModule = {
             lengthChange: false,
             searching: false,
             order: [[2, 'asc']], // Sort by Account Name
-            responsive: true,
+            responsive: false,
             autoWidth: false,
+            scrollX: true,
             columnDefs: [
                 {
                     targets: [0], // Checkbox column
@@ -2711,8 +2730,9 @@ var UsersModule = {
             lengthChange: false,
             searching: false,
             order: [[2, 'asc']],
-            responsive: true,
+            responsive: false,
             autoWidth: false,
+            scrollX: true,
             buttons: [
                 {
                     extend: 'colvis',
