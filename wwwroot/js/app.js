@@ -8,8 +8,12 @@ function initializeGoogleMaps() {
     console.log('[Google Maps] API loaded successfully');
     window.googleMapsLoaded = true;
     
-    // Initialize address search if already on customer page
-    if (window.CustomerModule && typeof CustomerModule.initGoogleMapsAddressSearch === 'function') {
+    // Dispatch event to notify components that Google Maps is ready
+    window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
+    
+    // Only initialize address search if we're actually on a customer details page
+    if (window.CustomerModule && typeof CustomerModule.initGoogleMapsAddressSearch === 'function' && 
+        document.getElementById('StreetAddress')) {
         CustomerModule.initGoogleMapsAddressSearch();
     }
 }
@@ -213,7 +217,7 @@ var MillenniumApp = {
             var diff = e.pageX - startX;
             var newWidth = Math.max(50, startWidth + diff);
             
-            // Set the column width within container boundaries
+            // Only resize the current column - don't affect adjacent columns
             currentTh.css({
                 'width': newWidth + 'px',
                 'min-width': newWidth + 'px',
@@ -223,35 +227,35 @@ var MillenniumApp = {
             // Allow table to grow inside the FIXED container - container never expands
             if (table) {
                 var $tableElement = table.table().node();
+                var $container = $($tableElement).closest('.dataTables_wrapper');
                 
                 // Remove table-layout fixed to prevent column truncation
                 $($tableElement).css({
-                    'width': 'auto',
-                    'min-width': '100%',
-                    'table-layout': 'auto'
+                    'table-layout': 'auto',
+                    'width': 'auto'
                 });
                 
-                // Calculate total width needed
+                // Calculate total width needed for all columns
                 var totalWidth = 0;
                 $(tableSelector + ' thead th').each(function() {
                     totalWidth += $(this).outerWidth();
                 });
                 
-                // Set table width to accommodate all columns
+                // Set table width to accommodate all columns without affecting container
                 $($tableElement).css('width', Math.max(totalWidth, $container.width()) + 'px');
                 
-                table.columns.adjust();
-                
                 // Ensure container width remains absolutely fixed
-                var $container = $($tableElement).closest('.dataTables_wrapper');
                 var fixedWidth = $container.data('fixedWidth');
                 if (fixedWidth) {
                     $container.css({
                         'width': fixedWidth + 'px',
                         'max-width': fixedWidth + 'px',
-                        'min-width': fixedWidth + 'px'
+                        'min-width': fixedWidth + 'px',
+                        'overflow-x': 'auto'
                     });
                 }
+                
+                table.columns.adjust();
                 
                 // Save column width to localStorage
                 var tableId = $(tableSelector).attr('id');
@@ -1053,14 +1057,17 @@ var CustomerModule = {
         var mapDiv = document.getElementById('addressMap');
         
         if (!searchInput) {
-            console.log('[Google Maps Address Search] Input not found, retrying...');
-            setTimeout(() => CustomerModule.initGoogleMapsAddressSearch(), 500);
+            console.log('[Google Maps Address Search] StreetAddress field not found - skipping initialization');
             return;
         }
         
         if (!window.googleMapsLoaded || !window.google) {
-            console.log('[Google Maps Address Search] Google Maps not loaded yet, retrying...');
-            setTimeout(() => CustomerModule.initGoogleMapsAddressSearch(), 1000);
+            console.log('[Google Maps Address Search] Google Maps not loaded yet, waiting for event...');
+            // Wait for the googleMapsLoaded event instead of polling
+            window.addEventListener('googleMapsLoaded', () => {
+                console.log('[Google Maps Address Search] Google Maps loaded via event, initializing now');
+                this.initGoogleMapsAddressSearch();
+            }, { once: true });
             return;
         }
         
