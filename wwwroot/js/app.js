@@ -351,10 +351,6 @@ var CustomerModule = {
         });
     },
     
-    // Enable manual column resizing
-    enableColumnResizing: function() {
-        MillenniumApp.enableColumnResizing('#customerGrid');
-    },
     
     // Bind list events
     bindListEvents: function() {
