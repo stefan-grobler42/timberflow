@@ -22,6 +22,12 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
   - Searchable lookup fields with type-to-filter and hourglass dialog for full browsing
   - Google Maps integration for addresses with autocomplete, mini interactive map, and current location support
   - ZAR currency fields with 15% default VAT rate
+- **Grid Enhancement (Sept 29, 2025)**: Enhanced all data grids with professional column resizing:
+  - Universal column resizing functionality across Customer, Users, and Settings grids
+  - Fixed-width grid containers that maintain layout boundaries during column resizing
+  - Internal horizontal scrolling when columns exceed container width
+  - Proper pagination (25 records per page) with streamlined controls
+  - Removed redundant DataTable controls for cleaner interface
 
 ## System Architecture
 
