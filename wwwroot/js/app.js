@@ -3114,6 +3114,13 @@ var SettingsModule = {
     }
 };
 
+// Google Maps API callback function
+window.initializeGoogleMaps = function() {
+    console.log('[Google Maps] API loaded successfully');
+    // Notify any waiting components that Google Maps is ready
+    window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
+};
+
 // Initialize app when document ready
 $(document).ready(function() {
     MillenniumApp.init();

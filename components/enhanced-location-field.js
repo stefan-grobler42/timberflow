@@ -117,20 +117,33 @@ class EnhancedLocationField {
     }
     
     initializeComponents() {
+        console.log('[Google Maps Address Search] Initializing...');
+        
         // Wait for Google Maps to load
         if (typeof google !== 'undefined' && google.maps) {
+            console.log('[Google Maps Address Search] Google Maps already loaded, initializing now');
             this.initializeMap();
             this.initializeAutocomplete();
         } else {
-            // Queue initialization for when Google Maps loads
+            console.log('[Google Maps Address Search] Google Maps not loaded yet, waiting for callback...');
+            // Listen for the googleMapsLoaded event
+            window.addEventListener('googleMapsLoaded', () => {
+                console.log('[Google Maps Address Search] Google Maps loaded via callback, initializing now');
+                this.initializeMap();
+                this.initializeAutocomplete();
+            }, { once: true });
+            
+            // Fallback timeout in case the callback doesn't work
             setTimeout(() => {
                 if (typeof google !== 'undefined' && google.maps) {
+                    console.log('[Google Maps Address Search] Google Maps loaded via timeout fallback');
                     this.initializeMap();
                     this.initializeAutocomplete();
                 } else {
+                    console.log('[Google Maps Address Search] Google Maps failed to load, showing error');
                     this.showMapError();
                 }
-            }, 3000);
+            }, 5000);
         }
     }
     
