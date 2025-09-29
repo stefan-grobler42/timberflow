@@ -128,27 +128,15 @@ var MillenniumApp = {
     
     // Universal column resizing function
     enableColumnResizing: function(tableSelector) {
-        console.log('[Resize] Attempting to enable column resizing for:', tableSelector);
-        
         var table = $(tableSelector).DataTable();
-        console.log('[Resize] DataTable object:', table);
-        
         var isResizing = false;
         var startX, startWidth, currentCol;
         
         function addResizeHandles() {
-            console.log('[Resize] Adding resize handles to table headers');
-            var headerCount = 0;
             
             // Add resize handles to column headers (skip first checkbox column)
             $(tableSelector + ' thead th').each(function(index) {
-                headerCount++;
-                console.log('[Resize] Processing header', index, ':', $(this).text());
-                
-                if (index === 0) {
-                    console.log('[Resize] Skipping checkbox column');
-                    return; // Skip checkbox column
-                }
+                if (index === 0) return; // Skip checkbox column
                 
                 var $th = $(this);
                 
@@ -157,8 +145,19 @@ var MillenniumApp = {
                 
                 // Add resize handle
                 var $handle = $('<div class="resize-handle"></div>');
+                $handle.css({
+                    'position': 'absolute',
+                    'right': '-4px',
+                    'top': '0',
+                    'height': '100%',
+                    'width': '8px',
+                    'background-color': '#59AAD5',
+                    'cursor': 'col-resize',
+                    'z-index': '999',
+                    'opacity': '0.7',
+                    'display': 'block'
+                });
                 $th.append($handle);
-                console.log('[Resize] Added resize handle to column', index);
                 
                 // Bind mousedown event to start resizing
                 $handle.on('mousedown', function(e) {
