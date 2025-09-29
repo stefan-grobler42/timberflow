@@ -128,8 +128,15 @@ var MillenniumApp = {
     
     // Universal column resizing function
     enableColumnResizing: function(tableSelector) {
+        var self = this;
         var isResizing = false;
-        var startX, startWidth, currentTh, table;
+        var startX, startWidth, currentTh, table, tableWrapper;
+        
+        // Enable horizontal scrolling for the table
+        var $table = $(tableSelector);
+        if (!$table.closest('.table-responsive').length) {
+            $table.wrap('<div class="table-responsive" style="overflow-x: auto;"></div>');
+        }
         
         // Add resize handles to column headers
         $(tableSelector + ' thead th').each(function(index) {
@@ -140,6 +147,7 @@ var MillenniumApp = {
             $th.find('.resize-handle').remove();
             
             var $handle = $('<div class="resize-handle"></div>');
+            $th.css('position', 'relative');
             $th.append($handle);
             
             $handle.on('mousedown', function(e) {
@@ -148,39 +156,73 @@ var MillenniumApp = {
                 startX = e.pageX;
                 startWidth = $th.outerWidth();
                 table = $(tableSelector).DataTable();
+                tableWrapper = $table.closest('.table-responsive')[0];
                 
                 $('body').addClass('col-resizing');
+                $('body').css('user-select', 'none');
                 e.preventDefault();
                 e.stopPropagation();
             });
         });
         
-        // Handle mouse movement for resizing (only bind once)
-        if (!window.columnResizeHandlerBound) {
-            $(document).on('mousemove.columnResize', function(e) {
-                if (!isResizing) return;
-                
-                var diff = e.pageX - startX;
-                var newWidth = Math.max(50, startWidth + diff);
-                
-                currentTh.css('width', newWidth + 'px');
-                if (table) {
-                    table.columns.adjust();
-                }
+        // Handle mouse movement for resizing
+        $(document).off('mousemove.columnResize').on('mousemove.columnResize', function(e) {
+            if (!isResizing || !currentTh) return;
+            
+            var diff = e.pageX - startX;
+            var newWidth = Math.max(50, startWidth + diff);
+            
+            // Set the column width without affecting others
+            currentTh.css({
+                'width': newWidth + 'px',
+                'min-width': newWidth + 'px',
+                'max-width': newWidth + 'px'
             });
             
-            // Handle mouse up to stop resizing
-            $(document).on('mouseup.columnResize', function() {
-                if (isResizing) {
-                    isResizing = false;
-                    currentTh = null;
-                    table = null;
-                    $('body').removeClass('col-resizing');
-                }
-            });
-            
-            window.columnResizeHandlerBound = true;
-        }
+            // Allow table to grow horizontally
+            if (table) {
+                var $tableElement = table.table().node();
+                $($tableElement).css('width', 'auto');
+                table.columns.adjust();
+            }
+        });
+        
+        // Handle mouse up to stop resizing
+        $(document).off('mouseup.columnResize').on('mouseup.columnResize', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                table = null;
+                tableWrapper = null;
+                
+                // Clean up cursor and selection
+                $('body').removeClass('col-resizing');
+                $('body').css('user-select', '');
+                
+                // Force cursor reset
+                setTimeout(function() {
+                    $('body').css('cursor', '');
+                    $(tableSelector + ' thead th').css('cursor', '');
+                }, 10);
+            }
+        });
+        
+        // Handle mouse leave to ensure cleanup
+        $(document).off('mouseleave.columnResize').on('mouseleave.columnResize', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                table = null;
+                tableWrapper = null;
+                
+                $('body').removeClass('col-resizing');
+                $('body').css('user-select', '');
+                setTimeout(function() {
+                    $('body').css('cursor', '');
+                    $(tableSelector + ' thead th').css('cursor', '');
+                }, 10);
+            }
+        });
     }
 };
 
