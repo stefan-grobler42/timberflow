@@ -257,43 +257,25 @@ body {
 }
 
 /* Column Resizing Styles */
-.table thead th {
-    position: relative;
-    border-right: 1px solid #dee2e6 !important;
-}
-
 .table thead th .resize-handle {
-    position: absolute !important;
-    right: -4px !important;
-    top: 0 !important;
-    height: 100% !important;
-    width: 10px !important;
-    cursor: col-resize !important;
-    user-select: none !important;
-    background: #59AAD5 !important;
-    border: none !important;
-    z-index: 9999 !important;
-    opacity: 0.8 !important;
-    transition: all 0.2s ease !important;
-    border-radius: 2px !important;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    background: transparent;
+    border-right: 2px solid transparent;
+    z-index: 999;
 }
 
 .table thead th .resize-handle:hover {
-    opacity: 1 !important;
-    background: #54C3D6 !important;
-    width: 12px !important;
-    right: -5px !important;
+    border-right-color: var(--primary-color);
+    background: rgba(89, 170, 213, 0.1);
 }
 
 .table thead th:hover .resize-handle {
-    opacity: 1 !important;
-    background: #54C3D6 !important;
-}
-
-/* Make sure handles are always visible */
-.table thead th:nth-child(n+2) .resize-handle {
-    display: block !important;
-    visibility: visible !important;
+    border-right-color: #ccc;
 }
 
 body.col-resizing {
@@ -308,126 +290,15 @@ body.col-resizing * {
 /* Responsive DataTables */
 .dataTables_wrapper {
     width: 100%;
-    overflow-x: auto;
 }
 
 .dataTables_scroll {
     width: 100%;
-    overflow-x: auto;
 }
 
 .dataTables_scrollHead,
 .dataTables_scrollBody {
     width: 100% !important;
-}
-
-/* Responsive Design Fixes */
-* {
-    box-sizing: border-box;
-}
-
-html, body {
-    overflow-x: hidden;
-}
-
-.container-fluid {
-    max-width: 100%;
-    overflow-x: hidden;
-}
-
-#mainContent {
-    max-width: 100%;
-    overflow-x: hidden;
-    padding: 15px;
-}
-
-/* DataTable Container Fixes */
-.dataTables_wrapper {
-    max-width: 100%;
-    overflow-x: auto;
-}
-
-.table-responsive {
-    max-width: 100%;
-    overflow-x: auto;
-}
-
-/* Action Bar Responsive */
-.action-bar {
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 15px;
-}
-
-.action-group {
-    flex-wrap: wrap;
-    gap: 4px;
-}
-
-/* Mobile Responsive */
-@media screen and (max-width: 1200px) {
-    .container-fluid {
-        padding-left: 10px;
-        padding-right: 10px;
-    }
-    
-    .action-bar {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .action-group {
-        justify-content: center;
-    }
-    
-    #mainContent {
-        margin-left: 50px;
-        padding: 10px;
-    }
-}
-
-@media screen and (max-width: 768px) {
-    #sidebar {
-        margin-left: -250px;
-        z-index: 1050;
-    }
-    
-    #mainContent {
-        margin-left: 0;
-        padding: 8px;
-        width: 100%;
-    }
-    
-    .container-fluid {
-        padding: 0 8px;
-    }
-    
-    .action-bar .btn {
-        font-size: 0.75rem;
-        padding: 4px 8px;
-        margin: 2px;
-    }
-    
-    .table thead th {
-        font-size: 0.75rem;
-        padding: 6px 4px;
-        white-space: nowrap;
-    }
-    
-    .table tbody td {
-        font-size: 0.8rem;
-        padding: 4px 2px;
-    }
-    
-    /* Make search bar full width on mobile */
-    .search-container {
-        flex: 1;
-        margin: 4px 0;
-    }
-    
-    .search-container input {
-        width: 100%;
-    }
 }
 
 .table tbody tr {

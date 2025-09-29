@@ -128,94 +128,59 @@ var MillenniumApp = {
     
     // Universal column resizing function
     enableColumnResizing: function(tableSelector) {
-        var table = $(tableSelector).DataTable();
         var isResizing = false;
-        var startX, startWidth, currentCol;
+        var startX, startWidth, currentTh, table;
         
-        function addResizeHandles() {
+        // Add resize handles to column headers
+        $(tableSelector + ' thead th').each(function(index) {
+            if (index === 0) return; // Skip checkbox column
             
-            // Add resize handles to column headers (skip first checkbox column)
-            $(tableSelector + ' thead th').each(function(index) {
-                if (index === 0) return; // Skip checkbox column
+            var $th = $(this);
+            // Remove existing handles first
+            $th.find('.resize-handle').remove();
+            
+            var $handle = $('<div class="resize-handle"></div>');
+            $th.append($handle);
+            
+            $handle.on('mousedown', function(e) {
+                isResizing = true;
+                currentTh = $th;
+                startX = e.pageX;
+                startWidth = $th.outerWidth();
+                table = $(tableSelector).DataTable();
                 
-                var $th = $(this);
-                
-                // Remove existing handles
-                $th.find('.resize-handle').remove();
-                
-                // Add resize handle
-                var $handle = $('<div class="resize-handle"></div>');
-                $handle.css({
-                    'position': 'absolute',
-                    'right': '-4px',
-                    'top': '0',
-                    'height': '100%',
-                    'width': '8px',
-                    'background-color': '#59AAD5',
-                    'cursor': 'col-resize',
-                    'z-index': '999',
-                    'opacity': '0.7',
-                    'display': 'block'
-                });
-                $th.append($handle);
-                
-                // Bind mousedown event to start resizing
-                $handle.on('mousedown', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    isResizing = true;
-                    currentCol = table.column(index);
-                    startX = e.pageX;
-                    startWidth = $th.outerWidth();
-                    
-                    $('body').addClass('col-resizing');
-                    
-                    // Bind global mouse events for dragging
-                    $(document).on('mousemove.resize', function(e) {
-                        if (!isResizing) return;
-                        
-                        var diff = e.pageX - startX;
-                        var newWidth = Math.max(50, startWidth + diff);
-                        
-                        // Set width on both header and all cells in the column
-                        $(currentCol.header()).css('width', newWidth + 'px');
-                        $(currentCol.nodes()).css('width', newWidth + 'px');
-                    });
-                    
-                    $(document).on('mouseup.resize', function() {
-                        if (isResizing) {
-                            isResizing = false;
-                            $('body').removeClass('col-resizing');
-                            $(document).off('mousemove.resize mouseup.resize');
-                            
-                            // Adjust table and enable horizontal scroll if needed
-                            table.columns.adjust();
-                            
-                            // Calculate total width of all columns
-                            var totalWidth = 0;
-                            $(tableSelector + ' thead th').each(function() {
-                                totalWidth += $(this).outerWidth();
-                            });
-                            
-                            // Set table width to allow horizontal scrolling
-                            $(table.table().node()).css('width', totalWidth + 'px');
-                            
-                            // Clean up
-                            currentCol = null;
-                        }
-                    });
-                });
+                $('body').addClass('col-resizing');
+                e.preventDefault();
+                e.stopPropagation();
             });
-        }
-        
-        // Initial setup
-        addResizeHandles();
-        
-        // Rebind handles after DataTable redraws
-        table.off('.resize').on('draw.dt.resize column-visibility.dt.resize', function() {
-            addResizeHandles();
         });
+        
+        // Handle mouse movement for resizing (only bind once)
+        if (!window.columnResizeHandlerBound) {
+            $(document).on('mousemove.columnResize', function(e) {
+                if (!isResizing) return;
+                
+                var diff = e.pageX - startX;
+                var newWidth = Math.max(50, startWidth + diff);
+                
+                currentTh.css('width', newWidth + 'px');
+                if (table) {
+                    table.columns.adjust();
+                }
+            });
+            
+            // Handle mouse up to stop resizing
+            $(document).on('mouseup.columnResize', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    currentTh = null;
+                    table = null;
+                    $('body').removeClass('col-resizing');
+                }
+            });
+            
+            window.columnResizeHandlerBound = true;
+        }
     }
 };
 
@@ -322,9 +287,8 @@ var CustomerModule = {
             lengthChange: false,
             searching: false,
             order: [[2, 'asc']], // Sort by Account Name
-            responsive: false,
+            responsive: true,
             autoWidth: false,
-            scrollX: true,
             columnDefs: [
                 {
                     targets: [0], // Checkbox column
@@ -358,12 +322,16 @@ var CustomerModule = {
                     $(this.header()).css('position', 'relative');
                 });
                 
-                // Enable column resizing
-                MillenniumApp.enableColumnResizing('#customerGrid');
+                // Enable column resizing with mouse
+                CustomerModule.enableColumnResizing();
             }
         });
     },
     
+    // Enable manual column resizing
+    enableColumnResizing: function() {
+        MillenniumApp.enableColumnResizing('#customerGrid');
+    },
     
     // Bind list events
     bindListEvents: function() {
@@ -2739,9 +2707,8 @@ var UsersModule = {
             lengthChange: false,
             searching: false,
             order: [[2, 'asc']],
-            responsive: false,
+            responsive: true,
             autoWidth: false,
-            scrollX: true,
             buttons: [
                 {
                     extend: 'colvis',
