@@ -45,13 +45,20 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
   - **Settings Module Forms**:
     - Created modal-based CRUD forms for Company Types (Code, Name, Description, Sort Order, Active status)
     - Created modal-based CRUD forms for Account Types (Code, Name, Description, Sort Order, Active status)
-    - Side-by-side layout with separate grids for each lookup table
+    - Tabbed layout with separate tabs for each lookup table (Company Types and Account Types)
     - Complete create/edit/delete functionality with validation
+    - Double-click to edit functionality and refresh buttons for each grid
   - **Responsive Design Improvements**:
     - Enhanced flex-based layout for dynamic screen resizing
     - Added breakpoints for tablets (992px), mobile (768px), and small mobile (576px)
     - Improved sidebar behavior on mobile with fixed overlay
     - Better padding and typography scaling across different screen sizes
+- **Grid Enhancements (Sept 30, 2025)**: Comprehensive grid improvements for better usability:
+  - **Responsive Grid Behavior**: Removed fixed-width constraints; grids now resize dynamically with screen size changes
+  - **Select-All Functionality**: Added select-all checkboxes in header row for all grids (Customer, Users, Company Types, Account Types)
+  - **Narrower Checkbox Column**: Reduced checkbox column width from 40px to 30px for better space utilization
+  - **Double-Click to Edit**: Implemented double-click functionality on Users and Settings grids (matching Customer grid behavior)
+  - **Enhanced DataTables Configuration**: All grids configured with scrollX: true, responsive: true, and autoWidth: false for optimal responsiveness
 
 ## System Architecture
 
