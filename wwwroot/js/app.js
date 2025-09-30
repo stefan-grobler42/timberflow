@@ -682,51 +682,77 @@ var CustomerModule = {
                 
                 <!-- Contact Tab -->
                 <div class="tab-pane fade" id="contact">
-                    <!-- Primary Contact Section -->
+                    <!-- Company Information Section -->
                     <div class="card mb-4">
                         <div class="card-header">
-                            <h5 class="mb-0"><i class="fas fa-user"></i> Primary Contact</h5>
+                            <h5 class="mb-0"><i class="fas fa-building"></i> Company Information</h5>
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Contact Name</label>
-                                        <input type="text" class="form-control" id="PrimaryContactName">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Position/Title</label>
-                                        <input type="text" class="form-control" id="PrimaryContactTitle">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label class="form-label">Phone</label>
-                                        <input type="tel" class="form-control" id="Phone">
+                                        <input type="tel" class="form-control" id="CompanyPhone">
                                     </div>
                                 </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
-                                        <label class="form-label">Mobile</label>
-                                        <input type="tel" class="form-control" id="Mobile">
+                                        <label class="form-label">Email Address</label>
+                                        <input type="email" class="form-control" id="CompanyEmail">
                                     </div>
                                 </div>
-                            </div>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-3">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" class="form-control" id="Email">
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
+                                <div class="col-md-4">
                                     <div class="mb-3">
                                         <label class="form-label">Website</label>
                                         <input type="url" class="form-control" id="Website" placeholder="https://">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Primary Contact Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-user-tie"></i> Primary Contact</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="mb-3">
+                                        <label class="form-label">Select Primary Contact</label>
+                                        <div class="lookup-field">
+                                            <div class="input-group">
+                                                <input type="text" class="form-control lookup-input" id="PrimaryContact" 
+                                                       placeholder="Type to search contacts..." data-lookup="primaryContact">
+                                                <button class="btn btn-outline-secondary lookup-trigger" type="button">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                            <div class="lookup-dropdown" id="primaryContactDropdown"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Display selected contact details -->
+                            <div id="primaryContactDetails" class="border-top pt-3" style="display: none;">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Name:</strong></p>
+                                        <p id="primaryContactName">-</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Designation:</strong></p>
+                                        <p id="primaryContactDesignation">-</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Phone:</strong></p>
+                                        <p id="primaryContactPhone">-</p>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <p class="mb-1"><strong>Email:</strong></p>
+                                        <p id="primaryContactEmail">-</p>
                                     </div>
                                 </div>
                             </div>
@@ -742,28 +768,21 @@ var CustomerModule = {
                             </button>
                         </div>
                         <div class="card-body">
-                            <div class="contact-search mb-3">
-                                <div class="input-group">
-                                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                    <input type="text" class="form-control" placeholder="Search contacts..." id="contactSearch">
-                                    <button class="btn btn-outline-secondary" onclick="CustomerModule.clearContactSearch()">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="contacts-grid">
+                            <div class="table-responsive">
                                 <table class="table table-hover" id="contactsTable">
                                     <thead>
                                         <tr>
                                             <th>Name</th>
-                                            <th>Title</th>
+                                            <th>Designation</th>
                                             <th>Phone</th>
                                             <th>Email</th>
                                             <th width="100">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="contactsTableBody">
-                                        <!-- Contacts will be loaded here -->
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No additional contacts linked</td>
+                                        </tr>
                                     </tbody>
                                 </table>
                             </div>
