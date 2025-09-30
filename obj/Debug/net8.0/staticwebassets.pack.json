@@ -9,6 +9,10 @@
       "PackagePath": "staticwebassets/js/app.js"
     },
     {
+      "Id": "/home/runner/workspace/wwwroot/js/components/enhanced-location-field.js",
+      "PackagePath": "staticwebassets/js/components/enhanced-location-field.js"
+    },
+    {
       "Id": "/home/runner/workspace/wwwroot/millennium-logo.png",
       "PackagePath": "staticwebassets/millennium-logo.png"
     },

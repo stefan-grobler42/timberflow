@@ -880,25 +880,34 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Initialize EnhancedLocationField component for Google Maps integration
-        if (typeof EnhancedLocationField !== 'undefined' && document.getElementById('customerLocationField')) {
-            console.log('Initializing EnhancedLocationField component...');
-            
-            this.locationField = new EnhancedLocationField('customerLocationField', {
-                onLocationSelect: (locationData) => {
-                    console.log('Location selected:', locationData);
+        // Initialize EnhancedLocationField component for Google Maps integration (with delay to ensure DOM is ready)
+        setTimeout(() => {
+            if (typeof EnhancedLocationField !== 'undefined') {
+                const locationContainer = document.getElementById('customerLocationField');
+                if (locationContainer) {
+                    console.log('Initializing EnhancedLocationField component...');
                     
-                    // Populate hidden form fields with location data
-                    if (locationData.street) $('#StreetAddress').val(locationData.street);
-                    if (locationData.city) $('#City').val(locationData.city);
-                    if (locationData.province) $('#Province').val(locationData.province);
-                    if (locationData.postalCode) $('#PostalCode').val(locationData.postalCode);
-                    if (locationData.country) $('#Country').val(locationData.country);
-                    if (locationData.lat) $('#Latitude').val(locationData.lat);
-                    if (locationData.lng) $('#Longitude').val(locationData.lng);
+                    this.locationField = new EnhancedLocationField('customerLocationField', {
+                        onLocationSelect: (locationData) => {
+                            console.log('Location selected:', locationData);
+                            
+                            // Populate hidden form fields with location data
+                            if (locationData.street) $('#StreetAddress').val(locationData.street);
+                            if (locationData.city) $('#City').val(locationData.city);
+                            if (locationData.province) $('#Province').val(locationData.province);
+                            if (locationData.postalCode) $('#PostalCode').val(locationData.postalCode);
+                            if (locationData.country) $('#Country').val(locationData.country);
+                            if (locationData.lat) $('#Latitude').val(locationData.lat);
+                            if (locationData.lng) $('#Longitude').val(locationData.lng);
+                        }
+                    });
+                } else {
+                    console.error('customerLocationField container not found in DOM');
                 }
-            });
-        }
+            } else {
+                console.error('EnhancedLocationField class not defined - check if script loaded');
+            }
+        }, 100);
     },
     
     // Initialize lookup fields
