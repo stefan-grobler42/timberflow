@@ -22,52 +22,29 @@ var MillenniumApp = {
     // Initialize the application
     init: function() {
         this.bindEvents();
-        this.initSidebar();
     },
     
     // Bind global events
     bindEvents: function() {
-        // Sidebar navigation
-        $('.sidebar-link').on('click', function(e) {
+        // Navigation menu links
+        $(document).on('click', '.nav-menu-link', function(e) {
             e.preventDefault();
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
             
             // Update active state
-            $('.sidebar-link').removeClass('active');
+            $('.nav-menu-link').removeClass('active');
             $(this).addClass('active');
+            
+            // Close dropdown menu after selection
+            $('#navMenuButton').dropdown('hide');
         });
         
         // Module cards on welcome screen
         $('.module-card').on('click', function() {
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
-            $('.sidebar-link[data-module="' + module + '"]').addClass('active');
-        });
-        
-        // Sidebar toggle
-        $('#sidebarToggle, #sidebarCollapse').on('click', function() {
-            $('#sidebar').toggleClass('collapsed');
-            localStorage.setItem('sidebarCollapsed', $('#sidebar').hasClass('collapsed'));
-        });
-        
-        // Restore sidebar state
-        if (localStorage.getItem('sidebarCollapsed') === 'true') {
-            $('#sidebar').addClass('collapsed');
-        }
-    },
-    
-    // Initialize sidebar
-    initSidebar: function() {
-        // Handle sidebar hover for collapsed state
-        $('#sidebar').on('mouseenter', function() {
-            if ($(this).hasClass('collapsed')) {
-                $(this).removeClass('collapsed');
-            }
-        }).on('mouseleave', function() {
-            if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                $(this).addClass('collapsed');
-            }
+            $('.nav-menu-link[data-module="' + module + '"]').addClass('active');
         });
     },
     
