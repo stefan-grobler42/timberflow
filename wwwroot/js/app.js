@@ -130,25 +130,20 @@ var MillenniumApp = {
         var isResizing = false;
         var startX, startWidth, currentTh, table, tableContainer;
         
-        // Ensure table has proper container with fixed boundaries
+        // Ensure table has proper container for responsive behavior
         var $table = $(tableSelector);
         var $container = $table.closest('.dataTables_wrapper');
         
-        // Set up container with FIXED width - no expanding allowed
+        // Set up container with responsive width that allows grid to resize with screen
         if ($container.length) {
-            // Capture the current width and fix it permanently
-            var containerWidth = $container.width();
-            $container.data('fixedWidth', containerWidth);
             $container.css({
-                'width': containerWidth + 'px',
-                'max-width': containerWidth + 'px',
-                'min-width': containerWidth + 'px',
+                'width': '100%',
                 'overflow-x': 'auto',
                 'position': 'relative',
                 'box-sizing': 'border-box'
             });
             
-            // Make sure the table can grow inside the fixed container
+            // Make sure the table can grow inside the container
             $table.css({
                 'min-width': '100%',
                 'width': 'auto'
@@ -239,17 +234,11 @@ var MillenniumApp = {
                 var minTableWidth = Math.max(totalWidth + 20, $container.width()); // Add 20px buffer
                 $($tableElement).css('width', minTableWidth + 'px');
                 
-                // Ensure container width remains absolutely fixed with horizontal scroll
-                var fixedWidth = $container.data('fixedWidth');
-                if (fixedWidth) {
-                    $container.css({
-                        'width': fixedWidth + 'px',
-                        'max-width': fixedWidth + 'px',
-                        'min-width': fixedWidth + 'px',
-                        'overflow-x': 'auto',
-                        'overflow-y': 'visible'
-                    });
-                }
+                // Ensure container allows horizontal scroll when needed
+                $container.css({
+                    'overflow-x': 'auto',
+                    'overflow-y': 'visible'
+                });
                 
                 // DO NOT call table.columns.adjust() - it ruins our manual sizing
                 
@@ -332,11 +321,14 @@ var CustomerModule = {
     // Initialize DataTable
     initDataTable: function() {
         MillenniumApp.dataTable = $('#customerGrid').DataTable({
+            responsive: true,
+            scrollX: true,
+            autoWidth: false,
             columns: [
                 { 
                     data: null,
-                    title: "",
-                    width: "40px",
+                    title: '<input type="checkbox" class="form-check-input" id="selectAllCustomers">',
+                    width: "30px",
                     orderable: false,
                     className: "select-checkbox",
                     render: function(data, type, row) {
@@ -464,7 +456,7 @@ var CustomerModule = {
         });
         
         // Select all
-        $('#selectAll').on('change', function() {
+        $('#selectAllCustomers').on('change', function() {
             $('.row-select').prop('checked', this.checked);
             CustomerModule.updateButtonState();
         });
@@ -2872,11 +2864,12 @@ var UsersModule = {
         }
         
         MillenniumApp.dataTable = $('#usersGrid').DataTable({
+            scrollX: true,
             columns: [
                 { 
                     data: null,
-                    title: "",
-                    width: "40px",
+                    title: '<input type="checkbox" class="form-check-input" id="selectAllUsers">',
+                    width: "30px",
                     orderable: false,
                     className: "select-checkbox",
                     render: function(data, type, row) {
@@ -2955,6 +2948,14 @@ var UsersModule = {
         
         $(document).on('change', '.row-select', function() {
             UsersModule.updateButtonState();
+        });
+        
+        // Double click to edit
+        $('#usersGrid tbody').on('dblclick', 'tr', function() {
+            var data = MillenniumApp.dataTable.row(this).data();
+            if (data) {
+                UsersModule.editRecord(data.Id);
+            }
         });
     },
     
@@ -3335,13 +3336,23 @@ var SettingsModule = {
             <p class="text-muted mb-0">Manage system configuration and lookup tables</p>
         </div>
         
-        <div class="row">
-            <!-- Company Types Column -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header bg-primary text-white">
-                        <h5 class="mb-0"><i class="fas fa-building"></i> Company Types</h5>
-                    </div>
+        <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="company-types-tab" data-bs-toggle="tab" data-bs-target="#company-types" type="button" role="tab">
+                    <i class="fas fa-building"></i> Company Types
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="account-types-tab" data-bs-toggle="tab" data-bs-target="#account-types" type="button" role="tab">
+                    <i class="fas fa-tags"></i> Account Types
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="settingsTabContent">
+            <!-- Company Types Tab -->
+            <div class="tab-pane fade show active" id="company-types" role="tabpanel">
+                <div class="card mt-3">
                     <div class="card-body">
                         <div class="action-bar mb-3">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
@@ -3354,46 +3365,51 @@ var SettingsModule = {
                                 <button class="btn btn-outline-danger btn-sm" id="btnDeleteCompanyType" onclick="SettingsModule.deleteCompanyType()" disabled>
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
-                                <div class="ms-auto">
+                                <div class="action-separator"></div>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="SettingsModule.refreshCompanyTypes()">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                                <div class="ms-auto action-search">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                        <input type="text" class="form-control" id="companyTypeSearch" placeholder="Search...">
+                                        <input type="text" class="form-control" id="companyTypeSearch" placeholder="Search company types...">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <table id="companyTypesGrid" class="table table-sm table-hover table-striped mb-0" style="width:100%"></table>
+                        <table id="companyTypesGrid" class="table table-hover table-striped mb-0" style="width:100%"></table>
                     </div>
                 </div>
             </div>
             
-            <!-- Account Types Column -->
-            <div class="col-md-6 mb-4">
-                <div class="card">
-                    <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-tags"></i> Account Types</h5>
-                    </div>
+            <!-- Account Types Tab -->
+            <div class="tab-pane fade" id="account-types" role="tabpanel">
+                <div class="card mt-3">
                     <div class="card-body">
                         <div class="action-bar mb-3">
                             <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <button class="btn btn-info btn-sm" onclick="SettingsModule.newAccountType()">
+                                <button class="btn btn-primary btn-sm" onclick="SettingsModule.newAccountType()">
                                     <i class="fas fa-plus"></i> New
                                 </button>
-                                <button class="btn btn-outline-info btn-sm" id="btnEditAccountType" onclick="SettingsModule.editAccountType()" disabled>
+                                <button class="btn btn-outline-primary btn-sm" id="btnEditAccountType" onclick="SettingsModule.editAccountType()" disabled>
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
                                 <button class="btn btn-outline-danger btn-sm" id="btnDeleteAccountType" onclick="SettingsModule.deleteAccountType()" disabled>
                                     <i class="fas fa-trash"></i> Delete
                                 </button>
-                                <div class="ms-auto">
+                                <div class="action-separator"></div>
+                                <button class="btn btn-outline-secondary btn-sm" onclick="SettingsModule.refreshAccountTypes()">
+                                    <i class="fas fa-sync"></i> Refresh
+                                </button>
+                                <div class="ms-auto action-search">
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                        <input type="text" class="form-control" id="accountTypeSearch" placeholder="Search...">
+                                        <input type="text" class="form-control" id="accountTypeSearch" placeholder="Search account types...">
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <table id="accountTypesGrid" class="table table-sm table-hover table-striped mb-0" style="width:100%"></table>
+                        <table id="accountTypesGrid" class="table table-hover table-striped mb-0" style="width:100%"></table>
                     </div>
                 </div>
             </div>
@@ -3405,78 +3421,78 @@ var SettingsModule = {
     initDataTables: function() {
         // Company Types DataTable
         this.companyTypesTable = $('#companyTypesGrid').DataTable({
+            scrollX: true,
             columns: [
                 { 
                     data: null,
+                    title: '<input type="checkbox" class="form-check-input" id="selectAllCompanyTypes">',
+                    width: "30px",
                     orderable: false,
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input company-type-select" value="' + row.Id + '">';
                     }
                 },
-                { data: 'Code' },
-                { data: 'Name' },
-                { data: 'Description' },
+                { data: 'Code', title: "Code" },
+                { data: 'Name', title: "Name" },
+                { data: 'Description', title: "Description" },
                 { 
                     data: 'IsActive',
+                    title: "Status",
                     render: function(data) {
                         return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
                     }
                 }
             ],
-            dom: 'rtip', // Remove buttons, filter, and length change
+            dom: 'rtip',
             pageLength: 25,
             lengthChange: false,
             searching: false,
             order: [[1, 'asc']],
             responsive: true,
             autoWidth: false,
-            columnDefs: [
-                { targets: 0, width: "40px" }
-            ],
             language: {
                 emptyTable: "No company types found"
             },
             initComplete: function() {
-                // Enable column resizing
                 MillenniumApp.enableColumnResizing('#companyTypesGrid');
             }
         });
         
         // Account Types DataTable
         this.accountTypesTable = $('#accountTypesGrid').DataTable({
+            scrollX: true,
             columns: [
                 { 
                     data: null,
+                    title: '<input type="checkbox" class="form-check-input" id="selectAllAccountTypes">',
+                    width: "30px",
                     orderable: false,
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input account-type-select" value="' + row.Id + '">';
                     }
                 },
-                { data: 'Code' },
-                { data: 'Name' },
-                { data: 'Description' },
+                { data: 'Code', title: "Code" },
+                { data: 'Name', title: "Name" },
+                { data: 'Description', title: "Description" },
                 { 
                     data: 'IsActive',
+                    title: "Status",
                     render: function(data) {
                         return data ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>';
                     }
                 }
             ],
-            dom: 'rtip', // Remove buttons, filter, and length change
+            dom: 'rtip',
             pageLength: 25,
             lengthChange: false,
             searching: false,
             order: [[1, 'asc']],
             responsive: true,
             autoWidth: false,
-            columnDefs: [
-                { targets: 0, width: "40px" }
-            ],
             language: {
                 emptyTable: "No account types found"
             },
             initComplete: function() {
-                // Enable column resizing
                 MillenniumApp.enableColumnResizing('#accountTypesGrid');
             }
         });
@@ -3511,6 +3527,21 @@ var SettingsModule = {
         $(document).on('change', '.account-type-select', function() {
             SettingsModule.updateAccountTypeButtons();
         });
+        
+        // Double click to edit
+        $('#companyTypesGrid tbody').on('dblclick', 'tr', function() {
+            var data = SettingsModule.companyTypesTable.row(this).data();
+            if (data) {
+                SettingsModule.editCompanyType(data.Id);
+            }
+        });
+        
+        $('#accountTypesGrid tbody').on('dblclick', 'tr', function() {
+            var data = SettingsModule.accountTypesTable.row(this).data();
+            if (data) {
+                SettingsModule.editAccountType(data.Id);
+            }
+        });
     },
     
     // Load data from APIs
@@ -3533,6 +3564,31 @@ var SettingsModule = {
             })
             .fail(() => {
                 MillenniumApp.showNotification('Failed to load account types', 'error');
+            });
+    },
+    
+    // Refresh methods
+    refreshCompanyTypes: function() {
+        $.get('/api/LookupsApi/company-types')
+            .done(data => {
+                this.companyTypes = data;
+                this.companyTypesTable.clear().rows.add(data).draw();
+                MillenniumApp.showNotification('Company types refreshed', 'success');
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to refresh company types', 'error');
+            });
+    },
+    
+    refreshAccountTypes: function() {
+        $.get('/api/LookupsApi/account-types')
+            .done(data => {
+                this.accountTypes = data;
+                this.accountTypesTable.clear().rows.add(data).draw();
+                MillenniumApp.showNotification('Account types refreshed', 'success');
+            })
+            .fail(() => {
+                MillenniumApp.showNotification('Failed to refresh account types', 'error');
             });
     },
     
