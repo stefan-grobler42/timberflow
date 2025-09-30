@@ -857,50 +857,17 @@ var CustomerModule = {
                 
                 <!-- Address Tab -->
                 <div class="tab-pane fade" id="address">
-                    <div class="mb-3">
-                        <label class="form-label">Street Address</label>
-                        <input type="text" class="form-control" id="StreetAddress" placeholder="Type to search for addresses (min 3 characters)...">
-                        <div id="addressSuggestions" style="position: relative;"></div>
-                        <small class="text-muted">Start typing to see real address suggestions</small>
-                    </div>
+                    <!-- EnhancedLocationField Component Container -->
+                    <div id="customerLocationField"></div>
                     
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">City</label>
-                                <input type="text" class="form-control" id="City">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Province</label>
-                                <input type="text" class="form-control" id="Province">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Postal Code</label>
-                                <input type="text" class="form-control" id="PostalCode">
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Country</label>
-                                <input type="text" class="form-control" id="Country" value="South Africa">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Interactive Map -->
-                    <div class="mb-3">
-                        <label class="form-label">Location Map</label>
-                        <div id="addressMap" style="height: 300px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #666;">
-                            <div id="mapContent">Select an address above to view location on map</div>
-                        </div>
-                    </div>
+                    <!-- Hidden fields for form data -->
+                    <input type="hidden" id="StreetAddress">
+                    <input type="hidden" id="City">
+                    <input type="hidden" id="Province">
+                    <input type="hidden" id="PostalCode">
+                    <input type="hidden" id="Country">
+                    <input type="hidden" id="Latitude">
+                    <input type="hidden" id="Longitude">
                 </div>
             </div>
         </div>`;
@@ -913,8 +880,25 @@ var CustomerModule = {
         // Initialize lookup fields
         this.initLookupFields();
         
-        // Google Maps functionality is now handled by EnhancedLocationField component
-        // No longer need the old initGoogleMapsAddressSearch function
+        // Initialize EnhancedLocationField component for Google Maps integration
+        if (typeof EnhancedLocationField !== 'undefined' && document.getElementById('customerLocationField')) {
+            console.log('Initializing EnhancedLocationField component...');
+            
+            this.locationField = new EnhancedLocationField('customerLocationField', {
+                onLocationSelect: (locationData) => {
+                    console.log('Location selected:', locationData);
+                    
+                    // Populate hidden form fields with location data
+                    if (locationData.street) $('#StreetAddress').val(locationData.street);
+                    if (locationData.city) $('#City').val(locationData.city);
+                    if (locationData.province) $('#Province').val(locationData.province);
+                    if (locationData.postalCode) $('#PostalCode').val(locationData.postalCode);
+                    if (locationData.country) $('#Country').val(locationData.country);
+                    if (locationData.lat) $('#Latitude').val(locationData.lat);
+                    if (locationData.lng) $('#Longitude').val(locationData.lng);
+                }
+            });
+        }
     },
     
     // Initialize lookup fields
