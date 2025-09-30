@@ -80,7 +80,7 @@ var MillenniumApp = {
                 CustomerModule.loadList();
                 break;
             case 'users':
-                UserModule.loadList();
+                UsersModule.loadList();
                 break;
             case 'settings':
                 SettingsModule.loadList();
@@ -2803,12 +2803,66 @@ var UsersModule = {
     
     // Load users list view
     loadList: function() {
-        var template = $('#usersListTemplate').html();
+        var template = this.getListTemplate();
         $('#mainContent').html(template);
         
         this.initDataTable();
         this.bindListEvents();
         this.loadData();
+    },
+    
+    // Get list template
+    getListTemplate: function() {
+        return `
+        <div class="module-header mb-2">
+            <h2><i class="fas fa-users"></i> User Management</h2>
+            <p class="text-muted mb-0">Manage system users and their roles</p>
+        </div>
+        
+        <div class="action-bar">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-primary btn-sm" onclick="UsersModule.newRecord()">
+                    <i class="fas fa-plus"></i> New
+                </button>
+                <div class="action-separator"></div>
+                <button class="btn btn-outline-primary btn-sm" id="btnEditUser" onclick="UsersModule.editRecord()" disabled>
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm" id="btnDeleteUser" onclick="UsersModule.deleteRecord()" disabled>
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+                <div class="action-separator"></div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.refreshGrid()">
+                    <i class="fas fa-sync-alt"></i> Refresh
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.showFilter()">
+                    <i class="fas fa-filter"></i> Filter
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="MillenniumApp.dataTable.button('.buttons-colvis').trigger()">
+                    <i class="fas fa-columns"></i> Columns
+                </button>
+                <div class="action-separator"></div>
+                <button class="btn btn-outline-success btn-sm" onclick="UsersModule.exportExcel()">
+                    <i class="fas fa-file-excel"></i> Export
+                </button>
+                <button class="btn btn-outline-info btn-sm" onclick="UsersModule.importData()">
+                    <i class="fas fa-file-import"></i> Import
+                </button>
+                <div class="ms-auto action-search">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" id="userSearch" placeholder="Search users...">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-body p-0">
+                <table id="usersGrid" class="table table-hover table-striped mb-0" style="width:100%"></table>
+            </div>
+        </div>
+        `;
     },
     
     // Initialize DataTable
@@ -2929,25 +2983,322 @@ var UsersModule = {
         MillenniumApp.showNotification('Users refreshed', 'success');
     },
     
-    // Placeholder methods
+    // New record
     newRecord: function() {
-        MillenniumApp.showNotification('User creation coming soon', 'info');
+        this.selectedId = null;
+        this.loadForm();
     },
     
-    editRecord: function() {
-        MillenniumApp.showNotification('User editing coming soon', 'info');
+    // Edit record
+    editRecord: function(id) {
+        if (!id) {
+            var selected = $('.row-select:checked');
+            if (selected.length !== 1) return;
+            id = selected.val();
+        }
+        
+        this.selectedId = id;
+        this.loadForm(id);
     },
     
+    // Load form
+    loadForm: function(id) {
+        var formHtml = this.getFormTemplate();
+        $('#mainContent').html(formHtml);
+        
+        // Load data if editing
+        if (id) {
+            $.get('/api/UsersApi/' + id, (user) => {
+                this.populateForm(user);
+            });
+        }
+    },
+    
+    // Get form template
+    getFormTemplate: function() {
+        return `
+        <div class="form-container">
+            <div class="form-header d-flex justify-content-between align-items-center">
+                <h3><i class="fas fa-user"></i> ${this.selectedId ? 'Edit' : 'New'} User</h3>
+            </div>
+            
+            <div class="millennium-action-bar" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border: 1px solid #dee2e6; border-radius: 6px; padding: 10px 16px; margin: 10px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="UsersModule.saveForm()">
+                        <i class="fas fa-save"></i> Save
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="UsersModule.saveAndNew()">
+                        <i class="fas fa-plus"></i> Save & New
+                    </button>
+                    <div class="action-separator" style="width: 1px; height: 20px; background: #dee2e6; margin: 0 8px;"></div>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="UsersModule.cancelForm()">
+                        <i class="fas fa-arrow-left"></i> Back to List
+                    </button>
+                    ${this.selectedId ? '<button class="btn btn-outline-danger btn-sm ms-2" onclick="UsersModule.deleteForm()"><i class="fas fa-trash"></i> Delete</button>' : ''}
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">User Code</label>
+                        <input type="text" class="form-control" id="UserCode" readonly>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="FirstName" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="LastName" required>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Email <span class="text-danger">*</span></label>
+                        <input type="email" class="form-control" id="Email" required>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Phone</label>
+                        <input type="text" class="form-control" id="Phone">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Department</label>
+                        <select class="form-select" id="Department">
+                            <option value="">Select Department</option>
+                            <option value="Sales">Sales</option>
+                            <option value="Operations">Operations</option>
+                            <option value="Finance">Finance</option>
+                            <option value="Administration">Administration</option>
+                            <option value="IT">IT</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Position</label>
+                        <input type="text" class="form-control" id="Position">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Role <span class="text-danger">*</span></label>
+                        <select class="form-select" id="Role" required>
+                            <option value="user">User</option>
+                            <option value="sales">Sales Representative</option>
+                            <option value="manager">Manager</option>
+                            <option value="admin">Administrator</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Hire Date</label>
+                        <input type="date" class="form-control" id="HireDate">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12">
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <textarea class="form-control" id="Address" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Emergency Contact</label>
+                        <input type="text" class="form-control" id="EmergencyContact">
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <label class="form-label">Emergency Phone</label>
+                        <input type="text" class="form-control" id="EmergencyPhone">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="IsActive" checked>
+                            <label class="form-check-label" for="IsActive">Active</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    },
+    
+    // Populate form
+    populateForm: function(user) {
+        $('#UserCode').val(user.UserCode || '');
+        $('#FirstName').val(user.FirstName || '');
+        $('#LastName').val(user.LastName || '');
+        $('#Email').val(user.Email || '');
+        $('#Phone').val(user.Phone || '');
+        $('#Department').val(user.Department || '');
+        $('#Position').val(user.Position || '');
+        $('#Role').val(user.Role || 'user');
+        $('#IsActive').prop('checked', user.IsActive !== false);
+        $('#Address').val(user.Address || '');
+        $('#EmergencyContact').val(user.EmergencyContact || '');
+        $('#EmergencyPhone').val(user.EmergencyPhone || '');
+        
+        if (user.HireDate) {
+            var date = new Date(user.HireDate);
+            $('#HireDate').val(date.toISOString().split('T')[0]);
+        }
+    },
+    
+    // Get form data
+    getFormData: function() {
+        return {
+            FirstName: $('#FirstName').val().trim(),
+            LastName: $('#LastName').val().trim(),
+            Email: $('#Email').val().trim(),
+            Phone: $('#Phone').val().trim(),
+            Department: $('#Department').val(),
+            Position: $('#Position').val().trim(),
+            Role: $('#Role').val(),
+            IsActive: $('#IsActive').is(':checked'),
+            HireDate: $('#HireDate').val() || null,
+            Address: $('#Address').val().trim(),
+            EmergencyContact: $('#EmergencyContact').val().trim(),
+            EmergencyPhone: $('#EmergencyPhone').val().trim()
+        };
+    },
+    
+    // Save form
+    saveForm: function() {
+        var user = this.getFormData();
+        
+        if (!user.FirstName || !user.LastName || !user.Email) {
+            MillenniumApp.showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        var url = this.selectedId ? '/api/UsersApi/' + this.selectedId : '/api/UsersApi';
+        var method = this.selectedId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(user),
+            success: () => {
+                MillenniumApp.showNotification('User saved successfully', 'success');
+                this.loadList();
+            },
+            error: () => {
+                MillenniumApp.showNotification('Failed to save user', 'error');
+            }
+        });
+    },
+    
+    // Save and new
+    saveAndNew: function() {
+        var user = this.getFormData();
+        
+        if (!user.FirstName || !user.LastName || !user.Email) {
+            MillenniumApp.showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        var url = this.selectedId ? '/api/UsersApi/' + this.selectedId : '/api/UsersApi';
+        var method = this.selectedId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(user),
+            success: () => {
+                MillenniumApp.showNotification('User saved successfully. Ready for new user.', 'success');
+                this.selectedId = null;
+                this.loadForm();
+            },
+            error: () => {
+                MillenniumApp.showNotification('Failed to save user', 'error');
+            }
+        });
+    },
+    
+    // Cancel form
+    cancelForm: function() {
+        this.loadList();
+    },
+    
+    // Delete form
+    deleteForm: function() {
+        if (!confirm('Are you sure you want to deactivate this user?')) return;
+        
+        $.ajax({
+            url: '/api/UsersApi/' + this.selectedId,
+            method: 'DELETE',
+            success: () => {
+                MillenniumApp.showNotification('User deactivated successfully', 'success');
+                this.loadList();
+            },
+            error: () => {
+                MillenniumApp.showNotification('Failed to deactivate user', 'error');
+            }
+        });
+    },
+    
+    // Delete record
     deleteRecord: function() {
-        MillenniumApp.showNotification('User deletion coming soon', 'info');
+        var selected = $('.row-select:checked');
+        if (selected.length === 0) return;
+        
+        if (!confirm('Are you sure you want to deactivate ' + selected.length + ' user(s)?')) return;
+        
+        var promises = [];
+        selected.each(function() {
+            promises.push($.ajax({
+                url: '/api/UsersApi/' + $(this).val(),
+                method: 'DELETE'
+            }));
+        });
+        
+        Promise.all(promises).then(() => {
+            MillenniumApp.showNotification('Users deactivated successfully', 'success');
+            this.loadData();
+        }).catch(() => {
+            MillenniumApp.showNotification('Failed to deactivate some users', 'error');
+        });
     },
     
+    // Placeholder methods
     showFilter: function() {
         MillenniumApp.showNotification('User filtering coming soon', 'info');
-    },
-    
-    columnSelector: function() {
-        MillenniumApp.showNotification('Column selector coming soon', 'info');
     },
     
     exportExcel: function() {
@@ -2968,12 +3319,86 @@ var SettingsModule = {
     
     // Load settings list view
     loadList: function() {
-        var template = $('#settingsListTemplate').html();
+        var template = this.getListTemplate();
         $('#mainContent').html(template);
         
         this.initDataTables();
         this.bindEvents();
         this.loadData();
+    },
+    
+    // Get list template
+    getListTemplate: function() {
+        return `
+        <div class="module-header mb-2">
+            <h2><i class="fas fa-cog"></i> Settings</h2>
+            <p class="text-muted mb-0">Manage system configuration and lookup tables</p>
+        </div>
+        
+        <div class="row">
+            <!-- Company Types Column -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-building"></i> Company Types</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="action-bar mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <button class="btn btn-primary btn-sm" onclick="SettingsModule.newCompanyType()">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
+                                <button class="btn btn-outline-primary btn-sm" id="btnEditCompanyType" onclick="SettingsModule.editCompanyType()" disabled>
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="btnDeleteCompanyType" onclick="SettingsModule.deleteCompanyType()" disabled>
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <div class="ms-auto">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="companyTypeSearch" placeholder="Search...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <table id="companyTypesGrid" class="table table-sm table-hover table-striped mb-0" style="width:100%"></table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Account Types Column -->
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-tags"></i> Account Types</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="action-bar mb-3">
+                            <div class="d-flex align-items-center gap-2 flex-wrap">
+                                <button class="btn btn-info btn-sm" onclick="SettingsModule.newAccountType()">
+                                    <i class="fas fa-plus"></i> New
+                                </button>
+                                <button class="btn btn-outline-info btn-sm" id="btnEditAccountType" onclick="SettingsModule.editAccountType()" disabled>
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-outline-danger btn-sm" id="btnDeleteAccountType" onclick="SettingsModule.deleteAccountType()" disabled>
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                                <div class="ms-auto">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="text" class="form-control" id="accountTypeSearch" placeholder="Search...">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <table id="accountTypesGrid" class="table table-sm table-hover table-striped mb-0" style="width:100%"></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
     },
     
     // Initialize DataTables
@@ -3124,30 +3549,260 @@ var SettingsModule = {
         $('#btnDeleteAccountType').prop('disabled', selected === 0);
     },
     
-    // Placeholder methods for Company Types
+    // Company Type Methods
     newCompanyType: function() {
-        MillenniumApp.showNotification('Company Type creation coming soon', 'info');
+        this.selectedCompanyTypeId = null;
+        this.showCompanyTypeForm();
     },
     
-    editCompanyType: function() {
-        MillenniumApp.showNotification('Company Type editing coming soon', 'info');
+    editCompanyType: function(id) {
+        if (!id) {
+            var selected = $('.company-type-select:checked');
+            if (selected.length !== 1) return;
+            id = selected.val();
+        }
+        
+        this.selectedCompanyTypeId = id;
+        
+        // Find the company type
+        var companyType = this.companyTypes.find(ct => ct.Id == id);
+        if (companyType) {
+            this.showCompanyTypeForm(companyType);
+        }
+    },
+    
+    showCompanyTypeForm: function(data) {
+        var isEdit = !!data;
+        var modalHtml = `
+        <div class="modal fade" id="companyTypeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${isEdit ? 'Edit' : 'New'} Company Type</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ctCode" value="${data ? data.Code : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="ctName" value="${data ? data.Name : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="ctDescription" rows="3">${data ? data.Description || '' : ''}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sort Order</label>
+                            <input type="number" class="form-control" id="ctSortOrder" value="${data ? data.SortOrder || 0 : 0}">
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="ctIsActive" ${!data || data.IsActive ? 'checked' : ''}>
+                            <label class="form-check-label" for="ctIsActive">Active</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="SettingsModule.saveCompanyType()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+        
+        // Remove existing modal if any
+        $('#companyTypeModal').remove();
+        $('body').append(modalHtml);
+        
+        var modal = new bootstrap.Modal(document.getElementById('companyTypeModal'));
+        modal.show();
+    },
+    
+    saveCompanyType: function() {
+        var data = {
+            Code: $('#ctCode').val().trim(),
+            Name: $('#ctName').val().trim(),
+            Description: $('#ctDescription').val().trim(),
+            SortOrder: parseInt($('#ctSortOrder').val()) || 0,
+            IsActive: $('#ctIsActive').is(':checked')
+        };
+        
+        if (!data.Code || !data.Name) {
+            MillenniumApp.showNotification('Please fill in required fields', 'error');
+            return;
+        }
+        
+        var url = this.selectedCompanyTypeId ? 
+            '/api/LookupsApi/company-types/' + this.selectedCompanyTypeId : 
+            '/api/LookupsApi/company-types';
+        var method = this.selectedCompanyTypeId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: () => {
+                MillenniumApp.showNotification('Company Type saved successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('companyTypeModal')).hide();
+                this.loadData();
+            },
+            error: () => {
+                MillenniumApp.showNotification('Failed to save Company Type', 'error');
+            }
+        });
     },
     
     deleteCompanyType: function() {
-        MillenniumApp.showNotification('Company Type deletion coming soon', 'info');
+        var selected = $('.company-type-select:checked');
+        if (selected.length === 0) return;
+        
+        if (!confirm('Are you sure you want to deactivate ' + selected.length + ' company type(s)?')) return;
+        
+        var promises = [];
+        selected.each(function() {
+            promises.push($.ajax({
+                url: '/api/LookupsApi/company-types/' + $(this).val(),
+                method: 'DELETE'
+            }));
+        });
+        
+        Promise.all(promises).then(() => {
+            MillenniumApp.showNotification('Company Types deactivated successfully', 'success');
+            this.loadData();
+        }).catch(() => {
+            MillenniumApp.showNotification('Failed to deactivate some company types', 'error');
+        });
     },
     
-    // Placeholder methods for Account Types
+    // Account Type Methods
     newAccountType: function() {
-        MillenniumApp.showNotification('Account Type creation coming soon', 'info');
+        this.selectedAccountTypeId = null;
+        this.showAccountTypeForm();
     },
     
-    editAccountType: function() {
-        MillenniumApp.showNotification('Account Type editing coming soon', 'info');
+    editAccountType: function(id) {
+        if (!id) {
+            var selected = $('.account-type-select:checked');
+            if (selected.length !== 1) return;
+            id = selected.val();
+        }
+        
+        this.selectedAccountTypeId = id;
+        
+        // Find the account type
+        var accountType = this.accountTypes.find(at => at.Id == id);
+        if (accountType) {
+            this.showAccountTypeForm(accountType);
+        }
+    },
+    
+    showAccountTypeForm: function(data) {
+        var isEdit = !!data;
+        var modalHtml = `
+        <div class="modal fade" id="accountTypeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${isEdit ? 'Edit' : 'New'} Account Type</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Code <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="atCode" value="${data ? data.Code : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="atName" value="${data ? data.Name : ''}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="atDescription" rows="3">${data ? data.Description || '' : ''}</textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Sort Order</label>
+                            <input type="number" class="form-control" id="atSortOrder" value="${data ? data.SortOrder || 0 : 0}">
+                        </div>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="atIsActive" ${!data || data.IsActive ? 'checked' : ''}>
+                            <label class="form-check-label" for="atIsActive">Active</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-info" onclick="SettingsModule.saveAccountType()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+        
+        // Remove existing modal if any
+        $('#accountTypeModal').remove();
+        $('body').append(modalHtml);
+        
+        var modal = new bootstrap.Modal(document.getElementById('accountTypeModal'));
+        modal.show();
+    },
+    
+    saveAccountType: function() {
+        var data = {
+            Code: $('#atCode').val().trim(),
+            Name: $('#atName').val().trim(),
+            Description: $('#atDescription').val().trim(),
+            SortOrder: parseInt($('#atSortOrder').val()) || 0,
+            IsActive: $('#atIsActive').is(':checked')
+        };
+        
+        if (!data.Code || !data.Name) {
+            MillenniumApp.showNotification('Please fill in required fields', 'error');
+            return;
+        }
+        
+        var url = this.selectedAccountTypeId ? 
+            '/api/LookupsApi/account-types/' + this.selectedAccountTypeId : 
+            '/api/LookupsApi/account-types';
+        var method = this.selectedAccountTypeId ? 'PUT' : 'POST';
+        
+        $.ajax({
+            url: url,
+            method: method,
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: () => {
+                MillenniumApp.showNotification('Account Type saved successfully', 'success');
+                bootstrap.Modal.getInstance(document.getElementById('accountTypeModal')).hide();
+                this.loadData();
+            },
+            error: () => {
+                MillenniumApp.showNotification('Failed to save Account Type', 'error');
+            }
+        });
     },
     
     deleteAccountType: function() {
-        MillenniumApp.showNotification('Account Type deletion coming soon', 'info');
+        var selected = $('.account-type-select:checked');
+        if (selected.length === 0) return;
+        
+        if (!confirm('Are you sure you want to deactivate ' + selected.length + ' account type(s)?')) return;
+        
+        var promises = [];
+        selected.each(function() {
+            promises.push($.ajax({
+                url: '/api/LookupsApi/account-types/' + $(this).val(),
+                method: 'DELETE'
+            }));
+        });
+        
+        Promise.all(promises).then(() => {
+            MillenniumApp.showNotification('Account Types deactivated successfully', 'success');
+            this.loadData();
+        }).catch(() => {
+            MillenniumApp.showNotification('Failed to deactivate some account types', 'error');
+        });
     }
 };
 

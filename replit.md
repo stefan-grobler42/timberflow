@@ -28,6 +28,30 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
   - Internal horizontal scrolling when columns exceed container width
   - Proper pagination (25 records per page) with streamlined controls
   - Removed redundant DataTable controls for cleaner interface
+- **Module Enhancements (Sept 30, 2025)**: Comprehensive updates to Customer, Users, and Settings modules:
+  - **Customer Module Enhancements**:
+    - Added company information section to Contact tab (Phone, Email, Website)
+    - Implemented Primary Contact lookup field with details display
+    - Enhanced Additional Contacts grid with Designation column
+    - Added address display fields (Street, Suburb, Postal Code, Province) that auto-populate from Google Maps selections
+    - Renamed "Status & Relationship" tab to "Financial Information" with updated icon
+    - Removed Customer Status field from Basic Information tab (now only in Financial Information)
+  - **Users Module Complete Implementation**:
+    - Created full CRUD forms with all employee fields (First Name, Last Name, Email, Phone, Department, Position, Role, Hire Date, Address, Emergency Contact, Emergency Phone)
+    - Implemented role-based field with User, Sales Representative, Manager, and Administrator options
+    - Added department dropdown with Sales, Operations, Finance, Administration, and IT options
+    - Comprehensive list view with action bar and DataTable grid
+    - Full save/edit/delete/save-and-new functionality
+  - **Settings Module Forms**:
+    - Created modal-based CRUD forms for Company Types (Code, Name, Description, Sort Order, Active status)
+    - Created modal-based CRUD forms for Account Types (Code, Name, Description, Sort Order, Active status)
+    - Side-by-side layout with separate grids for each lookup table
+    - Complete create/edit/delete functionality with validation
+  - **Responsive Design Improvements**:
+    - Enhanced flex-based layout for dynamic screen resizing
+    - Added breakpoints for tablets (992px), mobile (768px), and small mobile (576px)
+    - Improved sidebar behavior on mobile with fixed overlay
+    - Better padding and typography scaling across different screen sizes
 
 ## System Architecture
 
