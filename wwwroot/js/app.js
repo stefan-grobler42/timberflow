@@ -3,19 +3,13 @@
 
 console.log('Loading Millennium ERP v3.0 - Google Maps Integration');
 
-// Global Google Maps initialization
+// Global Google Maps initialization callback
 function initializeGoogleMaps() {
-    console.log('[Google Maps] API loaded successfully');
+    console.log('[Google Maps] API loaded successfully via callback');
     window.googleMapsLoaded = true;
     
     // Dispatch event to notify components that Google Maps is ready
     window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
-    
-    // Only initialize address search if we're actually on a customer details page
-    if (window.CustomerModule && typeof CustomerModule.initGoogleMapsAddressSearch === 'function' && 
-        document.getElementById('StreetAddress')) {
-        CustomerModule.initGoogleMapsAddressSearch();
-    }
 }
 
 // Global app namespace
@@ -3111,13 +3105,6 @@ var SettingsModule = {
     deleteAccountType: function() {
         MillenniumApp.showNotification('Account Type deletion coming soon', 'info');
     }
-};
-
-// Google Maps API callback function
-window.initializeGoogleMaps = function() {
-    console.log('[Google Maps] API loaded successfully');
-    // Notify any waiting components that Google Maps is ready
-    window.dispatchEvent(new CustomEvent('googleMapsLoaded'));
 };
 
 // Initialize app when document ready
