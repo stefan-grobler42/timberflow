@@ -587,7 +587,7 @@ var CustomerModule = {
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" data-bs-toggle="tab" href="#status-relationship">
-                        <i class="fas fa-shield-alt"></i> Status & Relationship
+                        <i class="fas fa-money-bill-wave"></i> Financial Information
                     </a>
                 </li>
             </ul>
@@ -624,18 +624,6 @@ var CustomerModule = {
                                     </div>
                                     <div class="lookup-dropdown" id="companyTypeDropdown"></div>
                                 </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Customer Status</label>
-                                <select class="form-select" id="CustomerStatus">
-                                    <option value="Prospect">Prospect</option>
-                                    <option value="Confirmed Customer">Confirmed Customer</option>
-                                    <option value="Credit Approved">Credit Approved</option>
-                                    <option value="Account Under Review">Account Under Review</option>
-                                    <option value="Account Closed">Account Closed</option>
-                                </select>
                             </div>
                         </div>
                     </div>
@@ -873,11 +861,45 @@ var CustomerModule = {
                     <!-- EnhancedLocationField Component Container -->
                     <div id="customerLocationField"></div>
                     
-                    <!-- Hidden fields for form data -->
-                    <input type="hidden" id="StreetAddress">
+                    <!-- Address Details Section -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="fas fa-map-marker-alt"></i> Address Details</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Street Address</label>
+                                        <input type="text" class="form-control" id="StreetAddress" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Suburb</label>
+                                        <input type="text" class="form-control" id="Suburb" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Postal Code</label>
+                                        <input type="text" class="form-control" id="PostalCode" readonly>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">Province</label>
+                                        <input type="text" class="form-control" id="Province" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden fields for coordinates -->
                     <input type="hidden" id="City">
-                    <input type="hidden" id="Province">
-                    <input type="hidden" id="PostalCode">
                     <input type="hidden" id="Country">
                     <input type="hidden" id="Latitude">
                     <input type="hidden" id="Longitude">
@@ -904,11 +926,14 @@ var CustomerModule = {
                         onLocationSelect: (locationData) => {
                             console.log('Location selected:', locationData);
                             
-                            // Populate hidden form fields with location data
+                            // Populate visible address fields
                             if (locationData.street) $('#StreetAddress').val(locationData.street);
-                            if (locationData.city) $('#City').val(locationData.city);
-                            if (locationData.province) $('#Province').val(locationData.province);
+                            if (locationData.suburb) $('#Suburb').val(locationData.suburb);
                             if (locationData.postalCode) $('#PostalCode').val(locationData.postalCode);
+                            if (locationData.province) $('#Province').val(locationData.province);
+                            
+                            // Populate hidden fields
+                            if (locationData.city) $('#City').val(locationData.city);
                             if (locationData.country) $('#Country').val(locationData.country);
                             if (locationData.lat) $('#Latitude').val(locationData.lat);
                             if (locationData.lng) $('#Longitude').val(locationData.lng);
