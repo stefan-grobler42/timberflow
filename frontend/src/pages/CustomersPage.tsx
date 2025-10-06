@@ -4,7 +4,7 @@ import {
   Text,
   DetailsList,
   DetailsListLayoutMode,
-  SelectionMode,
+  Selection,
   CommandBar,
   MessageBar,
   MessageBarType,
@@ -14,11 +14,26 @@ import {
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { customerService } from '../services';
 import type { Customer } from '../types';
+import { CustomerForm } from '../components/CustomerForm';
+import { DeleteDialog } from '../components/DeleteDialog';
 
 export const CustomersPage = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | undefined>();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | undefined>();
+
+  const [selection] = useState(
+    new Selection({
+      onSelectionChanged: () => {
+        const selected = selection.getSelection()[0] as Customer | undefined;
+        setSelectedCustomer(selected);
+      },
+    })
+  );
 
   useEffect(() => {
     loadCustomers();
@@ -34,6 +49,37 @@ export const CustomersPage = () => {
       setError(err instanceof Error ? err.message : 'Failed to load customers');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNew = () => {
+    setSelectedCustomer(undefined);
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (selectedCustomer) {
+      setIsFormOpen(true);
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedCustomer) {
+      setCustomerToDelete(selectedCustomer);
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (customerToDelete) {
+      try {
+        await customerService.delete(customerToDelete.id);
+        setIsDeleteDialogOpen(false);
+        setCustomerToDelete(undefined);
+        await loadCustomers();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete customer');
+      }
     }
   };
 
@@ -110,7 +156,21 @@ export const CustomersPage = () => {
       key: 'new',
       text: 'New',
       iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New customer'),
+      onClick: handleNew,
+    },
+    {
+      key: 'edit',
+      text: 'Edit',
+      iconProps: { iconName: 'Edit' },
+      disabled: !selectedCustomer,
+      onClick: handleEdit,
+    },
+    {
+      key: 'delete',
+      text: 'Delete',
+      iconProps: { iconName: 'Delete' },
+      disabled: !selectedCustomer,
+      onClick: handleDelete,
     },
     {
       key: 'refresh',
@@ -141,10 +201,26 @@ export const CustomersPage = () => {
           items={customers}
           columns={columns}
           layoutMode={DetailsListLayoutMode.justified}
-          selectionMode={SelectionMode.multiple}
+          selection={selection}
+          selectionPreservedOnEmptyClick={true}
           isHeaderVisible={true}
         />
       )}
+
+      <CustomerForm
+        isOpen={isFormOpen}
+        customer={selectedCustomer}
+        onDismiss={() => setIsFormOpen(false)}
+        onSave={loadCustomers}
+      />
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        title="Delete Customer"
+        message={`Are you sure you want to delete ${customerToDelete?.accountName}?`}
+        onConfirm={confirmDelete}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+      />
     </Stack>
   );
 };

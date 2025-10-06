@@ -4,7 +4,7 @@ import {
   Text,
   DetailsList,
   DetailsListLayoutMode,
-  SelectionMode,
+  Selection,
   CommandBar,
   MessageBar,
   MessageBarType,
@@ -14,11 +14,26 @@ import {
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { userService } from '../services';
 import type { User } from '../types';
+import { UserForm } from '../components/UserForm';
+import { DeleteDialog } from '../components/DeleteDialog';
 
 export const UsersPage = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<User | undefined>();
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | undefined>();
+
+  const [selection] = useState(
+    new Selection({
+      onSelectionChanged: () => {
+        const selected = selection.getSelection()[0] as User | undefined;
+        setSelectedUser(selected);
+      },
+    })
+  );
 
   useEffect(() => {
     loadUsers();
@@ -34,6 +49,37 @@ export const UsersPage = () => {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNew = () => {
+    setSelectedUser(undefined);
+    setIsFormOpen(true);
+  };
+
+  const handleEdit = () => {
+    if (selectedUser) {
+      setIsFormOpen(true);
+    }
+  };
+
+  const handleDelete = () => {
+    if (selectedUser) {
+      setUserToDelete(selectedUser);
+      setIsDeleteDialogOpen(true);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (userToDelete) {
+      try {
+        await userService.delete(userToDelete.id);
+        setIsDeleteDialogOpen(false);
+        setUserToDelete(undefined);
+        await loadUsers();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to delete user');
+      }
     }
   };
 
@@ -110,7 +156,21 @@ export const UsersPage = () => {
       key: 'new',
       text: 'New',
       iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New user'),
+      onClick: handleNew,
+    },
+    {
+      key: 'edit',
+      text: 'Edit',
+      iconProps: { iconName: 'Edit' },
+      disabled: !selectedUser,
+      onClick: handleEdit,
+    },
+    {
+      key: 'delete',
+      text: 'Delete',
+      iconProps: { iconName: 'Delete' },
+      disabled: !selectedUser,
+      onClick: handleDelete,
     },
     {
       key: 'refresh',
@@ -141,10 +201,26 @@ export const UsersPage = () => {
           items={users}
           columns={columns}
           layoutMode={DetailsListLayoutMode.justified}
-          selectionMode={SelectionMode.multiple}
+          selection={selection}
+          selectionPreservedOnEmptyClick={true}
           isHeaderVisible={true}
         />
       )}
+
+      <UserForm
+        isOpen={isFormOpen}
+        user={selectedUser}
+        onDismiss={() => setIsFormOpen(false)}
+        onSave={loadUsers}
+      />
+
+      <DeleteDialog
+        isOpen={isDeleteDialogOpen}
+        title="Delete User"
+        message={`Are you sure you want to delete ${userToDelete?.firstName} ${userToDelete?.lastName}?`}
+        onConfirm={confirmDelete}
+        onCancel={() => setIsDeleteDialogOpen(false)}
+      />
     </Stack>
   );
 };
