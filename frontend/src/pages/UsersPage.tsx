@@ -48,6 +48,11 @@ export const UsersPage = () => {
     position: true,
     role: true,
     isActive: true,
+    phone: false,
+    hireDate: false,
+    address: false,
+    emergencyContact: false,
+    emergencyPhone: false,
   });
 
   const [selection] = useState(
@@ -350,6 +355,46 @@ export const UsersPage = () => {
       maxWidth: 100,
       isResizable: true,
       onRender: (item: User) => <Text>{item.isActive ? 'Yes' : 'No'}</Text>,
+    },
+    {
+      key: 'phone',
+      name: 'Phone',
+      fieldName: 'phone',
+      minWidth: 120,
+      maxWidth: 180,
+      isResizable: true,
+    },
+    {
+      key: 'hireDate',
+      name: 'Hire Date',
+      fieldName: 'hireDate',
+      minWidth: 100,
+      maxWidth: 150,
+      isResizable: true,
+    },
+    {
+      key: 'address',
+      name: 'Address',
+      fieldName: 'address',
+      minWidth: 200,
+      maxWidth: 300,
+      isResizable: true,
+    },
+    {
+      key: 'emergencyContact',
+      name: 'Emergency Contact',
+      fieldName: 'emergencyContact',
+      minWidth: 150,
+      maxWidth: 200,
+      isResizable: true,
+    },
+    {
+      key: 'emergencyPhone',
+      name: 'Emergency Phone',
+      fieldName: 'emergencyPhone',
+      minWidth: 120,
+      maxWidth: 180,
+      isResizable: true,
     },
   ];
 
