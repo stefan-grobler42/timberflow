@@ -22,34 +22,52 @@ var MillenniumApp = {
     // Initialize the application
     init: function() {
         this.bindEvents();
+        this.initSidebar();
     },
     
     // Bind global events
     bindEvents: function() {
-        // Ribbon toggle
-        $('#ribbonToggle').on('click', function() {
-            $('#ribbonMenu').toggleClass('show');
-        });
-        
-        // Navigation menu links
-        $(document).on('click', '.nav-menu-link', function(e) {
+        // Sidebar navigation
+        $('.sidebar-link').on('click', function(e) {
             e.preventDefault();
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
             
             // Update active state
-            $('.nav-menu-link').removeClass('active');
+            $('.sidebar-link').removeClass('active');
             $(this).addClass('active');
-            
-            // Close ribbon menu after selection
-            $('#ribbonMenu').removeClass('show');
         });
         
         // Module cards on welcome screen
         $('.module-card').on('click', function() {
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
-            $('.nav-menu-link[data-module="' + module + '"]').addClass('active');
+            $('.sidebar-link[data-module="' + module + '"]').addClass('active');
+        });
+        
+        // Sidebar toggle
+        $('#sidebarToggle, #sidebarCollapse').on('click', function() {
+            $('#sidebar').toggleClass('collapsed');
+            localStorage.setItem('sidebarCollapsed', $('#sidebar').hasClass('collapsed'));
+        });
+        
+        // Restore sidebar state
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            $('#sidebar').addClass('collapsed');
+        }
+    },
+    
+    // Initialize sidebar
+    initSidebar: function() {
+        // Handle sidebar hover for collapsed state
+        $('#sidebar').on('mouseenter', function() {
+            if ($(this).hasClass('collapsed')) {
+                $(this).removeClass('collapsed');
+            }
+        }).on('mouseleave', function() {
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                $(this).addClass('collapsed');
+            }
         });
     },
     
@@ -104,6 +122,177 @@ var MillenniumApp = {
     // Format currency
     formatCurrency: function(amount) {
         return 'R ' + parseFloat(amount || 0).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
+    },
+    
+    // Universal column resizing function
+    enableColumnResizing: function(tableSelector) {
+        var self = this;
+        var isResizing = false;
+        var startX, startWidth, currentTh, table, tableContainer;
+        
+        // Ensure table has proper container for responsive behavior
+        var $table = $(tableSelector);
+        var $container = $table.closest('.dataTables_wrapper');
+        
+        // Set up container with responsive width that allows grid to resize with screen
+        if ($container.length) {
+            $container.css({
+                'width': '100%',
+                'overflow-x': 'auto',
+                'position': 'relative',
+                'box-sizing': 'border-box'
+            });
+            
+            // Make sure the table can grow inside the container
+            $table.css({
+                'min-width': '100%',
+                'width': 'auto'
+            });
+        }
+        
+        // Restore saved column widths first
+        var tableId = $(tableSelector).attr('id');
+        if (tableId) {
+            var savedWidths = localStorage.getItem(tableId + '_columnWidths');
+            if (savedWidths) {
+                try {
+                    var columnWidths = JSON.parse(savedWidths);
+                    $(tableSelector + ' thead th').each(function(index) {
+                        if (columnWidths[index]) {
+                            $(this).css({
+                                'width': columnWidths[index] + 'px',
+                                'min-width': columnWidths[index] + 'px',
+                                'max-width': columnWidths[index] + 'px'
+                            });
+                        }
+                    });
+                } catch (e) {
+                    console.log('Failed to restore column widths:', e);
+                }
+            }
+        }
+        
+        // Add resize handles to column headers
+        $(tableSelector + ' thead th').each(function(index) {
+            if (index === 0) return; // Skip checkbox column
+            
+            var $th = $(this);
+            // Remove existing handles first
+            $th.find('.resize-handle').remove();
+            
+            var $handle = $('<div class="resize-handle"></div>');
+            $th.css('position', 'relative');
+            $th.append($handle);
+            
+            $handle.on('mousedown', function(e) {
+                isResizing = true;
+                currentTh = $th;
+                startX = e.pageX;
+                startWidth = $th.outerWidth();
+                table = $(tableSelector).DataTable();
+                tableContainer = $table.closest('.dataTables_wrapper')[0];
+                
+                $('body').addClass('col-resizing');
+                $('body').css('user-select', 'none');
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+        
+        // Handle mouse movement for resizing
+        $(document).off('mousemove.columnResize').on('mousemove.columnResize', function(e) {
+            if (!isResizing || !currentTh) return;
+            
+            var diff = e.pageX - startX;
+            var newWidth = Math.max(50, startWidth + diff);
+            
+            // Only resize the current column - don't affect adjacent columns
+            currentTh.css({
+                'width': newWidth + 'px',
+                'min-width': newWidth + 'px',
+                'max-width': newWidth + 'px'
+            });
+            
+            // Allow table to grow inside the FIXED container - container never expands
+            if (table) {
+                var $tableElement = table.table().node();
+                var $container = $($tableElement).closest('.dataTables_wrapper');
+                
+                // CRITICAL: Set table layout to fixed and disable DataTables auto-adjustment
+                $($tableElement).css({
+                    'table-layout': 'fixed',
+                    'width': 'auto'
+                });
+                
+                // Calculate total width needed for all columns
+                var totalWidth = 0;
+                $(tableSelector + ' thead th').each(function() {
+                    totalWidth += $(this).outerWidth();
+                });
+                
+                // Set table width to be at least as wide as all columns combined
+                var minTableWidth = Math.max(totalWidth + 20, $container.width()); // Add 20px buffer
+                $($tableElement).css('width', minTableWidth + 'px');
+                
+                // Ensure container allows horizontal scroll when needed
+                $container.css({
+                    'overflow-x': 'auto',
+                    'overflow-y': 'visible'
+                });
+                
+                // DO NOT call table.columns.adjust() - it ruins our manual sizing
+                
+                // Save column width to localStorage
+                var tableId = $(tableSelector).attr('id');
+                if (tableId) {
+                    var columnWidths = {};
+                    $(tableSelector + ' thead th').each(function(index) {
+                        var width = $(this).outerWidth();
+                        if (width > 0) {
+                            columnWidths[index] = width;
+                        }
+                    });
+                    localStorage.setItem(tableId + '_columnWidths', JSON.stringify(columnWidths));
+                }
+            }
+        });
+        
+        // Handle mouse up to stop resizing
+        $(document).off('mouseup.columnResize').on('mouseup.columnResize', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                table = null;
+                tableContainer = null;
+                
+                // Clean up cursor and selection
+                $('body').removeClass('col-resizing');
+                $('body').css('user-select', '');
+                
+                // Force cursor reset
+                setTimeout(function() {
+                    $('body').css('cursor', '');
+                    $(tableSelector + ' thead th').css('cursor', '');
+                }, 10);
+            }
+        });
+        
+        // Handle mouse leave to ensure cleanup
+        $(document).off('mouseleave.columnResize').on('mouseleave.columnResize', function(e) {
+            if (isResizing) {
+                isResizing = false;
+                currentTh = null;
+                table = null;
+                tableContainer = null;
+                
+                $('body').removeClass('col-resizing');
+                $('body').css('user-select', '');
+                setTimeout(function() {
+                    $('body').css('cursor', '');
+                    $(tableSelector + ' thead th').css('cursor', '');
+                }, 10);
+            }
+        });
     }
 };
 
@@ -133,14 +322,15 @@ var CustomerModule = {
     initDataTable: function() {
         MillenniumApp.dataTable = $('#customerGrid').DataTable({
             responsive: true,
+            scrollX: true,
             autoWidth: false,
             columns: [
                 { 
                     data: null,
                     title: '<input type="checkbox" class="form-check-input" id="selectAllCustomers">',
+                    width: "30px",
                     orderable: false,
                     className: "select-checkbox",
-                    responsivePriority: 1,
                     render: function(data, type, row) {
                         return '<input type="checkbox" class="form-check-input row-select" value="' + row.Id + '">';
                     }
@@ -148,27 +338,27 @@ var CustomerModule = {
                 { 
                     data: 'AccountNo',
                     title: "Account #",
-                    responsivePriority: 2
+                    width: "100px"
                 },
                 { 
                     data: 'AccountName',
                     title: "Account Name",
-                    responsivePriority: 1
+                    width: "200px"
                 },
                 { 
                     data: 'CompanyType',
                     title: "Company Type",
-                    responsivePriority: 5
+                    width: "120px"
                 },
                 { 
                     data: 'Phone',
                     title: "Phone",
-                    responsivePriority: 3
+                    width: "130px"
                 },
                 { 
                     data: 'Email',
                     title: "Email",
-                    responsivePriority: 6
+                    width: "180px"
                 },
                 { 
                     data: 'CustomerStatus',
@@ -240,8 +430,22 @@ var CustomerModule = {
                 lengthMenu: "Show _MENU_ customers per page"
             },
             stateSave: true,
-            stateDuration: 60 * 60 * 24 * 7 // Save state for 1 week
+            stateDuration: 60 * 60 * 24 * 7, // Save state for 1 week
+            initComplete: function() {
+                // Add custom styling to make columns resizable
+                this.api().columns().every(function() {
+                    $(this.header()).css('position', 'relative');
+                });
+                
+                // Enable column resizing with mouse
+                CustomerModule.enableColumnResizing();
+            }
         });
+    },
+    
+    // Enable manual column resizing
+    enableColumnResizing: function() {
+        MillenniumApp.enableColumnResizing('#customerGrid');
     },
     
     // Bind list events
@@ -2723,7 +2927,11 @@ var UsersModule = {
                 emptyTable: "No users found",
                 info: "Showing _START_ to _END_ of _TOTAL_ users"
             },
-            stateSave: true
+            stateSave: true,
+            initComplete: function() {
+                // Enable column resizing
+                MillenniumApp.enableColumnResizing('#usersGrid');
+            }
         });
     },
     
@@ -3244,6 +3452,9 @@ var SettingsModule = {
             autoWidth: false,
             language: {
                 emptyTable: "No company types found"
+            },
+            initComplete: function() {
+                MillenniumApp.enableColumnResizing('#companyTypesGrid');
             }
         });
         
@@ -3280,6 +3491,9 @@ var SettingsModule = {
             autoWidth: false,
             language: {
                 emptyTable: "No account types found"
+            },
+            initComplete: function() {
+                MillenniumApp.enableColumnResizing('#accountTypesGrid');
             }
         });
     },
