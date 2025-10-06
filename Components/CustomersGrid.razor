@@ -1,0 +1,302 @@
+@using MillenniumERP.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<div class="customers-grid-container">
+    <div class="module-header mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-users me-2"></i>
+            <div>
+                <h2 class="mb-1">Customer Management</h2>
+                <p class="text-muted mb-0">Manage customer information and relationships</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar mb-3">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <RadzenButton Text="New" Icon="add" ButtonStyle="ButtonStyle.Primary" Click="@OnNewCustomer" />
+            <RadzenButton Text="Edit" Icon="edit" ButtonStyle="ButtonStyle.Secondary" Click="@OnEditCustomer" Disabled="@(selectedCustomer == null)" />
+            <RadzenButton Text="Delete" Icon="delete" ButtonStyle="ButtonStyle.Danger" Click="@OnDeleteCustomer" Disabled="@(selectedCustomer == null)" />
+            <RadzenButton Text="Refresh" Icon="refresh" ButtonStyle="ButtonStyle.Light" Click="@LoadCustomers" />
+            <RadzenButton Text="Export" Icon="download" ButtonStyle="ButtonStyle.Info" Click="@OnExport" />
+        </div>
+    </div>
+
+    @if (isLoading)
+    {
+        <div class="text-center p-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2">Loading customers...</p>
+        </div>
+    }
+    else if (errorMessage != null)
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-circle me-2"></i>
+            @errorMessage
+        </div>
+    }
+    else
+    {
+        <RadzenDataGrid @ref="grid" 
+                        Data="@customers" 
+                        TItem="CustomerModel" 
+                        AllowFiltering="true"
+                        AllowColumnResize="true"
+                        AllowSorting="true" 
+                        AllowPaging="true" 
+                        PageSize="25"
+                        PagerHorizontalAlign="HorizontalAlign.Center"
+                        FilterMode="FilterMode.Simple"
+                        SelectionMode="DataGridSelectionMode.Single"
+                        @bind-Value="@selectedCustomers"
+                        RowSelect="@OnRowSelect"
+                        RowDoubleClick="@OnRowDoubleClick"
+                        Style="height: calc(100vh - 350px)">
+            <Columns>
+                <RadzenDataGridColumn TItem="CustomerModel" Width="50px" Sortable="false" Filterable="false">
+                    <HeaderTemplate>
+                        <RadzenCheckBox TValue="bool" Value="@selectAll" Change="@OnSelectAllChange" />
+                    </HeaderTemplate>
+                    <Template Context="customer">
+                        <RadzenCheckBox TValue="bool" 
+                                      Value="@(selectedCustomers?.Contains(customer) ?? false)" 
+                                      Change="@(args => OnCustomerCheckChanged(customer, args))" />
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="AccountNo" Title="Account #" Width="120px">
+                    <Template Context="customer">
+                        <span class="text-monospace">@customer.AccountNo</span>
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="AccountName" Title="Account Name" Width="200px" />
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="CompanyType" Title="Company Type" Width="150px" />
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="Phone" Title="Phone" Width="140px">
+                    <Template Context="customer">
+                        @if (!string.IsNullOrEmpty(customer.Phone))
+                        {
+                            <a href="tel:@customer.Phone">@customer.Phone</a>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="Email" Title="Email" Width="200px">
+                    <Template Context="customer">
+                        @if (!string.IsNullOrEmpty(customer.Email))
+                        {
+                            <a href="mailto:@customer.Email">@customer.Email</a>
+                        }
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="CustomerStatus" Title="Status" Width="150px">
+                    <Template Context="customer">
+                        <span class="badge @GetStatusBadgeClass(customer.CustomerStatus)">
+                            @customer.CustomerStatus
+                        </span>
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="SalesRepresentative" Title="Sales Rep" Width="150px" />
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="CreditLimit" Title="Credit Limit" Width="130px" TextAlign="TextAlign.Right">
+                    <Template Context="customer">
+                        @customer.CreditLimit.ToString("C", new System.Globalization.CultureInfo("en-ZA"))
+                    </Template>
+                </RadzenDataGridColumn>
+                
+                <RadzenDataGridColumn TItem="CustomerModel" Property="CurrentBalance" Title="Balance" Width="130px" TextAlign="TextAlign.Right">
+                    <Template Context="customer">
+                        @customer.CurrentBalance.ToString("C", new System.Globalization.CultureInfo("en-ZA"))
+                    </Template>
+                </RadzenDataGridColumn>
+            </Columns>
+        </RadzenDataGrid>
+
+        <div class="mt-2 text-muted">
+            Showing @customers.Count() of @customers.Count() customers
+        </div>
+    }
+</div>
+
+<style>
+    .customers-grid-container {
+        padding: 20px;
+        background: #f8f9fa;
+    }
+
+    .module-header h2 {
+        color: var(--primary-color, #59AAD5);
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+
+    .action-bar {
+        background: white;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .rz-datatable {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .badge {
+        padding: 6px 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .badge.badge-prospect {
+        background-color: #FFC107;
+        color: #000;
+    }
+
+    .badge.badge-active {
+        background-color: #28A745;
+        color: #fff;
+    }
+
+    .badge.badge-approved {
+        background-color: #17A2B8;
+        color: #fff;
+    }
+
+    .text-monospace {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+    }
+</style>
+
+@code {
+    private RadzenDataGrid<CustomerModel>? grid;
+    private IEnumerable<CustomerModel> customers = new List<CustomerModel>();
+    private IList<CustomerModel>? selectedCustomers;
+    private CustomerModel? selectedCustomer => selectedCustomers?.FirstOrDefault();
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool selectAll = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCustomers();
+    }
+
+    private async Task LoadCustomers()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            
+            var baseUri = Navigation.BaseUri.TrimEnd('/');
+            var response = await Http.GetFromJsonAsync<List<CustomerModel>>($"{baseUri}/api/customer");
+            
+            if (response != null)
+            {
+                customers = response;
+            }
+            else
+            {
+                customers = new List<CustomerModel>();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load customers: {ex.Message}";
+            Console.WriteLine($"Error loading customers: {ex}");
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OnRowSelect(CustomerModel customer)
+    {
+        selectedCustomers = new List<CustomerModel> { customer };
+    }
+
+    private void OnRowDoubleClick(DataGridRowMouseEventArgs<CustomerModel> args)
+    {
+        OnEditCustomer();
+    }
+
+    private void OnSelectAllChange(bool value)
+    {
+        selectAll = value;
+        if (value)
+        {
+            selectedCustomers = customers.ToList();
+        }
+        else
+        {
+            selectedCustomers = new List<CustomerModel>();
+        }
+    }
+
+    private void OnCustomerCheckChanged(CustomerModel customer, bool value)
+    {
+        var list = selectedCustomers?.ToList() ?? new List<CustomerModel>();
+        
+        if (value && !list.Contains(customer))
+        {
+            list.Add(customer);
+        }
+        else if (!value && list.Contains(customer))
+        {
+            list.Remove(customer);
+        }
+        
+        selectedCustomers = list;
+        selectAll = selectedCustomers?.Count == customers.Count();
+    }
+
+    private void OnNewCustomer()
+    {
+        Console.WriteLine("New customer clicked");
+    }
+
+    private void OnEditCustomer()
+    {
+        if (selectedCustomer != null)
+        {
+            Console.WriteLine($"Edit customer: {selectedCustomer.AccountNo}");
+        }
+    }
+
+    private async Task OnDeleteCustomer()
+    {
+        if (selectedCustomer != null)
+        {
+            Console.WriteLine($"Delete customer: {selectedCustomer.AccountNo}");
+        }
+    }
+
+    private void OnExport()
+    {
+        Console.WriteLine("Export clicked");
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status?.ToLower() switch
+        {
+            "prospect" => "badge-prospect",
+            "active" => "badge-active",
+            "credit approved" => "badge-approved",
+            _ => "badge-secondary"
+        };
+    }
+}

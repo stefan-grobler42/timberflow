@@ -10,6 +10,13 @@ builder.Services.AddRazorPages();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddRadzenComponents();
 
+// Add HttpClient for Blazor components
+builder.Services.AddScoped<HttpClient>(sp => 
+{
+    var client = new HttpClient { BaseAddress = new Uri("http://0.0.0.0:5000") };
+    return client;
+});
+
 // Add CORS for API access
 builder.Services.AddCors(options =>
 {
