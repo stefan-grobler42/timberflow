@@ -1,6 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using MillenniumERP.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add DbContext with SQLite
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? "Data Source=millennium_erp.db"));
 
 // Add services to the container
 builder.Services.AddControllers();

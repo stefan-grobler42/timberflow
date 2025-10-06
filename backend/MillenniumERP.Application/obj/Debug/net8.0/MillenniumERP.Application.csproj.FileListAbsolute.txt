@@ -1,0 +1,15 @@
+/home/runner/workspace/backend/MillenniumERP.Application/bin/Debug/net8.0/MillenniumERP.Application.deps.json
+/home/runner/workspace/backend/MillenniumERP.Application/bin/Debug/net8.0/MillenniumERP.Application.dll
+/home/runner/workspace/backend/MillenniumERP.Application/bin/Debug/net8.0/MillenniumERP.Application.pdb
+/home/runner/workspace/backend/MillenniumERP.Application/bin/Debug/net8.0/MillenniumERP.Domain.dll
+/home/runner/workspace/backend/MillenniumERP.Application/bin/Debug/net8.0/MillenniumERP.Domain.pdb
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.csproj.AssemblyReference.cache
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.AssemblyInfoInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.AssemblyInfo.cs
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.csproj.CoreCompileInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/Millenni.26D75E21.Up2Date
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.dll
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/refint/MillenniumERP.Application.dll
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.pdb
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/ref/MillenniumERP.Application.dll
