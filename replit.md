@@ -9,6 +9,12 @@ Technology stack preference: Microsoft stack (ASP.NET Core, C#, Razor Views)
 Architecture preference: Clean MVC pattern with proper separation of concerns for team collaboration
 
 ## Recent Changes
+- **React + Fluent UI Migration - Phase 1 (Oct 6, 2025)**:
+  - **Tasks 3-4 Complete**: SQLite database created with EF Core schema (6 tables: users, roles, companies, customers, contacts, activities)
+  - **Data Migration**: Successfully migrated 5 users, 5 companies, and 4 customers from PostgreSQL to SQLite using idempotent migration utility
+  - **Security Fix**: Upgraded Npgsql from 8.0.0 to 8.0.5 (patched GHSA-x9vc-6hfv-hg8c high-severity vulnerability)
+  - **Architecture**: Clean monorepo structure with /backend (ASP.NET Core 8 Web API + SQLite) and /frontend (Vite + React 18 + TypeScript + Fluent UI v8)
+  - **Database File**: backend/MillenniumERP.API/millennium_erp.db (88KB)
 - **Radzen.Blazor Grid Integration (Oct 6, 2025)**: Successfully migrated Customer module from jQuery DataTables to Radzen.Blazor DataGrid using hybrid Blazor Server + MVC architecture. Blazor component renders on initial page load and is toggled via CSS show/hide for seamless integration with existing JavaScript features. Other modules (Users, Settings) remain on DataTables for gradual migration.
 - **Complete Microsoft Stack Rebuild (Jan 27, 2025)**: Completely rebuilt application using pure Microsoft stack (ASP.NET Core MVC, C#, Razor Views) as a true single-page application. No page navigation - everything loads dynamically in the same page.
 - **Database Integration Completion (Sept 26, 2025)**: Fully completed database integration for all core APIs:
