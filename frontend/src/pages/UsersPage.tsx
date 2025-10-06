@@ -77,7 +77,7 @@ export const UsersPage = () => {
   const applyFilters = () => {
     let filtered = [...users];
 
-    if (searchText && searchText.length >= 3) {
+    if (searchText) {
       const search = searchText.toLowerCase();
       filtered = filtered.filter((user) => {
         return Object.values(user).some((value) =>
@@ -383,6 +383,21 @@ export const UsersPage = () => {
     },
   ];
 
+  const commandBarFarItems: ICommandBarItemProps[] = [
+    {
+      key: 'search',
+      onRender: () => (
+        <SearchBox
+          placeholder="Search all columns..."
+          value={searchText}
+          onChange={(_, value) => setSearchText(value || '')}
+          onClear={() => setSearchText('')}
+          styles={{ root: { width: 300 } }}
+        />
+      ),
+    },
+  ];
+
   if (isFormOpen) {
     return (
       <UserFormFullScreen
@@ -404,14 +419,7 @@ export const UsersPage = () => {
     <Stack tokens={{ childrenGap: 16 }}>
       <Text variant="xxLarge">Users</Text>
 
-      <CommandBar items={commandBarItems} />
-
-      <SearchBox
-        placeholder="Advanced Search (type 3+ characters to search all columns)"
-        value={searchText}
-        onChange={(_, value) => setSearchText(value || '')}
-        onClear={() => setSearchText('')}
-      />
+      <CommandBar items={commandBarItems} farItems={commandBarFarItems} />
 
       <input
         id="users-import-input"

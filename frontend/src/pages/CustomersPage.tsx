@@ -77,7 +77,7 @@ export const CustomersPage = () => {
   const applyFilters = () => {
     let filtered = [...customers];
 
-    if (searchText && searchText.length >= 3) {
+    if (searchText) {
       const search = searchText.toLowerCase();
       filtered = filtered.filter((customer) => {
         return (
@@ -397,6 +397,21 @@ export const CustomersPage = () => {
     },
   ];
 
+  const commandBarFarItems: ICommandBarItemProps[] = [
+    {
+      key: 'search',
+      onRender: () => (
+        <SearchBox
+          placeholder="Search all columns..."
+          value={searchText}
+          onChange={(_, value) => setSearchText(value || '')}
+          onClear={() => setSearchText('')}
+          styles={{ root: { width: 300 } }}
+        />
+      ),
+    },
+  ];
+
   if (isFormOpen) {
     return (
       <CustomerFormFullScreen
@@ -418,14 +433,7 @@ export const CustomersPage = () => {
     <Stack tokens={{ childrenGap: 16 }}>
       <Text variant="xxLarge">Customers</Text>
 
-      <CommandBar items={commandBarItems} />
-
-      <SearchBox
-        placeholder="Advanced Search (type 3+ characters to search all columns)"
-        value={searchText}
-        onChange={(_, value) => setSearchText(value || '')}
-        onClear={() => setSearchText('')}
-      />
+      <CommandBar items={commandBarItems} farItems={commandBarFarItems} />
 
       <input
         id="customers-import-input"
