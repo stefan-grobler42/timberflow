@@ -67,6 +67,13 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
   - **Full-Width Layout**: Content area now uses 100% screen width, maximizing space for data grids and forms
   - **Mobile-First Design**: Hamburger menu works seamlessly across all screen sizes; no overlay issues or wasted space on mobile
   - **Enhanced UX**: Menu items have hover animations (slide right), active state highlighting, and auto-close after selection
+- **Grid Simplification & Ribbon Menu (Oct 6, 2025)**: Major refactoring for simpler, more maintainable grid architecture:
+  - **Removed Custom Column Resizing**: Eliminated ~180 lines of custom column resizing code; now using DataTables' built-in responsive features exclusively
+  - **Ribbon-Style Navigation**: Replaced dropdown menu with Microsoft Office-style ribbon that expands header vertically when hamburger is clicked
+  - **Left-Aligned Data**: All table data (td/th) now left-aligned for better readability and professional appearance
+  - **Mobile-Optimized Columns**: Implemented responsive priorities (Customer grid shows only Account Name, Account #, Phone on mobile; all columns on desktop)
+  - **Simplified DataTables Config**: Removed scrollX, using responsive: true with column priorities for proper mobile display
+  - **Cleaner Codebase**: Eliminated custom width management, stateDuration, and complex initComplete callbacks
 
 ## System Architecture
 
@@ -79,10 +86,10 @@ The system is built as a Single-Page Application (SPA) with a modular, component
 - **State Management**: Managed by a central `MillenniumERP` class for component lifecycle and communication.
 - **UI/UX Decisions**:
     - **Color Palette**: Official brand colors (Carolina Blue #59AAD5, Middle Blue #54C3D6, Black Olive #464746, Raisin Black #231f20) and typography (Roboto font family) are applied system-wide.
-    - **Navigation**: Top navigation bar with hamburger menu dropdown, organized by business sections (CRM, Projects, Inventory, Administration), providing full-width content area for maximum screen real estate.
+    - **Navigation**: Top navigation bar with ribbon-style menu that expands vertically when hamburger is clicked, organized by business sections (CRM, Projects, Inventory, Administration), providing full-width content area for maximum screen real estate.
     - **Data Entry**: Keyboard-driven interface with searchable lookup fields replacing dropdowns, and tab navigation support.
     - **Forms**: Universal auto-save functionality with change detection and undo capability, eliminating explicit save/cancel buttons.
-    - **Data Grids**: Enterprise-grade component with sorting, column visibility, multi-select, Excel export, persistent column resizing, and responsive behavior across all screen sizes.
+    - **Data Grids**: Simplified component using DataTables' built-in responsive features with column priorities for mobile optimization, sorting, multi-select, Excel export, and left-aligned data for professional appearance.
     - **Location Handling**: Universal `EnhancedLocationField` component integrating Google Maps for address autocomplete, mini-map display, interactive pin dropping, and GPS "Use My Location" functionality.
 
 ### Backend Integration
