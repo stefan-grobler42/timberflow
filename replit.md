@@ -9,6 +9,7 @@ Technology stack preference: Microsoft stack (ASP.NET Core, C#, Razor Views)
 Architecture preference: Clean MVC pattern with proper separation of concerns for team collaboration
 
 ## Recent Changes
+- **Radzen.Blazor Grid Integration (Oct 6, 2025)**: Successfully migrated Customer module from jQuery DataTables to Radzen.Blazor DataGrid using hybrid Blazor Server + MVC architecture. Blazor component renders on initial page load and is toggled via CSS show/hide for seamless integration with existing JavaScript features. Other modules (Users, Settings) remain on DataTables for gradual migration.
 - **Complete Microsoft Stack Rebuild (Jan 27, 2025)**: Completely rebuilt application using pure Microsoft stack (ASP.NET Core MVC, C#, Razor Views) as a true single-page application. No page navigation - everything loads dynamically in the same page.
 - **Database Integration Completion (Sept 26, 2025)**: Fully completed database integration for all core APIs:
   - **Customer API**: Converted from mock data to full PostgreSQL database integration with complete CRUD operations
