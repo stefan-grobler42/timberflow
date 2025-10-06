@@ -10,7 +10,7 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
 
 ## Recent Changes
 - **React + Fluent UI Migration - Phase 1 (Oct 6, 2025)**:
-  - **Tasks 3-6 Complete**: Full-stack application with backend API and React frontend
+  - **Tasks 3-7 Complete**: Full-stack application with backend API, React frontend, and complete CRUD functionality
   - **Backend API** (Tasks 3-5):
     - SQLite database with EF Core schema (6 tables: users, roles, companies, customers, contacts, activities) at backend/MillenniumERP.API/millennium_erp.db (88KB)
     - Data migrated from PostgreSQL (5 users, 5 companies, 4 customers) using idempotent migration utility
@@ -29,6 +29,14 @@ Architecture preference: Clean MVC pattern with proper separation of concerns fo
     - Pages implemented: Home, Users (with DetailsList grid), Customers (with CompanyType navigation)
     - End-to-end integration verified: Frontend → API → SQLite → Frontend
     - Professional Fluent UI styling with loading states, error messages, and resizable columns
+  - **CRUD Forms** (Task 7):
+    - UserForm: Fluent UI Panel with all user fields (user code, name, email, phone, department, position, role, hire date, address, emergency contacts, active status)
+    - CustomerForm: Fluent UI Panel with all customer fields (account info, company type lookup, contact details, address, status)
+    - DeleteDialog: Reusable confirmation dialog for delete operations
+    - Selection handling: Edit/Delete buttons enabled only when row selected
+    - Full CRUD verified: Create → Read → Update → Delete for Users and Customers
+    - Forms pre-populate correctly when editing
+    - Error handling and loading states throughout
   - **Security Fix**: Upgraded Npgsql from 8.0.0 to 8.0.5 (patched GHSA-x9vc-6hfv-hg8c high-severity vulnerability)
   - **Architecture**: Clean monorepo structure with /backend (ASP.NET Core 8 Web API + SQLite) and /frontend (Vite + React 18 + TypeScript + Fluent UI v8)
 - **Radzen.Blazor Grid Integration (Oct 6, 2025)**: Successfully migrated Customer module from jQuery DataTables to Radzen.Blazor DataGrid using hybrid Blazor Server + MVC architecture. Blazor component renders on initial page load and is toggled via CSS show/hide for seamless integration with existing JavaScript features. Other modules (Users, Settings) remain on DataTables for gradual migration.
