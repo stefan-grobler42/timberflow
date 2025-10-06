@@ -6,78 +6,17 @@
 <div id="wrapper">
     <!-- Page Content (full width) -->
     <div id="content" class="content-area-fullwidth">
-        <!-- Top Navigation Bar with Hamburger Menu -->
-        <nav class="navbar navbar-expand-lg navbar-light bg-light top-navbar">
+        <!-- Top Navigation Bar with Ribbon Menu -->
+        <nav class="navbar navbar-light bg-light top-navbar">
             <div class="container-fluid">
-                <!-- Left side: Logo, Hamburger Menu -->
                 <div class="d-flex align-items-center">
                     <img src="/millennium-logo.png" alt="Millennium" class="navbar-logo me-2" style="height: 32px;">
                     <span class="navbar-brand mb-0">Millennium ERP</span>
-                    
-                    <!-- Hamburger Menu Dropdown -->
-                    <div class="dropdown ms-3">
-                        <button class="btn btn-link hamburger-menu" id="navMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-bars fa-lg"></i>
-                        </button>
-                        <div class="dropdown-menu nav-dropdown-menu" aria-labelledby="navMenuButton">
-                            <!-- CRM Section -->
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-users"></i> CRM
-                            </h6>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="customer">
-                                <i class="fas fa-user-tie"></i> Customers
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="contact">
-                                <i class="fas fa-address-book"></i> Contacts
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="employee">
-                                <i class="fas fa-id-badge"></i> Employees
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="users">
-                                <i class="fas fa-users-cog"></i> Users
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            
-                            <!-- Projects Section -->
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-project-diagram"></i> Projects
-                            </h6>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="project">
-                                <i class="fas fa-building"></i> Projects
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="quote">
-                                <i class="fas fa-file-invoice-dollar"></i> Quotes
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="order">
-                                <i class="fas fa-shopping-cart"></i> Orders
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            
-                            <!-- Inventory Section -->
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-warehouse"></i> Inventory
-                            </h6>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="product">
-                                <i class="fas fa-cube"></i> Products
-                            </a>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="stock">
-                                <i class="fas fa-boxes"></i> Stock Items
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            
-                            <!-- Administration Section -->
-                            <h6 class="dropdown-header">
-                                <i class="fas fa-cogs"></i> Administration
-                            </h6>
-                            <a class="dropdown-item nav-menu-link" href="#" data-module="settings">
-                                <i class="fas fa-sliders-h"></i> Settings
-                            </a>
-                        </div>
-                    </div>
+                    <button class="btn btn-link hamburger-menu ms-3" id="ribbonToggle">
+                        <i class="fas fa-bars fa-lg"></i>
+                    </button>
                 </div>
-                
-                <!-- Right side: User menu -->
-                <div class="ms-auto d-flex align-items-center">
+                <div class="ms-auto">
                     <div class="dropdown">
                         <button class="btn btn-link dropdown-toggle" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle"></i> Admin User
@@ -88,6 +27,71 @@
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
                         </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Ribbon Menu (Expandable) -->
+            <div class="ribbon-menu" id="ribbonMenu">
+                <div class="container-fluid">
+                    <div class="row g-4">
+                        <!-- CRM Section -->
+                        <div class="col-md-3">
+                            <div class="ribbon-section">
+                                <h6 class="ribbon-header"><i class="fas fa-users"></i> CRM</h6>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="customer">
+                                    <i class="fas fa-user-tie"></i> Customers
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="contact">
+                                    <i class="fas fa-address-book"></i> Contacts
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="employee">
+                                    <i class="fas fa-id-badge"></i> Employees
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="users">
+                                    <i class="fas fa-users-cog"></i> Users
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Projects Section -->
+                        <div class="col-md-3">
+                            <div class="ribbon-section">
+                                <h6 class="ribbon-header"><i class="fas fa-project-diagram"></i> Projects</h6>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="project">
+                                    <i class="fas fa-building"></i> Projects
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="quote">
+                                    <i class="fas fa-file-invoice-dollar"></i> Quotes
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="order">
+                                    <i class="fas fa-shopping-cart"></i> Orders
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Inventory Section -->
+                        <div class="col-md-3">
+                            <div class="ribbon-section">
+                                <h6 class="ribbon-header"><i class="fas fa-warehouse"></i> Inventory</h6>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="product">
+                                    <i class="fas fa-cube"></i> Products
+                                </a>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="stock">
+                                    <i class="fas fa-boxes"></i> Stock Items
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <!-- Administration Section -->
+                        <div class="col-md-3">
+                            <div class="ribbon-section">
+                                <h6 class="ribbon-header"><i class="fas fa-cogs"></i> Administration</h6>
+                                <a href="#" class="ribbon-link nav-menu-link" data-module="settings">
+                                    <i class="fas fa-sliders-h"></i> Settings
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
