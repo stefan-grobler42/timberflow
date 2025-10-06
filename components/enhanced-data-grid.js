@@ -10,10 +10,11 @@ class EnhancedDataGrid {
         this.sortConfig = { field: null, direction: 'asc' };
         this.searchTerm = '';
         this.columnWidths = new Map(); // Store column widths for persistence
-        this.storageKey = `grid-column-widths-${this.config.entityName || 'default'}`; // Unique storage key per grid
+        this.storageKey = `grid-settings-${this.config.entityName || 'default'}`; // Unique storage key per grid
         
         // Column configuration
-        this.columns = config.columns || [];
+        this.defaultColumns = [...(config.columns || [])]; // Keep original order
+        this.columns = [...(config.columns || [])]; // Working copy
         this.visibleColumns = new Set(this.columns.map(col => col.field));
         
         // Callbacks
@@ -25,7 +26,7 @@ class EnhancedDataGrid {
     }
 
     init() {
-        this.loadColumnWidths();
+        this.loadColumnSettings();
         this.render();
     }
 
@@ -76,13 +77,9 @@ class EnhancedDataGrid {
                             </span>
                             <input type="text" class="form-control" id="grid-search" placeholder="Search...">
                         </div>
-                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" 
-                                id="columnsDropdown" data-bs-toggle="dropdown">
-                            <i class="fas fa-columns"></i> Columns
+                        <button class="btn btn-outline-secondary" type="button" id="columnSettingsBtn">
+                            <i class="fas fa-columns"></i> Column Settings
                         </button>
-                        <ul class="dropdown-menu" id="columns-menu" style="z-index: 1060;">
-                            ${this.renderColumnMenu()}
-                        </ul>
                     </div>
                     
                     <div class="d-flex align-items-center gap-2">
@@ -128,6 +125,39 @@ class EnhancedDataGrid {
                         <!-- Pagination will be added here if needed -->
                     </nav>
                 </div>
+
+                <!-- Column Settings Modal -->
+                <div class="modal fade" id="columnSettingsModal" tabindex="-1">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">
+                                    <i class="fas fa-columns"></i> Column Settings
+                                </h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <p class="text-muted small mb-3">
+                                    Show/hide columns, reorder them, and save your preferences as default.
+                                </p>
+                                <div id="column-settings-list">
+                                    ${this.renderColumnSettingsList()}
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" id="resetColumnsBtn">
+                                    <i class="fas fa-undo"></i> Reset to Default
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn btn-primary" id="saveColumnSettingsBtn">
+                                    <i class="fas fa-save"></i> Save as Default
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         `;
 
@@ -135,16 +165,31 @@ class EnhancedDataGrid {
         this.initializeColumnResizing();
     }
 
-    renderColumnMenu() {
-        return this.columns.map(col => `
-            <li>
-                <label class="dropdown-item">
-                    <input type="checkbox" class="column-toggle me-2" 
+    renderColumnSettingsList() {
+        return this.columns.map((col, index) => `
+            <div class="d-flex align-items-center justify-content-between p-2 border-bottom" data-field="${col.field}">
+                <div class="d-flex align-items-center gap-2" style="flex: 1;">
+                    <i class="fas fa-grip-vertical text-muted" style="cursor: grab;"></i>
+                    <input type="checkbox" class="form-check-input column-visibility-toggle" 
                            data-field="${col.field}" 
                            ${this.visibleColumns.has(col.field) ? 'checked' : ''}>
-                    ${col.header}
-                </label>
-            </li>
+                    <label class="form-check-label" style="flex: 1; cursor: pointer;">
+                        ${col.header}
+                    </label>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary btn-sm move-up-btn" 
+                            ${index === 0 ? 'disabled' : ''}
+                            data-field="${col.field}">
+                        <i class="fas fa-arrow-up"></i>
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm move-down-btn" 
+                            ${index === this.columns.length - 1 ? 'disabled' : ''}
+                            data-field="${col.field}">
+                        <i class="fas fa-arrow-down"></i>
+                    </button>
+                </div>
+            </div>
         `).join('');
     }
 
@@ -354,6 +399,88 @@ class EnhancedDataGrid {
         if (newBtn && this.config.onNew) {
             newBtn.addEventListener('click', () => this.config.onNew());
         }
+
+        // Column Settings Button
+        const columnSettingsBtn = document.getElementById('columnSettingsBtn');
+        if (columnSettingsBtn) {
+            columnSettingsBtn.addEventListener('click', () => {
+                const modalEl = document.getElementById('columnSettingsModal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+                    this.attachColumnSettingsListeners();
+                }
+            });
+        }
+
+        // Column Settings Modal Actions
+        const saveSettingsBtn = document.getElementById('saveColumnSettingsBtn');
+        if (saveSettingsBtn) {
+            saveSettingsBtn.addEventListener('click', () => this.saveColumnSettings());
+        }
+
+        const resetBtn = document.getElementById('resetColumnsBtn');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => this.resetColumnSettings());
+        }
+    }
+
+    attachColumnSettingsListeners() {
+        // Column visibility toggles in modal
+        const visibilityToggles = document.querySelectorAll('.column-visibility-toggle');
+        visibilityToggles.forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                const field = e.target.dataset.field;
+                if (e.target.checked) {
+                    this.visibleColumns.add(field);
+                } else {
+                    this.visibleColumns.delete(field);
+                }
+                this.updateTable();
+            });
+        });
+
+        // Move up buttons
+        document.querySelectorAll('.move-up-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const field = e.currentTarget.dataset.field;
+                const currentIndex = this.columns.findIndex(col => col.field === field);
+                if (currentIndex > 0) {
+                    // Swap with previous
+                    [this.columns[currentIndex - 1], this.columns[currentIndex]] = 
+                    [this.columns[currentIndex], this.columns[currentIndex - 1]];
+                    
+                    // Re-render the list and table
+                    const settingsList = document.getElementById('column-settings-list');
+                    if (settingsList) {
+                        settingsList.innerHTML = this.renderColumnSettingsList();
+                        this.attachColumnSettingsListeners();
+                    }
+                    this.updateTable();
+                }
+            });
+        });
+
+        // Move down buttons
+        document.querySelectorAll('.move-down-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const field = e.currentTarget.dataset.field;
+                const currentIndex = this.columns.findIndex(col => col.field === field);
+                if (currentIndex < this.columns.length - 1) {
+                    // Swap with next
+                    [this.columns[currentIndex], this.columns[currentIndex + 1]] = 
+                    [this.columns[currentIndex + 1], this.columns[currentIndex]];
+                    
+                    // Re-render the list and table
+                    const settingsList = document.getElementById('column-settings-list');
+                    if (settingsList) {
+                        settingsList.innerHTML = this.renderColumnSettingsList();
+                        this.attachColumnSettingsListeners();
+                    }
+                    this.updateTable();
+                }
+            });
+        });
     }
 
     sort(field) {
@@ -491,24 +618,108 @@ class EnhancedDataGrid {
         this.onSelectionChange(Array.from(this.selectedRows));
     }
 
-    loadColumnWidths() {
+    loadColumnSettings() {
         try {
             const saved = localStorage.getItem(this.storageKey);
             if (saved) {
-                const widths = JSON.parse(saved);
-                this.columnWidths = new Map(Object.entries(widths));
+                const settings = JSON.parse(saved);
+                
+                // Load column widths
+                if (settings.widths) {
+                    this.columnWidths = new Map(Object.entries(settings.widths));
+                }
+                
+                // Load column visibility
+                if (settings.visibility) {
+                    this.visibleColumns = new Set(settings.visibility);
+                }
+                
+                // Load column order
+                if (settings.order && settings.order.length > 0) {
+                    // Reorder columns based on saved order
+                    const orderedColumns = [];
+                    settings.order.forEach(field => {
+                        const col = this.columns.find(c => c.field === field);
+                        if (col) orderedColumns.push(col);
+                    });
+                    // Add any new columns that weren't in saved order
+                    this.columns.forEach(col => {
+                        if (!settings.order.includes(col.field)) {
+                            orderedColumns.push(col);
+                        }
+                    });
+                    this.columns = orderedColumns;
+                }
+                
+                // Load sort config
+                if (settings.sort) {
+                    this.sortConfig = settings.sort;
+                }
             }
         } catch (error) {
-            console.warn('Failed to load column widths:', error);
+            console.warn('Failed to load column settings:', error);
         }
     }
 
     saveColumnWidths() {
+        // Auto-save just column widths during resize (lightweight)
         try {
-            const widthsObj = Object.fromEntries(this.columnWidths);
-            localStorage.setItem(this.storageKey, JSON.stringify(widthsObj));
+            const saved = localStorage.getItem(this.storageKey);
+            let settings = saved ? JSON.parse(saved) : {};
+            settings.widths = Object.fromEntries(this.columnWidths);
+            localStorage.setItem(this.storageKey, JSON.stringify(settings));
         } catch (error) {
             console.warn('Failed to save column widths:', error);
+        }
+    }
+
+    saveColumnSettings() {
+        try {
+            const settings = {
+                widths: Object.fromEntries(this.columnWidths),
+                visibility: Array.from(this.visibleColumns),
+                order: this.columns.map(col => col.field),
+                sort: this.sortConfig
+            };
+            localStorage.setItem(this.storageKey, JSON.stringify(settings));
+            
+            // Show success message
+            const modalEl = document.getElementById('columnSettingsModal');
+            if (modalEl) {
+                const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                modal.hide();
+            }
+            
+            // Show toast or alert
+            alert('Column settings saved successfully!');
+        } catch (error) {
+            console.warn('Failed to save column settings:', error);
+            alert('Failed to save column settings');
+        }
+    }
+
+    resetColumnSettings() {
+        try {
+            // Reset to default configuration
+            this.columns = [...this.defaultColumns];
+            this.visibleColumns = new Set(this.columns.map(col => col.field));
+            this.columnWidths.clear();
+            this.sortConfig = { field: null, direction: 'asc' };
+            
+            // Clear localStorage
+            localStorage.removeItem(this.storageKey);
+            
+            // Re-render the modal content and table
+            const settingsList = document.getElementById('column-settings-list');
+            if (settingsList) {
+                settingsList.innerHTML = this.renderColumnSettingsList();
+                this.attachColumnSettingsListeners();
+            }
+            this.updateTable();
+            
+            alert('Column settings reset to default');
+        } catch (error) {
+            console.warn('Failed to reset column settings:', error);
         }
     }
 
