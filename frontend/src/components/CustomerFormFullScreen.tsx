@@ -10,8 +10,10 @@ import {
   Pivot,
   PivotItem,
   CommandBar,
+  PrimaryButton,
+  DefaultButton,
 } from '@fluentui/react';
-import type { IDropdownOption, ICommandBarItemProps } from '@fluentui/react';
+import type { IDropdownOption, ICommandBarItemProps, PivotLinkFormat } from '@fluentui/react';
 import { customerService, companyService } from '../services';
 import type { Customer, CreateCustomerDto, UpdateCustomerDto, Company } from '../types';
 
@@ -368,7 +370,7 @@ export const CustomerFormFullScreen = ({
           </MessageBar>
         )}
 
-      <Pivot styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
+      <Pivot linkFormat="tabs" styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
         <PivotItem headerText="Basic Information" itemIcon="Info">
           <Stack
             horizontal

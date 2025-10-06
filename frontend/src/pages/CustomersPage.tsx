@@ -536,7 +536,7 @@ export const CustomersPage = () => {
         <DetailsList
           items={filteredCustomers}
           columns={columns}
-          layoutMode={DetailsListLayoutMode.justified}
+          layoutMode={DetailsListLayoutMode.fixedColumns}
           selection={selection}
           selectionPreservedOnEmptyClick={true}
           isHeaderVisible={true}
