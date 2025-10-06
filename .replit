@@ -14,27 +14,35 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "DotNetServer"
+args = "WebAPI"
 
 [[workflows.workflow]]
-name = "DotNetServer"
+name = "WebAPI"
 author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "dotnet run"
-waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
+args = "cd backend/MillenniumERP.API && dotnet run"
+waitForPort = 8000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
 
 [[ports]]
+localPort = 8000
+externalPort = 8000
+
+[[ports]]
 localPort = 39651
 externalPort = 3000
+
+[[ports]]
+localPort = 44357
+externalPort = 3002
 
 [[ports]]
 localPort = 46561
