@@ -194,54 +194,24 @@ var MillenniumApp = {
             var diff = e.pageX - startX;
             var newWidth = Math.max(50, startWidth + diff);
             
-            // Only resize the current column - don't affect adjacent columns
+            // Set column width
             currentTh.css({
                 'width': newWidth + 'px',
                 'min-width': newWidth + 'px',
                 'max-width': newWidth + 'px'
             });
             
-            // Allow table to grow inside the FIXED container - container never expands
-            if (table) {
-                var $tableElement = table.table().node();
-                var $container = $($tableElement).closest('.dataTables_wrapper');
-                
-                // CRITICAL: Set table layout to fixed and disable DataTables auto-adjustment
-                $($tableElement).css({
-                    'table-layout': 'fixed',
-                    'width': 'auto'
+            // Save column width to localStorage
+            var tableId = $(tableSelector).attr('id');
+            if (tableId) {
+                var columnWidths = {};
+                $(tableSelector + ' thead th').each(function(index) {
+                    var width = $(this).outerWidth();
+                    if (width > 0) {
+                        columnWidths[index] = width;
+                    }
                 });
-                
-                // Calculate total width needed for all columns
-                var totalWidth = 0;
-                $(tableSelector + ' thead th').each(function() {
-                    totalWidth += $(this).outerWidth();
-                });
-                
-                // Set table width to be at least as wide as all columns combined
-                var minTableWidth = Math.max(totalWidth + 20, $container.width()); // Add 20px buffer
-                $($tableElement).css('width', minTableWidth + 'px');
-                
-                // Ensure container allows horizontal scroll when needed
-                $container.css({
-                    'overflow-x': 'auto',
-                    'overflow-y': 'visible'
-                });
-                
-                // DO NOT call table.columns.adjust() - it ruins our manual sizing
-                
-                // Save column width to localStorage
-                var tableId = $(tableSelector).attr('id');
-                if (tableId) {
-                    var columnWidths = {};
-                    $(tableSelector + ' thead th').each(function(index) {
-                        var width = $(this).outerWidth();
-                        if (width > 0) {
-                            columnWidths[index] = width;
-                        }
-                    });
-                    localStorage.setItem(tableId + '_columnWidths', JSON.stringify(columnWidths));
-                }
+                localStorage.setItem(tableId + '_columnWidths', JSON.stringify(columnWidths));
             }
         });
         

@@ -271,6 +271,14 @@ body.col-resizing * {
     background: #e7f3ff;
 }
 
+.table tbody td {
+    text-align: left;
+}
+
+.table thead th {
+    text-align: left;
+}
+
 /* DataTables Responsive */
 @media screen and (max-width: 768px) {
     .table thead th {
@@ -475,30 +483,6 @@ body.col-resizing * {
     }
 }
 
-/* DataTables Column Resizing */
-.resize-handle {
-    position: absolute;
-    top: 0;
-    right: -3px;
-    bottom: 0;
-    width: 6px;
-    cursor: col-resize;
-    background: transparent;
-    z-index: 10;
-}
-
-.resize-handle:hover {
-    background: rgba(89, 170, 213, 0.3);
-}
-
-.col-resizing {
-    cursor: col-resize !important;
-    user-select: none;
-}
-
-.col-resizing * {
-    cursor: col-resize !important;
-}
 
 /* Enhanced DataTable Controls */
 .dataTables_wrapper .dataTables_length,
