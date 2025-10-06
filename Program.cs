@@ -6,6 +6,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
+// Add Blazor Server services
+builder.Services.AddServerSideBlazor();
+builder.Services.AddRadzenComponents();
+
 // Add CORS for API access
 builder.Services.AddCors(options =>
 {
@@ -42,6 +46,7 @@ app.MapControllerRoute(
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
 app.MapRazorPages();
+app.MapBlazorHub();
 
 // Configure to listen on port 5000 and bind to all interfaces
 app.Urls.Clear();
