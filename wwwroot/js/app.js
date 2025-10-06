@@ -22,52 +22,29 @@ var MillenniumApp = {
     // Initialize the application
     init: function() {
         this.bindEvents();
-        this.initSidebar();
     },
     
     // Bind global events
     bindEvents: function() {
-        // Sidebar navigation
-        $('.sidebar-link').on('click', function(e) {
+        // Navigation menu links
+        $(document).on('click', '.nav-menu-link', function(e) {
             e.preventDefault();
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
             
             // Update active state
-            $('.sidebar-link').removeClass('active');
+            $('.nav-menu-link').removeClass('active');
             $(this).addClass('active');
+            
+            // Close dropdown menu after selection
+            $('#navMenuButton').dropdown('hide');
         });
         
         // Module cards on welcome screen
         $('.module-card').on('click', function() {
             var module = $(this).data('module');
             MillenniumApp.loadModule(module);
-            $('.sidebar-link[data-module="' + module + '"]').addClass('active');
-        });
-        
-        // Sidebar toggle
-        $('#sidebarToggle, #sidebarCollapse').on('click', function() {
-            $('#sidebar').toggleClass('collapsed');
-            localStorage.setItem('sidebarCollapsed', $('#sidebar').hasClass('collapsed'));
-        });
-        
-        // Restore sidebar state
-        if (localStorage.getItem('sidebarCollapsed') === 'true') {
-            $('#sidebar').addClass('collapsed');
-        }
-    },
-    
-    // Initialize sidebar
-    initSidebar: function() {
-        // Handle sidebar hover for collapsed state
-        $('#sidebar').on('mouseenter', function() {
-            if ($(this).hasClass('collapsed')) {
-                $(this).removeClass('collapsed');
-            }
-        }).on('mouseleave', function() {
-            if (localStorage.getItem('sidebarCollapsed') === 'true') {
-                $(this).addClass('collapsed');
-            }
+            $('.nav-menu-link[data-module="' + module + '"]').addClass('active');
         });
     },
     
@@ -130,73 +107,84 @@ var MillenniumApp = {
         var isResizing = false;
         var startX, startWidth, currentTh, table, tableContainer;
         
-        // Ensure table has proper container for responsive behavior
-        var $table = $(tableSelector);
-        var $container = $table.closest('.dataTables_wrapper');
-        
-        // Set up container with responsive width that allows grid to resize with screen
-        if ($container.length) {
-            $container.css({
-                'width': '100%',
-                'overflow-x': 'auto',
-                'position': 'relative',
-                'box-sizing': 'border-box'
-            });
+        // Function to add/restore resize handles
+        function addResizeHandles() {
+            // Ensure table has proper container for responsive behavior
+            var $table = $(tableSelector);
+            var $container = $table.closest('.dataTables_wrapper');
             
-            // Make sure the table can grow inside the container
-            $table.css({
-                'min-width': '100%',
-                'width': 'auto'
-            });
-        }
-        
-        // Restore saved column widths first
-        var tableId = $(tableSelector).attr('id');
-        if (tableId) {
-            var savedWidths = localStorage.getItem(tableId + '_columnWidths');
-            if (savedWidths) {
-                try {
-                    var columnWidths = JSON.parse(savedWidths);
-                    $(tableSelector + ' thead th').each(function(index) {
-                        if (columnWidths[index]) {
-                            $(this).css({
-                                'width': columnWidths[index] + 'px',
-                                'min-width': columnWidths[index] + 'px',
-                                'max-width': columnWidths[index] + 'px'
-                            });
-                        }
-                    });
-                } catch (e) {
-                    console.log('Failed to restore column widths:', e);
+            // Set up container with responsive width that allows grid to resize with screen
+            if ($container.length) {
+                $container.css({
+                    'width': '100%',
+                    'overflow-x': 'auto',
+                    'position': 'relative',
+                    'box-sizing': 'border-box'
+                });
+                
+                // Make sure the table can grow inside the container
+                $table.css({
+                    'min-width': '100%',
+                    'width': 'auto'
+                });
+            }
+            
+            // Restore saved column widths
+            var tableId = $(tableSelector).attr('id');
+            if (tableId) {
+                var savedWidths = localStorage.getItem(tableId + '_columnWidths');
+                if (savedWidths) {
+                    try {
+                        var columnWidths = JSON.parse(savedWidths);
+                        $(tableSelector + ' thead th').each(function(index) {
+                            if (columnWidths[index]) {
+                                $(this).css({
+                                    'width': columnWidths[index] + 'px',
+                                    'min-width': columnWidths[index] + 'px',
+                                    'max-width': columnWidths[index] + 'px'
+                                });
+                            }
+                        });
+                    } catch (e) {
+                        console.log('Failed to restore column widths:', e);
+                    }
                 }
             }
+            
+            // Add resize handles to column headers
+            $(tableSelector + ' thead th').each(function(index) {
+                if (index === 0) return; // Skip checkbox column
+                
+                var $th = $(this);
+                // Remove existing handles first
+                $th.find('.resize-handle').remove();
+                
+                var $handle = $('<div class="resize-handle"></div>');
+                $th.css('position', 'relative');
+                $th.append($handle);
+                
+                $handle.on('mousedown', function(e) {
+                    isResizing = true;
+                    currentTh = $th;
+                    startX = e.pageX;
+                    startWidth = $th.outerWidth();
+                    table = $(tableSelector).DataTable();
+                    tableContainer = $table.closest('.dataTables_wrapper')[0];
+                    
+                    $('body').addClass('col-resizing');
+                    $('body').css('user-select', 'none');
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+            });
         }
         
-        // Add resize handles to column headers
-        $(tableSelector + ' thead th').each(function(index) {
-            if (index === 0) return; // Skip checkbox column
-            
-            var $th = $(this);
-            // Remove existing handles first
-            $th.find('.resize-handle').remove();
-            
-            var $handle = $('<div class="resize-handle"></div>');
-            $th.css('position', 'relative');
-            $th.append($handle);
-            
-            $handle.on('mousedown', function(e) {
-                isResizing = true;
-                currentTh = $th;
-                startX = e.pageX;
-                startWidth = $th.outerWidth();
-                table = $(tableSelector).DataTable();
-                tableContainer = $table.closest('.dataTables_wrapper')[0];
-                
-                $('body').addClass('col-resizing');
-                $('body').css('user-select', 'none');
-                e.preventDefault();
-                e.stopPropagation();
-            });
+        // Initial handle setup
+        addResizeHandles();
+        
+        // Re-add handles after every DataTables redraw (for pagination, sorting, filtering, etc.)
+        $(tableSelector).on('draw.dt', function() {
+            addResizeHandles();
         });
         
         // Handle mouse movement for resizing
