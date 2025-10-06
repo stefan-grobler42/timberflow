@@ -377,3 +377,5 @@
 /home/runner/workspace/obj/Debug/net8.0/MillenniumERP.pdb
 /home/runner/workspace/obj/Debug/net8.0/MillenniumERP.genruntimeconfig.cache
 /home/runner/workspace/obj/Debug/net8.0/ref/MillenniumERP.dll
+/home/runner/workspace/bin/Debug/net8.0/Radzen.Blazor.dll
+/home/runner/workspace/bin/Debug/net8.0/System.Linq.Dynamic.Core.dll

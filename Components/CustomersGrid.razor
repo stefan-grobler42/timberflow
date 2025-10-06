@@ -200,8 +200,7 @@
             isLoading = true;
             errorMessage = null;
             
-            var baseUri = Navigation.BaseUri.TrimEnd('/');
-            var response = await Http.GetFromJsonAsync<List<CustomerModel>>($"{baseUri}/api/customer");
+            var response = await Http.GetFromJsonAsync<List<CustomerModel>>("/api/customer");
             
             if (response != null)
             {

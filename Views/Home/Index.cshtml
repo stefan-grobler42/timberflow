@@ -130,92 +130,17 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Blazor Component Host for Customer Module -->
+            <div id="customer-blazor-host" style="display: none;">
+                @(await Html.RenderComponentAsync<MillenniumERP.Components.CustomersGrid>(RenderMode.Server))
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Customer Templates (Hidden) -->
 <div id="templates" style="display: none;">
-    <!-- Customer List View Template -->
-    <div id="customerListTemplate">
-        <div class="module-header mb-3">
-            <h2><i class="fas fa-user-tie"></i> Customer Management</h2>
-            <p class="text-muted">Manage customer information and relationships</p>
-        </div>
-        
-        <!-- Action Bar -->
-        <div class="action-bar mb-3">
-            <div class="action-group">
-                <button class="btn btn-primary btn-sm" onclick="CustomerModule.newRecord()">
-                    <i class="fas fa-plus"></i> New
-                </button>
-                <button class="btn btn-outline-primary btn-sm" onclick="CustomerModule.editRecord()" id="btnEdit" disabled>
-                    <i class="fas fa-edit"></i> Edit
-                </button>
-                <button class="btn btn-outline-danger btn-sm" onclick="CustomerModule.deleteRecord()" id="btnDelete" disabled>
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            </div>
-            
-            <div class="action-separator"></div>
-            
-            <div class="action-group">
-                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.refreshGrid()">
-                    <i class="fas fa-sync"></i> Refresh
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.showFilter()">
-                    <i class="fas fa-filter"></i> Filter
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" onclick="CustomerModule.columnSelector()">
-                    <i class="fas fa-columns"></i> Columns
-                </button>
-            </div>
-            
-            <div class="action-separator"></div>
-            
-            <div class="action-group">
-                <button class="btn btn-outline-success btn-sm" onclick="CustomerModule.exportExcel()">
-                    <i class="fas fa-file-excel"></i> Export
-                </button>
-                <button class="btn btn-outline-info btn-sm" onclick="CustomerModule.importData()">
-                    <i class="fas fa-file-import"></i> Import
-                </button>
-            </div>
-            
-            <div class="action-search ms-auto">
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text"><i class="fas fa-search"></i></span>
-                    <input type="text" class="form-control" placeholder="Search customers..." id="customerSearch">
-                </div>
-            </div>
-        </div>
-        
-        <!-- Data Grid -->
-        <div class="card">
-            <div class="card-body p-0">
-                <table id="customerGrid" class="table table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th width="30" style="width: 30px; min-width: 30px; max-width: 30px;">
-                                <input type="checkbox" class="form-check-input" id="selectAll">
-                            </th>
-                            <th>Account #</th>
-                            <th>Account Name</th>
-                            <th>Company Type</th>
-                            <th>Phone</th>
-                            <th>Email</th>
-                            <th>Status</th>
-                            <th>Sales Rep</th>
-                            <th>Credit Limit</th>
-                            <th>Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    
     <!-- Users List View Template -->
     <div id="usersListTemplate">
         <div class="module-header mb-3">

@@ -263,17 +263,13 @@ var CustomerModule = {
     
     // Load customer list view
     loadList: function() {
-        var template = $('#customerListTemplate').html();
-        $('#mainContent').html(template);
+        // Hide welcome screen
+        $('.welcome-screen').hide();
         
-        // Initialize DataTable
-        this.initDataTable();
+        // Show customer Blazor component
+        $('#customer-blazor-host').show();
         
-        // Bind events
-        this.bindListEvents();
-        
-        // Load data
-        this.loadData();
+        // Note: Blazor component handles its own data loading, grid, and events
     },
     
     // Initialize DataTable
