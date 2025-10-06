@@ -11,10 +11,12 @@
   "description": "",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
+    "@types/google.maps": "^3.58.1",
     "cors": "^2.8.5",
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.4",
     "express": "^4.18.2",
-    "ws": "^8.18.3"
+    "ws": "^8.18.3",
+    "xlsx": "^0.18.5"
   }
 }
