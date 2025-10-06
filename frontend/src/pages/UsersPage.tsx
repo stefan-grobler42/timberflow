@@ -13,6 +13,11 @@ import {
   SearchBox,
   Panel,
   Checkbox,
+  Dialog,
+  DialogType,
+  DialogFooter,
+  PrimaryButton,
+  DefaultButton,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { userService } from '../services';
@@ -33,6 +38,7 @@ export const UsersPage = () => {
   const [searchText, setSearchText] = useState('');
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
     userCode: true,
     firstName: true,
@@ -134,8 +140,8 @@ export const UsersPage = () => {
     }
   };
 
-  const handleExport = () => {
-    const exportData = filteredUsers.map((user) => ({
+  const exportToExcel = (usersToExport: User[]) => {
+    const exportData = usersToExport.map((user) => ({
       'User Code': user.userCode,
       'First Name': user.firstName,
       'Last Name': user.lastName,
@@ -155,6 +161,19 @@ export const UsersPage = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Users');
     XLSX.writeFile(wb, `Users_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportSelected = () => {
+    const selected = selection.getSelection() as User[];
+    if (selected.length > 0) {
+      exportToExcel(selected);
+    }
+    setIsExportDialogOpen(false);
+  };
+
+  const handleExportAll = () => {
+    exportToExcel(filteredUsers);
+    setIsExportDialogOpen(false);
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -367,7 +386,7 @@ export const UsersPage = () => {
       key: 'export',
       text: 'Export to Excel',
       iconProps: { iconName: 'ExcelDocument' },
-      onClick: handleExport,
+      onClick: () => setIsExportDialogOpen(true),
     },
     {
       key: 'import',
@@ -469,6 +488,26 @@ export const UsersPage = () => {
           ))}
         </Stack>
       </Panel>
+
+      <Dialog
+        hidden={!isExportDialogOpen}
+        onDismiss={() => setIsExportDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: 'Export to Excel',
+          subText: 'Choose which records to export',
+        }}
+      >
+        <DialogFooter>
+          <PrimaryButton
+            onClick={handleExportSelected}
+            text={`Export Selected (${selection.getSelectedCount()})`}
+            disabled={selection.getSelectedCount() === 0}
+          />
+          <DefaultButton onClick={handleExportAll} text={`Export All (${filteredUsers.length})`} />
+          <DefaultButton onClick={() => setIsExportDialogOpen(false)} text="Cancel" />
+        </DialogFooter>
+      </Dialog>
 
       <DeleteDialog
         isOpen={isDeleteDialogOpen}

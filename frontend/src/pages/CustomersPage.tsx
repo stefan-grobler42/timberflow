@@ -13,6 +13,11 @@ import {
   SearchBox,
   Panel,
   Checkbox,
+  Dialog,
+  DialogType,
+  DialogFooter,
+  PrimaryButton,
+  DefaultButton,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { customerService } from '../services';
@@ -33,6 +38,7 @@ export const CustomersPage = () => {
   const [searchText, setSearchText] = useState('');
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
     accountNo: true,
     accountName: true,
@@ -140,28 +146,16 @@ export const CustomersPage = () => {
     }
   };
 
-  const handleExport = () => {
-    const exportData = filteredCustomers.map((customer) => ({
+  const exportToExcel = (customersToExport: Customer[]) => {
+    const exportData = customersToExport.map((customer) => ({
       'Account No': customer.accountNo,
       'Account Name': customer.accountName,
       'Company Type': customer.companyType?.name || '',
       'Email': customer.email || '',
       'Phone': customer.phone || '',
-      'Mobile': customer.mobile || '',
-      'Website': customer.website || '',
-      'VAT No': customer.vatRegistrationNo || '',
-      'Registration No': customer.companyRegistrationNo || '',
-      'Street Address': customer.streetAddress || '',
       'City': customer.city || '',
       'Province': customer.province || '',
-      'Postal Code': customer.postalCode || '',
-      'Country': customer.country || '',
       'Status': customer.customerStatus,
-      'Payment Terms': customer.paymentTerms || '',
-      'Credit Limit': customer.creditLimit || 0,
-      'Current Balance': customer.currentBalance || 0,
-      'Discount': customer.discount || 0,
-      'Tax Exempt': customer.taxExempt ? 'Yes' : 'No',
       'Active': customer.isActive ? 'Yes' : 'No',
     }));
 
@@ -169,6 +163,19 @@ export const CustomersPage = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Customers');
     XLSX.writeFile(wb, `Customers_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const handleExportSelected = () => {
+    const selected = selection.getSelection() as Customer[];
+    if (selected.length > 0) {
+      exportToExcel(selected);
+    }
+    setIsExportDialogOpen(false);
+  };
+
+  const handleExportAll = () => {
+    exportToExcel(filteredCustomers);
+    setIsExportDialogOpen(false);
   };
 
   const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -381,7 +388,7 @@ export const CustomersPage = () => {
       key: 'export',
       text: 'Export to Excel',
       iconProps: { iconName: 'ExcelDocument' },
-      onClick: handleExport,
+      onClick: () => setIsExportDialogOpen(true),
     },
     {
       key: 'import',
@@ -483,6 +490,26 @@ export const CustomersPage = () => {
           ))}
         </Stack>
       </Panel>
+
+      <Dialog
+        hidden={!isExportDialogOpen}
+        onDismiss={() => setIsExportDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: 'Export to Excel',
+          subText: 'Choose which records to export',
+        }}
+      >
+        <DialogFooter>
+          <PrimaryButton
+            onClick={handleExportSelected}
+            text={`Export Selected (${selection.getSelectedCount()})`}
+            disabled={selection.getSelectedCount() === 0}
+          />
+          <DefaultButton onClick={handleExportAll} text={`Export All (${filteredCustomers.length})`} />
+          <DefaultButton onClick={() => setIsExportDialogOpen(false)} text="Cancel" />
+        </DialogFooter>
+      </Dialog>
 
       <DeleteDialog
         isOpen={isDeleteDialogOpen}
