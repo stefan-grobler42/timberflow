@@ -3,17 +3,15 @@ import {
   Stack,
   Text,
   TextField,
-  PrimaryButton,
-  DefaultButton,
   Dropdown,
   Checkbox,
   MessageBar,
   MessageBarType,
-  IconButton,
   Pivot,
   PivotItem,
+  CommandBar,
 } from '@fluentui/react';
-import type { IDropdownOption } from '@fluentui/react';
+import type { IDropdownOption, ICommandBarItemProps } from '@fluentui/react';
 import { customerService, companyService } from '../services';
 import type { Customer, CreateCustomerDto, UpdateCustomerDto, Company } from '../types';
 
@@ -21,12 +19,14 @@ interface CustomerFormFullScreenProps {
   customer?: Customer;
   onDismiss: () => void;
   onSave: () => void;
+  onDelete?: () => void;
 }
 
 export const CustomerFormFullScreen = ({
   customer,
   onDismiss,
   onSave,
+  onDelete,
 }: CustomerFormFullScreenProps) => {
   const [formData, setFormData] = useState<Partial<CreateCustomerDto>>({
     accountNo: '',
@@ -270,18 +270,100 @@ export const CustomerFormFullScreen = ({
     }
   };
 
-  return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%', padding: 20 } }}>
-      <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-        <Text variant="xxLarge">{customer ? 'Edit Customer' : 'New Customer'}</Text>
-        <IconButton iconProps={{ iconName: 'Cancel' }} onClick={onDismiss} />
-      </Stack>
+  const handleSaveAndNew = async () => {
+    try {
+      setSaving(true);
+      setError(null);
 
-      {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
-          {error}
-        </MessageBar>
-      )}
+      if (customer) {
+        const updateDto: UpdateCustomerDto = { ...formData };
+        await customerService.update(customer.id, updateDto);
+      } else {
+        const createDto: CreateCustomerDto = formData as CreateCustomerDto;
+        await customerService.create(createDto);
+      }
+
+      setFormData({
+        accountNo: '',
+        accountName: '',
+        companyTypeId: undefined,
+        email: '',
+        phone: '',
+        mobile: '',
+        website: '',
+        vatRegistrationNo: '',
+        companyRegistrationNo: '',
+        streetAddress: '',
+        city: '',
+        province: '',
+        postalCode: '',
+        country: 'South Africa',
+        latitude: null,
+        longitude: null,
+        customerStatus: 'Prospect',
+        paymentTerms: 'Net 30',
+        creditLimit: 0,
+        currentBalance: 0,
+        discount: 0,
+        taxExempt: false,
+        isActive: true,
+      });
+      setSaving(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save customer');
+      setSaving(false);
+    }
+  };
+
+  const commandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'save',
+      text: 'Save',
+      iconProps: { iconName: 'Save' },
+      onClick: handleSubmit,
+      disabled: saving,
+    },
+    {
+      key: 'saveAndNew',
+      text: 'Save & New',
+      iconProps: { iconName: 'SaveAndClose' },
+      onClick: handleSaveAndNew,
+      disabled: saving,
+    },
+    ...(customer && onDelete
+      ? [
+          {
+            key: 'delete',
+            text: 'Delete',
+            iconProps: { iconName: 'Delete' },
+            onClick: onDelete,
+            disabled: saving,
+          },
+        ]
+      : []),
+    {
+      key: 'cancel',
+      text: 'Cancel',
+      iconProps: { iconName: 'Cancel' },
+      onClick: onDismiss,
+      disabled: saving,
+    },
+  ];
+
+  return (
+    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
+      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
+        {customer ? 'Edit Customer' : 'New Customer'}
+      </Text>
+
+      <CommandBar items={commandBarItems} />
+
+      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
+        {error && (
+          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+            {error}
+          </MessageBar>
+        )}
 
       <Pivot styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
         <PivotItem headerText="Basic Information" itemIcon="Info">
@@ -536,14 +618,6 @@ export const CustomerFormFullScreen = ({
           </Stack>
         </PivotItem>
       </Pivot>
-
-      <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="end">
-        <PrimaryButton onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
-        </PrimaryButton>
-        <DefaultButton onClick={onDismiss} disabled={saving}>
-          Cancel
-        </DefaultButton>
       </Stack>
     </Stack>
   );

@@ -3,16 +3,14 @@ import {
   Stack,
   Text,
   TextField,
-  PrimaryButton,
-  DefaultButton,
   Dropdown,
   Checkbox,
   MessageBar,
   MessageBarType,
-  IconButton,
   DatePicker,
+  CommandBar,
 } from '@fluentui/react';
-import type { IDropdownOption } from '@fluentui/react';
+import type { IDropdownOption, ICommandBarItemProps } from '@fluentui/react';
 import { userService } from '../services';
 import type { User, CreateUserDto, UpdateUserDto } from '../types';
 
@@ -20,9 +18,10 @@ interface UserFormFullScreenProps {
   user?: User;
   onDismiss: () => void;
   onSave: () => void;
+  onDelete?: () => void;
 }
 
-export const UserFormFullScreen = ({ user, onDismiss, onSave }: UserFormFullScreenProps) => {
+export const UserFormFullScreen = ({ user, onDismiss, onSave, onDelete }: UserFormFullScreenProps) => {
   const [formData, setFormData] = useState<Partial<CreateUserDto>>({
     userCode: '',
     firstName: '',
@@ -98,24 +97,92 @@ export const UserFormFullScreen = ({ user, onDismiss, onSave }: UserFormFullScre
     }
   };
 
+  const handleSaveAndNew = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (user) {
+        const updateDto: UpdateUserDto = { ...formData };
+        await userService.update(user.id, updateDto);
+      } else {
+        const createDto: CreateUserDto = formData as CreateUserDto;
+        await userService.create(createDto);
+      }
+
+      setFormData({
+        userCode: '',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        department: '',
+        position: '',
+        role: 'user',
+        hireDate: undefined,
+        address: '',
+        emergencyContact: '',
+        emergencyPhone: '',
+        isActive: true,
+      });
+      setSaving(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save user');
+      setSaving(false);
+    }
+  };
+
+  const commandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'save',
+      text: 'Save',
+      iconProps: { iconName: 'Save' },
+      onClick: handleSubmit,
+      disabled: saving,
+    },
+    {
+      key: 'saveAndNew',
+      text: 'Save & New',
+      iconProps: { iconName: 'SaveAndClose' },
+      onClick: handleSaveAndNew,
+      disabled: saving,
+    },
+    ...(user && onDelete
+      ? [
+          {
+            key: 'delete',
+            text: 'Delete',
+            iconProps: { iconName: 'Delete' },
+            onClick: onDelete,
+            disabled: saving,
+          },
+        ]
+      : []),
+    {
+      key: 'cancel',
+      text: 'Cancel',
+      iconProps: { iconName: 'Cancel' },
+      onClick: onDismiss,
+      disabled: saving,
+    },
+  ];
+
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%', padding: 20 } }}>
-      <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-        <Text variant="xxLarge">{user ? 'Edit User' : 'New User'}</Text>
-        <IconButton iconProps={{ iconName: 'Cancel' }} onClick={onDismiss} />
-      </Stack>
+    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
+      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
+        {user ? 'Edit User' : 'New User'}
+      </Text>
 
-      {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
-          {error}
-        </MessageBar>
-      )}
+      <CommandBar items={commandBarItems} />
 
-      <Stack
-        horizontal
-        tokens={{ childrenGap: 32 }}
-        styles={{ root: { flex: 1, overflowY: 'auto' } }}
-      >
+      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
+        {error && (
+          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+            {error}
+          </MessageBar>
+        )}
+
+        <Stack horizontal tokens={{ childrenGap: 32 }} styles={{ root: { marginTop: 16 } }}>
         <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
           <Text variant="xLarge">Personal Information</Text>
 
@@ -217,15 +284,7 @@ export const UserFormFullScreen = ({ user, onDismiss, onSave }: UserFormFullScre
             onChange={(_, checked) => setFormData({ ...formData, isActive: checked || false })}
           />
         </Stack>
-      </Stack>
-
-      <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="end">
-        <PrimaryButton onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Saving...' : 'Save'}
-        </PrimaryButton>
-        <DefaultButton onClick={onDismiss} disabled={saving}>
-          Cancel
-        </DefaultButton>
+        </Stack>
       </Stack>
     </Stack>
   );
