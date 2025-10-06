@@ -173,6 +173,7 @@ export const CustomerFormFullScreen = ({
         if (place.geometry?.location) {
           const position = place.geometry.location;
           mapInstance.setCenter(position);
+          mapInstance.setZoom(15);
           markerInstance.setPosition(position);
 
           setFormData({
@@ -197,6 +198,8 @@ export const CustomerFormFullScreen = ({
               postalCode: postalCode || prev.postalCode || '',
             }));
           }
+
+          input.value = '';
         }
       });
 
