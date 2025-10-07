@@ -18,12 +18,17 @@ import {
   DialogFooter,
   PrimaryButton,
   DefaultButton,
+  IconButton,
+  Separator,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { customerService } from '../services';
 import type { Customer } from '../types';
+import type { GridView, GridFilter } from '../types/gridView';
 import { CustomerFormFullScreen } from '../components/CustomerFormFullScreen';
 import { DeleteDialog } from '../components/DeleteDialog';
+import { ViewManager } from '../components/ViewManager';
+import { FilterBuilder } from '../components/FilterBuilder';
 import * as XLSX from 'xlsx';
 
 export const CustomersPage = () => {
@@ -36,9 +41,10 @@ export const CustomersPage = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | undefined>();
   const [searchText, setSearchText] = useState('');
-  const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
+  const [gridKeywordFilter, setGridKeywordFilter] = useState('');
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     accountNo: true,
@@ -66,24 +72,33 @@ export const CustomersPage = () => {
     'province', 'postalCode', 'country'
   ];
 
-  const loadColumnSettings = () => {
-    try {
-      const saved = localStorage.getItem('customers-column-settings');
-      if (saved) {
-        const settings = JSON.parse(saved);
-        return {
-          visibility: settings.visibility || defaultVisibleColumns,
-          order: settings.order || defaultColumnOrder,
-        };
-      }
-    } catch (err) {
-      console.warn('Failed to load column settings:', err);
-    }
-    return { visibility: defaultVisibleColumns, order: defaultColumnOrder };
+  const defaultView: GridView = {
+    id: 'default-view',
+    name: 'All Customers',
+    isDefault: true,
+    entityType: 'customer',
+    columnVisibility: defaultVisibleColumns,
+    columnOrder: defaultColumnOrder,
+    filters: [],
   };
 
-  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>(loadColumnSettings().visibility);
-  const [columnOrder, setColumnOrder] = useState<string[]>(loadColumnSettings().order);
+  const loadViews = (): GridView[] => {
+    try {
+      const saved = localStorage.getItem('customers-views');
+      if (saved) {
+        const views = JSON.parse(saved);
+        return views.length > 0 ? views : [defaultView];
+      }
+    } catch (err) {
+      console.warn('Failed to load views:', err);
+    }
+    return [defaultView];
+  };
+
+  const [views, setViews] = useState<GridView[]>(loadViews());
+  const [currentView, setCurrentView] = useState<GridView>(
+    views.find(v => v.isDefault) || defaultView
+  );
 
   const [selection] = useState(
     new Selection({
@@ -100,7 +115,7 @@ export const CustomersPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [customers, searchText, columnFilters]);
+  }, [customers, searchText, currentView, gridKeywordFilter]);
 
   const loadCustomers = async () => {
     try {
@@ -118,6 +133,7 @@ export const CustomersPage = () => {
   const applyFilters = () => {
     let filtered = [...customers];
 
+    // Apply global search
     if (searchText) {
       const search = searchText.toLowerCase();
       filtered = filtered.filter((customer) => {
@@ -130,17 +146,82 @@ export const CustomersPage = () => {
       });
     }
 
-    Object.entries(columnFilters).forEach(([key, value]) => {
-      if (value) {
-        filtered = filtered.filter((customer) => {
-          if (key === 'companyType') {
-            return (customer.companyType?.name?.toLowerCase() || '').includes(value.toLowerCase());
+    // Apply grid keyword filter
+    if (gridKeywordFilter) {
+      const keyword = gridKeywordFilter.toLowerCase();
+      filtered = filtered.filter((customer) => {
+        return (
+          Object.values(customer).some((value) =>
+            String(value).toLowerCase().includes(keyword)
+          ) ||
+          (customer.companyType?.name?.toLowerCase() || '').includes(keyword)
+        );
+      });
+    }
+
+    // Apply view filters with proper AND/OR logic
+    if (currentView.filters && currentView.filters.length > 0) {
+      filtered = filtered.filter((customer) => {
+        let result = true;
+        let currentLogic: 'AND' | 'OR' = 'AND';
+
+        for (let i = 0; i < currentView.filters.length; i++) {
+          const filter = currentView.filters[i];
+          const fieldValue = filter.field === 'companyType'
+            ? customer.companyType?.name
+            : customer[filter.field as keyof Customer];
+          
+          const value = String(fieldValue ?? '').toLowerCase();
+          const filterValue = filter.value.toLowerCase();
+
+          let filterResult = false;
+          switch (filter.operator) {
+            case 'equals':
+              filterResult = value === filterValue;
+              break;
+            case 'notEquals':
+              filterResult = value !== filterValue;
+              break;
+            case 'contains':
+              filterResult = value.includes(filterValue);
+              break;
+            case 'notContains':
+              filterResult = !value.includes(filterValue);
+              break;
+            case 'beginsWith':
+              filterResult = value.startsWith(filterValue);
+              break;
+            case 'endsWith':
+              filterResult = value.endsWith(filterValue);
+              break;
+            case 'isEmpty':
+              filterResult = !value;
+              break;
+            case 'isNotEmpty':
+              filterResult = !!value;
+              break;
+            default:
+              filterResult = true;
           }
-          const fieldValue = customer[key as keyof Customer];
-          return String(fieldValue).toLowerCase().includes(value.toLowerCase());
-        });
-      }
-    });
+
+          // Apply the filter result based on the previous logic operator
+          if (i === 0) {
+            result = filterResult;
+          } else {
+            if (currentLogic === 'AND') {
+              result = result && filterResult;
+            } else {
+              result = result || filterResult;
+            }
+          }
+
+          // Set the logic operator for the next iteration
+          currentLogic = filter.logicOperator || 'AND';
+        }
+
+        return result;
+      });
+    }
 
     setFilteredCustomers(filtered);
   };
@@ -234,49 +315,79 @@ export const CustomersPage = () => {
     event.target.value = '';
   };
 
-  const handleColumnFilterChange = (columnKey: string, value: string) => {
-    setColumnFilters({ ...columnFilters, [columnKey]: value });
+  const handleViewChange = (view: GridView) => {
+    setCurrentView(view);
   };
 
-  const saveColumnSettings = () => {
-    try {
-      const settings = {
-        visibility: visibleColumns,
-        order: columnOrder,
-      };
-      localStorage.setItem('customers-column-settings', JSON.stringify(settings));
-      setIsColumnPanelOpen(false);
-      alert('Column settings saved successfully!');
-    } catch (err) {
-      console.warn('Failed to save column settings:', err);
-      alert('Failed to save column settings');
-    }
+  const handleSaveView = (view: GridView) => {
+    const updatedViews = views.find(v => v.id === view.id)
+      ? views.map(v => v.id === view.id ? view : v)
+      : [...views, view];
+    
+    setViews(updatedViews);
+    setCurrentView(view);
+    localStorage.setItem('customers-views', JSON.stringify(updatedViews));
   };
 
-  const resetColumnSettings = () => {
-    setVisibleColumns(defaultVisibleColumns);
-    setColumnOrder(defaultColumnOrder);
-    localStorage.removeItem('customers-column-settings');
-    alert('Column settings reset to defaults');
+  const handleDeleteView = (viewId: string) => {
+    const updatedViews = views.filter(v => v.id !== viewId);
+    setViews(updatedViews);
+    localStorage.setItem('customers-views', JSON.stringify(updatedViews));
+  };
+
+  const handleSetDefaultView = (viewId: string) => {
+    const updatedViews = views.map(v => ({
+      ...v,
+      isDefault: v.id === viewId,
+    }));
+    setViews(updatedViews);
+    localStorage.setItem('customers-views', JSON.stringify(updatedViews));
+  };
+
+  const handleFiltersChange = (filters: GridFilter[]) => {
+    const updatedView = { ...currentView, filters };
+    setCurrentView(updatedView);
+  };
+
+  const updateCurrentViewColumns = (visibility: { [key: string]: boolean }, order: string[]) => {
+    const updatedView = {
+      ...currentView,
+      columnVisibility: visibility,
+      columnOrder: order,
+    };
+    setCurrentView(updatedView);
   };
 
   const moveColumnUp = (columnKey: string) => {
-    const currentIndex = columnOrder.indexOf(columnKey);
+    const currentIndex = currentView.columnOrder.indexOf(columnKey);
     if (currentIndex > 0) {
-      const newOrder = [...columnOrder];
+      const newOrder = [...currentView.columnOrder];
       [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
-      setColumnOrder(newOrder);
+      updateCurrentViewColumns(currentView.columnVisibility, newOrder);
     }
   };
 
   const moveColumnDown = (columnKey: string) => {
-    const currentIndex = columnOrder.indexOf(columnKey);
-    if (currentIndex < columnOrder.length - 1) {
-      const newOrder = [...columnOrder];
+    const currentIndex = currentView.columnOrder.indexOf(columnKey);
+    if (currentIndex < currentView.columnOrder.length - 1) {
+      const newOrder = [...currentView.columnOrder];
       [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
-      setColumnOrder(newOrder);
+      updateCurrentViewColumns(currentView.columnVisibility, newOrder);
     }
   };
+
+  const availableFields = [
+    { key: 'accountNo', name: 'Account No', type: 'text' as const },
+    { key: 'accountName', name: 'Account Name', type: 'text' as const },
+    { key: 'companyType', name: 'Company Type', type: 'text' as const },
+    { key: 'email', name: 'Email', type: 'text' as const },
+    { key: 'phone', name: 'Phone', type: 'text' as const },
+    { key: 'mobile', name: 'Mobile', type: 'text' as const },
+    { key: 'city', name: 'City', type: 'text' as const },
+    { key: 'province', name: 'Province', type: 'text' as const },
+    { key: 'customerStatus', name: 'Status', type: 'text' as const },
+    { key: 'isActive', name: 'Active', type: 'boolean' as const },
+  ];
 
   const allColumns: IColumn[] = [
     {
@@ -286,18 +397,6 @@ export const CustomersPage = () => {
       minWidth: 100,
       maxWidth: 150,
       isResizable: true,
-      isFiltered: !!columnFilters['accountNo'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Account No</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['accountNo'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('accountNo', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'accountName',
@@ -306,18 +405,6 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
-      isFiltered: !!columnFilters['accountName'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Account Name</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['accountName'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('accountName', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'companyType',
@@ -325,19 +412,7 @@ export const CustomersPage = () => {
       minWidth: 150,
       maxWidth: 200,
       isResizable: true,
-      isFiltered: !!columnFilters['companyType'],
       onRender: (item: Customer) => <Text>{item.companyType?.name || '-'}</Text>,
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Company Type</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['companyType'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('companyType', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'email',
@@ -346,18 +421,6 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
-      isFiltered: !!columnFilters['email'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Email</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['email'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('email', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'phone',
@@ -366,18 +429,6 @@ export const CustomersPage = () => {
       minWidth: 150,
       maxWidth: 200,
       isResizable: true,
-      isFiltered: !!columnFilters['phone'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Phone</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['phone'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('phone', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'city',
@@ -386,18 +437,6 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 180,
       isResizable: true,
-      isFiltered: !!columnFilters['city'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>City</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['city'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('city', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'customerStatus',
@@ -406,18 +445,6 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 150,
       isResizable: true,
-      isFiltered: !!columnFilters['customerStatus'],
-      onRenderHeader: () => (
-        <Stack>
-          <Text>Status</Text>
-          <SearchBox
-            placeholder="Filter..."
-            value={columnFilters['customerStatus'] || ''}
-            onChange={(_, value) => handleColumnFilterChange('customerStatus', value || '')}
-            styles={{ root: { width: '100%', marginTop: 4 } }}
-          />
-        </Stack>
-      ),
     },
     {
       key: 'isActive',
@@ -494,8 +521,8 @@ export const CustomersPage = () => {
     },
   ];
 
-  const orderedColumns = columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
-  const columns = orderedColumns.filter((col) => visibleColumns[col.key]);
+  const orderedColumns = currentView.columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
+  const columns = orderedColumns.filter((col) => currentView.columnVisibility[col.key]);
 
   const commandBarItems: ICommandBarItemProps[] = [
     {
@@ -596,6 +623,49 @@ export const CustomersPage = () => {
         </MessageBar>
       )}
 
+      {/* Power Apps-style Grid Header */}
+      <Stack
+        horizontal
+        verticalAlign="center"
+        tokens={{ childrenGap: 12 }}
+        styles={{
+          root: {
+            padding: 12,
+            backgroundColor: '#faf9f8',
+            borderRadius: 4,
+            border: '1px solid #edebe9',
+          },
+        }}
+      >
+        <ViewManager
+          currentView={currentView}
+          views={views}
+          onViewChange={handleViewChange}
+          onSaveView={handleSaveView}
+          onDeleteView={handleDeleteView}
+          onSetDefaultView={handleSetDefaultView}
+        />
+        <Separator vertical styles={{ root: { height: 32 } }} />
+        <IconButton
+          iconProps={{ iconName: 'ColumnOptions' }}
+          title="Edit columns"
+          onClick={() => setIsColumnPanelOpen(true)}
+        />
+        <IconButton
+          iconProps={{ iconName: 'Filter' }}
+          title="Edit filters"
+          onClick={() => setIsFilterBuilderOpen(true)}
+        />
+        <Separator vertical styles={{ root: { height: 32 } }} />
+        <SearchBox
+          placeholder="Filter by keyword"
+          value={gridKeywordFilter}
+          onChange={(_, value) => setGridKeywordFilter(value || '')}
+          onClear={() => setGridKeywordFilter('')}
+          styles={{ root: { width: 250 } }}
+        />
+      </Stack>
+
       {loading ? (
         <Stack horizontalAlign="center" tokens={{ padding: 40 }}>
           <Spinner size={SpinnerSize.large} label="Loading customers..." />
@@ -612,22 +682,26 @@ export const CustomersPage = () => {
         />
       )}
 
+      {/* Column Settings Panel */}
       <Panel
         isOpen={isColumnPanelOpen}
         onDismiss={() => setIsColumnPanelOpen(false)}
         headerText="Column Settings"
       >
         <Stack tokens={{ childrenGap: 12 }} styles={{ root: { marginTop: 16 } }}>
-          {columnOrder.map((key, index) => {
+          {currentView.columnOrder.map((key, index) => {
             const col = allColumns.find(c => c.key === key);
             if (!col) return null;
             return (
               <Stack key={col.key} horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
                 <Checkbox
                   label={col.name}
-                  checked={visibleColumns[col.key]}
+                  checked={currentView.columnVisibility[col.key]}
                   onChange={(_, checked) =>
-                    setVisibleColumns({ ...visibleColumns, [col.key]: checked || false })
+                    updateCurrentViewColumns(
+                      { ...currentView.columnVisibility, [col.key]: checked || false },
+                      currentView.columnOrder
+                    )
                   }
                   styles={{ root: { flex: 1 } }}
                 />
@@ -640,7 +714,7 @@ export const CustomersPage = () => {
                   />
                   <DefaultButton
                     iconProps={{ iconName: 'Down' }}
-                    disabled={index === columnOrder.length - 1}
+                    disabled={index === currentView.columnOrder.length - 1}
                     onClick={() => moveColumnDown(col.key)}
                     styles={{ root: { minWidth: 32, padding: '0 8px' } }}
                   />
@@ -648,12 +722,17 @@ export const CustomersPage = () => {
               </Stack>
             );
           })}
-          <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { marginTop: 16 } }}>
-            <PrimaryButton text="Save as Default" onClick={saveColumnSettings} />
-            <DefaultButton text="Reset to Default" onClick={resetColumnSettings} />
-          </Stack>
         </Stack>
       </Panel>
+
+      {/* Filter Builder Panel */}
+      <FilterBuilder
+        isOpen={isFilterBuilderOpen}
+        onDismiss={() => setIsFilterBuilderOpen(false)}
+        filters={currentView.filters}
+        onFiltersChange={handleFiltersChange}
+        availableFields={availableFields}
+      />
 
       <Dialog
         hidden={!isExportDialogOpen}
