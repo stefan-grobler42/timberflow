@@ -45,6 +45,8 @@ export const CustomersPage = () => {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string>('');
+  const [isSortedDescending, setIsSortedDescending] = useState(false);
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     accountNo: true,
@@ -115,7 +117,7 @@ export const CustomersPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [customers, searchText, currentView]);
+  }, [customers, searchText, currentView, sortColumn, isSortedDescending]);
 
   const loadCustomers = async () => {
     try {
@@ -207,6 +209,36 @@ export const CustomersPage = () => {
         }
 
         return result;
+      });
+    }
+
+    // Apply sorting
+    if (sortColumn) {
+      filtered.sort((a, b) => {
+        let aValue: any;
+        let bValue: any;
+
+        if (sortColumn === 'companyType') {
+          aValue = a.companyType?.name || '';
+          bValue = b.companyType?.name || '';
+        } else {
+          aValue = a[sortColumn as keyof Customer] || '';
+          bValue = b[sortColumn as keyof Customer] || '';
+        }
+
+        // Handle different types
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+          return isSortedDescending
+            ? bValue.localeCompare(aValue)
+            : aValue.localeCompare(bValue);
+        } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return isSortedDescending ? bValue - aValue : aValue - bValue;
+        } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
+          return isSortedDescending
+            ? (bValue ? 1 : 0) - (aValue ? 1 : 0)
+            : (aValue ? 1 : 0) - (bValue ? 1 : 0);
+        }
+        return 0;
       });
     }
 
@@ -363,6 +395,20 @@ export const CustomersPage = () => {
     }
   };
 
+  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+    if (!column) return;
+    
+    const columnKey = column.key;
+    if (sortColumn === columnKey) {
+      // Toggle sort direction
+      setIsSortedDescending(!isSortedDescending);
+    } else {
+      // Sort by new column, ascending
+      setSortColumn(columnKey);
+      setIsSortedDescending(false);
+    }
+  };
+
   const availableFields = [
     { key: 'accountNo', name: 'Account No', type: 'text' as const },
     { key: 'accountName', name: 'Account Name', type: 'text' as const },
@@ -384,6 +430,9 @@ export const CustomersPage = () => {
       minWidth: 100,
       maxWidth: 150,
       isResizable: true,
+      isSorted: sortColumn === 'accountNo',
+      isSortedDescending: sortColumn === 'accountNo' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'accountName',
@@ -392,6 +441,9 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
+      isSorted: sortColumn === 'accountName',
+      isSortedDescending: sortColumn === 'accountName' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'companyType',
@@ -399,6 +451,9 @@ export const CustomersPage = () => {
       minWidth: 150,
       maxWidth: 200,
       isResizable: true,
+      isSorted: sortColumn === 'companyType',
+      isSortedDescending: sortColumn === 'companyType' && isSortedDescending,
+      onColumnClick: onColumnClick,
       onRender: (item: Customer) => <Text>{item.companyType?.name || '-'}</Text>,
     },
     {
@@ -408,6 +463,9 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
+      isSorted: sortColumn === 'email',
+      isSortedDescending: sortColumn === 'email' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'phone',
@@ -416,6 +474,9 @@ export const CustomersPage = () => {
       minWidth: 150,
       maxWidth: 200,
       isResizable: true,
+      isSorted: sortColumn === 'phone',
+      isSortedDescending: sortColumn === 'phone' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'city',
@@ -424,6 +485,9 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 180,
       isResizable: true,
+      isSorted: sortColumn === 'city',
+      isSortedDescending: sortColumn === 'city' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'customerStatus',
@@ -432,6 +496,9 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 150,
       isResizable: true,
+      isSorted: sortColumn === 'customerStatus',
+      isSortedDescending: sortColumn === 'customerStatus' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'isActive',
@@ -440,6 +507,9 @@ export const CustomersPage = () => {
       minWidth: 80,
       maxWidth: 100,
       isResizable: true,
+      isSorted: sortColumn === 'isActive',
+      isSortedDescending: sortColumn === 'isActive' && isSortedDescending,
+      onColumnClick: onColumnClick,
       onRender: (item: Customer) => <Text>{item.isActive ? 'Yes' : 'No'}</Text>,
     },
     {
@@ -449,6 +519,9 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 180,
       isResizable: true,
+      isSorted: sortColumn === 'mobile',
+      isSortedDescending: sortColumn === 'mobile' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'website',
@@ -457,6 +530,9 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
+      isSorted: sortColumn === 'website',
+      isSortedDescending: sortColumn === 'website' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'vatRegistrationNo',
@@ -465,6 +541,9 @@ export const CustomersPage = () => {
       minWidth: 120,
       maxWidth: 180,
       isResizable: true,
+      isSorted: sortColumn === 'vatRegistrationNo',
+      isSortedDescending: sortColumn === 'vatRegistrationNo' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'companyRegistrationNo',
@@ -473,6 +552,9 @@ export const CustomersPage = () => {
       minWidth: 150,
       maxWidth: 200,
       isResizable: true,
+      isSorted: sortColumn === 'companyRegistrationNo',
+      isSortedDescending: sortColumn === 'companyRegistrationNo' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'streetAddress',
@@ -481,6 +563,9 @@ export const CustomersPage = () => {
       minWidth: 200,
       maxWidth: 300,
       isResizable: true,
+      isSorted: sortColumn === 'streetAddress',
+      isSortedDescending: sortColumn === 'streetAddress' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'province',
@@ -489,6 +574,9 @@ export const CustomersPage = () => {
       minWidth: 100,
       maxWidth: 150,
       isResizable: true,
+      isSorted: sortColumn === 'province',
+      isSortedDescending: sortColumn === 'province' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'postalCode',
@@ -497,6 +585,9 @@ export const CustomersPage = () => {
       minWidth: 100,
       maxWidth: 120,
       isResizable: true,
+      isSorted: sortColumn === 'postalCode',
+      isSortedDescending: sortColumn === 'postalCode' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
     {
       key: 'country',
@@ -505,6 +596,9 @@ export const CustomersPage = () => {
       minWidth: 100,
       maxWidth: 150,
       isResizable: true,
+      isSorted: sortColumn === 'country',
+      isSortedDescending: sortColumn === 'country' && isSortedDescending,
+      onColumnClick: onColumnClick,
     },
   ];
 
@@ -644,16 +738,18 @@ export const CustomersPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading customers..." />
         </Stack>
       ) : (
-        <DetailsList
-          items={filteredCustomers}
-          columns={columns}
-          layoutMode={DetailsListLayoutMode.fixedColumns}
-          constrainMode={ConstrainMode.unconstrained}
-          selection={selection}
-          selectionPreservedOnEmptyClick={true}
-          isHeaderVisible={true}
-          onItemInvoked={handleRowDoubleClick}
-        />
+        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+          <DetailsList
+            items={filteredCustomers}
+            columns={columns}
+            layoutMode={DetailsListLayoutMode.fixedColumns}
+            constrainMode={ConstrainMode.unconstrained}
+            selection={selection}
+            selectionPreservedOnEmptyClick={true}
+            isHeaderVisible={true}
+            onItemInvoked={handleRowDoubleClick}
+          />
+        </div>
       )}
 
       {/* Column Settings Panel */}
