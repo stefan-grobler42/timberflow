@@ -44,7 +44,6 @@ export const CustomersPage = () => {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
-  const [gridKeywordFilter, setGridKeywordFilter] = useState('');
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     accountNo: true,
@@ -115,7 +114,7 @@ export const CustomersPage = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [customers, searchText, currentView, gridKeywordFilter]);
+  }, [customers, searchText, currentView]);
 
   const loadCustomers = async () => {
     try {
@@ -142,19 +141,6 @@ export const CustomersPage = () => {
             String(value).toLowerCase().includes(search)
           ) ||
           (customer.companyType?.name?.toLowerCase() || '').includes(search)
-        );
-      });
-    }
-
-    // Apply grid keyword filter
-    if (gridKeywordFilter) {
-      const keyword = gridKeywordFilter.toLowerCase();
-      filtered = filtered.filter((customer) => {
-        return (
-          Object.values(customer).some((value) =>
-            String(value).toLowerCase().includes(keyword)
-          ) ||
-          (customer.companyType?.name?.toLowerCase() || '').includes(keyword)
         );
       });
     }
@@ -563,12 +549,6 @@ export const CustomersPage = () => {
       iconProps: { iconName: 'ExcelLogoInverse' },
       onClick: () => document.getElementById('customers-import-input')?.click(),
     },
-    {
-      key: 'columns',
-      text: 'Columns',
-      iconProps: { iconName: 'ColumnOptions' },
-      onClick: () => setIsColumnPanelOpen(true),
-    },
   ];
 
   const commandBarFarItems: ICommandBarItemProps[] = [
@@ -655,14 +635,6 @@ export const CustomersPage = () => {
           iconProps={{ iconName: 'Filter' }}
           title="Edit filters"
           onClick={() => setIsFilterBuilderOpen(true)}
-        />
-        <Separator vertical styles={{ root: { height: 32 } }} />
-        <SearchBox
-          placeholder="Filter by keyword"
-          value={gridKeywordFilter}
-          onChange={(_, value) => setGridKeywordFilter(value || '')}
-          onClear={() => setGridKeywordFilter('')}
-          styles={{ root: { width: 250 } }}
         />
       </Stack>
 
