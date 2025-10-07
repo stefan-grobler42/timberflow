@@ -85,9 +85,9 @@ export const Layout = ({ children }: LayoutProps) => {
           <Stack.Item styles={{ root: { flex: '0 0 auto' } }}>
             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
               <img 
-                src="/attached_assets/stock_images/timber_roof_truss_lo_ee36e8e9.jpg" 
+                src="/millennium-logo.png" 
                 alt="Millennium Logo" 
-                style={{ height: 40, width: 60, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                style={{ height: 40, cursor: 'pointer' }}
                 onClick={() => navigate('/')}
               />
               <span 
@@ -114,7 +114,8 @@ export const Layout = ({ children }: LayoutProps) => {
           styles={{
             root: {
               width: 250,
-              borderRight: '1px solid #edebe9',
+              backgroundColor: '#59AAD5',
+              borderRight: '1px solid #4a99c4',
               overflowY: 'auto',
             },
           }}
@@ -126,6 +127,34 @@ export const Layout = ({ children }: LayoutProps) => {
             styles={{
               root: {
                 width: 250,
+              },
+              groupContent: {
+                marginBottom: 0,
+              },
+              link: {
+                backgroundColor: 'transparent',
+                color: 'white',
+                selectors: {
+                  ':hover': {
+                    backgroundColor: '#4a99c4',
+                    color: 'white',
+                  },
+                  '.is-selected': {
+                    backgroundColor: '#54C3D6',
+                    color: 'white',
+                  },
+                },
+              },
+              compositeLink: {
+                backgroundColor: 'transparent',
+                selectors: {
+                  ':hover': {
+                    backgroundColor: '#4a99c4',
+                  },
+                  '.is-selected': {
+                    backgroundColor: '#54C3D6',
+                  },
+                },
               },
             }}
           />
