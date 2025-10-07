@@ -1,5 +1,5 @@
-import { Stack, Nav, CommandBar } from '@fluentui/react';
-import type { INavLinkGroup, ICommandBarItemProps } from '@fluentui/react';
+import { Stack, Nav } from '@fluentui/react';
+import type { INavLinkGroup } from '@fluentui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GlobalSearch } from './GlobalSearch';
 
@@ -60,24 +60,6 @@ export const Layout = ({ children }: LayoutProps) => {
     },
   ];
 
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'title',
-      text: 'Millennium Timber Roof ERP',
-      iconProps: { iconName: 'Home' },
-      onClick: () => {
-        navigate('/');
-      },
-    },
-  ];
-
-  const commandBarFarItems: ICommandBarItemProps[] = [
-    {
-      key: 'globalSearch',
-      onRender: () => <GlobalSearch />,
-    },
-  ];
-
   const handleLinkClick = (ev?: React.MouseEvent<HTMLElement>, item?: any): void => {
     if (item?.url) {
       ev?.preventDefault();
@@ -88,15 +70,43 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <Stack styles={{ root: { height: '100vh', overflow: 'hidden' } }}>
       <Stack.Item styles={{ root: { position: 'sticky', top: 0, zIndex: 100 } }}>
-        <CommandBar
-          items={commandBarItems}
-          farItems={commandBarFarItems}
-          styles={{
-            root: {
-              borderBottom: '1px solid #edebe9',
-            },
+        <Stack 
+          horizontal 
+          verticalAlign="center" 
+          styles={{ 
+            root: { 
+              backgroundColor: '#59AAD5',
+              padding: '0 16px',
+              height: 44,
+              borderBottom: '1px solid #4a99c4',
+            } 
           }}
-        />
+        >
+          <Stack.Item styles={{ root: { flex: '0 0 auto' } }}>
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+              <img 
+                src="/attached_assets/stock_images/timber_roof_truss_lo_ee36e8e9.jpg" 
+                alt="Millennium Logo" 
+                style={{ height: 40, width: 60, objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                onClick={() => navigate('/')}
+              />
+              <span 
+                style={{ color: 'white', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
+                onClick={() => navigate('/')}
+              >
+                Millennium Timber Roof ERP
+              </span>
+            </Stack>
+          </Stack.Item>
+          
+          <Stack.Item grow styles={{ root: { display: 'flex', justifyContent: 'center', padding: '0 20px' } }}>
+            <GlobalSearch />
+          </Stack.Item>
+          
+          <Stack.Item styles={{ root: { flex: '0 0 auto', width: 200 } }}>
+            {/* Spacer for balance */}
+          </Stack.Item>
+        </Stack>
       </Stack.Item>
 
       <Stack horizontal styles={{ root: { flex: 1, overflow: 'hidden' } }}>
