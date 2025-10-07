@@ -4,6 +4,7 @@ import {
   Text,
   DetailsList,
   DetailsListLayoutMode,
+  ConstrainMode,
   Selection,
   CommandBar,
   MessageBar,
@@ -647,6 +648,7 @@ export const CustomersPage = () => {
           items={filteredCustomers}
           columns={columns}
           layoutMode={DetailsListLayoutMode.fixedColumns}
+          constrainMode={ConstrainMode.unconstrained}
           selection={selection}
           selectionPreservedOnEmptyClick={true}
           isHeaderVisible={true}
