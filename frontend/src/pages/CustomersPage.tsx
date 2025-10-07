@@ -39,7 +39,8 @@ export const CustomersPage = () => {
   const [columnFilters, setColumnFilters] = useState<{ [key: string]: string }>({});
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>({
+  
+  const defaultVisibleColumns: { [key: string]: boolean } = {
     accountNo: true,
     accountName: true,
     companyType: true,
@@ -56,7 +57,33 @@ export const CustomersPage = () => {
     province: false,
     postalCode: false,
     country: false,
-  });
+  };
+
+  const defaultColumnOrder = [
+    'accountNo', 'accountName', 'companyType', 'email', 'phone', 
+    'city', 'customerStatus', 'isActive', 'mobile', 'website', 
+    'vatRegistrationNo', 'companyRegistrationNo', 'streetAddress', 
+    'province', 'postalCode', 'country'
+  ];
+
+  const loadColumnSettings = () => {
+    try {
+      const saved = localStorage.getItem('customers-column-settings');
+      if (saved) {
+        const settings = JSON.parse(saved);
+        return {
+          visibility: settings.visibility || defaultVisibleColumns,
+          order: settings.order || defaultColumnOrder,
+        };
+      }
+    } catch (err) {
+      console.warn('Failed to load column settings:', err);
+    }
+    return { visibility: defaultVisibleColumns, order: defaultColumnOrder };
+  };
+
+  const [visibleColumns, setVisibleColumns] = useState<{ [key: string]: boolean }>(loadColumnSettings().visibility);
+  const [columnOrder, setColumnOrder] = useState<string[]>(loadColumnSettings().order);
 
   const [selection] = useState(
     new Selection({
@@ -209,6 +236,46 @@ export const CustomersPage = () => {
 
   const handleColumnFilterChange = (columnKey: string, value: string) => {
     setColumnFilters({ ...columnFilters, [columnKey]: value });
+  };
+
+  const saveColumnSettings = () => {
+    try {
+      const settings = {
+        visibility: visibleColumns,
+        order: columnOrder,
+      };
+      localStorage.setItem('customers-column-settings', JSON.stringify(settings));
+      setIsColumnPanelOpen(false);
+      alert('Column settings saved successfully!');
+    } catch (err) {
+      console.warn('Failed to save column settings:', err);
+      alert('Failed to save column settings');
+    }
+  };
+
+  const resetColumnSettings = () => {
+    setVisibleColumns(defaultVisibleColumns);
+    setColumnOrder(defaultColumnOrder);
+    localStorage.removeItem('customers-column-settings');
+    alert('Column settings reset to defaults');
+  };
+
+  const moveColumnUp = (columnKey: string) => {
+    const currentIndex = columnOrder.indexOf(columnKey);
+    if (currentIndex > 0) {
+      const newOrder = [...columnOrder];
+      [newOrder[currentIndex - 1], newOrder[currentIndex]] = [newOrder[currentIndex], newOrder[currentIndex - 1]];
+      setColumnOrder(newOrder);
+    }
+  };
+
+  const moveColumnDown = (columnKey: string) => {
+    const currentIndex = columnOrder.indexOf(columnKey);
+    if (currentIndex < columnOrder.length - 1) {
+      const newOrder = [...columnOrder];
+      [newOrder[currentIndex], newOrder[currentIndex + 1]] = [newOrder[currentIndex + 1], newOrder[currentIndex]];
+      setColumnOrder(newOrder);
+    }
   };
 
   const allColumns: IColumn[] = [
@@ -427,7 +494,8 @@ export const CustomersPage = () => {
     },
   ];
 
-  const columns = allColumns.filter((col) => visibleColumns[col.key]);
+  const orderedColumns = columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
+  const columns = orderedColumns.filter((col) => visibleColumns[col.key]);
 
   const commandBarItems: ICommandBarItemProps[] = [
     {
@@ -547,19 +615,43 @@ export const CustomersPage = () => {
       <Panel
         isOpen={isColumnPanelOpen}
         onDismiss={() => setIsColumnPanelOpen(false)}
-        headerText="Show/Hide Columns"
+        headerText="Column Settings"
       >
-        <Stack tokens={{ childrenGap: 8 }} styles={{ root: { marginTop: 16 } }}>
-          {allColumns.map((col) => (
-            <Checkbox
-              key={col.key}
-              label={col.name}
-              checked={visibleColumns[col.key]}
-              onChange={(_, checked) =>
-                setVisibleColumns({ ...visibleColumns, [col.key]: checked || false })
-              }
-            />
-          ))}
+        <Stack tokens={{ childrenGap: 12 }} styles={{ root: { marginTop: 16 } }}>
+          {columnOrder.map((key, index) => {
+            const col = allColumns.find(c => c.key === key);
+            if (!col) return null;
+            return (
+              <Stack key={col.key} horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                <Checkbox
+                  label={col.name}
+                  checked={visibleColumns[col.key]}
+                  onChange={(_, checked) =>
+                    setVisibleColumns({ ...visibleColumns, [col.key]: checked || false })
+                  }
+                  styles={{ root: { flex: 1 } }}
+                />
+                <Stack horizontal tokens={{ childrenGap: 4 }}>
+                  <DefaultButton
+                    iconProps={{ iconName: 'Up' }}
+                    disabled={index === 0}
+                    onClick={() => moveColumnUp(col.key)}
+                    styles={{ root: { minWidth: 32, padding: '0 8px' } }}
+                  />
+                  <DefaultButton
+                    iconProps={{ iconName: 'Down' }}
+                    disabled={index === columnOrder.length - 1}
+                    onClick={() => moveColumnDown(col.key)}
+                    styles={{ root: { minWidth: 32, padding: '0 8px' } }}
+                  />
+                </Stack>
+              </Stack>
+            );
+          })}
+          <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { marginTop: 16 } }}>
+            <PrimaryButton text="Save as Default" onClick={saveColumnSettings} />
+            <DefaultButton text="Reset to Default" onClick={resetColumnSettings} />
+          </Stack>
         </Stack>
       </Panel>
 
