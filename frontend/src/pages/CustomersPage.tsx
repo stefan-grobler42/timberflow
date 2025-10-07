@@ -219,26 +219,39 @@ export const CustomersPage = () => {
         let bValue: any;
 
         if (sortColumn === 'companyType') {
-          aValue = a.companyType?.name || '';
-          bValue = b.companyType?.name || '';
+          aValue = a.companyType?.name;
+          bValue = b.companyType?.name;
         } else {
-          aValue = a[sortColumn as keyof Customer] || '';
-          bValue = b[sortColumn as keyof Customer] || '';
+          aValue = a[sortColumn as keyof Customer];
+          bValue = b[sortColumn as keyof Customer];
+        }
+
+        // Normalize undefined/null values for consistent sorting
+        if (aValue === undefined || aValue === null) {
+          aValue = typeof bValue === 'boolean' ? false : typeof bValue === 'number' ? 0 : '';
+        }
+        if (bValue === undefined || bValue === null) {
+          bValue = typeof aValue === 'boolean' ? false : typeof aValue === 'number' ? 0 : '';
         }
 
         // Handle different types
+        let comparison = 0;
         if (typeof aValue === 'string' && typeof bValue === 'string') {
-          return isSortedDescending
-            ? bValue.localeCompare(aValue)
-            : aValue.localeCompare(bValue);
+          comparison = aValue.localeCompare(bValue);
         } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-          return isSortedDescending ? bValue - aValue : aValue - bValue;
+          comparison = aValue - bValue;
         } else if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
-          return isSortedDescending
-            ? (bValue ? 1 : 0) - (aValue ? 1 : 0)
-            : (aValue ? 1 : 0) - (bValue ? 1 : 0);
+          comparison = (aValue ? 1 : 0) - (bValue ? 1 : 0);
         }
-        return 0;
+
+        // If values are equal, use accountName as secondary sort for deterministic ordering
+        if (comparison === 0 && sortColumn !== 'accountName') {
+          const aName = a.accountName || '';
+          const bName = b.accountName || '';
+          comparison = aName.localeCompare(bName);
+        }
+
+        return isSortedDescending ? -comparison : comparison;
       });
     }
 
