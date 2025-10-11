@@ -379,9 +379,42 @@ export const CustomerFormFullScreen = ({
             display: 'flex', 
             flexDirection: 'column',
           },
+          linkContainer: {
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'flex-start',
+          },
+          link: {
+            height: 48,
+            lineHeight: 48,
+            marginRight: 0,
+            padding: '0 24px',
+            backgroundColor: 'transparent',
+            borderBottom: '1px solid #edebe9',
+            selectors: {
+              ':hover': {
+                backgroundColor: '#f3f2f1',
+              },
+            },
+          },
+          linkIsSelected: {
+            height: 48,
+            lineHeight: 48,
+            backgroundColor: '#0078d4',
+            color: 'white',
+            fontWeight: 600,
+            borderBottom: 'none',
+            selectors: {
+              ':hover': {
+                backgroundColor: '#106ebe',
+                color: 'white',
+              },
+            },
+          },
           itemContainer: {
             flex: 1,
             overflowY: 'auto',
+            padding: '20px 0',
           },
         }}
       >
