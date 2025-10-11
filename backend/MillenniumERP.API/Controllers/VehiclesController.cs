@@ -52,11 +52,11 @@ public class VehiclesController : ControllerBase
             Name = createDto.Name,
             Make = createDto.Make,
             Model = createDto.Model,
-            Registrationnumber = createDto.Registrationnumber,
-            Yearmodel = createDto.Yearmodel,
-            Approveddriver = createDto.Approveddriver,
-            Cofinorder = createDto.Cofinorder,
-            Licenserenewaldate = createDto.Licenserenewaldate,
+            Registrationnumber = createDto.RegistrationNumber,
+            Yearmodel = createDto.YearModel,
+            Approveddriver = createDto.ApprovedDriver,
+            Cofinorder = createDto.CofInOrder,
+            Licenserenewaldate = createDto.LicenseRenewalDate,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -81,11 +81,11 @@ public class VehiclesController : ControllerBase
         if (updateDto.Name != null) vehicle.Name = updateDto.Name;
         if (updateDto.Make != null) vehicle.Make = updateDto.Make;
         if (updateDto.Model != null) vehicle.Model = updateDto.Model;
-        if (updateDto.Registrationnumber != null) vehicle.Registrationnumber = updateDto.Registrationnumber;
-        if (updateDto.Yearmodel != null) vehicle.Yearmodel = updateDto.Yearmodel;
-        if (updateDto.Approveddriver.HasValue) vehicle.Approveddriver = updateDto.Approveddriver;
-        if (updateDto.Cofinorder.HasValue) vehicle.Cofinorder = updateDto.Cofinorder;
-        if (updateDto.Licenserenewaldate.HasValue) vehicle.Licenserenewaldate = updateDto.Licenserenewaldate;
+        if (updateDto.RegistrationNumber != null) vehicle.Registrationnumber = updateDto.RegistrationNumber;
+        if (updateDto.YearModel != null) vehicle.Yearmodel = updateDto.YearModel;
+        if (updateDto.ApprovedDriver.HasValue) vehicle.Approveddriver = updateDto.ApprovedDriver;
+        if (updateDto.CofInOrder.HasValue) vehicle.Cofinorder = updateDto.CofInOrder;
+        if (updateDto.LicenseRenewalDate.HasValue) vehicle.Licenserenewaldate = updateDto.LicenseRenewalDate;
         
         vehicle.ModifiedOn = DateTime.UtcNow;
 
@@ -122,11 +122,11 @@ public class VehiclesController : ControllerBase
             Name = vehicle.Name,
             Make = vehicle.Make,
             Model = vehicle.Model,
-            Registrationnumber = vehicle.Registrationnumber,
-            Yearmodel = vehicle.Yearmodel,
-            Approveddriver = vehicle.Approveddriver,
-            Cofinorder = vehicle.Cofinorder,
-            Licenserenewaldate = vehicle.Licenserenewaldate,
+            RegistrationNumber = vehicle.Registrationnumber,
+            YearModel = vehicle.Yearmodel,
+            ApprovedDriver = vehicle.Approveddriver,
+            CofInOrder = vehicle.Cofinorder,
+            LicenseRenewalDate = vehicle.Licenserenewaldate,
             CreatedOn = vehicle.CreatedOn,
             CreatedBy = vehicle.CreatedBy,
             ModifiedOn = vehicle.ModifiedOn,

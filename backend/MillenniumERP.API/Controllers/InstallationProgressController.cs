@@ -50,8 +50,8 @@ public class InstallationProgressController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Name = createDto.Name,
-            NewInstallationorderno = createDto.NewInstallationorderno,
-            NewPercentagecomplete = createDto.NewPercentagecomplete,
+            NewInstallationorderno = createDto.NewInstallationOrderNo,
+            NewPercentagecomplete = createDto.NewPercentageComplete,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -74,8 +74,8 @@ public class InstallationProgressController : ControllerBase
         }
 
         if (updateDto.Name != null) progress.Name = updateDto.Name;
-        if (updateDto.NewInstallationorderno != null) progress.NewInstallationorderno = updateDto.NewInstallationorderno;
-        if (updateDto.NewPercentagecomplete.HasValue) progress.NewPercentagecomplete = updateDto.NewPercentagecomplete;
+        if (updateDto.NewInstallationOrderNo != null) progress.NewInstallationorderno = updateDto.NewInstallationOrderNo;
+        if (updateDto.NewPercentageComplete.HasValue) progress.NewPercentagecomplete = updateDto.NewPercentageComplete;
         
         progress.ModifiedOn = DateTime.UtcNow;
 
@@ -110,8 +110,8 @@ public class InstallationProgressController : ControllerBase
         {
             Id = progress.Id,
             Name = progress.Name,
-            NewInstallationorderno = progress.NewInstallationorderno,
-            NewPercentagecomplete = progress.NewPercentagecomplete,
+            NewInstallationOrderNo = progress.NewInstallationorderno,
+            NewPercentageComplete = progress.NewPercentagecomplete,
             CreatedOn = progress.CreatedOn,
             CreatedBy = progress.CreatedBy,
             ModifiedOn = progress.ModifiedOn,

@@ -36,6 +36,87 @@ export const Layout = ({ children }: LayoutProps) => {
       ],
     },
     {
+      name: 'Sales & Quotes',
+      links: [
+        {
+          key: 'quotes',
+          name: 'Quotes - MRoofing',
+          url: '/quotes',
+          icon: 'Documentation',
+        },
+        {
+          key: 'tenders',
+          name: 'Tenders',
+          url: '/tenders',
+          icon: 'FileRequest',
+        },
+        {
+          key: 'pricing',
+          name: 'Pricing Calculations',
+          url: '/pricing',
+          icon: 'Calculator',
+        },
+        {
+          key: 'salerepresentatives',
+          name: 'Sale Representatives',
+          url: '/salerepresentatives',
+          icon: 'RecruitmentManagement',
+        },
+      ],
+    },
+    {
+      name: 'Operations',
+      links: [
+        {
+          key: 'production',
+          name: 'Production',
+          url: '/production',
+          icon: 'Product',
+        },
+        {
+          key: 'installation',
+          name: 'Installation Progress',
+          url: '/installation',
+          icon: 'ProgressLoopInner',
+        },
+        {
+          key: 'logistics',
+          name: 'Logistics',
+          url: '/logistics',
+          icon: 'Shipping',
+        },
+        {
+          key: 'deliveries',
+          name: 'Deliveries',
+          url: '/deliveries',
+          icon: 'DeliveryTruck',
+        },
+      ],
+    },
+    {
+      name: 'Resources',
+      links: [
+        {
+          key: 'employees',
+          name: 'Employees',
+          url: '/employees',
+          icon: 'PeopleAdd',
+        },
+        {
+          key: 'designers',
+          name: 'Designers',
+          url: '/designers',
+          icon: 'Design',
+        },
+        {
+          key: 'vehicles',
+          name: 'Vehicles',
+          url: '/vehicles',
+          icon: 'Car',
+        },
+      ],
+    },
+    {
       name: 'Administration',
       links: [
         {

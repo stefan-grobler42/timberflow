@@ -3,28 +3,28 @@ namespace MillenniumERP.Application.DTOs;
 public class DeliveryDto
 {
     public Guid Id { get; set; }
-    public string? Deliveryno { get; set; }
+    public string? DeliveryNo { get; set; }
     public Guid? Customer { get; set; }
-    public Guid? Orderno { get; set; }
-    public DateTime? Loadingdate { get; set; }
+    public Guid? OrderNo { get; set; }
+    public DateTime? LoadingDate { get; set; }
     public Guid? Driver { get; set; }
     public Guid? Helper1 { get; set; }
     public Guid? Helper2 { get; set; }
     public Guid? Helper3 { get; set; }
     public Guid? Helper4 { get; set; }
     public Guid? Helper5 { get; set; }
-    public Guid? Loadmaster { get; set; }
-    public Guid? Dispatchmanager { get; set; }
-    public string? Openkms { get; set; }
-    public string? Closekms { get; set; }
-    public DateTime? Arrivaltime { get; set; }
-    public DateTime? Arrivaltimesite { get; set; }
-    public DateTime? Departuretime { get; set; }
-    public DateTime? Departuretimesite { get; set; }
-    public bool? Partload { get; set; }
-    public DateTime? Actualstart { get; set; }
-    public DateTime? Actualend { get; set; }
-    public int? Actualdurationminutes { get; set; }
+    public Guid? LoadMaster { get; set; }
+    public Guid? DispatchManager { get; set; }
+    public string? OpenKms { get; set; }
+    public string? CloseKms { get; set; }
+    public DateTime? ArrivalTime { get; set; }
+    public DateTime? ArrivalTimeSite { get; set; }
+    public DateTime? DepartureTime { get; set; }
+    public DateTime? DepartureTimeSite { get; set; }
+    public bool? PartLoad { get; set; }
+    public DateTime? ActualStart { get; set; }
+    public DateTime? ActualEnd { get; set; }
+    public int? ActualDurationMinutes { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -33,50 +33,50 @@ public class DeliveryDto
 
 public class CreateDeliveryDto
 {
-    public string? Deliveryno { get; set; }
+    public string? DeliveryNo { get; set; }
     public Guid? Customer { get; set; }
-    public Guid? Orderno { get; set; }
-    public DateTime? Loadingdate { get; set; }
+    public Guid? OrderNo { get; set; }
+    public DateTime? LoadingDate { get; set; }
     public Guid? Driver { get; set; }
     public Guid? Helper1 { get; set; }
     public Guid? Helper2 { get; set; }
     public Guid? Helper3 { get; set; }
     public Guid? Helper4 { get; set; }
     public Guid? Helper5 { get; set; }
-    public Guid? Loadmaster { get; set; }
-    public Guid? Dispatchmanager { get; set; }
-    public string? Openkms { get; set; }
-    public string? Closekms { get; set; }
-    public DateTime? Arrivaltime { get; set; }
-    public DateTime? Arrivaltimesite { get; set; }
-    public DateTime? Departuretime { get; set; }
-    public DateTime? Departuretimesite { get; set; }
-    public bool? Partload { get; set; }
-    public DateTime? Actualstart { get; set; }
-    public DateTime? Actualend { get; set; }
+    public Guid? LoadMaster { get; set; }
+    public Guid? DispatchManager { get; set; }
+    public string? OpenKms { get; set; }
+    public string? CloseKms { get; set; }
+    public DateTime? ArrivalTime { get; set; }
+    public DateTime? ArrivalTimeSite { get; set; }
+    public DateTime? DepartureTime { get; set; }
+    public DateTime? DepartureTimeSite { get; set; }
+    public bool? PartLoad { get; set; }
+    public DateTime? ActualStart { get; set; }
+    public DateTime? ActualEnd { get; set; }
 }
 
 public class UpdateDeliveryDto
 {
-    public string? Deliveryno { get; set; }
+    public string? DeliveryNo { get; set; }
     public Guid? Customer { get; set; }
-    public Guid? Orderno { get; set; }
-    public DateTime? Loadingdate { get; set; }
+    public Guid? OrderNo { get; set; }
+    public DateTime? LoadingDate { get; set; }
     public Guid? Driver { get; set; }
     public Guid? Helper1 { get; set; }
     public Guid? Helper2 { get; set; }
     public Guid? Helper3 { get; set; }
     public Guid? Helper4 { get; set; }
     public Guid? Helper5 { get; set; }
-    public Guid? Loadmaster { get; set; }
-    public Guid? Dispatchmanager { get; set; }
-    public string? Openkms { get; set; }
-    public string? Closekms { get; set; }
-    public DateTime? Arrivaltime { get; set; }
-    public DateTime? Arrivaltimesite { get; set; }
-    public DateTime? Departuretime { get; set; }
-    public DateTime? Departuretimesite { get; set; }
-    public bool? Partload { get; set; }
-    public DateTime? Actualstart { get; set; }
-    public DateTime? Actualend { get; set; }
+    public Guid? LoadMaster { get; set; }
+    public Guid? DispatchManager { get; set; }
+    public string? OpenKms { get; set; }
+    public string? CloseKms { get; set; }
+    public DateTime? ArrivalTime { get; set; }
+    public DateTime? ArrivalTimeSite { get; set; }
+    public DateTime? DepartureTime { get; set; }
+    public DateTime? DepartureTimeSite { get; set; }
+    public bool? PartLoad { get; set; }
+    public DateTime? ActualStart { get; set; }
+    public DateTime? ActualEnd { get; set; }
 }

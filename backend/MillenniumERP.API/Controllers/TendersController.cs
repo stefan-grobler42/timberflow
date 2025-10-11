@@ -58,22 +58,22 @@ public class TendersController : ControllerBase
             Id = Guid.NewGuid(),
             Name = createDto.Name,
             Description = createDto.Description,
-            Filelink = createDto.Filelink,
-            Streetaddress = createDto.Streetaddress,
-            Closingdate = createDto.Closingdate,
-            Distancetosite = createDto.Distancetosite,
+            Filelink = createDto.FileLink,
+            Streetaddress = createDto.StreetAddress,
+            Closingdate = createDto.ClosingDate,
+            Distancetosite = createDto.DistanceToSite,
             Contact = createDto.Contact,
             Customer = createDto.Customer,
-            Quoteno = createDto.Quoteno,
-            Roofcoveringsheeting = createDto.Roofcoveringsheeting,
-            Roofcoveringtiles = createDto.Roofcoveringtiles,
-            Timberstructure = createDto.Timberstructure,
-            Totalvalueexcl = createDto.Totalvalueexcl,
+            Quoteno = createDto.QuoteNo,
+            Roofcoveringsheeting = createDto.RoofCoveringSheeting,
+            Roofcoveringtiles = createDto.RoofCoveringTiles,
+            Timberstructure = createDto.TimberStructure,
+            Totalvalueexcl = createDto.TotalValueExcl,
             NewDesigner = createDto.NewDesigner,
             NewNotes = createDto.NewNotes,
-            NewPricingsubmitted = createDto.NewPricingsubmitted,
-            NewSubmissiondate = createDto.NewSubmissiondate,
-            NewTenderstatus = createDto.NewTenderstatus,
+            NewPricingsubmitted = createDto.NewPricingSubmitted,
+            NewSubmissiondate = createDto.NewSubmissionDate,
+            NewTenderstatus = createDto.NewTenderStatus,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -97,22 +97,22 @@ public class TendersController : ControllerBase
 
         if (updateDto.Name != null) tender.Name = updateDto.Name;
         if (updateDto.Description != null) tender.Description = updateDto.Description;
-        if (updateDto.Filelink != null) tender.Filelink = updateDto.Filelink;
-        if (updateDto.Streetaddress != null) tender.Streetaddress = updateDto.Streetaddress;
-        if (updateDto.Closingdate.HasValue) tender.Closingdate = updateDto.Closingdate;
-        if (updateDto.Distancetosite.HasValue) tender.Distancetosite = updateDto.Distancetosite;
+        if (updateDto.FileLink != null) tender.Filelink = updateDto.FileLink;
+        if (updateDto.StreetAddress != null) tender.Streetaddress = updateDto.StreetAddress;
+        if (updateDto.ClosingDate.HasValue) tender.Closingdate = updateDto.ClosingDate;
+        if (updateDto.DistanceToSite.HasValue) tender.Distancetosite = updateDto.DistanceToSite;
         if (updateDto.Contact.HasValue) tender.Contact = updateDto.Contact;
         if (updateDto.Customer.HasValue) tender.Customer = updateDto.Customer;
-        if (updateDto.Quoteno.HasValue) tender.Quoteno = updateDto.Quoteno;
-        if (updateDto.Roofcoveringsheeting.HasValue) tender.Roofcoveringsheeting = updateDto.Roofcoveringsheeting;
-        if (updateDto.Roofcoveringtiles.HasValue) tender.Roofcoveringtiles = updateDto.Roofcoveringtiles;
-        if (updateDto.Timberstructure.HasValue) tender.Timberstructure = updateDto.Timberstructure;
-        if (updateDto.Totalvalueexcl.HasValue) tender.Totalvalueexcl = updateDto.Totalvalueexcl;
+        if (updateDto.QuoteNo.HasValue) tender.Quoteno = updateDto.QuoteNo;
+        if (updateDto.RoofCoveringSheeting.HasValue) tender.Roofcoveringsheeting = updateDto.RoofCoveringSheeting;
+        if (updateDto.RoofCoveringTiles.HasValue) tender.Roofcoveringtiles = updateDto.RoofCoveringTiles;
+        if (updateDto.TimberStructure.HasValue) tender.Timberstructure = updateDto.TimberStructure;
+        if (updateDto.TotalValueExcl.HasValue) tender.Totalvalueexcl = updateDto.TotalValueExcl;
         if (updateDto.NewDesigner.HasValue) tender.NewDesigner = updateDto.NewDesigner;
         if (updateDto.NewNotes != null) tender.NewNotes = updateDto.NewNotes;
-        if (updateDto.NewPricingsubmitted.HasValue) tender.NewPricingsubmitted = updateDto.NewPricingsubmitted;
-        if (updateDto.NewSubmissiondate.HasValue) tender.NewSubmissiondate = updateDto.NewSubmissiondate;
-        if (updateDto.NewTenderstatus.HasValue) tender.NewTenderstatus = updateDto.NewTenderstatus;
+        if (updateDto.NewPricingSubmitted.HasValue) tender.NewPricingsubmitted = updateDto.NewPricingSubmitted;
+        if (updateDto.NewSubmissionDate.HasValue) tender.NewSubmissiondate = updateDto.NewSubmissionDate;
+        if (updateDto.NewTenderStatus.HasValue) tender.NewTenderstatus = updateDto.NewTenderStatus;
         
         tender.ModifiedOn = DateTime.UtcNow;
 
@@ -148,25 +148,25 @@ public class TendersController : ControllerBase
             Id = tender.Id,
             Name = tender.Name,
             Description = tender.Description,
-            Filelink = tender.Filelink,
-            Streetaddress = tender.Streetaddress,
-            Closingdate = tender.Closingdate,
-            Distancetosite = tender.Distancetosite,
+            FileLink = tender.Filelink,
+            StreetAddress = tender.Streetaddress,
+            ClosingDate = tender.Closingdate,
+            DistanceToSite = tender.Distancetosite,
             Contact = tender.Contact,
             Customer = tender.Customer,
-            Quoteno = tender.Quoteno,
-            Roofcoveringsheeting = tender.Roofcoveringsheeting,
-            Roofcoveringtiles = tender.Roofcoveringtiles,
-            Timberstructure = tender.Timberstructure,
-            Totalvalueexcl = tender.Totalvalueexcl,
-            TotalvalueexclBase = tender.TotalvalueexclBase,
-            Exchangerate = tender.Exchangerate,
+            QuoteNo = tender.Quoteno,
+            RoofCoveringSheeting = tender.Roofcoveringsheeting,
+            RoofCoveringTiles = tender.Roofcoveringtiles,
+            TimberStructure = tender.Timberstructure,
+            TotalValueExcl = tender.Totalvalueexcl,
+            TotalValueExclBase = tender.TotalvalueexclBase,
+            ExchangeRate = tender.Exchangerate,
             NewDesigner = tender.NewDesigner,
             NewNotes = tender.NewNotes,
-            NewPricingsubmitted = tender.NewPricingsubmitted,
-            NewSubmissiondate = tender.NewSubmissiondate,
-            NewTenderstatus = tender.NewTenderstatus,
-            Transactioncurrencyid = tender.Transactioncurrencyid,
+            NewPricingSubmitted = tender.NewPricingsubmitted,
+            NewSubmissionDate = tender.NewSubmissiondate,
+            NewTenderStatus = tender.NewTenderstatus,
+            TransactionCurrencyId = tender.Transactioncurrencyid,
             CreatedOn = tender.CreatedOn,
             CreatedBy = tender.CreatedBy,
             ModifiedOn = tender.ModifiedOn,

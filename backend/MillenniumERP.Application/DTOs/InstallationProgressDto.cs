@@ -4,8 +4,8 @@ public class InstallationProgressDto
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string? NewInstallationorderno { get; set; }
-    public decimal? NewPercentagecomplete { get; set; }
+    public string? NewInstallationOrderNo { get; set; }
+    public decimal? NewPercentageComplete { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -15,13 +15,13 @@ public class InstallationProgressDto
 public class CreateInstallationProgressDto
 {
     public string Name { get; set; } = string.Empty;
-    public string? NewInstallationorderno { get; set; }
-    public decimal? NewPercentagecomplete { get; set; }
+    public string? NewInstallationOrderNo { get; set; }
+    public decimal? NewPercentageComplete { get; set; }
 }
 
 public class UpdateInstallationProgressDto
 {
     public string? Name { get; set; }
-    public string? NewInstallationorderno { get; set; }
-    public decimal? NewPercentagecomplete { get; set; }
+    public string? NewInstallationOrderNo { get; set; }
+    public decimal? NewPercentageComplete { get; set; }
 }

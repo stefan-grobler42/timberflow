@@ -49,27 +49,27 @@ public class DeliveriesController : ControllerBase
         var delivery = new Delivery
         {
             Id = Guid.NewGuid(),
-            Deliveryno = createDto.Deliveryno,
+            Deliveryno = createDto.DeliveryNo,
             Customer = createDto.Customer,
-            Orderno = createDto.Orderno,
-            Loadingdate = createDto.Loadingdate,
+            Orderno = createDto.OrderNo,
+            Loadingdate = createDto.LoadingDate,
             Driver = createDto.Driver,
             Helper1 = createDto.Helper1,
             Helper2 = createDto.Helper2,
             Helper3 = createDto.Helper3,
             Helper = createDto.Helper4,
             Helper5 = createDto.Helper5,
-            Loadmaster = createDto.Loadmaster,
-            Dispatchmanager = createDto.Dispatchmanager,
-            Openkms = createDto.Openkms,
-            Closekms = createDto.Closekms,
-            Arrivaltime = createDto.Arrivaltime,
-            Arrivaltimesite = createDto.Arrivaltimesite,
-            Departuretime = createDto.Departuretime,
-            Departuretimesite = createDto.Departuretimesite,
-            Partload = createDto.Partload,
-            Actualstart = createDto.Actualstart,
-            Actualend = createDto.Actualend,
+            Loadmaster = createDto.LoadMaster,
+            Dispatchmanager = createDto.DispatchManager,
+            Openkms = createDto.OpenKms,
+            Closekms = createDto.CloseKms,
+            Arrivaltime = createDto.ArrivalTime,
+            Arrivaltimesite = createDto.ArrivalTimeSite,
+            Departuretime = createDto.DepartureTime,
+            Departuretimesite = createDto.DepartureTimeSite,
+            Partload = createDto.PartLoad,
+            Actualstart = createDto.ActualStart,
+            Actualend = createDto.ActualEnd,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -91,27 +91,27 @@ public class DeliveriesController : ControllerBase
             return NotFound(new { message = $"Delivery with ID {id} not found" });
         }
 
-        if (updateDto.Deliveryno != null) delivery.Deliveryno = updateDto.Deliveryno;
+        if (updateDto.DeliveryNo != null) delivery.Deliveryno = updateDto.DeliveryNo;
         if (updateDto.Customer.HasValue) delivery.Customer = updateDto.Customer;
-        if (updateDto.Orderno.HasValue) delivery.Orderno = updateDto.Orderno;
-        if (updateDto.Loadingdate.HasValue) delivery.Loadingdate = updateDto.Loadingdate;
+        if (updateDto.OrderNo.HasValue) delivery.Orderno = updateDto.OrderNo;
+        if (updateDto.LoadingDate.HasValue) delivery.Loadingdate = updateDto.LoadingDate;
         if (updateDto.Driver.HasValue) delivery.Driver = updateDto.Driver;
         if (updateDto.Helper1.HasValue) delivery.Helper1 = updateDto.Helper1;
         if (updateDto.Helper2.HasValue) delivery.Helper2 = updateDto.Helper2;
         if (updateDto.Helper3.HasValue) delivery.Helper3 = updateDto.Helper3;
         if (updateDto.Helper4.HasValue) delivery.Helper = updateDto.Helper4;
         if (updateDto.Helper5.HasValue) delivery.Helper5 = updateDto.Helper5;
-        if (updateDto.Loadmaster.HasValue) delivery.Loadmaster = updateDto.Loadmaster;
-        if (updateDto.Dispatchmanager.HasValue) delivery.Dispatchmanager = updateDto.Dispatchmanager;
-        if (updateDto.Openkms != null) delivery.Openkms = updateDto.Openkms;
-        if (updateDto.Closekms != null) delivery.Closekms = updateDto.Closekms;
-        if (updateDto.Arrivaltime.HasValue) delivery.Arrivaltime = updateDto.Arrivaltime;
-        if (updateDto.Arrivaltimesite.HasValue) delivery.Arrivaltimesite = updateDto.Arrivaltimesite;
-        if (updateDto.Departuretime.HasValue) delivery.Departuretime = updateDto.Departuretime;
-        if (updateDto.Departuretimesite.HasValue) delivery.Departuretimesite = updateDto.Departuretimesite;
-        if (updateDto.Partload.HasValue) delivery.Partload = updateDto.Partload;
-        if (updateDto.Actualstart.HasValue) delivery.Actualstart = updateDto.Actualstart;
-        if (updateDto.Actualend.HasValue) delivery.Actualend = updateDto.Actualend;
+        if (updateDto.LoadMaster.HasValue) delivery.Loadmaster = updateDto.LoadMaster;
+        if (updateDto.DispatchManager.HasValue) delivery.Dispatchmanager = updateDto.DispatchManager;
+        if (updateDto.OpenKms != null) delivery.Openkms = updateDto.OpenKms;
+        if (updateDto.CloseKms != null) delivery.Closekms = updateDto.CloseKms;
+        if (updateDto.ArrivalTime.HasValue) delivery.Arrivaltime = updateDto.ArrivalTime;
+        if (updateDto.ArrivalTimeSite.HasValue) delivery.Arrivaltimesite = updateDto.ArrivalTimeSite;
+        if (updateDto.DepartureTime.HasValue) delivery.Departuretime = updateDto.DepartureTime;
+        if (updateDto.DepartureTimeSite.HasValue) delivery.Departuretimesite = updateDto.DepartureTimeSite;
+        if (updateDto.PartLoad.HasValue) delivery.Partload = updateDto.PartLoad;
+        if (updateDto.ActualStart.HasValue) delivery.Actualstart = updateDto.ActualStart;
+        if (updateDto.ActualEnd.HasValue) delivery.Actualend = updateDto.ActualEnd;
         
         delivery.ModifiedOn = DateTime.UtcNow;
 
@@ -145,28 +145,28 @@ public class DeliveriesController : ControllerBase
         return new DeliveryDto
         {
             Id = delivery.Id,
-            Deliveryno = delivery.Deliveryno,
+            DeliveryNo = delivery.Deliveryno,
             Customer = delivery.Customer,
-            Orderno = delivery.Orderno,
-            Loadingdate = delivery.Loadingdate,
+            OrderNo = delivery.Orderno,
+            LoadingDate = delivery.Loadingdate,
             Driver = delivery.Driver,
             Helper1 = delivery.Helper1,
             Helper2 = delivery.Helper2,
             Helper3 = delivery.Helper3,
             Helper4 = delivery.Helper,
             Helper5 = delivery.Helper5,
-            Loadmaster = delivery.Loadmaster,
-            Dispatchmanager = delivery.Dispatchmanager,
-            Openkms = delivery.Openkms,
-            Closekms = delivery.Closekms,
-            Arrivaltime = delivery.Arrivaltime,
-            Arrivaltimesite = delivery.Arrivaltimesite,
-            Departuretime = delivery.Departuretime,
-            Departuretimesite = delivery.Departuretimesite,
-            Partload = delivery.Partload,
-            Actualstart = delivery.Actualstart,
-            Actualend = delivery.Actualend,
-            Actualdurationminutes = delivery.Actualdurationminutes,
+            LoadMaster = delivery.Loadmaster,
+            DispatchManager = delivery.Dispatchmanager,
+            OpenKms = delivery.Openkms,
+            CloseKms = delivery.Closekms,
+            ArrivalTime = delivery.Arrivaltime,
+            ArrivalTimeSite = delivery.Arrivaltimesite,
+            DepartureTime = delivery.Departuretime,
+            DepartureTimeSite = delivery.Departuretimesite,
+            PartLoad = delivery.Partload,
+            ActualStart = delivery.Actualstart,
+            ActualEnd = delivery.Actualend,
+            ActualDurationMinutes = delivery.Actualdurationminutes,
             CreatedOn = delivery.CreatedOn,
             CreatedBy = delivery.CreatedBy,
             ModifiedOn = delivery.ModifiedOn,

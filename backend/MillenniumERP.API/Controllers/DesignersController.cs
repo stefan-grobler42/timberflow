@@ -50,9 +50,9 @@ public class DesignersController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Name = createDto.Name,
-            Cellnumber = createDto.Cellnumber,
-            Emailaddress = createDto.Emailaddress,
-            Employeeno = createDto.Employeeno,
+            Cellnumber = createDto.CellNumber,
+            Emailaddress = createDto.EmailAddress,
+            Employeeno = createDto.EmployeeNo,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -75,9 +75,9 @@ public class DesignersController : ControllerBase
         }
 
         if (updateDto.Name != null) designer.Name = updateDto.Name;
-        if (updateDto.Cellnumber != null) designer.Cellnumber = updateDto.Cellnumber;
-        if (updateDto.Emailaddress != null) designer.Emailaddress = updateDto.Emailaddress;
-        if (updateDto.Employeeno != null) designer.Employeeno = updateDto.Employeeno;
+        if (updateDto.CellNumber != null) designer.Cellnumber = updateDto.CellNumber;
+        if (updateDto.EmailAddress != null) designer.Emailaddress = updateDto.EmailAddress;
+        if (updateDto.EmployeeNo != null) designer.Employeeno = updateDto.EmployeeNo;
         
         designer.ModifiedOn = DateTime.UtcNow;
 
@@ -112,11 +112,11 @@ public class DesignersController : ControllerBase
         {
             Id = designer.Id,
             Name = designer.Name,
-            Cellnumber = designer.Cellnumber,
-            Emailaddress = designer.Emailaddress,
-            Employeeno = designer.Employeeno,
-            NewDisplaynamecalculated = designer.NewDisplaynamecalculated,
-            NewEmployeefile = designer.NewEmployeefile,
+            CellNumber = designer.Cellnumber,
+            EmailAddress = designer.Emailaddress,
+            EmployeeNo = designer.Employeeno,
+            NewDisplayNameCalculated = designer.NewDisplaynamecalculated,
+            NewEmployeeFile = designer.NewEmployeefile,
             CreatedOn = designer.CreatedOn,
             CreatedBy = designer.CreatedBy,
             ModifiedOn = designer.ModifiedOn,

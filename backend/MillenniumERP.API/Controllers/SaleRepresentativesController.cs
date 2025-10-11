@@ -50,9 +50,9 @@ public class SaleRepresentativesController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Name = createDto.Name,
-            Cellnumber = createDto.Cellnumber,
-            Emailaddress = createDto.Emailaddress,
-            Employeeno = createDto.Employeeno,
+            Cellnumber = createDto.CellNumber,
+            Emailaddress = createDto.EmailAddress,
+            Employeeno = createDto.EmployeeNo,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -75,9 +75,9 @@ public class SaleRepresentativesController : ControllerBase
         }
 
         if (updateDto.Name != null) saleRep.Name = updateDto.Name;
-        if (updateDto.Cellnumber != null) saleRep.Cellnumber = updateDto.Cellnumber;
-        if (updateDto.Emailaddress != null) saleRep.Emailaddress = updateDto.Emailaddress;
-        if (updateDto.Employeeno != null) saleRep.Employeeno = updateDto.Employeeno;
+        if (updateDto.CellNumber != null) saleRep.Cellnumber = updateDto.CellNumber;
+        if (updateDto.EmailAddress != null) saleRep.Emailaddress = updateDto.EmailAddress;
+        if (updateDto.EmployeeNo != null) saleRep.Employeeno = updateDto.EmployeeNo;
         
         saleRep.ModifiedOn = DateTime.UtcNow;
 
@@ -112,10 +112,10 @@ public class SaleRepresentativesController : ControllerBase
         {
             Id = saleRep.Id,
             Name = saleRep.Name,
-            Cellnumber = saleRep.Cellnumber,
-            Emailaddress = saleRep.Emailaddress,
-            Employeeno = saleRep.Employeeno,
-            NewEmployeefile = saleRep.NewEmployeefile,
+            CellNumber = saleRep.Cellnumber,
+            EmailAddress = saleRep.Emailaddress,
+            EmployeeNo = saleRep.Employeeno,
+            NewEmployeeFile = saleRep.NewEmployeefile,
             CreatedOn = saleRep.CreatedOn,
             CreatedBy = saleRep.CreatedBy,
             ModifiedOn = saleRep.ModifiedOn,

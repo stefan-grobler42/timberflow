@@ -3,18 +3,18 @@ namespace MillenniumERP.Application.DTOs;
 public class PricingCalculationDto
 {
     public Guid Id { get; set; }
-    public string? Productname { get; set; }
+    public string? ProductName { get; set; }
     public string? Test { get; set; }
     public decimal? Discount { get; set; }
-    public decimal? Installedcost { get; set; }
-    public decimal? InstalledcostBase { get; set; }
+    public decimal? InstalledCost { get; set; }
+    public decimal? InstalledCostBase { get; set; }
     public int? Quantity { get; set; }
-    public decimal? Totalprice { get; set; }
-    public decimal? TotalpriceBase { get; set; }
-    public decimal? Unitprice { get; set; }
-    public decimal? UnitpriceBase { get; set; }
-    public decimal? Exchangerate { get; set; }
-    public Guid? Transactioncurrencyid { get; set; }
+    public decimal? TotalPrice { get; set; }
+    public decimal? TotalPriceBase { get; set; }
+    public decimal? UnitPrice { get; set; }
+    public decimal? UnitPriceBase { get; set; }
+    public decimal? ExchangeRate { get; set; }
+    public Guid? TransactionCurrencyId { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -23,22 +23,22 @@ public class PricingCalculationDto
 
 public class CreatePricingCalculationDto
 {
-    public string? Productname { get; set; }
+    public string? ProductName { get; set; }
     public string? Test { get; set; }
     public decimal? Discount { get; set; }
-    public decimal? Installedcost { get; set; }
+    public decimal? InstalledCost { get; set; }
     public int? Quantity { get; set; }
-    public decimal? Totalprice { get; set; }
-    public decimal? Unitprice { get; set; }
+    public decimal? TotalPrice { get; set; }
+    public decimal? UnitPrice { get; set; }
 }
 
 public class UpdatePricingCalculationDto
 {
-    public string? Productname { get; set; }
+    public string? ProductName { get; set; }
     public string? Test { get; set; }
     public decimal? Discount { get; set; }
-    public decimal? Installedcost { get; set; }
+    public decimal? InstalledCost { get; set; }
     public int? Quantity { get; set; }
-    public decimal? Totalprice { get; set; }
-    public decimal? Unitprice { get; set; }
+    public decimal? TotalPrice { get; set; }
+    public decimal? UnitPrice { get; set; }
 }

@@ -49,13 +49,13 @@ public class PricingCalculationsController : ControllerBase
         var calculation = new PricingCalculation
         {
             Id = Guid.NewGuid(),
-            Productname = createDto.Productname,
+            Productname = createDto.ProductName,
             Test = createDto.Test,
             Discount = createDto.Discount,
-            Installedcost = createDto.Installedcost,
+            Installedcost = createDto.InstalledCost,
             Quantity = createDto.Quantity,
-            Totalprice = createDto.Totalprice,
-            Unitprice = createDto.Unitprice,
+            Totalprice = createDto.TotalPrice,
+            Unitprice = createDto.UnitPrice,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -77,13 +77,13 @@ public class PricingCalculationsController : ControllerBase
             return NotFound(new { message = $"Pricing Calculation with ID {id} not found" });
         }
 
-        if (updateDto.Productname != null) calculation.Productname = updateDto.Productname;
+        if (updateDto.ProductName != null) calculation.Productname = updateDto.ProductName;
         if (updateDto.Test != null) calculation.Test = updateDto.Test;
         if (updateDto.Discount.HasValue) calculation.Discount = updateDto.Discount;
-        if (updateDto.Installedcost.HasValue) calculation.Installedcost = updateDto.Installedcost;
+        if (updateDto.InstalledCost.HasValue) calculation.Installedcost = updateDto.InstalledCost;
         if (updateDto.Quantity.HasValue) calculation.Quantity = updateDto.Quantity;
-        if (updateDto.Totalprice.HasValue) calculation.Totalprice = updateDto.Totalprice;
-        if (updateDto.Unitprice.HasValue) calculation.Unitprice = updateDto.Unitprice;
+        if (updateDto.TotalPrice.HasValue) calculation.Totalprice = updateDto.TotalPrice;
+        if (updateDto.UnitPrice.HasValue) calculation.Unitprice = updateDto.UnitPrice;
         
         calculation.ModifiedOn = DateTime.UtcNow;
 
@@ -117,18 +117,18 @@ public class PricingCalculationsController : ControllerBase
         return new PricingCalculationDto
         {
             Id = calculation.Id,
-            Productname = calculation.Productname,
+            ProductName = calculation.Productname,
             Test = calculation.Test,
             Discount = calculation.Discount,
-            Installedcost = calculation.Installedcost,
-            InstalledcostBase = calculation.InstalledcostBase,
+            InstalledCost = calculation.Installedcost,
+            InstalledCostBase = calculation.InstalledcostBase,
             Quantity = calculation.Quantity,
-            Totalprice = calculation.Totalprice,
-            TotalpriceBase = calculation.TotalpriceBase,
-            Unitprice = calculation.Unitprice,
-            UnitpriceBase = calculation.UnitpriceBase,
-            Exchangerate = calculation.Exchangerate,
-            Transactioncurrencyid = calculation.Transactioncurrencyid,
+            TotalPrice = calculation.Totalprice,
+            TotalPriceBase = calculation.TotalpriceBase,
+            UnitPrice = calculation.Unitprice,
+            UnitPriceBase = calculation.UnitpriceBase,
+            ExchangeRate = calculation.Exchangerate,
+            TransactionCurrencyId = calculation.Transactioncurrencyid,
             CreatedOn = calculation.CreatedOn,
             CreatedBy = calculation.CreatedBy,
             ModifiedOn = calculation.ModifiedOn,

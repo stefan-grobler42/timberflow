@@ -57,23 +57,23 @@ public class EmployeesController : ControllerBase
         {
             Id = Guid.NewGuid(),
             Name = createDto.Name,
-            Employeeno = createDto.Employeeno,
-            Idno = createDto.Idno,
-            Jobdescription = createDto.Jobdescription,
-            Driverslicenseno = createDto.Driverslicenseno,
-            Pdpno = createDto.Pdpno,
-            Pdpexpirydate = createDto.Pdpexpirydate,
+            Employeeno = createDto.EmployeeNo,
+            Idno = createDto.IdNo,
+            Jobdescription = createDto.JobDescription,
+            Driverslicenseno = createDto.DriversLicenseNo,
+            Pdpno = createDto.PdpNo,
+            Pdpexpirydate = createDto.PdpExpiryDate,
             Pdp = createDto.Pdp,
-            Allowdriving = createDto.Allowdriving,
-            Hourlyrate = createDto.Hourlyrate,
-            NewCellno = createDto.NewCellno,
-            NewEmailaddress = createDto.NewEmailaddress,
-            NewIncometaxnumber = createDto.NewIncometaxnumber,
-            NewActiveemployee = createDto.NewActiveemployee,
-            NewCommissionpayable = createDto.NewCommissionpayable,
-            NewContractonfile = createDto.NewContractonfile,
-            NewStartdate = createDto.NewStartdate,
-            NewUnionmember = createDto.NewUnionmember,
+            Allowdriving = createDto.AllowDriving,
+            Hourlyrate = createDto.HourlyRate,
+            NewCellno = createDto.NewCellNo,
+            NewEmailaddress = createDto.NewEmailAddress,
+            NewIncometaxnumber = createDto.NewIncomeTaxNumber,
+            NewActiveemployee = createDto.NewActiveEmployee,
+            NewCommissionpayable = createDto.NewCommissionPayable,
+            NewContractonfile = createDto.NewContractOnFile,
+            NewStartdate = createDto.NewStartDate,
+            NewUnionmember = createDto.NewUnionMember,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -96,23 +96,23 @@ public class EmployeesController : ControllerBase
         }
 
         if (updateDto.Name != null) employee.Name = updateDto.Name;
-        if (updateDto.Employeeno != null) employee.Employeeno = updateDto.Employeeno;
-        if (updateDto.Idno != null) employee.Idno = updateDto.Idno;
-        if (updateDto.Jobdescription != null) employee.Jobdescription = updateDto.Jobdescription;
-        if (updateDto.Driverslicenseno != null) employee.Driverslicenseno = updateDto.Driverslicenseno;
-        if (updateDto.Pdpno != null) employee.Pdpno = updateDto.Pdpno;
-        if (updateDto.Pdpexpirydate.HasValue) employee.Pdpexpirydate = updateDto.Pdpexpirydate;
+        if (updateDto.EmployeeNo != null) employee.Employeeno = updateDto.EmployeeNo;
+        if (updateDto.IdNo != null) employee.Idno = updateDto.IdNo;
+        if (updateDto.JobDescription != null) employee.Jobdescription = updateDto.JobDescription;
+        if (updateDto.DriversLicenseNo != null) employee.Driverslicenseno = updateDto.DriversLicenseNo;
+        if (updateDto.PdpNo != null) employee.Pdpno = updateDto.PdpNo;
+        if (updateDto.PdpExpiryDate.HasValue) employee.Pdpexpirydate = updateDto.PdpExpiryDate;
         if (updateDto.Pdp.HasValue) employee.Pdp = updateDto.Pdp;
-        if (updateDto.Allowdriving.HasValue) employee.Allowdriving = updateDto.Allowdriving;
-        if (updateDto.Hourlyrate.HasValue) employee.Hourlyrate = updateDto.Hourlyrate;
-        if (updateDto.NewCellno != null) employee.NewCellno = updateDto.NewCellno;
-        if (updateDto.NewEmailaddress != null) employee.NewEmailaddress = updateDto.NewEmailaddress;
-        if (updateDto.NewIncometaxnumber != null) employee.NewIncometaxnumber = updateDto.NewIncometaxnumber;
-        if (updateDto.NewActiveemployee.HasValue) employee.NewActiveemployee = updateDto.NewActiveemployee;
-        if (updateDto.NewCommissionpayable.HasValue) employee.NewCommissionpayable = updateDto.NewCommissionpayable;
-        if (updateDto.NewContractonfile.HasValue) employee.NewContractonfile = updateDto.NewContractonfile;
-        if (updateDto.NewStartdate.HasValue) employee.NewStartdate = updateDto.NewStartdate;
-        if (updateDto.NewUnionmember.HasValue) employee.NewUnionmember = updateDto.NewUnionmember;
+        if (updateDto.AllowDriving.HasValue) employee.Allowdriving = updateDto.AllowDriving;
+        if (updateDto.HourlyRate.HasValue) employee.Hourlyrate = updateDto.HourlyRate;
+        if (updateDto.NewCellNo != null) employee.NewCellno = updateDto.NewCellNo;
+        if (updateDto.NewEmailAddress != null) employee.NewEmailaddress = updateDto.NewEmailAddress;
+        if (updateDto.NewIncomeTaxNumber != null) employee.NewIncometaxnumber = updateDto.NewIncomeTaxNumber;
+        if (updateDto.NewActiveEmployee.HasValue) employee.NewActiveemployee = updateDto.NewActiveEmployee;
+        if (updateDto.NewCommissionPayable.HasValue) employee.NewCommissionpayable = updateDto.NewCommissionPayable;
+        if (updateDto.NewContractOnFile.HasValue) employee.NewContractonfile = updateDto.NewContractOnFile;
+        if (updateDto.NewStartDate.HasValue) employee.NewStartdate = updateDto.NewStartDate;
+        if (updateDto.NewUnionMember.HasValue) employee.NewUnionmember = updateDto.NewUnionMember;
         
         employee.ModifiedOn = DateTime.UtcNow;
 
@@ -147,24 +147,24 @@ public class EmployeesController : ControllerBase
         {
             Id = employee.Id,
             Name = employee.Name,
-            Employeeno = employee.Employeeno,
-            Idno = employee.Idno,
-            Jobdescription = employee.Jobdescription,
-            Driverslicenseno = employee.Driverslicenseno,
-            Pdpno = employee.Pdpno,
-            Pdpexpirydate = employee.Pdpexpirydate,
+            EmployeeNo = employee.Employeeno,
+            IdNo = employee.Idno,
+            JobDescription = employee.Jobdescription,
+            DriversLicenseNo = employee.Driverslicenseno,
+            PdpNo = employee.Pdpno,
+            PdpExpiryDate = employee.Pdpexpirydate,
             Pdp = employee.Pdp,
-            Allowdriving = employee.Allowdriving,
-            Hourlyrate = employee.Hourlyrate,
-            NewCellno = employee.NewCellno,
-            NewEmailaddress = employee.NewEmailaddress,
-            NewIncometaxnumber = employee.NewIncometaxnumber,
-            NewActiveemployee = employee.NewActiveemployee,
-            NewCommissionpayable = employee.NewCommissionpayable,
-            NewContractonfile = employee.NewContractonfile,
-            NewStartdate = employee.NewStartdate,
-            NewUnionmember = employee.NewUnionmember,
-            NewDisplaynamecalculated = employee.NewDisplaynamecalculated,
+            AllowDriving = employee.Allowdriving,
+            HourlyRate = employee.Hourlyrate,
+            NewCellNo = employee.NewCellno,
+            NewEmailAddress = employee.NewEmailaddress,
+            NewIncomeTaxNumber = employee.NewIncometaxnumber,
+            NewActiveEmployee = employee.NewActiveemployee,
+            NewCommissionPayable = employee.NewCommissionpayable,
+            NewContractOnFile = employee.NewContractonfile,
+            NewStartDate = employee.NewStartdate,
+            NewUnionMember = employee.NewUnionmember,
+            NewDisplayNameCalculated = employee.NewDisplaynamecalculated,
             CreatedOn = employee.CreatedOn,
             CreatedBy = employee.CreatedBy,
             ModifiedOn = employee.ModifiedOn,

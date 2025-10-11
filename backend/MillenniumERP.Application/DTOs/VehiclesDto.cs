@@ -6,11 +6,11 @@ public class VehiclesDto
     public string Name { get; set; } = string.Empty;
     public string Make { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
-    public string Registrationnumber { get; set; } = string.Empty;
-    public string Yearmodel { get; set; } = string.Empty;
-    public Guid? Approveddriver { get; set; }
-    public bool? Cofinorder { get; set; }
-    public DateTime? Licenserenewaldate { get; set; }
+    public string RegistrationNumber { get; set; } = string.Empty;
+    public string YearModel { get; set; } = string.Empty;
+    public Guid? ApprovedDriver { get; set; }
+    public bool? CofInOrder { get; set; }
+    public DateTime? LicenseRenewalDate { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -22,11 +22,11 @@ public class CreateVehiclesDto
     public string Name { get; set; } = string.Empty;
     public string Make { get; set; } = string.Empty;
     public string Model { get; set; } = string.Empty;
-    public string Registrationnumber { get; set; } = string.Empty;
-    public string Yearmodel { get; set; } = string.Empty;
-    public Guid? Approveddriver { get; set; }
-    public bool? Cofinorder { get; set; }
-    public DateTime? Licenserenewaldate { get; set; }
+    public string RegistrationNumber { get; set; } = string.Empty;
+    public string YearModel { get; set; } = string.Empty;
+    public Guid? ApprovedDriver { get; set; }
+    public bool? CofInOrder { get; set; }
+    public DateTime? LicenseRenewalDate { get; set; }
 }
 
 public class UpdateVehiclesDto
@@ -34,9 +34,9 @@ public class UpdateVehiclesDto
     public string? Name { get; set; }
     public string? Make { get; set; }
     public string? Model { get; set; }
-    public string? Registrationnumber { get; set; }
-    public string? Yearmodel { get; set; }
-    public Guid? Approveddriver { get; set; }
-    public bool? Cofinorder { get; set; }
-    public DateTime? Licenserenewaldate { get; set; }
+    public string? RegistrationNumber { get; set; }
+    public string? YearModel { get; set; }
+    public Guid? ApprovedDriver { get; set; }
+    public bool? CofInOrder { get; set; }
+    public DateTime? LicenseRenewalDate { get; set; }
 }
