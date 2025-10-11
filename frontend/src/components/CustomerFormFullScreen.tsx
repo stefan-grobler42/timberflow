@@ -9,11 +9,12 @@ import {
   MessageBarType,
   Pivot,
   PivotItem,
+  PivotLinkFormat,
   CommandBar,
   PrimaryButton,
   DefaultButton,
 } from '@fluentui/react';
-import type { IDropdownOption, ICommandBarItemProps, PivotLinkFormat } from '@fluentui/react';
+import type { IDropdownOption, ICommandBarItemProps } from '@fluentui/react';
 import { customerService, companyService } from '../services';
 import type { Customer, CreateCustomerDto, UpdateCustomerDto, Company } from '../types';
 
@@ -371,7 +372,7 @@ export const CustomerFormFullScreen = ({
         )}
 
       <Pivot 
-        linkFormat="tabs"
+        linkFormat={PivotLinkFormat.tabs}
         styles={{ 
           root: { 
             flex: 1, 
