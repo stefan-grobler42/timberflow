@@ -370,7 +370,25 @@ export const CustomerFormFullScreen = ({
           </MessageBar>
         )}
 
-      <Pivot linkFormat="tabs" styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
+      <Pivot 
+        linkFormat="tabs" 
+        styles={{ 
+          root: { 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+          },
+          link: {
+            marginRight: 0,
+            height: 44,
+            lineHeight: 44,
+          },
+          linkIsSelected: {
+            height: 44,
+            lineHeight: 44,
+          },
+        }}
+      >
         <PivotItem headerText="Basic Information" itemIcon="Info">
           <Stack
             horizontal
