@@ -76,22 +76,23 @@ export const Layout = ({ children }: LayoutProps) => {
           styles={{ 
             root: { 
               backgroundColor: '#59AAD5',
-              padding: '0 16px',
-              height: 44,
-              borderBottom: '1px solid #4a99c4',
+              padding: '0 20px',
+              height: 60,
+              borderBottom: '2px solid #4a99c4',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
             } 
           }}
         >
           <Stack.Item styles={{ root: { flex: '0 0 auto' } }}>
-            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 16 }}>
               <img 
                 src="/millennium-logo.png" 
                 alt="Millennium Logo" 
-                style={{ height: 40, cursor: 'pointer' }}
+                style={{ height: 48, cursor: 'pointer' }}
                 onClick={() => navigate('/')}
               />
               <span 
-                style={{ color: 'white', fontWeight: 600, fontSize: 16, cursor: 'pointer' }}
+                style={{ color: 'white', fontWeight: 700, fontSize: 20, cursor: 'pointer', letterSpacing: '-0.5px' }}
                 onClick={() => navigate('/')}
               >
                 Millennium Timber Roof ERP
@@ -114,8 +115,8 @@ export const Layout = ({ children }: LayoutProps) => {
           styles={{
             root: {
               width: 250,
-              backgroundColor: '#59AAD5',
-              borderRight: '1px solid #4a99c4',
+              backgroundColor: '#f3f2f1',
+              borderRight: '1px solid #e1dfdd',
               overflowY: 'auto',
             },
           }}
@@ -127,20 +128,38 @@ export const Layout = ({ children }: LayoutProps) => {
             styles={{
               root: {
                 width: 250,
+                '& .ms-Nav-groupHeader': {
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: '#605e5c',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  padding: '8px 12px',
+                },
               },
               groupContent: {
                 marginBottom: 0,
               },
+              group: {
+                marginTop: 8,
+              },
               link: {
                 backgroundColor: 'transparent',
-                color: 'white',
+                color: '#323130',
+                fontSize: 14,
+                height: 40,
+                lineHeight: 40,
                 selectors: {
                   ':hover': {
-                    backgroundColor: '#4a99c4',
-                    color: 'white',
+                    backgroundColor: '#edebe9',
+                    color: '#323130',
                   },
                   '.is-selected': {
-                    backgroundColor: '#54C3D6',
+                    backgroundColor: '#59AAD5',
+                    color: 'white',
+                  },
+                  '.is-selected:hover': {
+                    backgroundColor: '#4a99c4',
                     color: 'white',
                   },
                 },
@@ -149,10 +168,13 @@ export const Layout = ({ children }: LayoutProps) => {
                 backgroundColor: 'transparent',
                 selectors: {
                   ':hover': {
-                    backgroundColor: '#4a99c4',
+                    backgroundColor: '#edebe9',
                   },
                   '.is-selected': {
-                    backgroundColor: '#54C3D6',
+                    backgroundColor: '#59AAD5',
+                  },
+                  '.is-selected:hover': {
+                    backgroundColor: '#4a99c4',
                   },
                 },
               },
