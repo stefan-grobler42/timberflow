@@ -16,6 +16,19 @@ public class AppDbContext : DbContext
     public DbSet<Contact> Contacts { get; set; }
     public DbSet<Activity> Activities { get; set; }
     
+    // Millennium Roofing custom entities from Dynamics 365
+    public DbSet<Designer> Designers { get; set; }
+    public DbSet<SaleRepresentative> SaleRepresentatives { get; set; }
+    public DbSet<Vehicles> Vehicles { get; set; }
+    public DbSet<Employee> Employees { get; set; }
+    public DbSet<QuoteMRoofing> QuotesMRoofing { get; set; }
+    public DbSet<Tender> Tenders { get; set; }
+    public DbSet<PricingCalculation> PricingCalculations { get; set; }
+    public DbSet<InstallationProgress> InstallationProgresses { get; set; }
+    public DbSet<Production> Productions { get; set; }
+    public DbSet<Logistics> Logistics { get; set; }
+    public DbSet<Delivery> Deliveries { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
