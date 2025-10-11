@@ -14,10 +14,10 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 
-// Configure Kestrel to bind to port 8000
+// Configure Kestrel to bind to port 8000 on IPv4
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ListenAnyIP(8000);
+    options.Listen(System.Net.IPAddress.Any, 8000);
 });
 
 // Configure CORS to allow frontend origin
