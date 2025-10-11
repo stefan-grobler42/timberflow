@@ -29,6 +29,15 @@ public class AppDbContext : DbContext
     public DbSet<Logistics> Logistics { get; set; }
     public DbSet<Delivery> Deliveries { get; set; }
     
+    // Dynamics 365 standard entities
+    public DbSet<Account> Accounts { get; set; }
+    public DbSet<D365Contact> D365Contacts { get; set; }
+    public DbSet<D365Quote> D365Quotes { get; set; }
+    public DbSet<D365Order> D365Orders { get; set; }
+    public DbSet<D365Product> D365Products { get; set; }
+    public DbSet<D365Appointment> D365Appointments { get; set; }
+    public DbSet<D365Email> D365Emails { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
