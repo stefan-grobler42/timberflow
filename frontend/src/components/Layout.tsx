@@ -139,6 +139,53 @@ export const Layout = ({ children }: LayoutProps) => {
         },
       ],
     },
+    {
+      name: 'Dynamics 365',
+      links: [
+        {
+          key: 'accounts',
+          name: 'Accounts',
+          url: '/accounts',
+          icon: 'CRMServices',
+        },
+        {
+          key: 'd365contacts',
+          name: 'D365 Contacts',
+          url: '/d365contacts',
+          icon: 'ContactCard',
+        },
+        {
+          key: 'd365products',
+          name: 'D365 Products',
+          url: '/d365products',
+          icon: 'Product',
+        },
+        {
+          key: 'd365quotes',
+          name: 'D365 Quotes',
+          url: '/d365quotes',
+          icon: 'DocumentSet',
+        },
+        {
+          key: 'd365orders',
+          name: 'D365 Orders',
+          url: '/d365orders',
+          icon: 'ShoppingCart',
+        },
+        {
+          key: 'd365appointments',
+          name: 'D365 Appointments',
+          url: '/d365appointments',
+          icon: 'Calendar',
+        },
+        {
+          key: 'd365emails',
+          name: 'D365 Emails',
+          url: '/d365emails',
+          icon: 'Mail',
+        },
+      ],
+    },
   ];
 
   const handleLinkClick = (ev?: React.MouseEvent<HTMLElement>, item?: any): void => {

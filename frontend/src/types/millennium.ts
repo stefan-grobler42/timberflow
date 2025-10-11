@@ -233,3 +233,147 @@ export interface Delivery {
   modifiedOn?: string;
   modifiedBy?: string;
 }
+
+export interface Account {
+  id: string;
+  name?: string;
+  accountNumber?: string;
+  telephone1?: string;
+  emailAddress1?: string;
+  websiteUrl?: string;
+  address1Line1?: string;
+  address1City?: string;
+  address1StateOrProvince?: string;
+  address1PostalCode?: string;
+  address1Country?: string;
+  revenue?: number;
+  numberOfEmployees?: number;
+  industryCode?: number;
+  ownerId?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Contact {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  fullName?: string;
+  emailAddress1?: string;
+  telephone1?: string;
+  mobilePhone?: string;
+  jobTitle?: string;
+  parentCustomerId?: string;
+  address1Line1?: string;
+  address1City?: string;
+  address1StateOrProvince?: string;
+  address1PostalCode?: string;
+  address1Country?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Product {
+  id: string;
+  productNumber?: string;
+  name?: string;
+  description?: string;
+  productStructure?: number;
+  productTypeCode?: number;
+  quantityOnHand?: number;
+  quantityDecimal?: number;
+  stockWeight?: number;
+  stockVolume?: number;
+  price?: number;
+  currentCost?: number;
+  standardCost?: number;
+  vendorId?: string;
+  vendorName?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Quote {
+  id: string;
+  quoteNumber?: string;
+  name?: string;
+  customerId?: string;
+  effectiveFrom?: string;
+  effectiveTo?: string;
+  totalAmount?: number;
+  totalDiscountAmount?: number;
+  totalLineItemAmount?: number;
+  stateCode?: number;
+  statusCode?: number;
+  description?: string;
+  ownerId?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Order {
+  id: string;
+  orderNumber?: string;
+  name?: string;
+  customerId?: string;
+  quoteId?: string;
+  dateFulfilled?: string;
+  requestDeliveryBy?: string;
+  totalAmount?: number;
+  totalDiscountAmount?: number;
+  totalLineItemAmount?: number;
+  stateCode?: number;
+  statusCode?: number;
+  description?: string;
+  ownerId?: string;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Appointment {
+  id: string;
+  subject?: string;
+  location?: string;
+  scheduledStart?: string;
+  scheduledEnd?: string;
+  actualDurationMinutes?: number;
+  scheduledDurationMinutes?: number;
+  description?: string;
+  regardingObjectId?: string;
+  ownerId?: string;
+  stateCode?: number;
+  statusCode?: number;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365Email {
+  id: string;
+  subject?: string;
+  from?: string;
+  to?: string;
+  cc?: string;
+  bcc?: string;
+  description?: string;
+  directionCode?: boolean;
+  regardingObjectId?: string;
+  ownerId?: string;
+  stateCode?: number;
+  statusCode?: number;
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}

@@ -38,6 +38,23 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Initialize database
+// NOTE: Using EnsureCreatedAsync() for development - it creates the database if it doesn't exist
+// and preserves data between restarts. However, this does NOT support schema migrations.
+// TODO: For production, implement EF Core migrations:
+//   1. Install dotnet-ef tools: dotnet tool install --global dotnet-ef
+//   2. Create initial migration: dotnet ef migrations add InitialCreate
+//   3. Replace EnsureCreatedAsync() with Database.MigrateAsync()
+// This will allow automatic schema updates without data loss when entities change.
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await dbContext.Database.EnsureCreatedAsync();
+    
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    logger.LogInformation("Database initialized successfully");
+}
+
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
