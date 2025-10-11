@@ -7,12 +7,9 @@ import {
   Checkbox,
   MessageBar,
   MessageBarType,
-  Pivot,
-  PivotItem,
-  PivotLinkFormat,
+  DefaultButton,
   CommandBar,
   PrimaryButton,
-  DefaultButton,
 } from '@fluentui/react';
 import type { IDropdownOption, ICommandBarItemProps } from '@fluentui/react';
 import { customerService, companyService } from '../services';
@@ -31,6 +28,7 @@ export const CustomerFormFullScreen = ({
   onSave,
   onDelete,
 }: CustomerFormFullScreenProps) => {
+  const [activeTab, setActiveTab] = useState<string>('basic');
   const [formData, setFormData] = useState<Partial<CreateCustomerDto>>({
     accountNo: '',
     accountName: '',
@@ -371,64 +369,94 @@ export const CustomerFormFullScreen = ({
           </MessageBar>
         )}
 
-      <Pivot 
-        linkFormat={PivotLinkFormat.tabs}
-        styles={{ 
-          root: { 
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            selectors: {
-              '& button': {
-                display: 'inline-flex !important',
-                width: 'auto !important',
+      <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
+        {/* Horizontal Tabs */}
+        <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
+          <DefaultButton
+            text="Basic Information"
+            iconProps={{ iconName: 'Info' }}
+            onClick={() => setActiveTab('basic')}
+            styles={{
+              root: {
+                height: 48,
+                padding: '0 24px',
+                borderRadius: 0,
+                border: 'none',
+                backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
+                color: activeTab === 'basic' ? 'white' : '#323130',
+                fontWeight: activeTab === 'basic' ? 600 : 400,
               },
-            },
-          },
-          linkContainer: {
-            display: 'flex !important',
-            flexDirection: 'row !important',
-            justifyContent: 'flex-start !important',
-          },
-          link: {
-            display: 'inline-flex !important',
-            width: 'auto !important',
-            height: 48,
-            lineHeight: 48,
-            marginRight: 0,
-            padding: '0 24px',
-            backgroundColor: 'transparent',
-            borderBottom: '1px solid #edebe9',
-            selectors: {
-              ':hover': {
-                backgroundColor: '#f3f2f1',
+              rootHovered: {
+                backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
+                color: activeTab === 'basic' ? 'white' : '#323130',
               },
-            },
-          },
-          linkIsSelected: {
-            display: 'inline-flex !important',
-            width: 'auto !important',
-            height: 48,
-            lineHeight: 48,
-            backgroundColor: '#0078d4',
-            color: 'white',
-            fontWeight: 600,
-            borderBottom: 'none',
-            selectors: {
-              ':hover': {
-                backgroundColor: '#106ebe',
-                color: 'white',
+            }}
+          />
+          <DefaultButton
+            text="Contact Information"
+            iconProps={{ iconName: 'Contact' }}
+            onClick={() => setActiveTab('contact')}
+            styles={{
+              root: {
+                height: 48,
+                padding: '0 24px',
+                borderRadius: 0,
+                border: 'none',
+                backgroundColor: activeTab === 'contact' ? '#0078d4' : 'transparent',
+                color: activeTab === 'contact' ? 'white' : '#323130',
+                fontWeight: activeTab === 'contact' ? 600 : 400,
               },
-            },
-          },
-          itemContainer: {
-            flex: 1,
-            overflowY: 'auto',
-            padding: '20px 0',
-          },
-        }}
-      >
-        <PivotItem headerText="Basic Information" itemIcon="Info">
+              rootHovered: {
+                backgroundColor: activeTab === 'contact' ? '#106ebe' : '#f3f2f1',
+                color: activeTab === 'contact' ? 'white' : '#323130',
+              },
+            }}
+          />
+          <DefaultButton
+            text="Address & Location"
+            iconProps={{ iconName: 'MapPin' }}
+            onClick={() => setActiveTab('address')}
+            styles={{
+              root: {
+                height: 48,
+                padding: '0 24px',
+                borderRadius: 0,
+                border: 'none',
+                backgroundColor: activeTab === 'address' ? '#0078d4' : 'transparent',
+                color: activeTab === 'address' ? 'white' : '#323130',
+                fontWeight: activeTab === 'address' ? 600 : 400,
+              },
+              rootHovered: {
+                backgroundColor: activeTab === 'address' ? '#106ebe' : '#f3f2f1',
+                color: activeTab === 'address' ? 'white' : '#323130',
+              },
+            }}
+          />
+          <DefaultButton
+            text="Financial Information"
+            iconProps={{ iconName: 'Money' }}
+            onClick={() => setActiveTab('financial')}
+            styles={{
+              root: {
+                height: 48,
+                padding: '0 24px',
+                borderRadius: 0,
+                border: 'none',
+                backgroundColor: activeTab === 'financial' ? '#0078d4' : 'transparent',
+                color: activeTab === 'financial' ? 'white' : '#323130',
+                fontWeight: activeTab === 'financial' ? 600 : 400,
+              },
+              rootHovered: {
+                backgroundColor: activeTab === 'financial' ? '#106ebe' : '#f3f2f1',
+                color: activeTab === 'financial' ? 'white' : '#323130',
+              },
+            }}
+          />
+        </Stack>
+
+        {/* Tab Content */}
+        <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
+          {activeTab === 'basic' && (
           <Stack
             horizontal
             tokens={{ childrenGap: 32 }}
@@ -524,9 +552,9 @@ export const CustomerFormFullScreen = ({
               />
             </Stack>
           </Stack>
-        </PivotItem>
+          )}
 
-        <PivotItem headerText="Contact Information" itemIcon="Contact">
+          {activeTab === 'contact' && (
           <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16, maxWidth: 600 } }}>
             <TextField
               label="Email"
@@ -555,9 +583,9 @@ export const CustomerFormFullScreen = ({
               onChange={(_, value) => setFormData({ ...formData, website: value || '' })}
             />
           </Stack>
-        </PivotItem>
+          )}
 
-        <PivotItem headerText="Address & Location" itemIcon="MapPin">
+          {activeTab === 'address' && (
           <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16 } }}>
             <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
               <TextField
@@ -632,9 +660,9 @@ export const CustomerFormFullScreen = ({
               </Text>
             )}
           </Stack>
-        </PivotItem>
+          )}
 
-        <PivotItem headerText="Financial Information" itemIcon="Money">
+          {activeTab === 'financial' && (
           <Stack
             tokens={{ childrenGap: 16 }}
             styles={{ root: { marginTop: 16, maxWidth: 600 } }}
@@ -678,9 +706,10 @@ export const CustomerFormFullScreen = ({
               onChange={(_, checked) => setFormData({ ...formData, taxExempt: checked || false })}
             />
           </Stack>
-        </PivotItem>
-      </Pivot>
+          )}
+        </Stack>
       </Stack>
+    </Stack>
     </Stack>
   );
 };
