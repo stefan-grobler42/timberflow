@@ -2,7 +2,7 @@ modules = ["nodejs-20", "python-3.11", "postgresql-16", "python3", "dotnet-8"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["glibcLocales", "dotnet-sdk_8"]
+packages = ["dotnet-sdk_8", "glibcLocales"]
 
 [workflows]
 runButton = "Project"
