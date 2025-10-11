@@ -375,16 +375,24 @@ export const CustomerFormFullScreen = ({
         linkFormat={PivotLinkFormat.tabs}
         styles={{ 
           root: { 
-            flex: 1, 
-            display: 'flex', 
+            flex: 1,
+            display: 'flex',
             flexDirection: 'column',
+            selectors: {
+              '& button': {
+                display: 'inline-flex !important',
+                width: 'auto !important',
+              },
+            },
           },
           linkContainer: {
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'flex-start',
+            display: 'flex !important',
+            flexDirection: 'row !important',
+            justifyContent: 'flex-start !important',
           },
           link: {
+            display: 'inline-flex !important',
+            width: 'auto !important',
             height: 48,
             lineHeight: 48,
             marginRight: 0,
@@ -398,6 +406,8 @@ export const CustomerFormFullScreen = ({
             },
           },
           linkIsSelected: {
+            display: 'inline-flex !important',
+            width: 'auto !important',
             height: 48,
             lineHeight: 48,
             backgroundColor: '#0078d4',
