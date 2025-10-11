@@ -20,20 +20,26 @@ class SchemaInspector:
         self.auth = DynamicsAuthenticator()
         self.base_url = self.auth.get_api_base_url()
     
-    def get_all_entities(self, filter_custom: bool = True) -> List[Dict[str, Any]]:
+    def get_all_entities(self, filter_custom: bool = True, custom_only: bool = False) -> List[Dict[str, Any]]:
         """
         Retrieve all entity definitions (tables) from Dataverse
         
         Args:
-            filter_custom: If True, only return custom entities (those not starting with standard prefixes)
+            filter_custom: If True, only return custom entities and key standard ones
+            custom_only: If True, only return custom entities (IsCustomEntity = true)
         
         Returns:
             List of entity definitions
         """
         url = f"{self.base_url}/EntityDefinitions"
+        
+        filter_conditions = ["IsValidForAdvancedFind eq true"]
+        if custom_only:
+            filter_conditions.append("IsCustomEntity eq true")
+        
         params = {
-            "$select": "LogicalName,DisplayName,Description,IsCustomEntity,PrimaryIdAttribute,PrimaryNameAttribute",
-            "$filter": "IsValidForAdvancedFind eq true"
+            "$select": "LogicalName,DisplayName,Description,IsCustomEntity,PrimaryIdAttribute,PrimaryNameAttribute,SchemaName",
+            "$filter": " and ".join(filter_conditions)
         }
         
         try:
@@ -43,11 +49,12 @@ class SchemaInspector:
             
             entities = response.json().get('value', [])
             
-            if filter_custom:
+            if filter_custom and not custom_only:
                 # Filter to show custom entities and commonly used standard ones
                 standard_sales_entities = [
                     'account', 'contact', 'lead', 'opportunity', 
-                    'quote', 'salesorder', 'product', 'invoice'
+                    'quote', 'salesorder', 'product', 'invoice',
+                    'salesorderdetail', 'quotedetail', 'productpricelevel'
                 ]
                 entities = [
                     e for e in entities 
@@ -72,8 +79,8 @@ class SchemaInspector:
         """
         url = f"{self.base_url}/EntityDefinitions(LogicalName='{entity_logical_name}')"
         params = {
-            "$expand": "Attributes($select=LogicalName,DisplayName,AttributeType,RequiredLevel,IsPrimaryId,IsPrimaryName,MaxLength,Precision,MinValue,MaxValue)",
-            "$select": "LogicalName,DisplayName,Description,IsCustomEntity,PrimaryIdAttribute,PrimaryNameAttribute"
+            "$expand": "Attributes",
+            "$select": "LogicalName,DisplayName,Description,IsCustomEntity,PrimaryIdAttribute,PrimaryNameAttribute,SchemaName"
         }
         
         try:
@@ -84,8 +91,19 @@ class SchemaInspector:
             return response.json()
             
         except Exception as e:
-            print(f"Error retrieving metadata for {entity_logical_name}: {str(e)}")
-            return None
+            print(f"  ⚠ Error retrieving detailed metadata for {entity_logical_name}: {str(e)}")
+            # Try simplified query without expansion
+            try:
+                params_simple = {
+                    "$select": "LogicalName,DisplayName,Description,IsCustomEntity,PrimaryIdAttribute,PrimaryNameAttribute,SchemaName"
+                }
+                response = requests.get(url, headers=headers, params=params_simple)
+                response.raise_for_status()
+                result = response.json()
+                result['Attributes'] = []  # Empty attributes if expansion fails
+                return result
+            except:
+                return None
     
     def get_picklist_options(self, entity_logical_name: str, attribute_name: str) -> List[Dict[str, Any]]:
         """
@@ -184,18 +202,22 @@ class SchemaInspector:
             print(f"Error retrieving forms for {entity_logical_name}: {str(e)}")
             return []
     
-    def generate_schema_report(self, output_file: str = 'dynamics365_schema_report.json'):
+    def generate_schema_report(self, output_file: str = 'dynamics365_schema_report.json', custom_only: bool = True):
         """
         Generate a comprehensive schema report for all entities
         
         Args:
             output_file: Path to save the JSON report
+            custom_only: If True, only inspect custom entities to speed up the process
         """
-        print("Starting Dynamics 365 schema inspection...")
-        print(f"Connecting to: {self.auth.instance_url}")
+        print("=" * 70)
+        print("MILLENNIUM ROOFING - Dynamics 365 Schema Inspection")
+        print("=" * 70)
+        print(f"\nConnecting to: {self.auth.instance_url}")
+        print(f"Mode: {'Custom entities only' if custom_only else 'Custom + Standard entities'}")
         
         # Get all entities
-        entities = self.get_all_entities()
+        entities = self.get_all_entities(filter_custom=not custom_only, custom_only=custom_only)
         print(f"\nFound {len(entities)} entities to inspect")
         
         schema_report = {
@@ -227,11 +249,29 @@ class SchemaInspector:
             # Process attributes
             attributes = []
             for attr in metadata.get('Attributes', []):
+                # Safely extract display name
+                display_name_obj = attr.get('DisplayName')
+                if display_name_obj and isinstance(display_name_obj, dict):
+                    label_obj = display_name_obj.get('UserLocalizedLabel')
+                    if label_obj and isinstance(label_obj, dict):
+                        display_name = label_obj.get('Label', '')
+                    else:
+                        display_name = ''
+                else:
+                    display_name = ''
+                
+                # Safely extract required level
+                req_level_obj = attr.get('RequiredLevel')
+                if req_level_obj and isinstance(req_level_obj, dict):
+                    required_level = req_level_obj.get('Value')
+                else:
+                    required_level = None
+                
                 attr_info = {
                     'LogicalName': attr.get('LogicalName'),
-                    'DisplayName': attr.get('DisplayName', {}).get('UserLocalizedLabel', {}).get('Label', ''),
+                    'DisplayName': display_name,
                     'AttributeType': attr.get('AttributeType'),
-                    'RequiredLevel': attr.get('RequiredLevel', {}).get('Value'),
+                    'RequiredLevel': required_level,
                     'IsPrimaryId': attr.get('IsPrimaryId'),
                     'IsPrimaryName': attr.get('IsPrimaryName')
                 }
