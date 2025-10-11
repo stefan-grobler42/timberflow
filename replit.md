@@ -9,6 +9,26 @@ Technology stack preference: React + Fluent UI v8 for modern, Microsoft-style in
 Architecture preference: Clean separation with ASP.NET Core Web API backend and React frontend
 
 ## Recent Changes
+- **Dynamics 365 ExtractSpec Solution Analysis (Oct 11, 2025)**:
+  - **Solution Discovery**: Successfully identified and extracted ExtractSpec solution (v1.0.0.1) containing all Millennium Roofing customizations
+  - **Complete Metadata Extraction**: Retrieved full schema for 115 entities (11 custom Millennium + 104 D365 standard)
+  - **Component Analysis**: Documented 388 total components including 177 attributes, 67 relationships, 5 web resources, 1 plugin, 1 workflow
+  - **Custom Entities Identified**:
+    - Delivery (cr694_dispatch): 138 fields, 143 relationships - most complex entity for dispatch management
+    - Production (cr694_production): 78 fields, 34 relationships - manufacturing & production scheduling
+    - Tender (cr694_tender): 67 fields, 26 relationships - tender/bid management with pricing
+    - Logistics (cr694_logistics): 65 fields, 30 relationships - supply chain & logistics planning
+    - Employee (cr694_drivers): 65 fields, 55 relationships - driver/employee management with licensing
+    - Vehicles (cr694_vehicles): 46 fields, 25 relationships - fleet management
+    - Pricing Calculation (cr694_pricingcalculation): 45 fields, 16 relationships - tender cost calculations
+    - Designer (cr694_designer): 41 fields, 21 relationships - designer/estimator personnel
+    - Sale Representative (cr694_salerepresentative): 41 fields, 21 relationships - sales team & territories
+    - Quote - MRoofing (cr694_quotemroofing): 36 fields, 19 relationships - custom roofing quotes
+    - Installation Progress (cr694_installationprogress): 35 fields, 17 relationships - project milestone tracking
+  - **Standard D365 Entities**: Account (199 rels), Contact (168 rels), Quote (88 rels), Order (92 rels), Product (75 rels), Email, Appointment
+  - **Integration Tools**: OAuth 2.0 authentication with MSAL, Dataverse API schema inspector, metadata extraction utilities
+  - **Migration Planning**: Generated comprehensive analysis reports with database mapping recommendations and phased migration strategy
+  - **Files Generated**: ExtractSpec_FULL_METADATA.json, ExtractSpec_ANALYSIS.md, millennium_roofing_schema.json
 - **Header and Sidebar Redesign (Oct 11, 2025)**:
   - **Prominent Header**: Increased header height to 60px with larger logo (48px), bold title (20px/700 weight), and subtle shadow for visual prominence
   - **Sidebar Styling**: Changed from Carolina Blue to light gray (#f3f2f1) with black text (#323130) for better readability
@@ -119,6 +139,12 @@ The system is built as a modern Single-Page Application (SPA) using React with F
 - **Authentication**: To be implemented (JWT planned)
 
 ### Third-Party Integrations
+- **Microsoft Dynamics 365**: OAuth 2.0 integration with Dataverse API for schema extraction and data migration
+  - Instance: https://org4fc6bdc5.crm4.dynamics.com
+  - Publisher Prefix: cr694_ (Millennium Roofing custom entities)
+  - ExtractSpec Solution: 115 entities with complete metadata extraction
+  - Authentication: MSAL (Microsoft Authentication Library) with client credentials flow
+  - Tools: dynamics365_integration/auth.py, schema_inspector.py, inspect_solution.py
 - **Google Maps Platform**: Places API (autocomplete), Maps JavaScript API (interactive maps), Geocoding API (coordinate conversion)
 - **SheetJS/xlsx**: Excel file parsing and generation
 - **Mitek Pamir**: CAD software for importing design data (legacy integration from previous version)

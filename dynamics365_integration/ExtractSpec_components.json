@@ -1,0 +1,1060 @@
+{
+  "solution": {
+    "uniquename": "ExtractSpec",
+    "friendlyname": "ExtractSpec",
+    "version": "1.0.0.1",
+    "solutionid": "2c68ebfb-e4a2-f011-bbd3-7c1e525f1151"
+  },
+  "component_summary": {
+    "Unknown (10060)": 6,
+    "Web Resource": 5,
+    "Entity": 115,
+    "Entity Relationship": 67,
+    "Attribute": 177,
+    "Option Set": 4,
+    "Unknown (70)": 1,
+    "System Form": 3,
+    "Unknown (61)": 5,
+    "Plugin Assembly": 1,
+    "Unknown (10042)": 2,
+    "Unknown (300)": 1,
+    "Workflow": 1
+  },
+  "entities": [
+    {
+      "LogicalName": "msdyn_warranty",
+      "DisplayName": "Warranty",
+      "SchemaName": "msdyn_Warranty",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_warrantyid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "f3ee353d-0e65-4d7b-8c60-b4b190421c0b"
+    },
+    {
+      "LogicalName": "msdyn_geofence",
+      "DisplayName": "Geofence",
+      "SchemaName": "msdyn_geofence",
+      "Description": "A radial boundary around a physical location that, when active, can be entered or exited by geotracked records, in turn generating events.",
+      "PrimaryIdAttribute": "msdyn_geofenceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "85d35c61-cf04-476c-a4ca-81862398823d"
+    },
+    {
+      "LogicalName": "msdyn_conversationparticipantinsights",
+      "DisplayName": "Conversation Participant Insights",
+      "SchemaName": "msdyn_ConversationParticipantInsights",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_conversationparticipantinsightsid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "27a66c01-ecbb-447f-bcb6-1fe5a80631a3"
+    },
+    {
+      "LogicalName": "msdyn_accountkpiitem",
+      "DisplayName": "Account KPI Item",
+      "SchemaName": "msdyn_accountkpiitem",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_accountkpiitemid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "3f3ea0c7-a214-4cfe-b49d-056861e703f1"
+    },
+    {
+      "LogicalName": "msdyn_mostcontacted",
+      "DisplayName": "Most Contacted",
+      "SchemaName": "msdyn_mostcontacted",
+      "Description": "Most Contacted",
+      "PrimaryIdAttribute": "msdyn_mostcontactedid",
+      "PrimaryNameAttribute": "msdyn_primaryname",
+      "EntityId": "61ed2f5e-10ba-4ea7-8c0d-a6cdfd8eae63"
+    },
+    {
+      "LogicalName": "msdyn_mostcontactedby",
+      "DisplayName": "Most Contacted By",
+      "SchemaName": "msdyn_mostcontactedby",
+      "Description": "Most Contacted By",
+      "PrimaryIdAttribute": "msdyn_mostcontactedbyid",
+      "PrimaryNameAttribute": "msdyn_primaryname",
+      "EntityId": "6680555c-98c2-4288-a711-be647b47741b"
+    },
+    {
+      "LogicalName": "msdyn_dailyaccountkpiitem",
+      "DisplayName": "Daily Kpis for account",
+      "SchemaName": "msdyn_dailyaccountkpiitem",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_dailyaccountkpiitemid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "b4f3aca7-5708-4477-a690-fc3a5707c6d8"
+    },
+    {
+      "LogicalName": "msdyn_salesroutingdiagnostic",
+      "DisplayName": "salesroutingdiagnostic",
+      "SchemaName": "msdyn_salesroutingdiagnostic",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_salesroutingdiagnosticid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "8e706650-2339-4123-9573-19b0fe708f71"
+    },
+    {
+      "LogicalName": "msdyn_sabackupdiagnostic",
+      "DisplayName": "sabackupdiagnostic",
+      "SchemaName": "msdyn_sabackupdiagnostic",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_sabackupdiagnosticid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "4934d216-c97f-4615-a903-6ae5248b540f"
+    },
+    {
+      "LogicalName": "adx_invitation",
+      "DisplayName": "Invitation",
+      "SchemaName": "adx_invitation",
+      "Description": "Send invitations to existing contacts or email addresses and assign them to web roles upon redemption.",
+      "PrimaryIdAttribute": "adx_invitationid",
+      "PrimaryNameAttribute": "adx_name",
+      "EntityId": "7dacf7bb-4152-438b-83f2-f99eb2470ad5"
+    },
+    {
+      "LogicalName": "msdyn_salesroutingrun",
+      "DisplayName": "Sales routing run",
+      "SchemaName": "msdyn_salesroutingrun",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_salesroutingrunid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "f04b756b-bf92-4534-978b-47c79b185180"
+    },
+    {
+      "LogicalName": "msdyn_orgchartnode",
+      "DisplayName": "Microsoft Orgchart node entity",
+      "SchemaName": "msdyn_orgchartnode",
+      "Description": "For internal use only. Entity which stores association data of account with contacts present in the orgchart hierarchy of the account",
+      "PrimaryIdAttribute": "msdyn_orgchartnodeid",
+      "PrimaryNameAttribute": "new_name",
+      "EntityId": "aa3f4958-4568-4bba-8a1b-1f5b8d80eafd"
+    },
+    {
+      "LogicalName": "msdyn_preferredagent",
+      "DisplayName": "Preferred Agent",
+      "SchemaName": "msdyn_preferredagent",
+      "Description": "Preferred Agent Table, table used to store the mapping between the system user and contact/account",
+      "PrimaryIdAttribute": "msdyn_preferredagentid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "03424d11-9abe-4ba8-ae05-520998073122"
+    },
+    {
+      "LogicalName": "msdyn_salescopilotinsight",
+      "DisplayName": "Sales Copilot Insight",
+      "SchemaName": "msdyn_salescopilotinsight",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_salescopilotinsightid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "3af2dc50-d885-43b4-8964-c69a7dc3f6d5"
+    },
+    {
+      "LogicalName": "msdyn_salespremiumdemo",
+      "DisplayName": "Sales Premium Demo",
+      "SchemaName": "msdyn_salespremiumdemo",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_salespremiumdemoid",
+      "PrimaryNameAttribute": "msdyn_entityfilter",
+      "EntityId": "17106cc8-9c3c-4a8f-9e14-32c929ea713f"
+    },
+    {
+      "LogicalName": "msdyn_swarm",
+      "DisplayName": "Swarm",
+      "SchemaName": "msdyn_swarm",
+      "Description": "Tracks the list of swarms created by agents to resolve the customer issues",
+      "PrimaryIdAttribute": "msdyn_swarmid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "1ffa022a-b464-4d5a-8c1b-04cc31d1594e"
+    },
+    {
+      "LogicalName": "msdyn_salesaccelerationinsight",
+      "DisplayName": "Sales acceleration insights",
+      "SchemaName": "msdyn_salesaccelerationinsight",
+      "Description": "Sales acceleration insights",
+      "PrimaryIdAttribute": "msdyn_salesaccelerationinsightid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "0e06fc1e-74c6-489a-a9b6-ce9af98c5291"
+    },
+    {
+      "LogicalName": "msdyn_customerasset",
+      "DisplayName": "Customer Asset",
+      "SchemaName": "msdyn_customerasset",
+      "Description": "Specify Customer Asset.",
+      "PrimaryIdAttribute": "msdyn_customerassetid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "fec51c1a-93a1-44fe-999a-b1016e7dc2aa"
+    },
+    {
+      "LogicalName": "msdyn_iotdevice",
+      "DisplayName": "IoT Device",
+      "SchemaName": "msdyn_iotdevice",
+      "Description": "Represents a connected device that can be registered with an IoT provider.",
+      "PrimaryIdAttribute": "msdyn_iotdeviceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "ed290d04-df18-460a-b890-e7ea3affb13f"
+    },
+    {
+      "LogicalName": "msdyn_aicontactsuggestion",
+      "DisplayName": "Teams Contact Suggestion by AI",
+      "SchemaName": "msdyn_aicontactsuggestion",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_aicontactsuggestionid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "fa3b0156-2786-417d-a400-0c031886d33f"
+    },
+    {
+      "LogicalName": "msdyn_sequencetarget",
+      "DisplayName": "Sequence Target",
+      "SchemaName": "msdyn_sequencetarget",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_sequencetargetid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "4115e50c-3834-4994-9282-fc6f1c9a005b"
+    },
+    {
+      "LogicalName": "msdyn_salessuggestion",
+      "DisplayName": "Insight",
+      "SchemaName": "msdyn_salessuggestion",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_salessuggestionid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "b946141e-755e-4d53-8e7f-6dbfd5f28e45"
+    },
+    {
+      "LogicalName": "msdyn_actual",
+      "DisplayName": "Actual",
+      "SchemaName": "msdyn_actual",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_actualid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "e505800b-b969-406e-a161-c8eabd6138b4"
+    },
+    {
+      "LogicalName": "msdyn_accountpricelist",
+      "DisplayName": "Account Project Price List",
+      "SchemaName": "msdyn_accountpricelist",
+      "Description": "Sales price list for this customer to capture special pricing agreements for products, roles and categories.",
+      "PrimaryIdAttribute": "msdyn_accountpricelistid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "08b5889f-fc7b-4dde-969f-6c6309d586ea"
+    },
+    {
+      "LogicalName": "msdyn_estimateline",
+      "DisplayName": "Estimate Line",
+      "SchemaName": "msdyn_estimateline",
+      "Description": "Estimates on a per day timescale.",
+      "PrimaryIdAttribute": "msdyn_estimatelineid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "bfdd1c93-a1d1-4c7e-a9c3-e187babaa3c7"
+    },
+    {
+      "LogicalName": "msdyn_fact",
+      "DisplayName": "Fact",
+      "SchemaName": "msdyn_fact",
+      "Description": "Aggregated fact entity for actual transactions.",
+      "PrimaryIdAttribute": "msdyn_factid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "db2cecc9-6083-4910-88b8-73af99f08777"
+    },
+    {
+      "LogicalName": "msdyn_invoicelinetransaction",
+      "DisplayName": "Invoice Line Detail",
+      "SchemaName": "msdyn_invoicelinetransaction",
+      "Description": "Transactions that are associated to an invoice line.",
+      "PrimaryIdAttribute": "msdyn_invoicelinetransactionid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "5ce0b523-a7cf-4a1d-bb9a-3e5d4a98f6c6"
+    },
+    {
+      "LogicalName": "msdyn_journalline",
+      "DisplayName": "Journal Line",
+      "SchemaName": "msdyn_journalline",
+      "Description": "Unposted business transaction line details.",
+      "PrimaryIdAttribute": "msdyn_journallineid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "0ece4693-1dfd-4502-a27e-9d4bd6659428"
+    },
+    {
+      "LogicalName": "msdyn_opportunitylinetransaction",
+      "DisplayName": "Opportunity Line Detail (Deprecated)",
+      "SchemaName": "msdyn_opportunitylinetransaction",
+      "Description": "Sales estimate detail of an opportunity line (Deprecated in v3.0)",
+      "PrimaryIdAttribute": "msdyn_opportunitylinetransactionid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "4bfddf79-8cf2-4274-8f69-cd7f4f4b7b87"
+    },
+    {
+      "LogicalName": "msdyn_orderlinetransaction",
+      "DisplayName": "Project Contract Line Detail",
+      "SchemaName": "msdyn_orderlinetransaction",
+      "Description": "Sales estimate detail of an project contract line.",
+      "PrimaryIdAttribute": "msdyn_orderlinetransactionid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "160a53e7-c12b-4e9d-b5dc-09d877cdd7e1"
+    },
+    {
+      "LogicalName": "msdyn_project",
+      "DisplayName": "Project",
+      "SchemaName": "msdyn_project",
+      "Description": "Delivery entity in an engagement.",
+      "PrimaryIdAttribute": "msdyn_projectid",
+      "PrimaryNameAttribute": "msdyn_subject",
+      "EntityId": "78d0bb42-81d6-4e18-ac0f-0ff986c2cad4"
+    },
+    {
+      "LogicalName": "msdyn_quotelinetransaction",
+      "DisplayName": "Quote Line Detail",
+      "SchemaName": "msdyn_quotelinetransaction",
+      "Description": "Sales estimate detail of a quote line.",
+      "PrimaryIdAttribute": "msdyn_quotelinetransactionid",
+      "PrimaryNameAttribute": "msdyn_description",
+      "EntityId": "e3175f01-2f6d-4bd0-a001-78f09eb20c75"
+    },
+    {
+      "LogicalName": "msdyn_entitlementapplication",
+      "DisplayName": "Entitlement Application",
+      "SchemaName": "msdyn_entitlementapplication",
+      "Description": "Entitlement Application that will drive automatic application when the work was performed for Service Account, Customer Asset, Asset Category, Incident Type and Entitlement.",
+      "PrimaryIdAttribute": "msdyn_entitlementapplicationid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "ccf031dc-a390-490e-ab67-29eb98048d91"
+    },
+    {
+      "LogicalName": "msdyn_payment",
+      "DisplayName": "Payment",
+      "SchemaName": "msdyn_payment",
+      "Description": "Specify payment.",
+      "PrimaryIdAttribute": "msdyn_paymentid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "6832357b-34f0-47b5-b6ad-aba2cf433bee"
+    },
+    {
+      "LogicalName": "msdyn_requirementresourcepreference",
+      "DisplayName": "Requirement Resource Preference",
+      "SchemaName": "msdyn_requirementresourcepreference",
+      "Description": "Requirement Resource Preference",
+      "PrimaryIdAttribute": "msdyn_requirementresourcepreferenceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "6c8a29a7-f258-474e-a658-c4ae13264ddf"
+    },
+    {
+      "LogicalName": "msdyn_rmaproduct",
+      "DisplayName": "RMA Product",
+      "SchemaName": "msdyn_rmaproduct",
+      "Description": "Records products to be returned on an RMA",
+      "PrimaryIdAttribute": "msdyn_rmaproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "5ecfe5d5-6cdb-4e28-8017-7d3966e52942"
+    },
+    {
+      "LogicalName": "msdyn_rtv",
+      "DisplayName": "RTV",
+      "SchemaName": "msdyn_rtv",
+      "Description": "Records RTVs for products to be retuned to vendors",
+      "PrimaryIdAttribute": "msdyn_rtvid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "bba2de57-3dee-4da1-ae51-095cc5b69757"
+    },
+    {
+      "LogicalName": "msdyn_workorderresourcerestriction",
+      "DisplayName": "Resource Restriction (Deprecated)",
+      "SchemaName": "msdyn_workorderresourcerestriction",
+      "Description": "This entity is deprecated.",
+      "PrimaryIdAttribute": "msdyn_workorderresourcerestrictionid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "e9da3a10-d17e-4e0e-9f30-1a6de93d17b6"
+    },
+    {
+      "LogicalName": "opportunityproduct",
+      "DisplayName": "Opportunity Line",
+      "SchemaName": "OpportunityProduct",
+      "Description": "Association between an opportunity and a product.",
+      "PrimaryIdAttribute": "opportunityproductid",
+      "PrimaryNameAttribute": "opportunityproductname",
+      "EntityId": "8a4283a8-eef3-4915-9e20-055dc136663d"
+    },
+    {
+      "LogicalName": "product",
+      "DisplayName": "Product",
+      "SchemaName": "Product",
+      "Description": "Information about products and their pricing information.",
+      "PrimaryIdAttribute": "productid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "aaf9be65-10c2-415d-8c19-fb1489021330"
+    },
+    {
+      "LogicalName": "msdyn_ocliveworkitem",
+      "DisplayName": "Conversation",
+      "SchemaName": "msdyn_ocliveworkitem",
+      "Description": "Tracks the interaction between the agents and customer",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "8ae1b683-00af-4279-b00f-7060dc7734cf"
+    },
+    {
+      "LogicalName": "msdyn_liveconversation",
+      "DisplayName": "Ongoing conversation (Deprecated)",
+      "SchemaName": "msdyn_liveconversation",
+      "Description": "Tracks the interactions between the agents and customer",
+      "PrimaryIdAttribute": "msdyn_liveconversationid",
+      "PrimaryNameAttribute": "msdyn_subject",
+      "EntityId": "b718a190-3594-4c2e-bebb-78dca35f70a4"
+    },
+    {
+      "LogicalName": "msdyn_salesagentrun",
+      "DisplayName": "Sales agent run",
+      "SchemaName": "msdyn_salesagentrun",
+      "Description": "This table contains records of sales agent runs.",
+      "PrimaryIdAttribute": "msdyn_salesagentrunid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "a2000a32-0871-4171-b77a-8bbac24c43b2"
+    },
+    {
+      "LogicalName": "msdyn_insurance",
+      "DisplayName": "Insurance",
+      "SchemaName": "msdyn_insurance",
+      "Description": "Captures the insurance info.",
+      "PrimaryIdAttribute": "msdyn_insuranceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "39914d57-5cf1-4a5d-8bcf-fdde413b7f9a"
+    },
+    {
+      "LogicalName": "msdyn_nottoexceed",
+      "DisplayName": "Not-to-exceed",
+      "SchemaName": "msdyn_nottoexceed",
+      "Description": "Not-to-exceed is a value set by a party requesting some work be done and must not be exceeded by those providing the work without a special approval process.",
+      "PrimaryIdAttribute": "msdyn_nottoexceedid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "7285156b-718c-496f-8148-8868b591764a"
+    },
+    {
+      "LogicalName": "msdyn_tradecoverage",
+      "DisplayName": "Trade Coverage",
+      "SchemaName": "msdyn_tradecoverage",
+      "Description": "Used to describe which trades are relevant for account and locations.",
+      "PrimaryIdAttribute": "msdyn_tradecoverageid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "5acecf0c-39fb-45f6-83eb-942ade3c9043"
+    },
+    {
+      "LogicalName": "msdyn_stakeholderresearchoutput",
+      "DisplayName": "Stakeholder Research Output",
+      "SchemaName": "msdyn_StakeholderResearchOutput",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_stakeholderresearchoutputid",
+      "PrimaryNameAttribute": "msdyn_stakeholderresearchoutput",
+      "EntityId": "02224bbe-6630-441b-926f-c198a9ae59ea"
+    },
+    {
+      "LogicalName": "msdyn_lastagent",
+      "DisplayName": "Last Agent",
+      "SchemaName": "msdyn_lastagent",
+      "Description": "Last Agent Table, table used to store the mapping between the system user and contact/account",
+      "PrimaryIdAttribute": "msdyn_lastagentid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "517f68cd-94b6-41af-b820-350553f8d719"
+    },
+    {
+      "LogicalName": "msdyn_segment",
+      "DisplayName": "Segment",
+      "SchemaName": "msdyn_segment",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_segmentid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "514c62ea-2365-4e30-8bbc-2198b56d2775"
+    },
+    {
+      "LogicalName": "cr694_quotemroofing",
+      "DisplayName": "Quote - MRoofing",
+      "SchemaName": "cr694_QuoteMRoofing",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_quotemroofingid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "4a82b184-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "msdyn_workorderservice",
+      "DisplayName": "Work Order Service",
+      "SchemaName": "msdyn_workorderservice",
+      "Description": "Record all services proposed and performed for work order",
+      "PrimaryIdAttribute": "msdyn_workorderserviceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "847991c8-e982-45f0-84fe-1b18c2c7ffae"
+    },
+    {
+      "LogicalName": "msdyn_workorderproduct",
+      "DisplayName": "Work Order Product",
+      "SchemaName": "msdyn_workorderproduct",
+      "Description": "In this entity you record all the products proposed and used for a work order",
+      "PrimaryIdAttribute": "msdyn_workorderproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "497ecedc-5825-4786-b47c-da2766d0338f"
+    },
+    {
+      "LogicalName": "msdyn_incidenttypeservice",
+      "DisplayName": "Incident Type Service",
+      "SchemaName": "msdyn_incidenttypeservice",
+      "Description": "This entity gives the ability to pre-configure services to be added to a work order when the related incident is added to the work order",
+      "PrimaryIdAttribute": "msdyn_incidenttypeserviceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "b367fd64-fbba-43ef-828e-c5b39288c6d2"
+    },
+    {
+      "LogicalName": "msdynmkt_infobipchannelinstanceaccount",
+      "DisplayName": "Infobip channel instance account",
+      "SchemaName": "msdynmkt_infobipchannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_infobipchannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "b5bcd9ca-9d55-406b-9a97-b4970a61469f"
+    },
+    {
+      "LogicalName": "msdyn_workorder",
+      "DisplayName": "Work Order",
+      "SchemaName": "msdyn_workorder",
+      "Description": "Work orders store all information about the job performed for an account. Stores incident details, resource, expenses, tasks, communications, billing and more",
+      "PrimaryIdAttribute": "msdyn_workorderid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "d77af7e3-d0e4-4653-9983-91de09cd8b53"
+    },
+    {
+      "LogicalName": "msdyn_purchaseorder",
+      "DisplayName": "Purchase Order",
+      "SchemaName": "msdyn_purchaseorder",
+      "Description": "Record Purchase Orders pertaining to Work Orders or otherwise",
+      "PrimaryIdAttribute": "msdyn_purchaseorderid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "7cdf8748-2b55-4d10-808c-82e4b002be49"
+    },
+    {
+      "LogicalName": "msdyn_bookingjournal",
+      "DisplayName": "Booking Journal",
+      "SchemaName": "msdyn_bookingjournal",
+      "Description": "System generated journal to calculate the cost of the resource bookings",
+      "PrimaryIdAttribute": "msdyn_bookingjournalid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "6d937787-c6cc-452d-84d4-9936d93c3c6c"
+    },
+    {
+      "LogicalName": "msdyn_agreementbookingservice",
+      "DisplayName": "Agreement Booking Service",
+      "SchemaName": "msdyn_agreementbookingservice",
+      "Description": "Specify the booking service for the agreement.",
+      "PrimaryIdAttribute": "msdyn_agreementbookingserviceid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "dbbd6623-a0ce-492f-8359-012c619a1f18"
+    },
+    {
+      "LogicalName": "msdyn_orderinvoicingproduct",
+      "DisplayName": "Order Invoicing Product",
+      "SchemaName": "msdyn_orderinvoicingproduct",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_orderinvoicingproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "cd0a742a-922c-4c45-8091-a17318986f82"
+    },
+    {
+      "LogicalName": "msdyn_agreementinvoiceproduct",
+      "DisplayName": "Agreement Invoice Product",
+      "SchemaName": "msdyn_agreementinvoiceproduct",
+      "Description": "Specify the booking product invoice for the agreement.",
+      "PrimaryIdAttribute": "msdyn_agreementinvoiceproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "c9a8d8c2-eeb3-4a6e-b751-83a4e4ac1d22"
+    },
+    {
+      "LogicalName": "msdyn_integratedsearchprovider",
+      "DisplayName": "Integrated search provider",
+      "SchemaName": "msdyn_integratedsearchprovider",
+      "Description": "Ingest and search files, documents, or articles from data sources outside of your current Dynamics 365 organization with a unified ranking.",
+      "PrimaryIdAttribute": "msdyn_integratedsearchproviderid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "d7d8cccd-c0f6-43f8-80d4-930922c1e390"
+    },
+    {
+      "LogicalName": "bookableresource",
+      "DisplayName": "Bookable Resource",
+      "SchemaName": "BookableResource",
+      "Description": "Resource that has capacity which can be allocated to work.",
+      "PrimaryIdAttribute": "bookableresourceid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "e9669024-7945-4a2e-a81d-3cc7bef71d7e"
+    },
+    {
+      "LogicalName": "msdynmkt_twiliochannelinstanceaccount",
+      "DisplayName": "Twilio channel instance account",
+      "SchemaName": "msdynmkt_twiliochannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_twiliochannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "96e6c80b-cf3e-47c0-96de-d277b2775a94"
+    },
+    {
+      "LogicalName": "msdyn_authenticationsettings",
+      "DisplayName": "Authentication Settings",
+      "SchemaName": "msdyn_authenticationsettings",
+      "Description": "Stores the settings for user authentication",
+      "PrimaryIdAttribute": "msdyn_authenticationsettingsid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "91203f43-f693-41a6-929b-964c34230510"
+    },
+    {
+      "LogicalName": "msdyn_rma",
+      "DisplayName": "RMA",
+      "SchemaName": "msdyn_rma",
+      "Description": "Records RMAs for products to be retuned from customers",
+      "PrimaryIdAttribute": "msdyn_rmaid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "99651599-0a08-4fc1-a4d5-291c74119893"
+    },
+    {
+      "LogicalName": "bookableresourcebooking",
+      "DisplayName": "Bookable Resource Booking",
+      "SchemaName": "BookableResourceBooking",
+      "Description": "Represents the line details of a resource booking.",
+      "PrimaryIdAttribute": "bookableresourcebookingid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "ea019b20-031d-4f47-b409-8702b30cc43c"
+    },
+    {
+      "LogicalName": "msdyn_agreement",
+      "DisplayName": "Agreement",
+      "SchemaName": "msdyn_agreement",
+      "Description": "Provides ability to store details about service agreements you have with your customers",
+      "PrimaryIdAttribute": "msdyn_agreementid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "0b5c2427-9aa8-4fd2-8a4f-705487cac7b2"
+    },
+    {
+      "LogicalName": "msdyn_purchaseorderproduct",
+      "DisplayName": "Purchase Order Product",
+      "SchemaName": "msdyn_purchaseorderproduct",
+      "Description": "Record products to be ordered on purchase order",
+      "PrimaryIdAttribute": "msdyn_purchaseorderproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "d938fac7-7b91-4523-bc53-8277182cbae4"
+    },
+    {
+      "LogicalName": "msdynmkt_byoacschannelinstanceaccount",
+      "DisplayName": "ACS channel instance account",
+      "SchemaName": "msdynmkt_byoacschannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_byoacschannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "3e044584-1b60-443c-aa7d-c5d3db644ad2"
+    },
+    {
+      "LogicalName": "msdynmkt_telesignchannelinstanceaccount",
+      "DisplayName": "TeleSign channel instance account",
+      "SchemaName": "msdynmkt_telesignchannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_telesignchannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "7a293321-21cb-4d4b-8703-f12e26701861"
+    },
+    {
+      "LogicalName": "msdynmkt_mocksmsproviderchannelinstanceaccount",
+      "DisplayName": "MockSmsProvider channel instance account",
+      "SchemaName": "msdynmkt_mocksmsproviderchannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_mocksmsproviderchannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "36b5e4be-738a-4689-9c17-e5b668520e0f"
+    },
+    {
+      "LogicalName": "msdyn_quoteinvoicingproduct",
+      "DisplayName": "Quote Invoicing Product",
+      "SchemaName": "msdyn_quoteinvoicingproduct",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_quoteinvoicingproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "ecba6c04-b5a3-4958-a630-b307a17ecfb4"
+    },
+    {
+      "LogicalName": "msdyn_vivaorgextensioncred",
+      "DisplayName": "msdyn_vivaorgextensioncred",
+      "SchemaName": "msdyn_vivaorgextensioncred",
+      "Description": "Org level extension credential for Viva apps",
+      "PrimaryIdAttribute": "msdyn_vivaorgextensioncredid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "7cf14f97-d033-49c7-a0f2-48b5636a8a06"
+    },
+    {
+      "LogicalName": "msdyn_agreementbookingproduct",
+      "DisplayName": "Agreement Booking Product",
+      "SchemaName": "msdyn_agreementbookingproduct",
+      "Description": "Specify the booking product for the agreement.",
+      "PrimaryIdAttribute": "msdyn_agreementbookingproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "e423a5aa-4c4d-4b53-ba46-0af77c2d143b"
+    },
+    {
+      "LogicalName": "msdyn_timeoffrequest",
+      "DisplayName": "Time Off Request",
+      "SchemaName": "msdyn_timeoffrequest",
+      "Description": "Specify time resource time off request.",
+      "PrimaryIdAttribute": "msdyn_timeoffrequestid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "98bb83a9-705e-4d23-8d52-af127022606d"
+    },
+    {
+      "LogicalName": "msdyn_incidenttypeproduct",
+      "DisplayName": "Incident Type Product",
+      "SchemaName": "msdyn_incidenttypeproduct",
+      "Description": "This entity gives the ability to pre-configure products to be added to a work order when the related incident is added to the work order",
+      "PrimaryIdAttribute": "msdyn_incidenttypeproductid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "49134bd0-2912-46ac-b14b-51dd092d5754"
+    },
+    {
+      "LogicalName": "msdynmkt_linkmobilitychannelinstanceaccount",
+      "DisplayName": "Link mobility channel instance account",
+      "SchemaName": "msdynmkt_linkmobilitychannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_linkmobilitychannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "baa42746-7b2d-4fe1-9e55-bbb06f403129"
+    },
+    {
+      "LogicalName": "msdyn_ocbotchannelregistrationsecret",
+      "DisplayName": "Bot Channel Registration Secret",
+      "SchemaName": "msdyn_ocbotchannelregistrationsecret",
+      "Description": "",
+      "PrimaryIdAttribute": "msdyn_ocbotchannelregistrationsecretid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "70c1db77-5b67-45ed-a74d-c8801d8a663e"
+    },
+    {
+      "LogicalName": "msdyn_oc_geolocationprovider",
+      "DisplayName": "Geo Location Provider",
+      "SchemaName": "msdyn_oc_geolocationprovider",
+      "Description": "Geo Location Providers",
+      "PrimaryIdAttribute": "msdyn_oc_geolocationproviderid",
+      "PrimaryNameAttribute": "msdyn_name",
+      "EntityId": "1ce9b46c-133c-4bf8-93e9-2a246d8b1b27"
+    },
+    {
+      "LogicalName": "msdynmkt_vibeschannelinstanceaccount",
+      "DisplayName": "Vibes channel instance account",
+      "SchemaName": "msdynmkt_vibeschannelinstanceaccount",
+      "Description": "",
+      "PrimaryIdAttribute": "msdynmkt_vibeschannelinstanceaccountid",
+      "PrimaryNameAttribute": "msdynmkt_name",
+      "EntityId": "79d57d4d-2033-4fda-a485-c865d84c0aee"
+    },
+    {
+      "LogicalName": "salesorder",
+      "DisplayName": "Order",
+      "SchemaName": "SalesOrder",
+      "Description": "Quote that has been accepted.",
+      "PrimaryIdAttribute": "salesorderid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "38ded7b5-9ec6-4e77-919a-c408023a4db4"
+    },
+    {
+      "LogicalName": "orderclose",
+      "DisplayName": "Order Close",
+      "SchemaName": "OrderClose",
+      "Description": "Activity generated automatically when an order is closed.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "89fefcf4-6eec-4bb4-bfb0-87dfb9bb9930"
+    },
+    {
+      "LogicalName": "salesorderdetail",
+      "DisplayName": "Order Line",
+      "SchemaName": "SalesOrderDetail",
+      "Description": "Line item in a sales order.",
+      "PrimaryIdAttribute": "salesorderdetailid",
+      "PrimaryNameAttribute": "salesorderdetailname",
+      "EntityId": "cfe9fca6-0f11-4466-a639-33ea27370100"
+    },
+    {
+      "LogicalName": "new_orderprogress",
+      "DisplayName": "Order Progress",
+      "SchemaName": "new_orderprogress",
+      "Description": "Base entity for process Order Progress",
+      "PrimaryIdAttribute": "businessprocessflowinstanceid",
+      "PrimaryNameAttribute": "bpf_name",
+      "EntityId": "61dc303a-4e6a-ed11-9561-000d3aaa01d4"
+    },
+    {
+      "LogicalName": "account",
+      "DisplayName": "Account",
+      "SchemaName": "Account",
+      "Description": "Business that represents a customer or potential customer. The company that is billed in business transactions.",
+      "PrimaryIdAttribute": "accountid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "70816501-edb9-4740-a16c-6a5efbc05d84"
+    },
+    {
+      "LogicalName": "cr694_dispatch",
+      "DisplayName": "Delivery",
+      "SchemaName": "cr694_Dispatch",
+      "Description": "",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "6bab0e12-a891-ed11-aad1-000d3aaa01d4"
+    },
+    {
+      "LogicalName": "new_supplier",
+      "DisplayName": "Supplier",
+      "SchemaName": "new_Supplier",
+      "Description": "",
+      "PrimaryIdAttribute": "new_supplierid",
+      "PrimaryNameAttribute": "new_name",
+      "EntityId": "a63263b8-3eb5-ed11-9886-000d3aabc486"
+    },
+    {
+      "LogicalName": "new_subcontractor",
+      "DisplayName": "Sub-Contractor",
+      "SchemaName": "new_SubContractor",
+      "Description": "",
+      "PrimaryIdAttribute": "new_subcontractorid",
+      "PrimaryNameAttribute": "new_displayname",
+      "EntityId": "37c6492e-0dd7-ed11-a7c7-000d3aabc486"
+    },
+    {
+      "LogicalName": "new_subcontractordeductions",
+      "DisplayName": "Sub-Contractor Deductions",
+      "SchemaName": "new_SubContractorDeductions",
+      "Description": "",
+      "PrimaryIdAttribute": "new_subcontractordeductionsid",
+      "PrimaryNameAttribute": "new_name",
+      "EntityId": "fed593e3-c8f5-ed11-8849-000d3aabcb69"
+    },
+    {
+      "LogicalName": "new_installation",
+      "DisplayName": "Installation",
+      "SchemaName": "new_Installation",
+      "Description": "",
+      "PrimaryIdAttribute": "new_installationid",
+      "PrimaryNameAttribute": "new_installationorderno",
+      "EntityId": "3550d831-72d2-ed11-a7c6-000d3aabcb69"
+    },
+    {
+      "LogicalName": "cr694_logistics",
+      "DisplayName": "Logistics",
+      "SchemaName": "cr694_Logistics",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_logisticsid",
+      "PrimaryNameAttribute": "cr694_deliveryno",
+      "EntityId": "fe52ba97-5494-ed11-aad1-000d3aabcb69"
+    },
+    {
+      "LogicalName": "new_trip",
+      "DisplayName": "Trip",
+      "SchemaName": "new_Trip",
+      "Description": "",
+      "PrimaryIdAttribute": "new_tripid",
+      "PrimaryNameAttribute": "new_name",
+      "EntityId": "da23fb4c-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_designer",
+      "DisplayName": "Designer",
+      "SchemaName": "cr694_Designer",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_designerid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "26bb4d91-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_vehicles",
+      "DisplayName": "Vehicles",
+      "SchemaName": "cr694_Vehicles",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_vehiclesid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "cbd8eeb5-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_salerepresentative",
+      "DisplayName": "Sale Representative",
+      "SchemaName": "cr694_SaleRepresentative",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_salerepresentativeid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "e1fb75cf-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_production",
+      "DisplayName": "Production",
+      "SchemaName": "cr694_Production",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_productionid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "4c0873d5-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_tender",
+      "DisplayName": "Tender",
+      "SchemaName": "cr694_Tender",
+      "Description": "Tenders",
+      "PrimaryIdAttribute": "cr694_tenderid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "bb0385e9-c8a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "new_procurement",
+      "DisplayName": "Procurement",
+      "SchemaName": "new_Procurement",
+      "Description": "",
+      "PrimaryIdAttribute": "new_procurementid",
+      "PrimaryNameAttribute": "new_name",
+      "EntityId": "00bea51a-c9a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "cr694_drivers",
+      "DisplayName": "Employee",
+      "SchemaName": "cr694_Drivers",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_driversid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "8008d657-c9a7-ec11-9840-002248852d61"
+    },
+    {
+      "LogicalName": "quote",
+      "DisplayName": "Quote",
+      "SchemaName": "Quote",
+      "Description": "Formal offer for products and/or services, proposed at specific prices and related payment terms, which is sent to a prospective customer.",
+      "PrimaryIdAttribute": "quoteid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "107a7272-ebb3-469a-be46-76036d858623"
+    },
+    {
+      "LogicalName": "quoteclose",
+      "DisplayName": "Quote Close",
+      "SchemaName": "QuoteClose",
+      "Description": "Activity generated when a quote is closed.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "f58ee955-da78-4e95-8608-01e0092fd684"
+    },
+    {
+      "LogicalName": "quotedetail",
+      "DisplayName": "Quote Line",
+      "SchemaName": "QuoteDetail",
+      "Description": "Product line item in a quote. The details include such information as product ID, description, quantity, and cost.",
+      "PrimaryIdAttribute": "quotedetailid",
+      "PrimaryNameAttribute": "quotedetailname",
+      "EntityId": "68b92c2b-4bfd-43f2-b183-0f0e8b49639c"
+    },
+    {
+      "LogicalName": "new_quotations",
+      "DisplayName": "Quote To Cash",
+      "SchemaName": "new_quotations",
+      "Description": "Base entity for process Quote To Cash",
+      "PrimaryIdAttribute": "businessprocessflowinstanceid",
+      "PrimaryNameAttribute": "bpf_name",
+      "EntityId": "c512f7b5-6c5f-ed11-9561-000d3aaae32f"
+    },
+    {
+      "LogicalName": "cr694_installationprogress",
+      "DisplayName": "Installation Progress",
+      "SchemaName": "cr694_InstallationProgress",
+      "Description": "",
+      "PrimaryIdAttribute": "cr694_installationprogressid",
+      "PrimaryNameAttribute": "cr694_name",
+      "EntityId": "2eb675b4-d7e6-ed11-a7c6-000d3aabc486"
+    },
+    {
+      "LogicalName": "actioncard",
+      "DisplayName": "Action Card",
+      "SchemaName": "ActionCard",
+      "Description": "Action card entity to show action cards.",
+      "PrimaryIdAttribute": "actioncardid",
+      "PrimaryNameAttribute": "title",
+      "EntityId": "03d2c2d7-f19e-4e42-a207-861d601763c1"
+    },
+    {
+      "LogicalName": "activitypointer",
+      "DisplayName": "Activity",
+      "SchemaName": "ActivityPointer",
+      "Description": "Task performed, or to be performed, by a user. An activity is any action for which an entry can be made on a calendar.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "c821cd41-f315-43d1-8fa6-82787b6f06e7"
+    },
+    {
+      "LogicalName": "activityfileattachment",
+      "DisplayName": "Activity File Attachment",
+      "SchemaName": "activityfileattachment",
+      "Description": "Attachment entity with data stored in file type attribute",
+      "PrimaryIdAttribute": "activityfileattachmentid",
+      "PrimaryNameAttribute": "filename",
+      "EntityId": "54bb1ceb-6ea4-471e-ac1c-51e08b68f59d"
+    },
+    {
+      "LogicalName": "customeraddress",
+      "DisplayName": "Address",
+      "SchemaName": "CustomerAddress",
+      "Description": "Address and shipping information. Used to store additional addresses for an account or contact.",
+      "PrimaryIdAttribute": "customeraddressid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "f51cf246-e2ba-4e33-a22f-87e6edccf3ab"
+    },
+    {
+      "LogicalName": "appointment",
+      "DisplayName": "Appointment",
+      "SchemaName": "Appointment",
+      "Description": "Commitment representing a time interval with start/end times and duration.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "95e930c5-812a-44e8-85c9-154cd5f59465"
+    },
+    {
+      "LogicalName": "email",
+      "DisplayName": "Email",
+      "SchemaName": "Email",
+      "Description": "Activity that is delivered using email protocols.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "95ae88b3-cc0c-45ac-a2db-655dceec238b"
+    },
+    {
+      "LogicalName": "letter",
+      "DisplayName": "Letter",
+      "SchemaName": "Letter",
+      "Description": "Activity that tracks the delivery of a letter. The activity can contain the electronic copy of the letter.",
+      "PrimaryIdAttribute": "activityid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "ebf2fb01-f630-4564-950e-79161bd655c9"
+    },
+    {
+      "LogicalName": "annotation",
+      "DisplayName": "Note",
+      "SchemaName": "Annotation",
+      "Description": "Note that is attached to one or more objects, including other notes.",
+      "PrimaryIdAttribute": "annotationid",
+      "PrimaryNameAttribute": "subject",
+      "EntityId": "c1961a14-d4e6-470c-8d1e-23ae6b1bbb8d"
+    },
+    {
+      "LogicalName": "cr694_pricingcalculation",
+      "DisplayName": "Pricing Calculation",
+      "SchemaName": "cr694_pricingcalculation",
+      "Description": "This table contains pricing information for tender calculations",
+      "PrimaryIdAttribute": "cr694_pricingcalculationid",
+      "PrimaryNameAttribute": "cr694_productname",
+      "EntityId": "002aeb18-0ed7-ed11-a7c7-000d3aabc486"
+    },
+    {
+      "LogicalName": "newprocess",
+      "DisplayName": "New Process",
+      "SchemaName": "NewProcess",
+      "Description": "New Process Business Process Flow",
+      "PrimaryIdAttribute": "businessprocessflowinstanceid",
+      "PrimaryNameAttribute": "name",
+      "EntityId": "140046ca-15ab-4f24-a937-3e8204bd4185"
+    },
+    {
+      "LogicalName": "contact",
+      "DisplayName": "Contact",
+      "SchemaName": "Contact",
+      "Description": "Person with whom a business unit has a relationship, such as customer, supplier, and colleague.",
+      "PrimaryIdAttribute": "contactid",
+      "PrimaryNameAttribute": "fullname",
+      "EntityId": "608861bc-50a4-4c5f-a02c-21fe1943e2cf"
+    }
+  ]
+}
