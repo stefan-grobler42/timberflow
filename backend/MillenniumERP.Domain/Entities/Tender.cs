@@ -25,7 +25,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Description</summary>
         [MaxLength(100)]
         [Column("cr694_description")]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>Distance to site</summary>
         [Column("cr694_distancetosite")]
@@ -34,7 +34,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>File Link</summary>
         [MaxLength(500)]
         [Column("cr694_filelink")]
-        public string Filelink { get; set; }
+        public string? Filelink { get; set; }
 
         /// <summary>Name</summary>
         [Required]
@@ -57,7 +57,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Street Address</summary>
         [MaxLength(100)]
         [Column("cr694_streetaddress")]
-        public string Streetaddress { get; set; }
+        public string? Streetaddress { get; set; }
 
         /// <summary>Tender</summary>
         [Key]
@@ -86,7 +86,7 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Notes</summary>
         [Column("new_notes")]
-        public string NewNotes { get; set; }
+        public string? NewNotes { get; set; }
 
         /// <summary>Pricing Submitted</summary>
         [Column("new_pricingsubmitted")]
