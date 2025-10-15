@@ -28,10 +28,9 @@ namespace MillenniumERP.Domain.Entities
         public string? Employeeno { get; set; }
 
         /// <summary>Display Name</summary>
-        [Required]
         [MaxLength(100)]
         [Column("cr694_name")]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>Display Name (Calculated)</summary>
         [MaxLength(100)]

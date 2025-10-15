@@ -10,22 +10,22 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Cell Number</summary>
         [MaxLength(100)]
         [Column("cr694_cellnumber")]
-        public string Cellnumber { get; set; }
+        public string? Cellnumber { get; set; }
 
         /// <summary>E-Mail Address</summary>
         [MaxLength(100)]
         [Column("cr694_emailaddress")]
-        public string Emailaddress { get; set; }
+        public string? Emailaddress { get; set; }
 
         /// <summary>Employee No.</summary>
         [MaxLength(100)]
         [Column("cr694_employeeno")]
-        public string Employeeno { get; set; }
+        public string? Employeeno { get; set; }
 
         /// <summary>Display Name</summary>
         [MaxLength(100)]
         [Column("cr694_name")]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>Sale Representative</summary>
         [Key]
