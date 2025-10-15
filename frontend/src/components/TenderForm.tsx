@@ -22,6 +22,7 @@ import { CustomerFormFullScreen } from './CustomerFormFullScreen';
 import { D365ContactForm } from './D365ContactForm';
 import { DesignerForm } from './DesignerForm';
 import { D365QuoteForm } from './D365QuoteForm';
+import { PeekView } from './PeekView';
 
 interface TenderFormProps {
   tender?: Tender;
@@ -582,6 +583,20 @@ export const TenderForm = ({
                   onAdvancedSearch={() => setShowCustomerSearch(true)}
                   onCreateNew={() => setShowCustomerForm(true)}
                   entityName="Customer"
+                  showPeekView={true}
+                  peekViewContent={
+                    formData.customer ? (
+                      <PeekView
+                        title={customers.find(c => c.id === formData.customer)?.name || 'Customer'}
+                        fields={[
+                          { label: 'Phone', value: customers.find(c => c.id === formData.customer)?.telephone1 },
+                          { label: 'Email', value: customers.find(c => c.id === formData.customer)?.emailAddress1 },
+                          { label: 'City', value: customers.find(c => c.id === formData.customer)?.address1City },
+                          { label: 'Account Number', value: customers.find(c => c.id === formData.customer)?.accountNumber },
+                        ]}
+                      />
+                    ) : undefined
+                  }
                 />
 
                 <LookupField
@@ -596,6 +611,20 @@ export const TenderForm = ({
                   onAdvancedSearch={() => setShowContactSearch(true)}
                   onCreateNew={() => setShowContactForm(true)}
                   entityName="Contact"
+                  showPeekView={true}
+                  peekViewContent={
+                    formData.contact ? (
+                      <PeekView
+                        title={contacts.find(c => c.id === formData.contact)?.fullName || 'Contact'}
+                        fields={[
+                          { label: 'Job Title', value: contacts.find(c => c.id === formData.contact)?.jobTitle },
+                          { label: 'Email', value: contacts.find(c => c.id === formData.contact)?.emailAddress1 },
+                          { label: 'Phone', value: contacts.find(c => c.id === formData.contact)?.telephone1 },
+                          { label: 'Mobile', value: contacts.find(c => c.id === formData.contact)?.mobilePhone },
+                        ]}
+                      />
+                    ) : undefined
+                  }
                 />
 
                 <LookupField
@@ -610,6 +639,20 @@ export const TenderForm = ({
                   onAdvancedSearch={() => setShowQuoteSearch(true)}
                   onCreateNew={() => setShowQuoteForm(true)}
                   entityName="Quote"
+                  showPeekView={true}
+                  peekViewContent={
+                    formData.quoteNo ? (
+                      <PeekView
+                        title={quotes.find(q => q.id === formData.quoteNo)?.name || 'Quote'}
+                        fields={[
+                          { label: 'Quote Number', value: quotes.find(q => q.id === formData.quoteNo)?.quoteNumber },
+                          { label: 'Total Amount', value: quotes.find(q => q.id === formData.quoteNo)?.totalAmount },
+                          { label: 'Status', value: quotes.find(q => q.id === formData.quoteNo)?.statusCode?.toString() },
+                          { label: 'Description', value: quotes.find(q => q.id === formData.quoteNo)?.description },
+                        ]}
+                      />
+                    ) : undefined
+                  }
                 />
               </Stack>
             )}
@@ -762,6 +805,19 @@ export const TenderForm = ({
                   onAdvancedSearch={() => setShowDesignerSearch(true)}
                   onCreateNew={() => setShowDesignerForm(true)}
                   entityName="Designer"
+                  showPeekView={true}
+                  peekViewContent={
+                    formData.newDesigner ? (
+                      <PeekView
+                        title={designers.find(d => d.id === formData.newDesigner)?.name || 'Designer'}
+                        fields={[
+                          { label: 'Employee No', value: designers.find(d => d.id === formData.newDesigner)?.employeeNo },
+                          { label: 'Email', value: designers.find(d => d.id === formData.newDesigner)?.emailAddress },
+                          { label: 'Cell Number', value: designers.find(d => d.id === formData.newDesigner)?.cellNumber },
+                        ]}
+                      />
+                    ) : undefined
+                  }
                 />
 
                 <Dropdown
