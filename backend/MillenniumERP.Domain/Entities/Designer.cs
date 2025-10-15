@@ -10,7 +10,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Cell Number</summary>
         [MaxLength(100)]
         [Column("cr694_cellnumber")]
-        public string Cellnumber { get; set; }
+        public string? Cellnumber { get; set; }
 
         /// <summary>Designer</summary>
         [Key]
@@ -20,12 +20,12 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>E-Mail Address</summary>
         [MaxLength(100)]
         [Column("cr694_emailaddress")]
-        public string Emailaddress { get; set; }
+        public string? Emailaddress { get; set; }
 
         /// <summary>Employee No.</summary>
         [MaxLength(100)]
         [Column("cr694_employeeno")]
-        public string Employeeno { get; set; }
+        public string? Employeeno { get; set; }
 
         /// <summary>Display Name</summary>
         [Required]
@@ -34,9 +34,9 @@ namespace MillenniumERP.Domain.Entities
         public string Name { get; set; }
 
         /// <summary>Display Name (Calculated)</summary>
-        [MaxLength(4000)]
+        [MaxLength(100)]
         [Column("new_displaynamecalculated")]
-        public string NewDisplaynamecalculated { get; set; }
+        public string? NewDisplaynamecalculated { get; set; }
 
         /// <summary>Employee File</summary>
         [Column("new_employeefile")]
