@@ -9,10 +9,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { vehicleService } from '../services';
-import type { Vehicle } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { vehicleService, employeeService } from '../services';
+import type { Vehicle, Employee } from '../types/millennium';
 
 interface VehiclesFormProps {
   vehicle?: Vehicle;
@@ -40,6 +41,25 @@ export const VehiclesForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await employeeService.getAll();
+      setEmployees(data);
+    } catch (err) {
+      console.error('Failed to load employees:', err);
+    }
+  };
+
+  const employeeOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...employees.map((e) => ({ key: e.id, text: e.name })),
+  ];
 
   useEffect(() => {
     if (vehicle) {
@@ -236,11 +256,12 @@ export const VehiclesForm = ({
                   }
                 />
 
-                <TextField
+                <Dropdown
                   label="Approved Driver"
-                  value={formData.approvedDriver}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, approvedDriver: value || '' })
+                  options={employeeOptions}
+                  selectedKey={formData.approvedDriver || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, approvedDriver: option?.key as string || '' })
                   }
                 />
               </Stack>

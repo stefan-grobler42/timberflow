@@ -84,6 +84,8 @@ export interface Tender {
   description?: string;
   fileLink?: string;
   streetAddress?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   closingDate?: string;
   distanceToSite?: number;
   contact?: string;
@@ -246,6 +248,8 @@ export interface Account {
   address1StateOrProvince?: string;
   address1PostalCode?: string;
   address1Country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   revenue?: number;
   numberOfEmployees?: number;
   industryCode?: number;
@@ -271,6 +275,8 @@ export interface D365Contact {
   address1StateOrProvince?: string;
   address1PostalCode?: string;
   address1Country?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   createdOn?: string;
   modifiedOn?: string;
   createdBy?: string;

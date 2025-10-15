@@ -8,10 +8,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { d365QuoteService } from '../services/d365Services';
-import type { D365Quote } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { d365QuoteService, accountService } from '../services/d365Services';
+import type { D365Quote, Account } from '../types/millennium';
 
 interface D365QuoteFormProps {
   quote?: D365Quote;
@@ -43,6 +44,25 @@ export const D365QuoteForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  const loadAccounts = async () => {
+    try {
+      const data = await accountService.getAll();
+      setAccounts(data);
+    } catch (err) {
+      console.error('Failed to load accounts:', err);
+    }
+  };
+
+  const accountOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...accounts.map((a) => ({ key: a.id, text: a.name })),
+  ];
 
   useEffect(() => {
     if (quote) {
@@ -312,10 +332,13 @@ export const D365QuoteForm = ({
                 tokens={{ childrenGap: 16 }}
                 styles={{ root: { marginTop: 16, maxWidth: 600 } }}
               >
-                <TextField
-                  label="Customer ID"
-                  value={formData.customerId}
-                  onChange={(_, value) => setFormData({ ...formData, customerId: value || '' })}
+                <Dropdown
+                  label="Customer"
+                  options={accountOptions}
+                  selectedKey={formData.customerId || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, customerId: option?.key as string || '' })
+                  }
                 />
 
                 <TextField

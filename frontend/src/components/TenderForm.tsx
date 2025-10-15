@@ -12,8 +12,9 @@ import {
   Dropdown,
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
-import { tenderService } from '../services';
-import type { Tender } from '../types/millennium';
+import { tenderService, customerService, designerService } from '../services';
+import { d365ContactService, d365QuoteService } from '../services/d365Services';
+import type { Tender, Customer, Designer, D365Contact, D365Quote } from '../types/millennium';
 
 interface TenderFormProps {
   tender?: Tender;
@@ -34,6 +35,8 @@ export const TenderForm = ({
     description: '',
     fileLink: '',
     streetAddress: '',
+    latitude: null,
+    longitude: null,
     closingDate: '',
     distanceToSite: 0,
     contact: '',
@@ -54,6 +57,19 @@ export const TenderForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [contacts, setContacts] = useState<D365Contact[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [designers, setDesigners] = useState<Designer[]>([]);
+  const [quotes, setQuotes] = useState<D365Quote[]>([]);
+  const [mapInitialized, setMapInitialized] = useState(false);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    loadLookupData();
+    initializeGoogleMaps();
+  }, []);
 
   useEffect(() => {
     if (tender) {
@@ -62,6 +78,8 @@ export const TenderForm = ({
         description: tender.description || '',
         fileLink: tender.fileLink || '',
         streetAddress: tender.streetAddress || '',
+        latitude: tender.latitude,
+        longitude: tender.longitude,
         closingDate: tender.closingDate || '',
         distanceToSite: tender.distanceToSite || 0,
         contact: tender.contact || '',
@@ -80,9 +98,144 @@ export const TenderForm = ({
         newTenderStatus: tender.newTenderStatus || 0,
         transactionCurrencyId: tender.transactionCurrencyId || '',
       });
+
+      if (tender.latitude && tender.longitude && map) {
+        const position = { lat: tender.latitude, lng: tender.longitude };
+        map.setCenter(position);
+        if (marker) {
+          marker.setPosition(position);
+        }
+      }
     }
     setError(null);
-  }, [tender]);
+  }, [tender, map, marker]);
+
+  const loadLookupData = async () => {
+    try {
+      const [contactsData, customersData, designersData, quotesData] = await Promise.all([
+        d365ContactService.getAll(),
+        customerService.getAll(),
+        designerService.getAll(),
+        d365QuoteService.getAll(),
+      ]);
+      setContacts(contactsData);
+      setCustomers(customersData);
+      setDesigners(designersData);
+      setQuotes(quotesData);
+    } catch (err) {
+      console.error('Failed to load lookup data:', err);
+    }
+  };
+
+  const initializeGoogleMaps = () => {
+    if (typeof google === 'undefined' || !google.maps) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+      }&libraries=places`;
+      script.async = true;
+      script.onload = () => setupMap();
+      document.head.appendChild(script);
+    } else {
+      setupMap();
+    }
+  };
+
+  const setupMap = () => {
+    const mapElement = document.getElementById('tender-map');
+    if (!mapElement) {
+      setTimeout(setupMap, 100);
+      return;
+    }
+
+    const defaultCenter = { lat: -26.2041, lng: 28.0473 };
+    const mapInstance = new google.maps.Map(mapElement, {
+      center: defaultCenter,
+      zoom: 12,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
+    });
+
+    const markerInstance = new google.maps.Marker({
+      map: mapInstance,
+      draggable: true,
+      position: defaultCenter,
+    });
+
+    markerInstance.addListener('dragend', () => {
+      const position = markerInstance.getPosition();
+      if (position) {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: position.lat(),
+          longitude: position.lng(),
+        }));
+      }
+    });
+
+    const input = document.getElementById('tender-address-autocomplete') as HTMLInputElement;
+    if (input) {
+      const autocompleteInstance = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: 'za' },
+        fields: ['address_components', 'geometry', 'formatted_address'],
+      });
+
+      autocompleteInstance.addListener('place_changed', () => {
+        const place = autocompleteInstance.getPlace();
+        if (place.geometry?.location) {
+          const position = place.geometry.location;
+          mapInstance.setCenter(position);
+          mapInstance.setZoom(15);
+          markerInstance.setPosition(position);
+
+          setFormData((prev) => ({
+            ...prev,
+            streetAddress: place.formatted_address || '',
+            latitude: position.lat(),
+            longitude: position.lng(),
+          }));
+
+          input.value = '';
+        }
+      });
+
+      setAutocomplete(autocompleteInstance);
+    }
+
+    setMap(mapInstance);
+    setMarker(markerInstance);
+    setMapInitialized(true);
+  };
+
+  const handleUseMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
+          if (map) {
+            map.setCenter(pos);
+          }
+          if (marker) {
+            marker.setPosition(pos);
+          }
+
+          setFormData((prev) => ({
+            ...prev,
+            latitude: pos.lat,
+            longitude: pos.lng,
+          }));
+        },
+        () => {
+          setError('Failed to get your location');
+        }
+      );
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -118,6 +271,8 @@ export const TenderForm = ({
         description: '',
         fileLink: '',
         streetAddress: '',
+        latitude: null,
+        longitude: null,
         closingDate: '',
         distanceToSite: 0,
         contact: '',
@@ -149,6 +304,26 @@ export const TenderForm = ({
     { key: 2, text: 'Won' },
     { key: 3, text: 'Lost' },
     { key: 4, text: 'Cancelled' },
+  ];
+
+  const contactOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...contacts.map((c) => ({ key: c.id, text: c.fullName || `${c.firstName} ${c.lastName}` })),
+  ];
+
+  const customerOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...customers.map((c) => ({ key: c.id, text: c.accountName })),
+  ];
+
+  const designerOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...designers.map((d) => ({ key: d.id, text: d.name })),
+  ];
+
+  const quoteOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...quotes.map((q) => ({ key: q.id, text: q.name || q.quoteNumber || `Quote ${q.id}` })),
   ];
 
   const commandBarItems: ICommandBarItemProps[] = [
@@ -323,28 +498,61 @@ export const TenderForm = ({
                   onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
                 />
 
-                <TextField
+                <Dropdown
                   label="Customer"
-                  value={formData.customer}
-                  onChange={(_, value) => setFormData({ ...formData, customer: value || '' })}
+                  options={customerOptions}
+                  selectedKey={formData.customer || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, customer: option?.key as string || '' })
+                  }
                 />
 
-                <TextField
+                <Dropdown
                   label="Contact"
-                  value={formData.contact}
-                  onChange={(_, value) => setFormData({ ...formData, contact: value || '' })}
+                  options={contactOptions}
+                  selectedKey={formData.contact || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, contact: option?.key as string || '' })
+                  }
                 />
 
-                <TextField
+                <Dropdown
                   label="Quote No"
-                  value={formData.quoteNo}
-                  onChange={(_, value) => setFormData({ ...formData, quoteNo: value || '' })}
+                  options={quoteOptions}
+                  selectedKey={formData.quoteNo || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, quoteNo: option?.key as string || '' })
+                  }
                 />
               </Stack>
             )}
 
             {activeTab === 'location' && (
-              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
+              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16 } }}>
+                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
+                  <TextField
+                    id="tender-address-autocomplete"
+                    label="Search Address"
+                    placeholder="Start typing an address..."
+                    styles={{ root: { flex: 1 } }}
+                  />
+                  <DefaultButton
+                    text="Use My Location"
+                    iconProps={{ iconName: 'MyLocation' }}
+                    onClick={handleUseMyLocation}
+                  />
+                </Stack>
+
+                <div
+                  id="tender-map"
+                  style={{
+                    height: '400px',
+                    width: '100%',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                  }}
+                />
+
                 <TextField
                   label="Street Address"
                   multiline
@@ -369,6 +577,12 @@ export const TenderForm = ({
                   value={formData.fileLink}
                   onChange={(_, value) => setFormData({ ...formData, fileLink: value || '' })}
                 />
+
+                {formData.latitude && formData.longitude && (
+                  <Text variant="small">
+                    Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </Text>
+                )}
               </Stack>
             )}
 
@@ -449,10 +663,13 @@ export const TenderForm = ({
                   }
                 />
 
-                <TextField
+                <Dropdown
                   label="Designer"
-                  value={formData.newDesigner}
-                  onChange={(_, value) => setFormData({ ...formData, newDesigner: value || '' })}
+                  options={designerOptions}
+                  selectedKey={formData.newDesigner || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, newDesigner: option?.key as string || '' })
+                  }
                 />
 
                 <Dropdown

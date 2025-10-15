@@ -9,10 +9,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { deliveryService } from '../services';
-import type { Delivery } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { deliveryService, employeeService } from '../services';
+import type { Delivery, Employee } from '../types/millennium';
 
 interface DeliveryFormProps {
   delivery?: Delivery;
@@ -54,6 +55,25 @@ export const DeliveryForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await employeeService.getAll();
+      setEmployees(data);
+    } catch (err) {
+      console.error('Failed to load employees:', err);
+    }
+  };
+
+  const employeeOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...employees.map((e) => ({ key: e.id, text: e.name })),
+  ];
 
   useEffect(() => {
     if (delivery) {
@@ -313,10 +333,13 @@ export const DeliveryForm = ({
                     }
                   />
 
-                  <TextField
+                  <Dropdown
                     label="Driver"
-                    value={formData.driver}
-                    onChange={(_, value) => setFormData({ ...formData, driver: value || '' })}
+                    options={employeeOptions}
+                    selectedKey={formData.driver || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, driver: option?.key as string || '' })
+                    }
                   />
 
                   <TextField

@@ -9,10 +9,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { logisticsService } from '../services';
-import type { Logistics } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { logisticsService, employeeService, vehicleService } from '../services';
+import type { Logistics, Employee, Vehicle } from '../types/millennium';
 
 interface LogisticsFormProps {
   logistics?: Logistics;
@@ -53,6 +54,41 @@ export const LogisticsForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+  useEffect(() => {
+    loadEmployees();
+    loadVehicles();
+  }, []);
+
+  const loadEmployees = async () => {
+    try {
+      const data = await employeeService.getAll();
+      setEmployees(data);
+    } catch (err) {
+      console.error('Failed to load employees:', err);
+    }
+  };
+
+  const loadVehicles = async () => {
+    try {
+      const data = await vehicleService.getAll();
+      setVehicles(data);
+    } catch (err) {
+      console.error('Failed to load vehicles:', err);
+    }
+  };
+
+  const employeeOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...employees.map((e) => ({ key: e.id, text: e.name })),
+  ];
+
+  const vehicleOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...vehicles.map((v) => ({ key: v.id, text: v.name || v.registrationNumber })),
+  ];
 
   useEffect(() => {
     if (logistics) {
@@ -326,10 +362,13 @@ export const LogisticsForm = ({
                     }
                   />
 
-                  <TextField
+                  <Dropdown
                     label="Driver"
-                    value={formData.driver}
-                    onChange={(_, value) => setFormData({ ...formData, driver: value || '' })}
+                    options={employeeOptions}
+                    selectedKey={formData.driver || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, driver: option?.key as string || '' })
+                    }
                   />
 
                   <TextField
@@ -381,16 +420,22 @@ export const LogisticsForm = ({
 
             {activeTab === 'vehicle' && (
               <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16, maxWidth: 600 } }}>
-                <TextField
+                <Dropdown
                   label="Vehicle"
-                  value={formData.vehicle}
-                  onChange={(_, value) => setFormData({ ...formData, vehicle: value || '' })}
+                  options={vehicleOptions}
+                  selectedKey={formData.vehicle || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, vehicle: option?.key as string || '' })
+                  }
                 />
 
-                <TextField
+                <Dropdown
                   label="Trailer"
-                  value={formData.trailer}
-                  onChange={(_, value) => setFormData({ ...formData, trailer: value || '' })}
+                  options={vehicleOptions}
+                  selectedKey={formData.trailer || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, trailer: option?.key as string || '' })
+                  }
                 />
               </Stack>
             )}

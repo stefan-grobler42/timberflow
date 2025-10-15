@@ -7,10 +7,12 @@ import {
   MessageBarType,
   DefaultButton,
   CommandBar,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { quoteMRoofingService } from '../services';
-import type { QuoteMRoofing } from '../types/millennium';
+import { accountService } from '../services/d365Services';
+import type { QuoteMRoofing, Account } from '../types/millennium';
 
 interface QuoteMRoofingFormProps {
   quoteMRoofing?: QuoteMRoofing;
@@ -32,6 +34,25 @@ export const QuoteMRoofingForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  const loadAccounts = async () => {
+    try {
+      const data = await accountService.getAll();
+      setAccounts(data);
+    } catch (err) {
+      console.error('Failed to load accounts:', err);
+    }
+  };
+
+  const accountOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...accounts.map((a) => ({ key: a.id, text: a.name })),
+  ];
 
   useEffect(() => {
     if (quoteMRoofing) {
@@ -167,10 +188,13 @@ export const QuoteMRoofingForm = ({
                   onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
                 />
 
-                <TextField
+                <Dropdown
                   label="Account"
-                  value={formData.account}
-                  onChange={(_, value) => setFormData({ ...formData, account: value || '' })}
+                  options={accountOptions}
+                  selectedKey={formData.account || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, account: option?.key as string || '' })
+                  }
                 />
               </Stack>
             )}

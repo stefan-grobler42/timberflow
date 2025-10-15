@@ -9,10 +9,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { productionService } from '../services';
-import type { Production } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { productionService, customerService } from '../services';
+import type { Production, Customer } from '../types/millennium';
 
 interface ProductionFormProps {
   production?: Production;
@@ -61,6 +62,25 @@ export const ProductionForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  const loadCustomers = async () => {
+    try {
+      const data = await customerService.getAll();
+      setCustomers(data);
+    } catch (err) {
+      console.error('Failed to load customers:', err);
+    }
+  };
+
+  const customerOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...customers.map((c) => ({ key: c.id, text: c.accountName })),
+  ];
 
   useEffect(() => {
     if (production) {
@@ -330,10 +350,13 @@ export const ProductionForm = ({
                   onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
                 />
 
-                <TextField
+                <Dropdown
                   label="Customer"
-                  value={formData.customer}
-                  onChange={(_, value) => setFormData({ ...formData, customer: value || '' })}
+                  options={customerOptions}
+                  selectedKey={formData.customer || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, customer: option?.key as string || '' })
+                  }
                 />
 
                 <TextField

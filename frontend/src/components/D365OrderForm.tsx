@@ -8,10 +8,11 @@ import {
   DefaultButton,
   CommandBar,
   DatePicker,
+  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
-import { d365OrderService } from '../services/d365Services';
-import type { D365Order } from '../types/millennium';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import { d365OrderService, accountService, d365QuoteService } from '../services/d365Services';
+import type { D365Order, Account, D365Quote } from '../types/millennium';
 
 interface D365OrderFormProps {
   order?: D365Order;
@@ -44,6 +45,8 @@ export const D365OrderForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [quotes, setQuotes] = useState<D365Quote[]>([]);
 
   useEffect(() => {
     if (order) {
@@ -65,6 +68,33 @@ export const D365OrderForm = ({
     }
     setError(null);
   }, [order]);
+
+  useEffect(() => {
+    loadLookupData();
+  }, []);
+
+  const loadLookupData = async () => {
+    try {
+      const [accountsData, quotesData] = await Promise.all([
+        accountService.getAll(),
+        d365QuoteService.getAll(),
+      ]);
+      setAccounts(accountsData);
+      setQuotes(quotesData);
+    } catch (err) {
+      console.error('Failed to load lookup data:', err);
+    }
+  };
+
+  const accountOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...accounts.map((a) => ({ key: a.id, text: a.name })),
+  ];
+
+  const quoteOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...quotes.map((q) => ({ key: q.id, text: q.name || q.quoteNumber || `Quote ${q.id}` })),
+  ];
 
   const handleSubmit = async () => {
     try {
@@ -315,16 +345,22 @@ export const D365OrderForm = ({
                 tokens={{ childrenGap: 16 }}
                 styles={{ root: { marginTop: 16, maxWidth: 600 } }}
               >
-                <TextField
-                  label="Customer ID"
-                  value={formData.customerId}
-                  onChange={(_, value) => setFormData({ ...formData, customerId: value || '' })}
+                <Dropdown
+                  label="Customer"
+                  options={accountOptions}
+                  selectedKey={formData.customerId || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, customerId: option?.key as string || '' })
+                  }
                 />
 
-                <TextField
-                  label="Quote ID"
-                  value={formData.quoteId}
-                  onChange={(_, value) => setFormData({ ...formData, quoteId: value || '' })}
+                <Dropdown
+                  label="Quote"
+                  options={quoteOptions}
+                  selectedKey={formData.quoteId || ''}
+                  onChange={(_, option) =>
+                    setFormData({ ...formData, quoteId: option?.key as string || '' })
+                  }
                 />
 
                 <TextField

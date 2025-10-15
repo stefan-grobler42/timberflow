@@ -37,12 +37,22 @@ export const AccountForm = ({
     address1StateOrProvince: '',
     address1PostalCode: '',
     address1Country: '',
+    latitude: null,
+    longitude: null,
     revenue: 0,
     numberOfEmployees: 0,
     industryCode: 0,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [mapInitialized, setMapInitialized] = useState(false);
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+
+  useEffect(() => {
+    initializeGoogleMaps();
+  }, []);
 
   useEffect(() => {
     if (account) {
@@ -57,13 +67,149 @@ export const AccountForm = ({
         address1StateOrProvince: account.address1StateOrProvince || '',
         address1PostalCode: account.address1PostalCode || '',
         address1Country: account.address1Country || '',
+        latitude: account.latitude,
+        longitude: account.longitude,
         revenue: account.revenue || 0,
         numberOfEmployees: account.numberOfEmployees || 0,
         industryCode: account.industryCode || 0,
       });
+
+      if (account.latitude && account.longitude && map) {
+        const position = { lat: account.latitude, lng: account.longitude };
+        map.setCenter(position);
+        if (marker) {
+          marker.setPosition(position);
+        }
+      }
     }
     setError(null);
-  }, [account]);
+  }, [account, map, marker]);
+
+  const initializeGoogleMaps = () => {
+    if (typeof google === 'undefined' || !google.maps) {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+      }&libraries=places`;
+      script.async = true;
+      script.onload = () => setupMap();
+      document.head.appendChild(script);
+    } else {
+      setupMap();
+    }
+  };
+
+  const setupMap = () => {
+    const mapElement = document.getElementById('account-map');
+    if (!mapElement) {
+      setTimeout(setupMap, 100);
+      return;
+    }
+
+    const defaultCenter = { lat: -26.2041, lng: 28.0473 };
+    const mapInstance = new google.maps.Map(mapElement, {
+      center: defaultCenter,
+      zoom: 12,
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
+    });
+
+    const markerInstance = new google.maps.Marker({
+      map: mapInstance,
+      draggable: true,
+      position: defaultCenter,
+    });
+
+    markerInstance.addListener('dragend', () => {
+      const position = markerInstance.getPosition();
+      if (position) {
+        setFormData((prev) => ({
+          ...prev,
+          latitude: position.lat(),
+          longitude: position.lng(),
+        }));
+      }
+    });
+
+    const input = document.getElementById('account-address-autocomplete') as HTMLInputElement;
+    if (input) {
+      const autocompleteInstance = new google.maps.places.Autocomplete(input, {
+        componentRestrictions: { country: 'za' },
+        fields: ['address_components', 'geometry', 'formatted_address'],
+      });
+
+      autocompleteInstance.addListener('place_changed', () => {
+        const place = autocompleteInstance.getPlace();
+        if (place.geometry?.location) {
+          const position = place.geometry.location;
+          mapInstance.setCenter(position);
+          mapInstance.setZoom(15);
+          markerInstance.setPosition(position);
+
+          setFormData((prev) => ({
+            ...prev,
+            address1Line1: place.formatted_address || '',
+            latitude: position.lat(),
+            longitude: position.lng(),
+          }));
+
+          if (place.address_components) {
+            const components = place.address_components;
+            const city = components.find((c) => c.types.includes('locality'))?.long_name;
+            const province = components.find((c) =>
+              c.types.includes('administrative_area_level_1')
+            )?.long_name;
+            const postalCode = components.find((c) => c.types.includes('postal_code'))?.long_name;
+
+            setFormData((prev) => ({
+              ...prev,
+              address1City: city || prev.address1City || '',
+              address1StateOrProvince: province || prev.address1StateOrProvince || '',
+              address1PostalCode: postalCode || prev.address1PostalCode || '',
+            }));
+          }
+
+          input.value = '';
+        }
+      });
+
+      setAutocomplete(autocompleteInstance);
+    }
+
+    setMap(mapInstance);
+    setMarker(markerInstance);
+    setMapInitialized(true);
+  };
+
+  const handleUseMyLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
+          if (map) {
+            map.setCenter(pos);
+          }
+          if (marker) {
+            marker.setPosition(pos);
+          }
+
+          setFormData((prev) => ({
+            ...prev,
+            latitude: pos.lat,
+            longitude: pos.lng,
+          }));
+        },
+        () => {
+          setError('Failed to get your location');
+        }
+      );
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -105,6 +251,8 @@ export const AccountForm = ({
         address1StateOrProvince: '',
         address1PostalCode: '',
         address1Country: '',
+        latitude: null,
+        longitude: null,
         revenue: 0,
         numberOfEmployees: 0,
         industryCode: 0,
@@ -315,43 +463,70 @@ export const AccountForm = ({
             )}
 
             {activeTab === 'address' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <TextField
-                  label="Street Address"
-                  multiline
-                  rows={2}
-                  value={formData.address1Line1}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1Line1: value || '' })
-                  }
+              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16 } }}>
+                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
+                  <TextField
+                    id="account-address-autocomplete"
+                    label="Search Address"
+                    placeholder="Start typing an address..."
+                    styles={{ root: { flex: 1 } }}
+                  />
+                  <DefaultButton
+                    text="Use My Location"
+                    iconProps={{ iconName: 'MyLocation' }}
+                    onClick={handleUseMyLocation}
+                  />
+                </Stack>
+
+                <div
+                  id="account-map"
+                  style={{
+                    height: '400px',
+                    width: '100%',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px',
+                  }}
                 />
 
-                <TextField
-                  label="City"
-                  value={formData.address1City}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1City: value || '' })
-                  }
-                />
+                <Stack horizontal tokens={{ childrenGap: 16 }}>
+                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                    <TextField
+                      label="Street Address"
+                      multiline
+                      rows={2}
+                      value={formData.address1Line1}
+                      onChange={(_, value) =>
+                        setFormData({ ...formData, address1Line1: value || '' })
+                      }
+                    />
 
-                <TextField
-                  label="State/Province"
-                  value={formData.address1StateOrProvince}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1StateOrProvince: value || '' })
-                  }
-                />
+                    <TextField
+                      label="City"
+                      value={formData.address1City}
+                      onChange={(_, value) =>
+                        setFormData({ ...formData, address1City: value || '' })
+                      }
+                    />
+                  </Stack>
 
-                <TextField
-                  label="Postal Code"
-                  value={formData.address1PostalCode}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1PostalCode: value || '' })
-                  }
-                />
+                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                    <TextField
+                      label="State/Province"
+                      value={formData.address1StateOrProvince}
+                      onChange={(_, value) =>
+                        setFormData({ ...formData, address1StateOrProvince: value || '' })
+                      }
+                    />
+
+                    <TextField
+                      label="Postal Code"
+                      value={formData.address1PostalCode}
+                      onChange={(_, value) =>
+                        setFormData({ ...formData, address1PostalCode: value || '' })
+                      }
+                    />
+                  </Stack>
+                </Stack>
 
                 <TextField
                   label="Country"
@@ -360,6 +535,12 @@ export const AccountForm = ({
                     setFormData({ ...formData, address1Country: value || '' })
                   }
                 />
+
+                {formData.latitude && formData.longitude && (
+                  <Text variant="small">
+                    Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </Text>
+                )}
               </Stack>
             )}
           </Stack>
