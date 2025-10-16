@@ -16,15 +16,15 @@ export const Layout = ({ children }: LayoutProps) => {
       name: 'CRM',
       links: [
         {
-          key: 'customers',
-          name: 'Customers',
-          url: '/customers',
+          key: 'accounts',
+          name: 'Accounts',
+          url: '/accounts',
           icon: 'ContactCard',
         },
         {
-          key: 'contacts',
-          name: 'Contacts',
-          url: '/contacts',
+          key: 'd365contacts',
+          name: 'D365 Contacts',
+          url: '/d365contacts',
           icon: 'People',
         },
         {
