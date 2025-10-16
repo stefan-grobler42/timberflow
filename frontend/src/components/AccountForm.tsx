@@ -6,7 +6,6 @@ import {
   MessageBar,
   MessageBarType,
   DefaultButton,
-  PrimaryButton,
   Dropdown,
   DetailsList,
   SelectionMode,
@@ -18,6 +17,7 @@ import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
 import { LookupField, type LookupOption } from './LookupField';
+import { EntityFormActionBar } from './EntityFormActionBar';
 import type { Account, D365Contact, D365Quote, D365Order, Tender } from '../types/millennium';
 
 declare global {
@@ -60,6 +60,7 @@ export const AccountForm = ({
   account,
   onDismiss,
   onSave,
+  onDelete,
 }: AccountFormProps) => {
   const [activeTab, setActiveTab] = useState<string>('summary');
   const [formData, setFormData] = useState<Partial<Account>>({
@@ -300,7 +301,7 @@ export const AccountForm = ({
     setMarker(markerInstance);
   };
 
-  const handleSubmit = async () => {
+  const handleSave = async (closeAfter: boolean) => {
     try {
       setSaving(true);
       setError(null);
@@ -312,9 +313,20 @@ export const AccountForm = ({
       }
 
       onSave();
+      setSaving(false);
+      
+      if (closeAfter) {
+        onDismiss();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save account');
       setSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
     }
   };
 
@@ -447,36 +459,6 @@ export const AccountForm = ({
     },
   ];
 
-  const formCommandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
-    },
-    {
-      key: 'saveAndClose',
-      text: 'Save & Close',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: async () => {
-        await handleSubmit();
-        onDismiss();
-      },
-      disabled: saving,
-    },
-  ];
-
-  const formCommandBarFarItems: ICommandBarItemProps[] = [
-    {
-      key: 'close',
-      text: 'Close',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
-    },
-  ];
-
   const contactsCommandBarItems: ICommandBarItemProps[] = [
     {
       key: 'new',
@@ -550,10 +532,13 @@ export const AccountForm = ({
         </Stack>
       </Stack>
 
-      <CommandBar
-        items={formCommandBarItems}
-        farItems={formCommandBarFarItems}
-        styles={{ root: { borderBottom: '1px solid #edebe9' } }}
+      <EntityFormActionBar
+        onBack={onDismiss}
+        onSave={() => handleSave(false)}
+        onSaveAndClose={() => handleSave(true)}
+        onDelete={handleDelete}
+        isNew={!account}
+        disabled={saving}
       />
 
       {error && (
