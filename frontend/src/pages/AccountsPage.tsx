@@ -25,6 +25,7 @@ import { AccountForm } from '../components/AccountForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
 import * as XLSX from 'xlsx';
 
 export const AccountsPage = () => {
@@ -42,6 +43,8 @@ export const AccountsPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     name: true,
@@ -107,6 +110,17 @@ export const AccountsPage = () => {
   useEffect(() => {
     applyFilters();
   }, [accounts, searchText, currentView, sortColumn, isSortedDescending]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, currentView.filters, pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredAccounts.length, pageSize, currentPage]);
 
   const loadAccounts = async () => {
     try {
@@ -377,7 +391,7 @@ export const AccountsPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;
@@ -527,6 +541,10 @@ export const AccountsPage = () => {
   const orderedColumns = currentView.columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
   const columns = orderedColumns.filter((col) => currentView.columnVisibility[col.key]);
 
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedAccounts = filteredAccounts.slice(startIndex, endIndex);
+
   const commandBarItems: ICommandBarItemProps[] = [
     {
       key: 'new',
@@ -673,26 +691,35 @@ export const AccountsPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading accounts..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredAccounts}
-            columns={columns}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            selection={selection}
-            selectionPreservedOnEmptyClick
-            onItemInvoked={handleRowDoubleClick}
-            styles={{
-              root: {
-                selectors: {
-                  '.ms-DetailsRow': {
-                    cursor: 'pointer',
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={paginatedAccounts}
+              columns={columns}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              selection={selection}
+              selectionPreservedOnEmptyClick
+              onItemInvoked={handleRowDoubleClick}
+              styles={{
+                root: {
+                  selectors: {
+                    '.ms-DetailsRow': {
+                      cursor: 'pointer',
+                    },
                   },
                 },
-              },
-            }}
+              }}
+            />
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalRecords={filteredAccounts.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel
