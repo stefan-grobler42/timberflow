@@ -238,26 +238,239 @@ export interface Delivery {
 
 export interface Account {
   id: string;
+  
+  // Basic Information
   name?: string;
   accountNumber?: string;
+  
+  // Contact Information
   telephone1?: string;
+  telephone2?: string;
+  telephone3?: string;
+  fax?: string;
   emailAddress1?: string;
+  emailAddress2?: string;
+  emailAddress3?: string;
   websiteUrl?: string;
+  ftpSiteUrl?: string;
+  
+  // Primary Address (Address 1)
+  address1AddressId?: string;
+  address1AddressTypeCode?: number;
+  address1Name?: string;
+  address1PrimaryContactName?: string;
   address1Line1?: string;
+  address1Line2?: string;
+  address1Line3?: string;
   address1City?: string;
   address1StateOrProvince?: string;
-  address1PostalCode?: string;
+  address1County?: string;
   address1Country?: string;
-  latitude?: number | null;
-  longitude?: number | null;
+  address1PostalCode?: string;
+  address1PostOfficeBox?: string;
+  address1Latitude?: number;
+  address1Longitude?: number;
+  address1ShippingMethodCode?: number;
+  address1Telephone1?: string;
+  address1Telephone2?: string;
+  address1Telephone3?: string;
+  address1Fax?: string;
+  address1Composite?: string;
+  address1UpsZone?: string;
+  address1UtcOffset?: number;
+  address1FreightTermsCode?: number;
+  
+  // Secondary Address (Address 2)
+  address2AddressId?: string;
+  address2AddressTypeCode?: number;
+  address2Name?: string;
+  address2PrimaryContactName?: string;
+  address2Line1?: string;
+  address2Line2?: string;
+  address2Line3?: string;
+  address2City?: string;
+  address2StateOrProvince?: string;
+  address2County?: string;
+  address2Country?: string;
+  address2PostalCode?: string;
+  address2PostOfficeBox?: string;
+  address2Latitude?: number;
+  address2Longitude?: number;
+  address2ShippingMethodCode?: number;
+  address2Telephone1?: string;
+  address2Telephone2?: string;
+  address2Telephone3?: string;
+  address2Fax?: string;
+  address2Composite?: string;
+  address2UpsZone?: string;
+  address2UtcOffset?: number;
+  address2FreightTermsCode?: number;
+  
+  // Business Information
+  description?: string;
   revenue?: number;
+  revenueBase?: number;
   numberOfEmployees?: number;
   industryCode?: number;
+  sic?: string;
+  tickerSymbol?: string;
+  stockExchange?: string;
+  sharesOutstanding?: number;
+  marketCap?: number;
+  marketCapBase?: number;
+  
+  // Custom Fields (Millennium-specific)
+  cr694AccountType?: number;
+  cr694CompanyRegistrationNumber?: string;
+  cr694CompanyType?: number;
+  cr694VatRegistrationNo?: string;
+  cr694BusinessTypeValue?: string;
+  cr694SalesRepresentativeValue?: string;
+  
+  // Account Classification
+  accountCategoryCode?: number;
+  accountClassificationCode?: number;
+  accountRatingCode?: number;
+  businessTypeCode?: number;
+  customerSizeCode?: number;
+  customerTypeCode?: number;
+  ownershipCode?: number;
+  territoryCode?: number;
+  
+  // Credit & Financial
+  creditLimit?: number;
+  creditLimitBase?: number;
+  creditOnHold?: boolean;
+  paymentTermsCode?: number;
+  aging30?: number;
+  aging30Base?: number;
+  aging60?: number;
+  aging60Base?: number;
+  aging90?: number;
+  aging90Base?: number;
+  
+  // Communication Preferences
+  doNotBulkEmail?: boolean;
+  doNotBulkPostalMail?: boolean;
+  doNotEmail?: boolean;
+  doNotFax?: boolean;
+  doNotPhone?: boolean;
+  doNotPostalMail?: boolean;
+  doNotSendMM?: boolean;
+  followEmail?: boolean;
+  preferredContactMethodCode?: number;
+  preferredAppointmentDayCode?: number;
+  preferredAppointmentTimeCode?: number;
+  
+  // Marketing
+  marketingOnly?: boolean;
+  lastUsedInCampaign?: string;
+  
+  // Status & Workflow
+  stateCode?: number;
+  statusCode?: number;
+  participatesInWorkflow?: boolean;
+  merged?: boolean;
+  onHoldTime?: number;
+  lastOnHoldTime?: string;
+  
+  // Relationships (Lookup GUIDs)
   ownerId?: string;
+  owningBusinessUnitValue?: string;
+  owningUserValue?: string;
+  owningTeamValue?: string;
+  primaryContactIdValue?: string;
+  parentAccountIdValue?: string;
+  preferredSystemUserIdValue?: string;
+  preferredServiceIdValue?: string;
+  preferredEquipmentIdValue?: string;
+  defaultPriceLevelIdValue?: string;
+  masterIdValue?: string;
+  originatingLeadIdValue?: string;
+  territoryIdValue?: string;
+  transactionCurrencyIdValue?: string;
+  slaIdValue?: string;
+  slaInvokedIdValue?: string;
+  
+  // Exchange & Currency
+  exchangeRate?: number;
+  
+  // Performance Metrics
+  openDeals?: number;
+  openDealsDate?: string;
+  openDealsState?: number;
+  openRevenue?: number;
+  openRevenueBase?: number;
+  openRevenueDate?: string;
+  openRevenueState?: number;
+  
+  // Social
+  primarySatoriId?: string;
+  primaryTwitterId?: string;
+  yomiName?: string;
+  
+  // Dynamics 365-specific
+  msdynExternalAccountId?: string;
+  msdynGdprOptOut?: boolean;
+  msdynTaxExempt?: boolean;
+  msdynTaxExemptNumber?: string;
+  msdynTravelCharge?: number;
+  msdynTravelChargeBase?: number;
+  msdynTravelChargeType?: number;
+  msdynWorkOrderInstructions?: string;
+  msdynPrimaryTimezone?: number;
+  msdynSalesTaxCodeValue?: string;
+  msdynServiceTerritoryValue?: string;
+  msdynBillingAccountValue?: string;
+  msdynWorkHourTemplateValue?: string;
+  msdynPreferredResourceValue?: string;
+  msdynAccountKpiIdValue?: string;
+  msdynSalesAccelerationInsightIdValue?: string;
+  msdynSegmentIdValue?: string;
+  msaManagingPartnerIdValue?: string;
+  
+  // Workflow & Process
+  processId?: string;
+  stageId?: string;
+  traversedPath?: string;
+  
+  // System Fields
   createdOn?: string;
   modifiedOn?: string;
+  createdByValue?: string;
+  modifiedByValue?: string;
+  createdOnBehalfByValue?: string;
+  modifiedOnBehalfByValue?: string;
   createdBy?: string;
   modifiedBy?: string;
+  overriddenCreatedOn?: string;
+  importSequenceNumber?: number;
+  timeZoneRuleVersionNumber?: number;
+  utcConversionTimeZoneCode?: number;
+  versionNumber?: number;
+  teamsFollowed?: number;
+  timeSpentByMeOnEmailAndMeetings?: string;
+  
+  // Image
+  entityImageId?: string;
+  entityImageTimestamp?: number;
+  entityImageUrl?: string;
+  
+  // Portal/ADX fields
+  adxCreatedByIpAddress?: string;
+  adxCreatedByUsername?: string;
+  adxModifiedByIpAddress?: string;
+  adxModifiedByUsername?: string;
+  
+  // External Party
+  createdByExternalPartyValue?: string;
+  modifiedByExternalPartyValue?: string;
+  
+  shippingMethodCode?: number;
+  
+  // Legacy compatibility fields
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface D365Contact {
