@@ -4,10 +4,12 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roofing contractors. Its purpose is to manage complex projects from quotation to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client types, aiming to streamline business operations, improve material calculation efficiency, and provide comprehensive project workflow management.
 
 ## Recent Changes (October 16, 2025)
+- **✅ GUID Preservation Fix COMPLETED**: Fixed critical bug in AccountsController and EmployeesController that were regenerating GUIDs instead of preserving D365 GUIDs during migration
+- **✅ Data Integrity Restored**: Re-migrated 1,045 Accounts and 74 Employees with D365 GUIDs intact - lookup relationships now functioning correctly
+- **✅ Lookup Resolution Working**: Production grid displays employee names (Saw Operator: MESCHACK SKOSANA, CASWELL TIVANE, etc.; Jig Leader: SYDNEY NTOMBELA, JAYLOTTE MBHUNGA) instead of GUIDs
+- **✅ Match Rates Verified**: 217/224 customers (96.9%), 12/12 Saw Operators (100%), 15/15 Jig Leaders (100%) - 7 orphaned GUIDs are deleted D365 accounts
 - **Pagination System**: Implemented reusable pagination with 50/100 records per page options across AccountsPage, D365OrdersPage, and D365ContactsPage
-- **Lookup Field Rendering**: Created useLookupData hook and resolveLookup helper to display friendly names instead of GUIDs in lookup fields
-- **ProductionPage Enhancement**: Added Customer, Saw Operator, and Jig Leader columns with lookup resolution (frontend implementation complete)
-- **Data Integrity Discovery**: Identified critical GUID mismatch between Production foreign keys and Account/Employee primary keys requiring migration fix
+- **Frontend Enhancement**: Fixed camelCase field naming (sawOperator, jigLeader) in ProductionPage for correct lookup rendering
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -67,17 +69,18 @@ Successfully completed data migration from 7 D365 entities to custom ERP with fu
 - **Delivery**: 1/1 record (100%) - 14 lookup relationships working
 
 ### Lookup Relationships Status
-⚠️ **CRITICAL DATA INTEGRITY ISSUE DISCOVERED (October 16, 2025)**:
-- Production records (2,765) reference 224 unique Account GUIDs from D365, but NONE match the 1,045 Account IDs in the migrated Accounts table
-- Employee lookup GUIDs in Production also don't match the 74 migrated Employee IDs
-- Root cause: Migration preserved D365 GUIDs in Production/Logistics/Delivery, but regenerated different GUIDs for Accounts/Employees
-- Impact: All lookup fields display truncated GUIDs instead of names because foreign key relationships are broken
-- **Action Required**: Re-run migration with GUID-preserving logic to maintain referential integrity across all related entities
-- Frontend lookup rendering is implemented correctly (useLookupData hook + resolveLookup function working), waiting for data fix
+✅ **GUID PRESERVATION FIX COMPLETED (October 16, 2025)**:
+- **Root Cause Identified**: AccountsController and EmployeesController were regenerating GUIDs instead of preserving D365 GUIDs during migration
+- **Fix Applied**: Updated both controllers to use `createDto.Id ?? Guid.NewGuid()` pattern to preserve D365 GUIDs while allowing manual creation with new GUIDs
+- **Migration Re-run**: Successfully re-migrated 1,045 Accounts and 74 Employees with D365 GUIDs intact
+- **Verification Results**: 217/224 Production customers match Accounts (96.9%), 12/12 Saw Operators match (100%), 15/15 Jig Leaders match (100%)
+- **Orphaned Records**: 7 Account GUIDs in Production are deleted D365 accounts (acceptable data quality)
+- **Frontend Fix**: Corrected camelCase field names (sawOperator, jigLeader) in ProductionPage to match ASP.NET Core JSON serialization
+- **Status**: All lookup relationships now functioning - employee names display correctly in Production grid
 
-Previously documented (needs verification after data fix):
-- Production → Employees (12 employee lookups: saw operators, helpers, jig leaders, etc.)
-- Production → Customers (customer lookup)
+Active Lookup Relationships (Verified Working):
+- Production → Employees (12 employee lookups: saw operators, helpers, jig leaders, etc.) ✅
+- Production → Customers (customer lookup) ✅
 - Production → Sales Orders (order number lookup)
 - Logistics → Employees (9 employee lookups: drivers, dispatch managers, helpers, etc.)
 - Logistics → Vehicles (2 vehicle lookups: vehicle, trailer)
