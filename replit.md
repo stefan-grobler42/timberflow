@@ -4,12 +4,13 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roofing contractors. Its purpose is to manage complex projects from quotation to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client types, aiming to streamline business operations, improve material calculation efficiency, and provide comprehensive project workflow management.
 
 ## Recent Changes (October 16, 2025)
+- **✅ D365-Style Account Form COMPLETED**: Completely rebuilt AccountForm to match Dynamics 365 layout with two-column design (Account Information left, Address+Map right), tab navigation (Summary/Quotes/Orders/Tenders/Related), dropdown fields (Company Type, Account Type, Relationship Type), lookup fields (Sales Rep, Parent Account, Primary Contact), Contacts subgrid, and Google Maps integration with draggable marker
+- **✅ Lookup Helper Utilities**: Created utils/lookupHelpers.ts with resolveLookup function for consistent lookup field rendering across forms
 - **✅ GUID Preservation Fix COMPLETED**: Fixed critical bug in AccountsController and EmployeesController that were regenerating GUIDs instead of preserving D365 GUIDs during migration
 - **✅ Data Integrity Restored**: Re-migrated 1,045 Accounts and 74 Employees with D365 GUIDs intact - lookup relationships now functioning correctly
 - **✅ Lookup Resolution Working**: Production grid displays employee names (Saw Operator: MESCHACK SKOSANA, CASWELL TIVANE, etc.; Jig Leader: SYDNEY NTOMBELA, JAYLOTTE MBHUNGA) instead of GUIDs
 - **✅ Match Rates Verified**: 217/224 customers (96.9%), 12/12 Saw Operators (100%), 15/15 Jig Leaders (100%) - 7 orphaned GUIDs are deleted D365 accounts
 - **Pagination System**: Implemented reusable pagination with 50/100 records per page options across AccountsPage, D365OrdersPage, and D365ContactsPage
-- **Frontend Enhancement**: Fixed camelCase field naming (sawOperator, jigLeader) in ProductionPage for correct lookup rendering
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
