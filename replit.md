@@ -4,7 +4,15 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roofing contractors. Its purpose is to manage complex projects from quotation to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client types, aiming to streamline business operations, improve material calculation efficiency, and provide comprehensive project workflow management.
 
 ## Recent Changes (October 16, 2025)
-- **✅ D365-Style Account Form COMPLETED**: Completely rebuilt AccountForm to match Dynamics 365 layout with two-column design (Account Information left, Address+Map right), tab navigation (Summary/Quotes/Orders/Tenders/Related), dropdown fields (Company Type, Account Type, Relationship Type), lookup fields (Sales Rep, Parent Account, Primary Contact), Contacts subgrid, and Google Maps integration with draggable marker
+- **✅ D365-Style Account Form with Functional Subgrids COMPLETED**: Fully functional AccountForm matching Dynamics 365 with:
+  - **Two-column layout**: Account Information (left) + Address with Google Maps (right)
+  - **Google Maps Places Autocomplete**: Search addresses with auto-population of Street, City, State, Postal Code, Country, and coordinates
+  - **Tab navigation**: Summary/Quotes/Orders/Tenders (Related tab removed per user request)
+  - **Dropdown fields**: Company Type, Account Type, Relationship Type
+  - **Lookup fields**: Parent Account (Accounts), Sales Representative (Employees), Primary Contact (D365Contacts)
+  - **Functional subgrids**: Contacts, Quotes, Orders, Tenders - all filtered by account GUID with case-insensitive matching
+  - **Draggable marker**: Update coordinates by dragging map marker
+- **✅ Enhanced Lookup System**: Updated useLookupData hook to include D365Contacts map; all GUID comparisons now case-insensitive for reliable filtering
 - **✅ Lookup Helper Utilities**: Created utils/lookupHelpers.ts with resolveLookup function for consistent lookup field rendering across forms
 - **✅ GUID Preservation Fix COMPLETED**: Fixed critical bug in AccountsController and EmployeesController that were regenerating GUIDs instead of preserving D365 GUIDs during migration
 - **✅ Data Integrity Restored**: Re-migrated 1,045 Accounts and 74 Employees with D365 GUIDs intact - lookup relationships now functioning correctly
