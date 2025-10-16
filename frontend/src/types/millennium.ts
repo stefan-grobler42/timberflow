@@ -325,7 +325,12 @@ export interface Account {
   cr694CompanyType?: number;
   cr694VatRegistrationNo?: string;
   cr694BusinessTypeValue?: string;
-  cr694SalesRepresentativeValue?: string;
+  cr694SalesRepresentative?: string; // Sales Representative lookup GUID
+  
+  // Relationships
+  parentAccountId?: string;
+  primaryContactId?: string;
+  relationshipTypeCode?: number;
   
   // Account Classification
   accountCategoryCode?: number;

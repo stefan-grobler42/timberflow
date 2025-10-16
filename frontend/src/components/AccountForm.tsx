@@ -6,11 +6,18 @@ import {
   MessageBar,
   MessageBarType,
   DefaultButton,
-  CommandBar,
+  PrimaryButton,
+  Dropdown,
+  DetailsList,
+  SelectionMode,
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
+import type { IDropdownOption, IColumn } from '@fluentui/react';
 import { accountService } from '../services/d365Services';
+import { useLookupData } from '../hooks/useLookupData';
+import { resolveLookup } from '../utils/lookupHelpers';
 import type { Account } from '../types/millennium';
+
+declare const google: any;
 
 interface AccountFormProps {
   account?: Account;
@@ -19,63 +26,98 @@ interface AccountFormProps {
   onDelete?: () => void;
 }
 
+const companyTypeOptions: IDropdownOption[] = [
+  { key: 1, text: 'Developer' },
+  { key: 2, text: 'Contractor' },
+  { key: 3, text: 'Supplier' },
+  { key: 4, text: 'Architect' },
+  { key: 5, text: 'Engineer' },
+];
+
+const accountTypeOptions: IDropdownOption[] = [
+  { key: 1, text: 'Cash' },
+  { key: 2, text: 'Credit' },
+  { key: 3, text: 'COD' },
+];
+
+const relationshipTypeOptions: IDropdownOption[] = [
+  { key: 1, text: 'Customer' },
+  { key: 2, text: 'Supplier' },
+  { key: 3, text: 'Partner' },
+  { key: 4, text: 'Competitor' },
+];
+
 export const AccountForm = ({
   account,
   onDismiss,
   onSave,
   onDelete,
 }: AccountFormProps) => {
-  const [activeTab, setActiveTab] = useState<string>('basic');
+  const [activeTab, setActiveTab] = useState<string>('summary');
   const [formData, setFormData] = useState<Partial<Account>>({
     name: '',
     accountNumber: '',
+    cr694CompanyType: undefined,
+    cr694CompanyRegistrationNumber: '',
+    cr694VatRegistrationNo: '',
     telephone1: '',
     emailAddress1: '',
     websiteUrl: '',
+    parentAccountId: undefined,
+    cr694AccountType: undefined,
+    cr694SalesRepresentative: undefined,
+    relationshipTypeCode: undefined,
+    primaryContactId: undefined,
+    address1Name: '',
     address1Line1: '',
+    address1Line2: '',
+    address1Line3: '',
     address1City: '',
     address1StateOrProvince: '',
     address1PostalCode: '',
     address1Country: '',
-    latitude: null,
-    longitude: null,
-    revenue: 0,
-    numberOfEmployees: 0,
-    industryCode: 0,
+    address1County: '',
+    address1Latitude: undefined,
+    address1Longitude: undefined,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [mapInitialized, setMapInitialized] = useState(false);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
-  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-
-  useEffect(() => {
-    initializeGoogleMaps();
-  }, []);
+  
+  const lookupData = useLookupData();
 
   useEffect(() => {
     if (account) {
       setFormData({
         name: account.name || '',
         accountNumber: account.accountNumber || '',
+        cr694CompanyType: account.cr694CompanyType,
+        cr694CompanyRegistrationNumber: account.cr694CompanyRegistrationNumber || '',
+        cr694VatRegistrationNo: account.cr694VatRegistrationNo || '',
         telephone1: account.telephone1 || '',
         emailAddress1: account.emailAddress1 || '',
         websiteUrl: account.websiteUrl || '',
+        parentAccountId: account.parentAccountId,
+        cr694AccountType: account.cr694AccountType,
+        cr694SalesRepresentative: account.cr694SalesRepresentative,
+        relationshipTypeCode: account.relationshipTypeCode,
+        primaryContactId: account.primaryContactId,
+        address1Name: account.address1Name || '',
         address1Line1: account.address1Line1 || '',
+        address1Line2: account.address1Line2 || '',
+        address1Line3: account.address1Line3 || '',
         address1City: account.address1City || '',
         address1StateOrProvince: account.address1StateOrProvince || '',
         address1PostalCode: account.address1PostalCode || '',
         address1Country: account.address1Country || '',
-        latitude: account.latitude,
-        longitude: account.longitude,
-        revenue: account.revenue || 0,
-        numberOfEmployees: account.numberOfEmployees || 0,
-        industryCode: account.industryCode || 0,
+        address1County: account.address1County || '',
+        address1Latitude: account.address1Latitude,
+        address1Longitude: account.address1Longitude,
       });
 
-      if (account.latitude && account.longitude && map) {
-        const position = { lat: account.latitude, lng: account.longitude };
+      if (account.address1Latitude && account.address1Longitude && map) {
+        const position = { lat: account.address1Latitude, lng: account.address1Longitude };
         map.setCenter(position);
         if (marker) {
           marker.setPosition(position);
@@ -84,6 +126,10 @@ export const AccountForm = ({
     }
     setError(null);
   }, [account, map, marker]);
+
+  useEffect(() => {
+    initializeGoogleMaps();
+  }, []);
 
   const initializeGoogleMaps = () => {
     if (typeof google === 'undefined' || !google.maps) {
@@ -100,7 +146,7 @@ export const AccountForm = ({
   };
 
   const setupMap = () => {
-    const mapElement = document.getElementById('account-map');
+    const mapElement = document.getElementById('account-form-map');
     if (!mapElement) {
       setTimeout(setupMap, 100);
       return;
@@ -110,9 +156,9 @@ export const AccountForm = ({
     const mapInstance = new google.maps.Map(mapElement, {
       center: defaultCenter,
       zoom: 12,
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
     });
 
     const markerInstance = new google.maps.Marker({
@@ -126,89 +172,14 @@ export const AccountForm = ({
       if (position) {
         setFormData((prev) => ({
           ...prev,
-          latitude: position.lat(),
-          longitude: position.lng(),
+          address1Latitude: position.lat(),
+          address1Longitude: position.lng(),
         }));
       }
     });
 
-    const input = document.getElementById('account-address-autocomplete') as HTMLInputElement;
-    if (input) {
-      const autocompleteInstance = new google.maps.places.Autocomplete(input, {
-        componentRestrictions: { country: 'za' },
-        fields: ['address_components', 'geometry', 'formatted_address'],
-      });
-
-      autocompleteInstance.addListener('place_changed', () => {
-        const place = autocompleteInstance.getPlace();
-        if (place.geometry?.location) {
-          const position = place.geometry.location;
-          mapInstance.setCenter(position);
-          mapInstance.setZoom(15);
-          markerInstance.setPosition(position);
-
-          setFormData((prev) => ({
-            ...prev,
-            address1Line1: place.formatted_address || '',
-            latitude: position.lat(),
-            longitude: position.lng(),
-          }));
-
-          if (place.address_components) {
-            const components = place.address_components;
-            const city = components.find((c) => c.types.includes('locality'))?.long_name;
-            const province = components.find((c) =>
-              c.types.includes('administrative_area_level_1')
-            )?.long_name;
-            const postalCode = components.find((c) => c.types.includes('postal_code'))?.long_name;
-
-            setFormData((prev) => ({
-              ...prev,
-              address1City: city || prev.address1City || '',
-              address1StateOrProvince: province || prev.address1StateOrProvince || '',
-              address1PostalCode: postalCode || prev.address1PostalCode || '',
-            }));
-          }
-
-          input.value = '';
-        }
-      });
-
-      setAutocomplete(autocompleteInstance);
-    }
-
     setMap(mapInstance);
     setMarker(markerInstance);
-    setMapInitialized(true);
-  };
-
-  const handleUseMyLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const pos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-
-          if (map) {
-            map.setCenter(pos);
-          }
-          if (marker) {
-            marker.setPosition(pos);
-          }
-
-          setFormData((prev) => ({
-            ...prev,
-            latitude: pos.lat,
-            longitude: pos.lng,
-          }));
-        },
-        () => {
-          setError('Failed to get your location');
-        }
-      );
-    }
   };
 
   const handleSubmit = async () => {
@@ -229,322 +200,262 @@ export const AccountForm = ({
     }
   };
 
-  const handleSaveAndNew = async () => {
-    try {
-      setSaving(true);
-      setError(null);
+  const tabStyles = (isActive: boolean) => ({
+    root: {
+      height: 40,
+      padding: '0 16px',
+      borderRadius: 0,
+      border: 'none',
+      borderBottom: isActive ? '2px solid #0078d4' : '2px solid transparent',
+      backgroundColor: 'transparent',
+      color: isActive ? '#0078d4' : '#323130',
+      fontWeight: isActive ? '600' : '400',
+    },
+    rootHovered: {
+      backgroundColor: '#f3f2f1',
+      color: '#0078d4',
+    },
+  });
 
-      if (account) {
-        await accountService.update(account.id, formData);
-      } else {
-        await accountService.create(formData);
-      }
-
-      setFormData({
-        name: '',
-        accountNumber: '',
-        telephone1: '',
-        emailAddress1: '',
-        websiteUrl: '',
-        address1Line1: '',
-        address1City: '',
-        address1StateOrProvince: '',
-        address1PostalCode: '',
-        address1Country: '',
-        latitude: null,
-        longitude: null,
-        revenue: 0,
-        numberOfEmployees: 0,
-        industryCode: 0,
-      });
-      setSaving(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save account');
-      setSaving(false);
-    }
-  };
-
-  const commandBarItems: ICommandBarItemProps[] = [
+  const contactColumns: IColumn[] = [
     {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
+      key: 'fullName',
+      name: 'Full Name',
+      fieldName: 'fullName',
+      minWidth: 150,
+      maxWidth: 250,
+      isResizable: true,
     },
     {
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: handleSaveAndNew,
-      disabled: saving,
-    },
-    ...(account && onDelete
-      ? [
-          {
-            key: 'delete',
-            text: 'Delete',
-            iconProps: { iconName: 'Delete' },
-            onClick: onDelete,
-            disabled: saving,
-          },
-        ]
-      : []),
-    {
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
+      key: 'emailAddress1',
+      name: 'Email',
+      fieldName: 'emailAddress1',
+      minWidth: 150,
+      maxWidth: 250,
+      isResizable: true,
     },
   ];
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
-        {account ? 'Edit Account' : 'New Account'}
-      </Text>
+    <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
+      <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { padding: '12px 20px', borderBottom: '1px solid #edebe9' } }}>
+        <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="center">
+          <Text variant="xLarge" styles={{ root: { fontWeight: 600 } }}>
+            {account ? account.name : 'New Account'}
+          </Text>
+          <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>
+            Account
+          </Text>
+        </Stack>
+        <Stack horizontal tokens={{ childrenGap: 8 }}>
+          <DefaultButton text="Cancel" onClick={onDismiss} disabled={saving} />
+          <PrimaryButton text="Save" onClick={handleSubmit} disabled={saving} />
+        </Stack>
+      </Stack>
 
-      <CommandBar items={commandBarItems} />
+      {error && (
+        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+          {error}
+        </MessageBar>
+      )}
 
-      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
-        {error && (
-          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
-            {error}
-          </MessageBar>
+      <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9', backgroundColor: '#faf9f8' } }}>
+        <DefaultButton text="Summary" onClick={() => setActiveTab('summary')} styles={tabStyles(activeTab === 'summary')} />
+        <DefaultButton text="Quotes" onClick={() => setActiveTab('quotes')} styles={tabStyles(activeTab === 'quotes')} />
+        <DefaultButton text="Orders" onClick={() => setActiveTab('orders')} styles={tabStyles(activeTab === 'orders')} />
+        <DefaultButton text="Tenders" onClick={() => setActiveTab('tenders')} styles={tabStyles(activeTab === 'tenders')} />
+        <DefaultButton text="Related" onClick={() => setActiveTab('related')} styles={tabStyles(activeTab === 'related')} />
+      </Stack>
+
+      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: 20 } }}>
+        {activeTab === 'summary' && (
+          <Stack horizontal tokens={{ childrenGap: 20 }}>
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: '0 0 60%' } }}>
+              <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                ACCOUNT INFORMATION
+              </Text>
+
+              <TextField
+                label="Account Number"
+                value={formData.accountNumber}
+                onChange={(_, value) => setFormData({ ...formData, accountNumber: value || '' })}
+              />
+
+              <TextField
+                label="Account Name"
+                required
+                value={formData.name}
+                onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
+              />
+
+              <Dropdown
+                label="Company Type"
+                options={companyTypeOptions}
+                selectedKey={formData.cr694CompanyType}
+                onChange={(_, option) => setFormData({ ...formData, cr694CompanyType: option?.key as number })}
+              />
+
+              <TextField
+                label="Company Registration No"
+                value={formData.cr694CompanyRegistrationNumber}
+                onChange={(_, value) => setFormData({ ...formData, cr694CompanyRegistrationNumber: value || '' })}
+              />
+
+              <TextField
+                label="VAT Registration No"
+                value={formData.cr694VatRegistrationNo}
+                onChange={(_, value) => setFormData({ ...formData, cr694VatRegistrationNo: value || '' })}
+              />
+
+              <TextField
+                label="Phone"
+                value={formData.telephone1}
+                onChange={(_, value) => setFormData({ ...formData, telephone1: value || '' })}
+              />
+
+              <TextField
+                label="Email"
+                type="email"
+                value={formData.emailAddress1}
+                onChange={(_, value) => setFormData({ ...formData, emailAddress1: value || '' })}
+              />
+
+              <TextField
+                label="Website"
+                value={formData.websiteUrl}
+                onChange={(_, value) => setFormData({ ...formData, websiteUrl: value || '' })}
+              />
+
+              <TextField
+                label="Parent Account"
+                value={formData.parentAccountId ? resolveLookup(formData.parentAccountId, lookupData.customers) : ''}
+                readOnly
+                iconProps={{ iconName: 'Search' }}
+              />
+
+              <Dropdown
+                label="Account Type"
+                options={accountTypeOptions}
+                selectedKey={formData.cr694AccountType}
+                onChange={(_, option) => setFormData({ ...formData, cr694AccountType: option?.key as number })}
+              />
+
+              <TextField
+                label="Sales Representative"
+                value={formData.cr694SalesRepresentative ? resolveLookup(formData.cr694SalesRepresentative, lookupData.employees) : ''}
+                readOnly
+                iconProps={{ iconName: 'Search' }}
+              />
+
+              <Dropdown
+                label="Relationship Type"
+                options={relationshipTypeOptions}
+                selectedKey={formData.relationshipTypeCode}
+                onChange={(_, option) => setFormData({ ...formData, relationshipTypeCode: option?.key as number })}
+              />
+
+              <TextField
+                label="Primary Contact"
+                value={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.customers) : ''}
+                readOnly
+                iconProps={{ iconName: 'Search' }}
+              />
+
+              <Stack styles={{ root: { marginTop: 24 } }}>
+                <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 12 } }}>
+                  CONTACTS
+                </Text>
+                <DetailsList
+                  items={[]}
+                  columns={contactColumns}
+                  selectionMode={SelectionMode.none}
+                  styles={{ root: { minHeight: 100 } }}
+                />
+              </Stack>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: '0 0 38%' } }}>
+              <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                ADDRESS
+              </Text>
+
+              <TextField
+                label="Address 1: Name"
+                value={formData.address1Name}
+                onChange={(_, value) => setFormData({ ...formData, address1Name: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: Street 1"
+                value={formData.address1Line1}
+                onChange={(_, value) => setFormData({ ...formData, address1Line1: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: Street 2"
+                value={formData.address1Line2}
+                onChange={(_, value) => setFormData({ ...formData, address1Line2: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: Street 3"
+                value={formData.address1Line3}
+                onChange={(_, value) => setFormData({ ...formData, address1Line3: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: City"
+                value={formData.address1City}
+                onChange={(_, value) => setFormData({ ...formData, address1City: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: State/Province"
+                value={formData.address1StateOrProvince}
+                onChange={(_, value) => setFormData({ ...formData, address1StateOrProvince: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: ZIP/Postal code"
+                value={formData.address1PostalCode}
+                onChange={(_, value) => setFormData({ ...formData, address1PostalCode: value || '' })}
+              />
+
+              <TextField
+                label="Address 1: Country/Region"
+                value={formData.address1Country}
+                onChange={(_, value) => setFormData({ ...formData, address1Country: value || '' })}
+              />
+
+              <div
+                id="account-form-map"
+                style={{
+                  height: '250px',
+                  width: '100%',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  marginTop: 16,
+                }}
+              />
+            </Stack>
+          </Stack>
         )}
 
-        <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
-          <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
-            <DefaultButton
-              text="Basic Information"
-              iconProps={{ iconName: 'Info' }}
-              onClick={() => setActiveTab('basic')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'basic' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Contact Information"
-              iconProps={{ iconName: 'Contact' }}
-              onClick={() => setActiveTab('contact')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'contact' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'contact' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'contact' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'contact' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'contact' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Address"
-              iconProps={{ iconName: 'MapPin' }}
-              onClick={() => setActiveTab('address')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'address' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'address' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'address' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'address' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'address' ? 'white' : '#323130',
-                },
-              }}
-            />
-          </Stack>
+        {activeTab === 'quotes' && (
+          <Text>Quotes grid will be shown here (filtered by account)</Text>
+        )}
 
-          <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
-            {activeTab === 'basic' && (
-              <Stack
-                horizontal
-                tokens={{ childrenGap: 32 }}
-                styles={{ root: { marginTop: 16, overflowY: 'auto' } }}
-              >
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <TextField
-                    label="Account Name"
-                    required
-                    value={formData.name}
-                    onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
-                  />
+        {activeTab === 'orders' && (
+          <Text>Orders grid will be shown here (filtered by account)</Text>
+        )}
 
-                  <TextField
-                    label="Account Number"
-                    value={formData.accountNumber}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, accountNumber: value || '' })
-                    }
-                  />
+        {activeTab === 'tenders' && (
+          <Text>Tenders grid will be shown here (filtered by account)</Text>
+        )}
 
-                  <TextField
-                    label="Revenue"
-                    type="number"
-                    value={String(formData.revenue)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, revenue: Number(value) || 0 })
-                    }
-                    prefix="$"
-                  />
-                </Stack>
-
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <TextField
-                    label="Number of Employees"
-                    type="number"
-                    value={String(formData.numberOfEmployees)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, numberOfEmployees: Number(value) || 0 })
-                    }
-                  />
-
-                  <TextField
-                    label="Industry Code"
-                    type="number"
-                    value={String(formData.industryCode)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, industryCode: Number(value) || 0 })
-                    }
-                  />
-                </Stack>
-              </Stack>
-            )}
-
-            {activeTab === 'contact' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <TextField
-                  label="Phone"
-                  value={formData.telephone1}
-                  onChange={(_, value) => setFormData({ ...formData, telephone1: value || '' })}
-                />
-
-                <TextField
-                  label="Email"
-                  type="email"
-                  value={formData.emailAddress1}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, emailAddress1: value || '' })
-                  }
-                />
-
-                <TextField
-                  label="Website"
-                  value={formData.websiteUrl}
-                  onChange={(_, value) => setFormData({ ...formData, websiteUrl: value || '' })}
-                />
-              </Stack>
-            )}
-
-            {activeTab === 'address' && (
-              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16 } }}>
-                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
-                  <TextField
-                    id="account-address-autocomplete"
-                    label="Search Address"
-                    placeholder="Start typing an address..."
-                    styles={{ root: { flex: 1 } }}
-                  />
-                  <DefaultButton
-                    text="Use My Location"
-                    iconProps={{ iconName: 'MyLocation' }}
-                    onClick={handleUseMyLocation}
-                  />
-                </Stack>
-
-                <div
-                  id="account-map"
-                  style={{
-                    height: '400px',
-                    width: '100%',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                  }}
-                />
-
-                <Stack horizontal tokens={{ childrenGap: 16 }}>
-                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                    <TextField
-                      label="Street Address"
-                      multiline
-                      rows={2}
-                      value={formData.address1Line1}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1Line1: value || '' })
-                      }
-                    />
-
-                    <TextField
-                      label="City"
-                      value={formData.address1City}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1City: value || '' })
-                      }
-                    />
-                  </Stack>
-
-                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                    <TextField
-                      label="State/Province"
-                      value={formData.address1StateOrProvince}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1StateOrProvince: value || '' })
-                      }
-                    />
-
-                    <TextField
-                      label="Postal Code"
-                      value={formData.address1PostalCode}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1PostalCode: value || '' })
-                      }
-                    />
-                  </Stack>
-                </Stack>
-
-                <TextField
-                  label="Country"
-                  value={formData.address1Country}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1Country: value || '' })
-                  }
-                />
-
-                {formData.latitude && formData.longitude && (
-                  <Text variant="small">
-                    Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                  </Text>
-                )}
-              </Stack>
-            )}
-          </Stack>
-        </Stack>
+        {activeTab === 'related' && (
+          <Text>Related records will be shown here</Text>
+        )}
       </Stack>
     </Stack>
   );
