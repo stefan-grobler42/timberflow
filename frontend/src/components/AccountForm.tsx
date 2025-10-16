@@ -16,7 +16,7 @@ import { accountService, d365ContactService, d365QuoteService, d365OrderService 
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
-import { LookupField, type LookupOption } from './LookupField';
+import { AsyncLookupField, type LookupOption } from './AsyncLookupField';
 import { EntityFormActionBar } from './EntityFormActionBar';
 import type { Account, D365Contact, D365Quote, D365Order, Tender } from '../types/millennium';
 
@@ -116,6 +116,43 @@ export const AccountForm = ({
     id,
     text: name,
   }));
+
+  // Search functions for AsyncLookupField
+  const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
+    if (!searchTerm) {
+      // Return all options for Advanced Search dialog
+      return Promise.resolve(accountOptions);
+    }
+    const filtered = accountOptions.filter(opt => 
+      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    // Return max 3 for inline suggestions only
+    return Promise.resolve(filtered.slice(0, 3));
+  };
+
+  const searchEmployees = async (searchTerm: string): Promise<LookupOption[]> => {
+    if (!searchTerm) {
+      // Return all options for Advanced Search dialog
+      return Promise.resolve(employeeOptions);
+    }
+    const filtered = employeeOptions.filter(opt => 
+      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    // Return max 3 for inline suggestions only
+    return Promise.resolve(filtered.slice(0, 3));
+  };
+
+  const searchContacts = async (searchTerm: string): Promise<LookupOption[]> => {
+    if (!searchTerm) {
+      // Return all options for Advanced Search dialog
+      return Promise.resolve(contactOptions);
+    }
+    const filtered = contactOptions.filter(opt => 
+      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    // Return max 3 for inline suggestions only
+    return Promise.resolve(filtered.slice(0, 3));
+  };
 
   useEffect(() => {
     if (account) {
@@ -613,13 +650,13 @@ export const AccountForm = ({
                 onChange={(_, value) => setFormData({ ...formData, websiteUrl: value || '' })}
               />
 
-              <LookupField
+              <AsyncLookupField
                 label="Parent Account"
                 value={formData.parentAccountId}
                 selectedText={formData.parentAccountId ? resolveLookup(formData.parentAccountId, lookupData.customers) : ''}
-                options={accountOptions}
-                onChange={(id) => setFormData({ ...formData, parentAccountId: id })}
                 entityName="Account"
+                onChange={(id) => setFormData({ ...formData, parentAccountId: id })}
+                onSearch={searchAccounts}
               />
 
               <Dropdown
@@ -629,13 +666,13 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, cr694AccountType: option?.key as number })}
               />
 
-              <LookupField
+              <AsyncLookupField
                 label="Sales Representative"
                 value={formData.cr694SalesRepresentative}
                 selectedText={formData.cr694SalesRepresentative ? resolveLookup(formData.cr694SalesRepresentative, lookupData.employees) : ''}
-                options={employeeOptions}
-                onChange={(id) => setFormData({ ...formData, cr694SalesRepresentative: id })}
                 entityName="Employee"
+                onChange={(id) => setFormData({ ...formData, cr694SalesRepresentative: id })}
+                onSearch={searchEmployees}
               />
 
               <Dropdown
@@ -645,13 +682,13 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, relationshipTypeCode: option?.key as number })}
               />
 
-              <LookupField
+              <AsyncLookupField
                 label="Primary Contact"
                 value={formData.primaryContactId}
                 selectedText={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.contacts) : ''}
-                options={contactOptions}
-                onChange={(id) => setFormData({ ...formData, primaryContactId: id })}
                 entityName="Contact"
+                onChange={(id) => setFormData({ ...formData, primaryContactId: id })}
+                onSearch={searchContacts}
               />
 
               <Stack styles={{ root: { marginTop: 24 } }}>
