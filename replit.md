@@ -3,6 +3,12 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roofing contractors. Its purpose is to manage complex projects from quotation to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client types, aiming to streamline business operations, improve material calculation efficiency, and provide comprehensive project workflow management.
 
+## Recent Changes (October 16, 2025)
+- **Pagination System**: Implemented reusable pagination with 50/100 records per page options across AccountsPage, D365OrdersPage, and D365ContactsPage
+- **Lookup Field Rendering**: Created useLookupData hook and resolveLookup helper to display friendly names instead of GUIDs in lookup fields
+- **ProductionPage Enhancement**: Added Customer, Saw Operator, and Jig Leader columns with lookup resolution (frontend implementation complete)
+- **Data Integrity Discovery**: Identified critical GUID mismatch between Production foreign keys and Account/Employee primary keys requiring migration fix
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Technology stack preference: React + Fluent UI v8 for modern, Microsoft-style interface
@@ -61,7 +67,15 @@ Successfully completed data migration from 7 D365 entities to custom ERP with fu
 - **Delivery**: 1/1 record (100%) - 14 lookup relationships working
 
 ### Lookup Relationships Status
-✅ All parent-child table relationships successfully migrated with working foreign keys:
+⚠️ **CRITICAL DATA INTEGRITY ISSUE DISCOVERED (October 16, 2025)**:
+- Production records (2,765) reference 224 unique Account GUIDs from D365, but NONE match the 1,045 Account IDs in the migrated Accounts table
+- Employee lookup GUIDs in Production also don't match the 74 migrated Employee IDs
+- Root cause: Migration preserved D365 GUIDs in Production/Logistics/Delivery, but regenerated different GUIDs for Accounts/Employees
+- Impact: All lookup fields display truncated GUIDs instead of names because foreign key relationships are broken
+- **Action Required**: Re-run migration with GUID-preserving logic to maintain referential integrity across all related entities
+- Frontend lookup rendering is implemented correctly (useLookupData hook + resolveLookup function working), waiting for data fix
+
+Previously documented (needs verification after data fix):
 - Production → Employees (12 employee lookups: saw operators, helpers, jig leaders, etc.)
 - Production → Customers (customer lookup)
 - Production → Sales Orders (order number lookup)

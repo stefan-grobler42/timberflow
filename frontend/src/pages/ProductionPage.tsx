@@ -30,6 +30,7 @@ import { ProductionForm } from '../components/ProductionForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { useLookupData, resolveLookup } from '../hooks/useLookupData';
 import * as XLSX from 'xlsx';
 
 export const ProductionPage = () => {
@@ -47,18 +48,22 @@ export const ProductionPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+  const lookupData = useLookupData();
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     name: true,
-    orderNo: true,
-    jigStart: true,
-    jigEnd: true,
+    customer: true,
+    sawOperator: true,
+    jigLeader: true,
+    orderNo: false,
+    jigStart: false,
+    jigEnd: false,
     productionComplete: true,
     productionPlannedDate: false,
   };
 
   const defaultColumnOrder = [
-    'name', 'orderNo', 'jigStart', 'jigEnd', 'productionComplete', 'productionPlannedDate'
+    'name', 'customer', 'sawOperator', 'jigLeader', 'orderNo', 'jigStart', 'jigEnd', 'productionComplete', 'productionPlannedDate'
   ];
 
   const defaultView: GridView = {
@@ -399,6 +404,39 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'name',
       isSortedDescending: sortColumn === 'name' && isSortedDescending,
       onColumnClick: onColumnClick,
+    },
+    {
+      key: 'customer',
+      name: 'Customer',
+      minWidth: 150,
+      maxWidth: 250,
+      isResizable: true,
+      isSorted: sortColumn === 'customer',
+      isSortedDescending: sortColumn === 'customer' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{resolveLookup(item.customer, lookupData.customers)}</Text>,
+    },
+    {
+      key: 'sawOperator',
+      name: 'Saw Operator',
+      minWidth: 150,
+      maxWidth: 200,
+      isResizable: true,
+      isSorted: sortColumn === 'sawOperator',
+      isSortedDescending: sortColumn === 'sawOperator' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{resolveLookup(item.sawoperator, lookupData.employees)}</Text>,
+    },
+    {
+      key: 'jigLeader',
+      name: 'Jig Leader',
+      minWidth: 150,
+      maxWidth: 200,
+      isResizable: true,
+      isSorted: sortColumn === 'jigLeader',
+      isSortedDescending: sortColumn === 'jigLeader' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{resolveLookup(item.jigleader, lookupData.employees)}</Text>,
     },
     {
       key: 'orderNo',

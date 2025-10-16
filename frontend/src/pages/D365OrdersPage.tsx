@@ -25,6 +25,8 @@ import { D365OrderForm } from '../components/D365OrderForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const D365OrdersPage = () => {
@@ -42,6 +44,14 @@ export const D365OrdersPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+
+  const {
+    currentPage,
+    pageSize,
+    paginatedItems: paginatedOrders,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination({ items: filteredOrders, initialPageSize: 50 });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     orderNumber: true,
@@ -103,6 +113,10 @@ export const D365OrdersPage = () => {
   useEffect(() => {
     applyFilters();
   }, [orders, searchText, currentView, sortColumn, isSortedDescending]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, currentView.filters, pageSize, setCurrentPage]);
 
   const loadOrders = async () => {
     try {
@@ -634,26 +648,35 @@ export const D365OrdersPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading orders..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredOrders}
-            columns={columns}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            selection={selection}
-            selectionPreservedOnEmptyClick
-            onItemInvoked={handleRowDoubleClick}
-            styles={{
-              root: {
-                selectors: {
-                  '.ms-DetailsRow': {
-                    cursor: 'pointer',
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={paginatedOrders}
+              columns={columns}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              selection={selection}
+              selectionPreservedOnEmptyClick
+              onItemInvoked={handleRowDoubleClick}
+              styles={{
+                root: {
+                  selectors: {
+                    '.ms-DetailsRow': {
+                      cursor: 'pointer',
+                    },
                   },
                 },
-              },
-            }}
+              }}
+            />
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalRecords={filteredOrders.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel

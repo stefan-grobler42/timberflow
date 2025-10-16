@@ -25,6 +25,8 @@ import { D365ContactForm } from '../components/D365ContactForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const D365ContactsPage = () => {
@@ -42,6 +44,14 @@ export const D365ContactsPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+
+  const {
+    currentPage,
+    pageSize,
+    paginatedItems: paginatedContacts,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination({ items: filteredContacts, initialPageSize: 50 });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     fullName: true,
@@ -104,6 +114,10 @@ export const D365ContactsPage = () => {
   useEffect(() => {
     applyFilters();
   }, [contacts, searchText, currentView, sortColumn, isSortedDescending]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchText, currentView.filters, pageSize, setCurrentPage]);
 
   const loadContacts = async () => {
     try {
@@ -647,26 +661,35 @@ export const D365ContactsPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading contacts..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredContacts}
-            columns={columns}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            selection={selection}
-            selectionPreservedOnEmptyClick
-            onItemInvoked={handleRowDoubleClick}
-            styles={{
-              root: {
-                selectors: {
-                  '.ms-DetailsRow': {
-                    cursor: 'pointer',
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={paginatedContacts}
+              columns={columns}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              selection={selection}
+              selectionPreservedOnEmptyClick
+              onItemInvoked={handleRowDoubleClick}
+              styles={{
+                root: {
+                  selectors: {
+                    '.ms-DetailsRow': {
+                      cursor: 'pointer',
+                    },
                   },
                 },
-              },
-            }}
+              }}
+            />
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalRecords={filteredContacts.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel
