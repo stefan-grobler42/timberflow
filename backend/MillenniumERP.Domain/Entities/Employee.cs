@@ -17,12 +17,10 @@ namespace MillenniumERP.Domain.Entities
         public Guid Id { get; set; }
 
         /// <summary>Drivers License No.</summary>
-        [MaxLength(100)]
         [Column("cr694_driverslicenseno")]
         public string? Driverslicenseno { get; set; }
 
         /// <summary>Employee No.</summary>
-        [MaxLength(100)]
         [Column("cr694_employeeno")]
         public string? Employeeno { get; set; }
 
@@ -35,17 +33,14 @@ namespace MillenniumERP.Domain.Entities
         public decimal? HourlyrateBase { get; set; }
 
         /// <summary>ID No.</summary>
-        [MaxLength(100)]
         [Column("cr694_idno")]
         public string? Idno { get; set; }
 
         /// <summary>Job Description</summary>
-        [MaxLength(100)]
         [Column("cr694_jobdescription")]
         public string? Jobdescription { get; set; }
 
         /// <summary>Display Name</summary>
-        [MaxLength(100)]
         [Column("cr694_name")]
         public string? Name { get; set; }
 
@@ -58,7 +53,6 @@ namespace MillenniumERP.Domain.Entities
         public DateTime? Pdpexpirydate { get; set; }
 
         /// <summary>PDP No.</summary>
-        [MaxLength(100)]
         [Column("cr694_pdpno")]
         public string? Pdpno { get; set; }
 
@@ -71,7 +65,6 @@ namespace MillenniumERP.Domain.Entities
         public bool? NewActiveemployee { get; set; }
 
         /// <summary>Cell No.</summary>
-        [MaxLength(20)]
         [Column("new_cellno")]
         public string? NewCellno { get; set; }
 
@@ -84,17 +77,14 @@ namespace MillenniumERP.Domain.Entities
         public bool? NewContractonfile { get; set; }
 
         /// <summary>Display Name (Calculated)</summary>
-        [MaxLength(4000)]
         [Column("new_displaynamecalculated")]
         public string? NewDisplaynamecalculated { get; set; }
 
         /// <summary>E-Mail Address</summary>
-        [MaxLength(100)]
         [Column("new_emailaddress")]
         public string? NewEmailaddress { get; set; }
 
         /// <summary>Income Tax Number</summary>
-        [MaxLength(50)]
         [Column("new_incometaxnumber")]
         public string? NewIncometaxnumber { get; set; }
 

@@ -48,6 +48,33 @@ The system is built as a modern Single-Page Application (SPA) using React with F
 - Professional color scheme with Carolina Blue for branding and selected items, light gray for sidebar for readability.
 - Power Apps-style grid features including responsive design, column resizing, and advanced filtering.
 
+## Data Migration from Microsoft Dynamics 365
+
+### Migration Status (October 2025)
+Successfully completed data migration from 18 D365 entities to custom ERP:
+- **Designer**: 11/11 records (100%)
+- **SaleRepresentative**: 18/18 records (100%)
+- **Vehicles**: 19/19 records (100%)
+- **Employees**: 74/74 records (100%)
+- **Production**: 2,765/2,765 records (100%)
+- **Logistics**: 703/703 records (100%)
+- **Delivery**: 1/1 record (100%)
+
+### Key Technical Solutions
+1. **D365 Entity Set Naming Quirks**: D365 uses non-standard pluralization rules (e.g., `cr694_vehicleses` not `cr694_vehicles`, `cr694_driverses` not `cr694_employees`, `cr694_dispatchs` not `cr694_dispatches`). Always test API endpoints to confirm actual names.
+
+2. **JSON Type Conversion**: D365 returns numeric values for fields like tax IDs (e.g., `new_incometaxnumber: 1484167141`), but ERP expects strings. Solution: Migration script converts all numbers to strings, and API configured with `JsonNumberHandling.AllowReadingFromString` to deserialize correctly.
+
+3. **MaxLength Constraints**: Removed all `[MaxLength]` attributes from migrated entities (Employee, Production, Logistics, Delivery) to accept D365 data of any length without truncation.
+
+4. **Nullable Fields**: Made all entity fields nullable to accommodate D365's flexible data model where any field can be null.
+
+### Migration Architecture
+- **Auth**: OAuth 2.0 with MSAL for secure D365 API access
+- **Script**: Python migration script (`dynamics365_integration/migrate_data.py`) with field mapping and transformation logic
+- **API Config**: ASP.NET Core configured with flexible JSON deserialization to handle D365's data types
+- **Entity Mapping**: Explicit field mappings for each entity to handle D365's naming conventions
+
 ## External Dependencies
 
 - **React 18.2.0**: Frontend UI framework.

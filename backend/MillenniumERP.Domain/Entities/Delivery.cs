@@ -9,7 +9,7 @@ namespace MillenniumERP.Domain.Entities
     {
         /// <summary>Activity Additional Parameters</summary>
         [Column("activityadditionalparams")]
-        public string Activityadditionalparams { get; set; }
+        public string? Activityadditionalparams { get; set; }
 
         /// <summary>Activity</summary>
         [Key]
@@ -18,7 +18,7 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Activity Type</summary>
         [Column("activitytypecode")]
-        public string Activitytypecode { get; set; }
+        public string? Activitytypecode { get; set; }
 
         /// <summary>Actual Duration</summary>
         [Column("actualdurationminutes")]
@@ -34,11 +34,11 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>BCC</summary>
         [Column("bcc")]
-        public string Bcc { get; set; }
+        public string? Bcc { get; set; }
 
         /// <summary>CC</summary>
         [Column("cc")]
-        public string Cc { get; set; }
+        public string? Cc { get; set; }
 
         /// <summary>Social Channel</summary>
         [Column("community")]
@@ -53,18 +53,16 @@ namespace MillenniumERP.Domain.Entities
         public DateTime? Arrivaltimesite { get; set; }
 
         /// <summary>From Km's</summary>
-        [MaxLength(100)]
         [Column("cr694_closekms")]
-        public string Closekms { get; set; }
+        public string? Closekms { get; set; }
 
         /// <summary>Customer</summary>
         [Column("cr694_customer")]
         public Guid? Customer { get; set; }
 
         /// <summary>Trip No.</summary>
-        [MaxLength(100)]
         [Column("cr694_deliveryno")]
-        public string Deliveryno { get; set; }
+        public string? Deliveryno { get; set; }
 
         /// <summary>Departure Time (Factory)</summary>
         [Column("cr694_departuretime")]
@@ -111,9 +109,8 @@ namespace MillenniumERP.Domain.Entities
         public Guid? Loadmaster { get; set; }
 
         /// <summary>To Km's</summary>
-        [MaxLength(100)]
         [Column("cr694_openkms")]
-        public string Openkms { get; set; }
+        public string? Openkms { get; set; }
 
         /// <summary>Order No.</summary>
         [Column("cr694_orderno")]
@@ -141,7 +138,7 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Customers</summary>
         [Column("customers")]
-        public string Customers { get; set; }
+        public string? Customers { get; set; }
 
         /// <summary>Date Delivery Last Attempted</summary>
         [Column("deliverylastattemptedon")]
@@ -153,29 +150,27 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Description</summary>
         [Column("description")]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>Exchange Item ID</summary>
-        [MaxLength(200)]
         [Column("exchangeitemid")]
-        public string Exchangeitemid { get; set; }
+        public string? Exchangeitemid { get; set; }
 
         /// <summary>Exchange Rate</summary>
         [Column("exchangerate")]
         public decimal? Exchangerate { get; set; }
 
         /// <summary>Exchange WebLink</summary>
-        [MaxLength(1250)]
         [Column("exchangeweblink")]
-        public string Exchangeweblink { get; set; }
+        public string? Exchangeweblink { get; set; }
 
         /// <summary>From</summary>
         [Column("from")]
-        public string From { get; set; }
+        public string? From { get; set; }
 
         /// <summary>Recurring Instance Type</summary>
         [Column("instancetypecode")]
-        public int Instancetypecode { get; set; }
+        public int? Instancetypecode { get; set; }
 
         /// <summary>Is Billed</summary>
         [Column("isbilled")]
@@ -187,7 +182,7 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Is Regular Activity</summary>
         [Column("isregularactivity")]
-        public bool Isregularactivity { get; set; }
+        public bool? Isregularactivity { get; set; }
 
         /// <summary>Is Workflow Created</summary>
         [Column("isworkflowcreated")]
@@ -207,15 +202,15 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Optional Attendees</summary>
         [Column("optionalattendees")]
-        public string Optionalattendees { get; set; }
+        public string? Optionalattendees { get; set; }
 
         /// <summary>Organizer</summary>
         [Column("organizer")]
-        public string Organizer { get; set; }
+        public string? Organizer { get; set; }
 
         /// <summary>Outsource Vendors</summary>
         [Column("partners")]
-        public string Partners { get; set; }
+        public string? Partners { get; set; }
 
         /// <summary>Delay activity processing until</summary>
         [Column("postponeactivityprocessinguntil")]
@@ -234,15 +229,15 @@ namespace MillenniumERP.Domain.Entities
         public Guid? Regardingobjectid { get; set; }
 
         [Column("regardingobjecttypecode")]
-        public string Regardingobjecttypecode { get; set; }
+        public string? Regardingobjecttypecode { get; set; }
 
         /// <summary>Required Attendees</summary>
         [Column("requiredattendees")]
-        public string Requiredattendees { get; set; }
+        public string? Requiredattendees { get; set; }
 
         /// <summary>Resources</summary>
         [Column("resources")]
-        public string Resources { get; set; }
+        public string? Resources { get; set; }
 
         /// <summary>Scheduled Duration</summary>
         [Column("scheduleddurationminutes")]
@@ -289,22 +284,20 @@ namespace MillenniumERP.Domain.Entities
         public Guid? Stageid { get; set; }
 
         /// <summary>Subject</summary>
-        [MaxLength(400)]
         [Column("subject")]
-        public string Subject { get; set; }
+        public string? Subject { get; set; }
 
         /// <summary>To</summary>
         [Column("to")]
-        public string To { get; set; }
+        public string? To { get; set; }
 
         /// <summary>Currency</summary>
         [Column("transactioncurrencyid")]
         public Guid? Transactioncurrencyid { get; set; }
 
         /// <summary>(Deprecated) Traversed Path</summary>
-        [MaxLength(1250)]
         [Column("traversedpath")]
-        public string Traversedpath { get; set; }
+        public string? Traversedpath { get; set; }
 
         // Audit fields
         public DateTime? CreatedOn { get; set; }

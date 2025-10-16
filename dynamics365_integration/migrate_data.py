@@ -82,7 +82,7 @@ class D365ToERPMigrator:
             'name_field': 'cr694_deliveryno'
         },
         'cr694_dispatch': {
-            'd365_entity_set': 'cr694_dispatches',
+            'd365_entity_set': 'cr694_dispatchs',
             'endpoint': 'deliveries',
             'primary_key': 'activityid',
             'name_field': 'cr694_deliveryno'
@@ -623,6 +623,9 @@ class D365ToERPMigrator:
                 except:
                     # If parsing fails, keep original value
                     transformed[camel_case_key] = value
+            # Convert numbers to strings for fields that might expect strings
+            elif isinstance(value, (int, float)) and not isinstance(value, bool):
+                transformed[camel_case_key] = str(value)
             else:
                 transformed[camel_case_key] = value
         

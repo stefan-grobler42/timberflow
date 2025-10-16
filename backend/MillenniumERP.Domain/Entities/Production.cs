@@ -40,10 +40,8 @@ namespace MillenniumERP.Domain.Entities
         public DateTime? Jigstart { get; set; }
 
         /// <summary>Name</summary>
-        [Required]
-        [MaxLength(100)]
         [Column("cr694_name")]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>Order No.</summary>
         [Column("cr694_orderno")]

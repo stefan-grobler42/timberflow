@@ -8,14 +8,12 @@ namespace MillenniumERP.Domain.Entities
     public class Logistics
     {
         /// <summary>Delivery No.</summary>
-        [MaxLength(100)]
         [Column("cr694_deliveryno")]
-        public string Deliveryno { get; set; }
+        public string? Deliveryno { get; set; }
 
         /// <summary>Description</summary>
-        [MaxLength(100)]
         [Column("cr694_description")]
-        public string Description { get; set; }
+        public string? Description { get; set; }
 
         /// <summary>Dispatch Manager</summary>
         [Column("cr694_dispatchmanager")]
