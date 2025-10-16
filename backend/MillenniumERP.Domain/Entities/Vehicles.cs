@@ -22,22 +22,22 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Make</summary>
         [MaxLength(100)]
         [Column("cr694_make")]
-        public string Make { get; set; }
+        public string? Make { get; set; }
 
         /// <summary>Model</summary>
         [MaxLength(100)]
         [Column("cr694_model")]
-        public string Model { get; set; }
+        public string? Model { get; set; }
 
         /// <summary>Name</summary>
         [MaxLength(100)]
         [Column("cr694_name")]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>Registration Number</summary>
         [MaxLength(100)]
         [Column("cr694_registrationnumber")]
-        public string Registrationnumber { get; set; }
+        public string? Registrationnumber { get; set; }
 
         /// <summary>Vehicles</summary>
         [Key]
@@ -47,7 +47,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Year Model</summary>
         [MaxLength(100)]
         [Column("cr694_yearmodel")]
-        public string Yearmodel { get; set; }
+        public string? Yearmodel { get; set; }
 
         // Audit fields
         public DateTime? CreatedOn { get; set; }

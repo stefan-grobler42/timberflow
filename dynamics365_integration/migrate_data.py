@@ -34,10 +34,10 @@ class D365ToERPMigrator:
             'name_field': 'cr694_name'
         },
         'cr694_vehicle': {
-            'd365_entity_set': 'cr694_vehicles',
+            'd365_entity_set': 'cr694_vehicleses',
             'endpoint': 'vehicles',
-            'primary_key': 'cr694_vehicleid',
-            'name_field': 'cr694_vehiclenumber'
+            'primary_key': 'cr694_vehiclesid',
+            'name_field': 'cr694_name'
         },
         'cr694_employee': {
             'd365_entity_set': 'cr694_employees',
@@ -161,7 +161,7 @@ class D365ToERPMigrator:
             'modifiedby': 'modifiedBy'
         },
         'cr694_vehicle': {
-            'cr694_vehicleid': 'id',
+            'cr694_vehiclesid': 'id',
             'cr694_approveddriver': 'approvedDriver',
             'cr694_cofinorder': 'cofInOrder',
             'cr694_licenserenewaldate': 'licenseRenewalDate',
