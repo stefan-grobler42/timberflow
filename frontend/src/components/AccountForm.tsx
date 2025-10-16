@@ -17,7 +17,14 @@ import { accountService, d365ContactService, d365QuoteService, d365OrderService 
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
+import { LookupField, type LookupOption } from './LookupField';
 import type { Account, D365Contact, D365Quote, D365Order, Tender } from '../types/millennium';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 declare const google: any;
 
@@ -92,6 +99,22 @@ export const AccountForm = ({
   const [tenders, setTenders] = useState<Tender[]>([]);
   
   const lookupData = useLookupData();
+
+  // Convert lookup maps to option arrays
+  const accountOptions: LookupOption[] = Array.from(lookupData.customers.entries()).map(([id, name]) => ({
+    id,
+    text: name,
+  }));
+
+  const employeeOptions: LookupOption[] = Array.from(lookupData.employees.entries()).map(([id, name]) => ({
+    id,
+    text: name,
+  }));
+
+  const contactOptions: LookupOption[] = Array.from(lookupData.contacts.entries()).map(([id, name]) => ({
+    id,
+    text: name,
+  }));
 
   useEffect(() => {
     if (account) {
@@ -605,11 +628,13 @@ export const AccountForm = ({
                 onChange={(_, value) => setFormData({ ...formData, websiteUrl: value || '' })}
               />
 
-              <TextField
+              <LookupField
                 label="Parent Account"
-                value={formData.parentAccountId ? resolveLookup(formData.parentAccountId, lookupData.customers) : ''}
-                readOnly
-                iconProps={{ iconName: 'Search' }}
+                value={formData.parentAccountId}
+                selectedText={formData.parentAccountId ? resolveLookup(formData.parentAccountId, lookupData.customers) : ''}
+                options={accountOptions}
+                onChange={(id) => setFormData({ ...formData, parentAccountId: id })}
+                entityName="Account"
               />
 
               <Dropdown
@@ -619,11 +644,13 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, cr694AccountType: option?.key as number })}
               />
 
-              <TextField
+              <LookupField
                 label="Sales Representative"
-                value={formData.cr694SalesRepresentative ? resolveLookup(formData.cr694SalesRepresentative, lookupData.employees) : ''}
-                readOnly
-                iconProps={{ iconName: 'Search' }}
+                value={formData.cr694SalesRepresentative}
+                selectedText={formData.cr694SalesRepresentative ? resolveLookup(formData.cr694SalesRepresentative, lookupData.employees) : ''}
+                options={employeeOptions}
+                onChange={(id) => setFormData({ ...formData, cr694SalesRepresentative: id })}
+                entityName="Employee"
               />
 
               <Dropdown
@@ -633,11 +660,13 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, relationshipTypeCode: option?.key as number })}
               />
 
-              <TextField
+              <LookupField
                 label="Primary Contact"
-                value={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.contacts) : ''}
-                readOnly
-                iconProps={{ iconName: 'Search' }}
+                value={formData.primaryContactId}
+                selectedText={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.contacts) : ''}
+                options={contactOptions}
+                onChange={(id) => setFormData({ ...formData, primaryContactId: id })}
+                entityName="Contact"
               />
 
               <Stack styles={{ root: { marginTop: 24 } }}>
