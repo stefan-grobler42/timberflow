@@ -3,7 +3,7 @@ namespace MillenniumERP.Application.DTOs;
 public class EmployeeDto
 {
     public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; }
     public string? EmployeeNo { get; set; }
     public string? IdNo { get; set; }
     public string? JobDescription { get; set; }
@@ -30,7 +30,7 @@ public class EmployeeDto
 
 public class CreateEmployeeDto
 {
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; }
     public string? EmployeeNo { get; set; }
     public string? IdNo { get; set; }
     public string? JobDescription { get; set; }

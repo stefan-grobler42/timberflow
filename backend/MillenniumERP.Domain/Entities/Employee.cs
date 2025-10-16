@@ -19,12 +19,12 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Drivers License No.</summary>
         [MaxLength(100)]
         [Column("cr694_driverslicenseno")]
-        public string Driverslicenseno { get; set; }
+        public string? Driverslicenseno { get; set; }
 
         /// <summary>Employee No.</summary>
         [MaxLength(100)]
         [Column("cr694_employeeno")]
-        public string Employeeno { get; set; }
+        public string? Employeeno { get; set; }
 
         /// <summary>Hourly Rate</summary>
         [Column("cr694_hourlyrate")]
@@ -37,17 +37,17 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>ID No.</summary>
         [MaxLength(100)]
         [Column("cr694_idno")]
-        public string Idno { get; set; }
+        public string? Idno { get; set; }
 
         /// <summary>Job Description</summary>
         [MaxLength(100)]
         [Column("cr694_jobdescription")]
-        public string Jobdescription { get; set; }
+        public string? Jobdescription { get; set; }
 
         /// <summary>Display Name</summary>
         [MaxLength(100)]
         [Column("cr694_name")]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         /// <summary>PDP</summary>
         [Column("cr694_pdp")]
@@ -60,7 +60,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>PDP No.</summary>
         [MaxLength(100)]
         [Column("cr694_pdpno")]
-        public string Pdpno { get; set; }
+        public string? Pdpno { get; set; }
 
         /// <summary>Exchange Rate</summary>
         [Column("exchangerate")]
@@ -73,7 +73,7 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Cell No.</summary>
         [MaxLength(20)]
         [Column("new_cellno")]
-        public string NewCellno { get; set; }
+        public string? NewCellno { get; set; }
 
         /// <summary>Commission Payable</summary>
         [Column("new_commissionpayable")]
@@ -86,17 +86,17 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Display Name (Calculated)</summary>
         [MaxLength(4000)]
         [Column("new_displaynamecalculated")]
-        public string NewDisplaynamecalculated { get; set; }
+        public string? NewDisplaynamecalculated { get; set; }
 
         /// <summary>E-Mail Address</summary>
         [MaxLength(100)]
         [Column("new_emailaddress")]
-        public string NewEmailaddress { get; set; }
+        public string? NewEmailaddress { get; set; }
 
         /// <summary>Income Tax Number</summary>
         [MaxLength(50)]
         [Column("new_incometaxnumber")]
-        public string NewIncometaxnumber { get; set; }
+        public string? NewIncometaxnumber { get; set; }
 
         /// <summary>Start Date</summary>
         [Column("new_startdate")]

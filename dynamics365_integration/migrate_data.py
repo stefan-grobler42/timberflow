@@ -40,9 +40,9 @@ class D365ToERPMigrator:
             'name_field': 'cr694_name'
         },
         'cr694_employee': {
-            'd365_entity_set': 'cr694_employees',
+            'd365_entity_set': 'cr694_driverses',
             'endpoint': 'employees',
-            'primary_key': 'cr694_employeeid',
+            'primary_key': 'cr694_driversid',
             'name_field': 'cr694_name'
         },
         'cr694_quotemroofing': {
@@ -176,7 +176,7 @@ class D365ToERPMigrator:
             'modifiedby': 'modifiedBy'
         },
         'cr694_employee': {
-            'cr694_employeeid': 'id',
+            'cr694_driversid': 'id',
             'cr694_allowdriving': 'allowDriving',
             'cr694_driverslicenseno': 'driversLicenseNo',
             'cr694_employeeno': 'employeeNo',
