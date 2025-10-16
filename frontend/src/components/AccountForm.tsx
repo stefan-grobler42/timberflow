@@ -12,10 +12,11 @@ import {
   SelectionMode,
 } from '@fluentui/react';
 import type { IDropdownOption, IColumn } from '@fluentui/react';
-import { accountService } from '../services/d365Services';
+import { accountService, d365ContactService, d365QuoteService, d365OrderService } from '../services/d365Services';
+import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
-import type { Account } from '../types/millennium';
+import type { Account, D365Contact, D365Quote, D365Order, Tender } from '../types/millennium';
 
 declare const google: any;
 
@@ -51,7 +52,6 @@ export const AccountForm = ({
   account,
   onDismiss,
   onSave,
-  onDelete,
 }: AccountFormProps) => {
   const [activeTab, setActiveTab] = useState<string>('summary');
   const [formData, setFormData] = useState<Partial<Account>>({
@@ -84,6 +84,11 @@ export const AccountForm = ({
   const [saving, setSaving] = useState(false);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+  
+  const [contacts, setContacts] = useState<D365Contact[]>([]);
+  const [quotes, setQuotes] = useState<D365Quote[]>([]);
+  const [orders, setOrders] = useState<D365Order[]>([]);
+  const [tenders, setTenders] = useState<Tender[]>([]);
   
   const lookupData = useLookupData();
 
@@ -123,6 +128,8 @@ export const AccountForm = ({
           marker.setPosition(position);
         }
       }
+
+      loadRelatedData(account.id);
     }
     setError(null);
   }, [account, map, marker]);
@@ -131,8 +138,34 @@ export const AccountForm = ({
     initializeGoogleMaps();
   }, []);
 
+  const loadRelatedData = async (accountId: string) => {
+    try {
+      const accountIdLower = accountId.toLowerCase();
+      const [contactsData, quotesData, ordersData, tendersData] = await Promise.all([
+        d365ContactService.getAll().then((data) => data.filter((c: D365Contact) => c.parentCustomerId?.toLowerCase() === accountIdLower)),
+        d365QuoteService.getAll().then((data) => data.filter((q: D365Quote) => q.customerId?.toLowerCase() === accountIdLower)),
+        d365OrderService.getAll().then((data) => data.filter((o: D365Order) => o.customerId?.toLowerCase() === accountIdLower)),
+        tenderService.getAll().then((data) => data.filter((t: Tender) => t.customer?.toLowerCase() === accountIdLower)),
+      ]);
+
+      setContacts(contactsData);
+      setQuotes(quotesData);
+      setOrders(ordersData);
+      setTenders(tendersData);
+    } catch (err) {
+      console.error('Failed to load related data:', err);
+    }
+  };
+
   const initializeGoogleMaps = () => {
     if (typeof google === 'undefined' || !google.maps) {
+      // Check if script is already being loaded
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => setupMap());
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = `https://maps.googleapis.com/maps/api/js?key=${
         import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
@@ -147,6 +180,8 @@ export const AccountForm = ({
 
   const setupMap = () => {
     const mapElement = document.getElementById('account-form-map');
+    const searchInput = document.getElementById('address-search-input') as HTMLInputElement;
+    
     if (!mapElement) {
       setTimeout(setupMap, 100);
       return;
@@ -177,6 +212,65 @@ export const AccountForm = ({
         }));
       }
     });
+
+    if (searchInput && google.maps.places) {
+      const autocompleteInstance = new google.maps.places.Autocomplete(searchInput, {
+        componentRestrictions: { country: 'za' },
+      });
+
+      autocompleteInstance.addListener('place_changed', () => {
+        const place = autocompleteInstance.getPlace();
+        
+        if (!place.geometry || !place.geometry.location) {
+          return;
+        }
+
+        const location = place.geometry.location;
+        mapInstance.setCenter(location);
+        mapInstance.setZoom(15);
+        markerInstance.setPosition(location);
+
+        const addressComponents = place.address_components || [];
+        let street = '';
+        let city = '';
+        let state = '';
+        let postalCode = '';
+        let country = '';
+
+        addressComponents.forEach((component: any) => {
+          const types = component.types;
+          if (types.includes('street_number')) {
+            street = component.long_name + ' ' + street;
+          }
+          if (types.includes('route')) {
+            street += component.long_name;
+          }
+          if (types.includes('locality')) {
+            city = component.long_name;
+          }
+          if (types.includes('administrative_area_level_1')) {
+            state = component.long_name;
+          }
+          if (types.includes('postal_code')) {
+            postalCode = component.long_name;
+          }
+          if (types.includes('country')) {
+            country = component.long_name;
+          }
+        });
+
+        setFormData((prev) => ({
+          ...prev,
+          address1Line1: street.trim(),
+          address1City: city,
+          address1StateOrProvince: state,
+          address1PostalCode: postalCode,
+          address1Country: country,
+          address1Latitude: location.lat(),
+          address1Longitude: location.lng(),
+        }));
+      });
+    }
 
     setMap(mapInstance);
     setMarker(markerInstance);
@@ -234,6 +328,99 @@ export const AccountForm = ({
       maxWidth: 250,
       isResizable: true,
     },
+    {
+      key: 'telephone1',
+      name: 'Phone',
+      fieldName: 'telephone1',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+    },
+  ];
+
+  const quoteColumns: IColumn[] = [
+    {
+      key: 'quoteNumber',
+      name: 'Quote Number',
+      fieldName: 'quoteNumber',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+    },
+    {
+      key: 'name',
+      name: 'Name',
+      fieldName: 'name',
+      minWidth: 200,
+      maxWidth: 300,
+      isResizable: true,
+    },
+    {
+      key: 'totalAmount',
+      name: 'Total Amount',
+      fieldName: 'totalAmount',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      onRender: (item: D365Quote) => item.totalAmount ? `R ${item.totalAmount.toFixed(2)}` : '-',
+    },
+  ];
+
+  const orderColumns: IColumn[] = [
+    {
+      key: 'orderNumber',
+      name: 'Order Number',
+      fieldName: 'orderNumber',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+    },
+    {
+      key: 'name',
+      name: 'Name',
+      fieldName: 'name',
+      minWidth: 200,
+      maxWidth: 300,
+      isResizable: true,
+    },
+    {
+      key: 'totalAmount',
+      name: 'Total Amount',
+      fieldName: 'totalAmount',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      onRender: (item: D365Order) => item.totalAmount ? `R ${item.totalAmount.toFixed(2)}` : '-',
+    },
+  ];
+
+  const tenderColumns: IColumn[] = [
+    {
+      key: 'name',
+      name: 'Name',
+      fieldName: 'name',
+      minWidth: 200,
+      maxWidth: 300,
+      isResizable: true,
+    },
+    {
+      key: 'closingDate',
+      name: 'Closing Date',
+      fieldName: 'closingDate',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      onRender: (item: Tender) => item.closingDate ? new Date(item.closingDate).toLocaleDateString() : '-',
+    },
+    {
+      key: 'totalValueExcl',
+      name: 'Total Value',
+      fieldName: 'totalValueExcl',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      onRender: (item: Tender) => item.totalValueExcl ? `R ${item.totalValueExcl.toFixed(2)}` : '-',
+    },
   ];
 
   return (
@@ -264,7 +451,6 @@ export const AccountForm = ({
         <DefaultButton text="Quotes" onClick={() => setActiveTab('quotes')} styles={tabStyles(activeTab === 'quotes')} />
         <DefaultButton text="Orders" onClick={() => setActiveTab('orders')} styles={tabStyles(activeTab === 'orders')} />
         <DefaultButton text="Tenders" onClick={() => setActiveTab('tenders')} styles={tabStyles(activeTab === 'tenders')} />
-        <DefaultButton text="Related" onClick={() => setActiveTab('related')} styles={tabStyles(activeTab === 'related')} />
       </Stack>
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: 20 } }}>
@@ -356,7 +542,7 @@ export const AccountForm = ({
 
               <TextField
                 label="Primary Contact"
-                value={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.customers) : ''}
+                value={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.contacts) : ''}
                 readOnly
                 iconProps={{ iconName: 'Search' }}
               />
@@ -366,7 +552,7 @@ export const AccountForm = ({
                   CONTACTS
                 </Text>
                 <DetailsList
-                  items={[]}
+                  items={contacts}
                   columns={contactColumns}
                   selectionMode={SelectionMode.none}
                   styles={{ root: { minHeight: 100 } }}
@@ -378,6 +564,13 @@ export const AccountForm = ({
               <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
                 ADDRESS
               </Text>
+
+              <TextField
+                id="address-search-input"
+                label="Search Address"
+                placeholder="Start typing to search..."
+                iconProps={{ iconName: 'MapPin' }}
+              />
 
               <TextField
                 label="Address 1: Name"
@@ -442,19 +635,45 @@ export const AccountForm = ({
         )}
 
         {activeTab === 'quotes' && (
-          <Text>Quotes grid will be shown here (filtered by account)</Text>
+          <Stack>
+            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
+              Quotes ({quotes.length})
+            </Text>
+            <DetailsList
+              items={quotes}
+              columns={quoteColumns}
+              selectionMode={SelectionMode.none}
+              styles={{ root: { minHeight: 200 } }}
+            />
+          </Stack>
         )}
 
         {activeTab === 'orders' && (
-          <Text>Orders grid will be shown here (filtered by account)</Text>
+          <Stack>
+            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
+              Orders ({orders.length})
+            </Text>
+            <DetailsList
+              items={orders}
+              columns={orderColumns}
+              selectionMode={SelectionMode.none}
+              styles={{ root: { minHeight: 200 } }}
+            />
+          </Stack>
         )}
 
         {activeTab === 'tenders' && (
-          <Text>Tenders grid will be shown here (filtered by account)</Text>
-        )}
-
-        {activeTab === 'related' && (
-          <Text>Related records will be shown here</Text>
+          <Stack>
+            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
+              Tenders ({tenders.length})
+            </Text>
+            <DetailsList
+              items={tenders}
+              columns={tenderColumns}
+              selectionMode={SelectionMode.none}
+              styles={{ root: { minHeight: 200 } }}
+            />
+          </Stack>
         )}
       </Stack>
     </Stack>

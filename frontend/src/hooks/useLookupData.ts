@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { employeeService } from '../services/millenniumServices';
-import { accountService, d365OrderService } from '../services/d365Services';
-import type { Employee, Account, D365Order } from '../types/millennium';
+import { accountService, d365OrderService, d365ContactService } from '../services/d365Services';
+import type { Employee, Account, D365Order, D365Contact } from '../types/millennium';
 
 interface LookupData {
   employees: Map<string, string>;
   customers: Map<string, string>;
   salesOrders: Map<string, string>;
+  contacts: Map<string, string>;
   loading: boolean;
 }
 
@@ -15,16 +16,18 @@ export function useLookupData(): LookupData {
     employees: new Map(),
     customers: new Map(),
     salesOrders: new Map(),
+    contacts: new Map(),
     loading: true,
   });
 
   useEffect(() => {
     const loadLookupData = async () => {
       try {
-        const [employees, customers, salesOrders] = await Promise.all([
+        const [employees, customers, salesOrders, contacts] = await Promise.all([
           employeeService.getAll().catch(() => [] as Employee[]),
           accountService.getAll().catch(() => [] as Account[]),
           d365OrderService.getAll().catch(() => [] as D365Order[]),
+          d365ContactService.getAll().catch(() => [] as D365Contact[]),
         ]);
 
         const employeeMap = new Map<string, string>(
@@ -45,10 +48,17 @@ export function useLookupData(): LookupData {
             .map((o: D365Order) => [o.id.toLowerCase(), o.orderNumber || o.name || 'Unknown Order'])
         );
 
+        const contactMap = new Map<string, string>(
+          contacts
+            .filter((c: D365Contact) => c.id)
+            .map((c: D365Contact) => [c.id.toLowerCase(), c.fullName || `${c.firstName} ${c.lastName}`.trim() || 'Unknown Contact'])
+        );
+
         setLookupData({
           employees: employeeMap,
           customers: customerMap,
           salesOrders: salesOrderMap,
+          contacts: contactMap,
           loading: false,
         });
       } catch (error) {

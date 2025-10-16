@@ -1,9 +1,9 @@
 // Helper function to resolve lookup GUID to friendly name
-export const resolveLookup = (guid: string | undefined | null, lookupArray: any[]): string => {
-  if (!guid || !lookupArray || lookupArray.length === 0) {
+export const resolveLookup = (guid: string | undefined | null, lookupMap: Map<string, string>): string => {
+  if (!guid || !lookupMap) {
     return '-';
   }
   
-  const item = lookupArray.find(x => x.id === guid);
-  return item ? item.name : '-';
+  const name = lookupMap.get(guid.toLowerCase());
+  return name || '-';
 };
