@@ -10,8 +10,9 @@ import {
   Dropdown,
   DetailsList,
   SelectionMode,
+  CommandBar,
 } from '@fluentui/react';
-import type { IDropdownOption, IColumn } from '@fluentui/react';
+import type { IDropdownOption, IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { accountService, d365ContactService, d365QuoteService, d365OrderService } from '../services/d365Services';
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
@@ -423,6 +424,96 @@ export const AccountForm = ({
     },
   ];
 
+  const formCommandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'save',
+      text: 'Save',
+      iconProps: { iconName: 'Save' },
+      onClick: handleSubmit,
+      disabled: saving,
+    },
+    {
+      key: 'saveAndClose',
+      text: 'Save & Close',
+      iconProps: { iconName: 'SaveAndClose' },
+      onClick: async () => {
+        await handleSubmit();
+        onDismiss();
+      },
+      disabled: saving,
+    },
+  ];
+
+  const formCommandBarFarItems: ICommandBarItemProps[] = [
+    {
+      key: 'close',
+      text: 'Close',
+      iconProps: { iconName: 'Cancel' },
+      onClick: onDismiss,
+      disabled: saving,
+    },
+  ];
+
+  const contactsCommandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'new',
+      text: 'New',
+      iconProps: { iconName: 'Add' },
+      onClick: () => console.log('New contact'),
+    },
+    {
+      key: 'refresh',
+      text: 'Refresh',
+      iconProps: { iconName: 'Refresh' },
+      onClick: () => account && loadRelatedData(account.id),
+    },
+  ];
+
+  const quotesCommandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'new',
+      text: 'New',
+      iconProps: { iconName: 'Add' },
+      onClick: () => console.log('New quote'),
+    },
+    {
+      key: 'refresh',
+      text: 'Refresh',
+      iconProps: { iconName: 'Refresh' },
+      onClick: () => account && loadRelatedData(account.id),
+    },
+  ];
+
+  const ordersCommandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'new',
+      text: 'New',
+      iconProps: { iconName: 'Add' },
+      onClick: () => console.log('New order'),
+    },
+    {
+      key: 'refresh',
+      text: 'Refresh',
+      iconProps: { iconName: 'Refresh' },
+      onClick: () => account && loadRelatedData(account.id),
+    },
+  ];
+
+  const tendersCommandBarItems: ICommandBarItemProps[] = [
+    {
+      key: 'new',
+      text: 'New',
+      iconProps: { iconName: 'Add' },
+      onClick: () => console.log('New tender'),
+    },
+    {
+      key: 'refresh',
+      text: 'Refresh',
+      iconProps: { iconName: 'Refresh' },
+      onClick: () => account && loadRelatedData(account.id),
+    },
+  ];
+
   return (
     <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { padding: '12px 20px', borderBottom: '1px solid #edebe9' } }}>
@@ -434,11 +525,13 @@ export const AccountForm = ({
             Account
           </Text>
         </Stack>
-        <Stack horizontal tokens={{ childrenGap: 8 }}>
-          <DefaultButton text="Cancel" onClick={onDismiss} disabled={saving} />
-          <PrimaryButton text="Save" onClick={handleSubmit} disabled={saving} />
-        </Stack>
       </Stack>
+
+      <CommandBar
+        items={formCommandBarItems}
+        farItems={formCommandBarFarItems}
+        styles={{ root: { borderBottom: '1px solid #edebe9' } }}
+      />
 
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
@@ -549,8 +642,12 @@ export const AccountForm = ({
 
               <Stack styles={{ root: { marginTop: 24 } }}>
                 <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 12 } }}>
-                  CONTACTS
+                  CONTACTS ({contacts.length})
                 </Text>
+                <CommandBar
+                  items={contactsCommandBarItems}
+                  styles={{ root: { padding: 0 } }}
+                />
                 <DetailsList
                   items={contacts}
                   columns={contactColumns}
@@ -639,6 +736,10 @@ export const AccountForm = ({
             <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
               Quotes ({quotes.length})
             </Text>
+            <CommandBar
+              items={quotesCommandBarItems}
+              styles={{ root: { padding: 0, marginBottom: 8 } }}
+            />
             <DetailsList
               items={quotes}
               columns={quoteColumns}
@@ -653,6 +754,10 @@ export const AccountForm = ({
             <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
               Orders ({orders.length})
             </Text>
+            <CommandBar
+              items={ordersCommandBarItems}
+              styles={{ root: { padding: 0, marginBottom: 8 } }}
+            />
             <DetailsList
               items={orders}
               columns={orderColumns}
@@ -667,6 +772,10 @@ export const AccountForm = ({
             <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
               Tenders ({tenders.length})
             </Text>
+            <CommandBar
+              items={tendersCommandBarItems}
+              styles={{ root: { padding: 0, marginBottom: 8 } }}
+            />
             <DetailsList
               items={tenders}
               columns={tenderColumns}
