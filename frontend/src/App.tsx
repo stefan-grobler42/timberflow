@@ -33,7 +33,14 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/users" element={<UsersPage />} />
           <Route path="/customers" element={<CustomersPage />} />
-          <Route path="/contacts" element={<div>Contacts (Coming Soon)</div>} />
+          <Route path="/contacts" element={<div style={{ padding: '20px' }}>
+            <h2>Contacts</h2>
+            <p>Contact data is available in the following locations:</p>
+            <ul>
+              <li><a href="#/d365contacts">D365 Contacts</a> - Migrated contacts from Dynamics 365</li>
+            </ul>
+            <p><em>Note: Full data consolidation (merging legacy and D365 contacts) is planned for a future release.</em></p>
+          </div>} />
           <Route path="/activities" element={<div>Activities (Coming Soon)</div>} />
           <Route path="/roles" element={<div>Roles (Coming Soon)</div>} />
           <Route path="/companies" element={<div>Company Types (Coming Soon)</div>} />
@@ -50,8 +57,10 @@ function App() {
           <Route path="/logistics" element={<LogisticsPage />} />
           <Route path="/deliveries" element={<DeliveriesPage />} />
           
+          {/* D365 migrated data - accessible via direct URL for admin/reference */}
           <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/d365contacts" element={<D365ContactsPage />} />
+          
           <Route path="/d365products" element={<D365ProductsPage />} />
           <Route path="/d365quotes" element={<D365QuotesPage />} />
           <Route path="/d365orders" element={<D365OrdersPage />} />

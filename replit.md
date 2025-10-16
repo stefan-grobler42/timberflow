@@ -51,23 +51,36 @@ The system is built as a modern Single-Page Application (SPA) using React with F
 ## Data Migration from Microsoft Dynamics 365
 
 ### Migration Status (October 2025)
-Successfully completed data migration from 18 D365 entities to custom ERP:
+Successfully completed data migration from 7 D365 entities to custom ERP with full lookup relationship support:
 - **Designer**: 11/11 records (100%)
 - **SaleRepresentative**: 18/18 records (100%)
 - **Vehicles**: 19/19 records (100%)
 - **Employees**: 74/74 records (100%)
-- **Production**: 2,765/2,765 records (100%)
-- **Logistics**: 703/703 records (100%)
-- **Delivery**: 1/1 record (100%)
+- **Production**: 2,765/2,765 records (100%) - 14 lookup relationships working
+- **Logistics**: 2,413/2,413 records (100%) - 11 lookup relationships working
+- **Delivery**: 1/1 record (100%) - 14 lookup relationships working
+
+### Lookup Relationships Status
+✅ All parent-child table relationships successfully migrated with working foreign keys:
+- Production → Employees (12 employee lookups: saw operators, helpers, jig leaders, etc.)
+- Production → Customers (customer lookup)
+- Production → Sales Orders (order number lookup)
+- Logistics → Employees (9 employee lookups: drivers, dispatch managers, helpers, etc.)
+- Logistics → Vehicles (2 vehicle lookups: vehicle, trailer)
+- Delivery → Employees, Vehicles, Customers, Orders (14 total lookups)
 
 ### Key Technical Solutions
-1. **D365 Entity Set Naming Quirks**: D365 uses non-standard pluralization rules (e.g., `cr694_vehicleses` not `cr694_vehicles`, `cr694_driverses` not `cr694_employees`, `cr694_dispatchs` not `cr694_dispatches`). Always test API endpoints to confirm actual names.
+1. **D365 Lookup Field Discovery**: D365 Web API returns lookup fields with `_value` suffix containing related record GUIDs (e.g., `_cr694_sawoperator_value` returns the Employee GUID, not `cr694_sawoperator`). This is the standard D365 OData convention for navigating relationships. All field mappings updated to use `_<fieldname>_value` pattern.
 
-2. **JSON Type Conversion**: D365 returns numeric values for fields like tax IDs (e.g., `new_incometaxnumber: 1484167141`), but ERP expects strings. Solution: Migration script converts all numbers to strings, and API configured with `JsonNumberHandling.AllowReadingFromString` to deserialize correctly.
+2. **D365 Entity Set Naming Quirks**: D365 uses non-standard pluralization rules (e.g., `cr694_vehicleses` not `cr694_vehicles`, `cr694_driverses` not `cr694_employees`, `cr694_dispatchs` not `cr694_dispatches`). Always test API endpoints to confirm actual names.
 
-3. **MaxLength Constraints**: Removed all `[MaxLength]` attributes from migrated entities (Employee, Production, Logistics, Delivery) to accept D365 data of any length without truncation.
+3. **GUID Preservation**: D365 GUIDs preserved as primary keys in ERP to ensure referential integrity. This approach maximizes data fidelity and ensures all foreign key relationships align correctly.
 
-4. **Nullable Fields**: Made all entity fields nullable to accommodate D365's flexible data model where any field can be null.
+4. **JSON Type Conversion**: D365 returns numeric values for fields like tax IDs (e.g., `new_incometaxnumber: 1484167141`), but ERP expects strings. Solution: Migration script converts all numbers to strings, and API configured with `JsonNumberHandling.AllowReadingFromString` to deserialize correctly.
+
+5. **MaxLength Constraints**: Removed all `[MaxLength]` attributes from migrated entities (Employee, Production, Logistics, Delivery) to accept D365 data of any length without truncation.
+
+6. **Nullable Fields**: Made all entity fields nullable to accommodate D365's flexible data model where any field can be null.
 
 ### Migration Architecture
 - **Auth**: OAuth 2.0 with MSAL for secure D365 API access

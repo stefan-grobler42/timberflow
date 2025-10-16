@@ -140,47 +140,35 @@ export const Layout = ({ children }: LayoutProps) => {
       ],
     },
     {
-      name: 'Dynamics 365',
+      name: 'Dynamics 365 Data',
       links: [
         {
-          key: 'accounts',
-          name: 'Accounts',
-          url: '/accounts',
-          icon: 'CRMServices',
-        },
-        {
-          key: 'd365contacts',
-          name: 'D365 Contacts',
-          url: '/d365contacts',
-          icon: 'ContactCard',
-        },
-        {
           key: 'd365products',
-          name: 'D365 Products',
+          name: 'Products',
           url: '/d365products',
           icon: 'Product',
         },
         {
           key: 'd365quotes',
-          name: 'D365 Quotes',
+          name: 'Quotes',
           url: '/d365quotes',
           icon: 'DocumentSet',
         },
         {
           key: 'd365orders',
-          name: 'D365 Orders',
+          name: 'Orders',
           url: '/d365orders',
           icon: 'ShoppingCart',
         },
         {
           key: 'd365appointments',
-          name: 'D365 Appointments',
+          name: 'Appointments',
           url: '/d365appointments',
           icon: 'Calendar',
         },
         {
           key: 'd365emails',
-          name: 'D365 Emails',
+          name: 'Emails',
           url: '/d365emails',
           icon: 'Mail',
         },
