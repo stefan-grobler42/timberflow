@@ -26,6 +26,7 @@ import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
 import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const AccountsPage = () => {
@@ -43,8 +44,14 @@ export const AccountsPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+
+  const {
+    currentPage,
+    pageSize,
+    paginatedItems: paginatedAccounts,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination({ items: filteredAccounts, initialPageSize: 50 });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     name: true,
@@ -113,14 +120,7 @@ export const AccountsPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchText, currentView.filters, pageSize]);
-
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / pageSize));
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [filteredAccounts.length, pageSize, currentPage]);
+  }, [searchText, currentView.filters, pageSize, setCurrentPage]);
 
   const loadAccounts = async () => {
     try {
@@ -540,10 +540,6 @@ export const AccountsPage = () => {
 
   const orderedColumns = currentView.columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
   const columns = orderedColumns.filter((col) => currentView.columnVisibility[col.key]);
-
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedAccounts = filteredAccounts.slice(startIndex, endIndex);
 
   const commandBarItems: ICommandBarItemProps[] = [
     {
