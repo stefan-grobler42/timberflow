@@ -425,7 +425,7 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'sawOperator',
       isSortedDescending: sortColumn === 'sawOperator' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{resolveLookup(item.sawoperator, lookupData.employees)}</Text>,
+      onRender: (item: Production) => <Text>{resolveLookup(item.sawOperator, lookupData.employees)}</Text>,
     },
     {
       key: 'jigLeader',
@@ -436,7 +436,7 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'jigLeader',
       isSortedDescending: sortColumn === 'jigLeader' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{resolveLookup(item.jigleader, lookupData.employees)}</Text>,
+      onRender: (item: Production) => <Text>{resolveLookup(item.jigLeader, lookupData.employees)}</Text>,
     },
     {
       key: 'orderNo',

@@ -369,25 +369,236 @@ class D365ToERPMigrator:
         },
         # D365 Standard Entities Field Mappings
         'account': {
+            # Basic Information
             'accountid': 'id',
-            'accountnumber': 'accountNumber',
             'name': 'name',
+            'accountnumber': 'accountNumber',
+            
+            # Contact Information
             'telephone1': 'telephone1',
+            'telephone2': 'telephone2',
+            'telephone3': 'telephone3',
+            'fax': 'fax',
             'emailaddress1': 'emailAddress1',
+            'emailaddress2': 'emailAddress2',
+            'emailaddress3': 'emailAddress3',
             'websiteurl': 'websiteUrl',
+            'ftpsiteurl': 'ftpSiteUrl',
+            
+            # Primary Address (Address 1)
+            'address1_addressid': 'address1AddressId',
+            'address1_addresstypecode': 'address1AddressTypeCode',
+            'address1_name': 'address1Name',
+            'address1_primarycontactname': 'address1PrimaryContactName',
             'address1_line1': 'address1Line1',
+            'address1_line2': 'address1Line2',
+            'address1_line3': 'address1Line3',
             'address1_city': 'address1City',
             'address1_stateorprovince': 'address1StateOrProvince',
-            'address1_postalcode': 'address1PostalCode',
+            'address1_county': 'address1County',
             'address1_country': 'address1Country',
+            'address1_postalcode': 'address1PostalCode',
+            'address1_postofficebox': 'address1PostOfficeBox',
+            'address1_latitude': 'address1Latitude',
+            'address1_longitude': 'address1Longitude',
+            'address1_shippingmethodcode': 'address1ShippingMethodCode',
+            'address1_telephone1': 'address1Telephone1',
+            'address1_telephone2': 'address1Telephone2',
+            'address1_telephone3': 'address1Telephone3',
+            'address1_fax': 'address1Fax',
+            'address1_composite': 'address1Composite',
+            'address1_upszone': 'address1UpsZone',
+            'address1_utcoffset': 'address1UtcOffset',
+            'address1_freighttermscode': 'address1FreightTermsCode',
+            
+            # Secondary Address (Address 2)
+            'address2_addressid': 'address2AddressId',
+            'address2_addresstypecode': 'address2AddressTypeCode',
+            'address2_name': 'address2Name',
+            'address2_primarycontactname': 'address2PrimaryContactName',
+            'address2_line1': 'address2Line1',
+            'address2_line2': 'address2Line2',
+            'address2_line3': 'address2Line3',
+            'address2_city': 'address2City',
+            'address2_stateorprovince': 'address2StateOrProvince',
+            'address2_county': 'address2County',
+            'address2_country': 'address2Country',
+            'address2_postalcode': 'address2PostalCode',
+            'address2_postofficebox': 'address2PostOfficeBox',
+            'address2_latitude': 'address2Latitude',
+            'address2_longitude': 'address2Longitude',
+            'address2_shippingmethodcode': 'address2ShippingMethodCode',
+            'address2_telephone1': 'address2Telephone1',
+            'address2_telephone2': 'address2Telephone2',
+            'address2_telephone3': 'address2Telephone3',
+            'address2_fax': 'address2Fax',
+            'address2_composite': 'address2Composite',
+            'address2_upszone': 'address2UpsZone',
+            'address2_utcoffset': 'address2UtcOffset',
+            'address2_freighttermscode': 'address2FreightTermsCode',
+            
+            # Business Information
+            'description': 'description',
             'revenue': 'revenue',
+            'revenue_base': 'revenueBase',
             'numberofemployees': 'numberOfEmployees',
             'industrycode': 'industryCode',
+            'sic': 'sic',
+            'tickersymbol': 'tickerSymbol',
+            'stockexchange': 'stockExchange',
+            'sharesoutstanding': 'sharesOutstanding',
+            'marketcap': 'marketCap',
+            'marketcap_base': 'marketCapBase',
+            
+            # Custom Fields (Millennium-specific)
+            'cr694_accounttype': 'cr694AccountType',
+            'cr694_companyregistrationnumber': 'cr694CompanyRegistrationNumber',
+            'cr694_companytype': 'cr694CompanyType',
+            'cr694_vatregistrationno': 'cr694VatRegistrationNo',
+            '_cr694_businesstype_value': 'cr694BusinessTypeValue',
+            '_cr694_salesrepresentative_value': 'cr694SalesRepresentativeValue',
+            
+            # Account Classification
+            'accountcategorycode': 'accountCategoryCode',
+            'accountclassificationcode': 'accountClassificationCode',
+            'accountratingcode': 'accountRatingCode',
+            'businesstypecode': 'businessTypeCode',
+            'customersizecode': 'customerSizeCode',
+            'customertypecode': 'customerTypeCode',
+            'ownershipcode': 'ownershipCode',
+            'territorycode': 'territoryCode',
+            
+            # Credit & Financial
+            'creditlimit': 'creditLimit',
+            'creditlimit_base': 'creditLimitBase',
+            'creditonhold': 'creditOnHold',
+            'paymenttermscode': 'paymentTermsCode',
+            'aging30': 'aging30',
+            'aging30_base': 'aging30Base',
+            'aging60': 'aging60',
+            'aging60_base': 'aging60Base',
+            'aging90': 'aging90',
+            'aging90_base': 'aging90Base',
+            
+            # Communication Preferences
+            'donotbulkemail': 'doNotBulkEmail',
+            'donotbulkpostalmail': 'doNotBulkPostalMail',
+            'donotemail': 'doNotEmail',
+            'donotfax': 'doNotFax',
+            'donotphone': 'doNotPhone',
+            'donotpostalmail': 'doNotPostalMail',
+            'donotsendmm': 'doNotSendMM',
+            'followemail': 'followEmail',
+            'preferredcontactmethodcode': 'preferredContactMethodCode',
+            'preferredappointmentdaycode': 'preferredAppointmentDayCode',
+            'preferredappointmenttimecode': 'preferredAppointmentTimeCode',
+            
+            # Marketing
+            'marketingonly': 'marketingOnly',
+            'lastusedincampaign': 'lastUsedInCampaign',
+            
+            # Status & Workflow
+            'statecode': 'stateCode',
+            'statuscode': 'statusCode',
+            'participatesinworkflow': 'participatesInWorkflow',
+            'merged': 'merged',
+            'onholdtime': 'onHoldTime',
+            'lastonholdtime': 'lastOnHoldTime',
+            
+            # Relationships (Lookup GUIDs)
             'ownerid': 'ownerId',
+            '_ownerid_value': 'ownerId',
+            '_owningbusinessunit_value': 'owningBusinessUnitValue',
+            '_owninguser_value': 'owningUserValue',
+            '_owningteam_value': 'owningTeamValue',
+            '_primarycontactid_value': 'primaryContactIdValue',
+            '_parentaccountid_value': 'parentAccountIdValue',
+            '_preferredsystemuserid_value': 'preferredSystemUserIdValue',
+            '_preferredserviceid_value': 'preferredServiceIdValue',
+            '_preferredequipmentid_value': 'preferredEquipmentIdValue',
+            '_defaultpricelevelid_value': 'defaultPriceLevelIdValue',
+            '_masterid_value': 'masterIdValue',
+            '_originatingleadid_value': 'originatingLeadIdValue',
+            '_territoryid_value': 'territoryIdValue',
+            '_transactioncurrencyid_value': 'transactionCurrencyIdValue',
+            '_slaid_value': 'slaIdValue',
+            '_slainvokedid_value': 'slaInvokedIdValue',
+            
+            # Exchange & Currency
+            'exchangerate': 'exchangeRate',
+            
+            # Performance Metrics
+            'opendeals': 'openDeals',
+            'opendeals_date': 'openDealsDate',
+            'opendeals_state': 'openDealsState',
+            'openrevenue': 'openRevenue',
+            'openrevenue_base': 'openRevenueBase',
+            'openrevenue_date': 'openRevenueDate',
+            'openrevenue_state': 'openRevenueState',
+            
+            # Social
+            'primarysatoriid': 'primarySatoriId',
+            'primarytwitterid': 'primaryTwitterId',
+            'yominame': 'yomiName',
+            
+            # Dynamics 365-specific
+            'msdyn_externalaccountid': 'msdynExternalAccountId',
+            'msdyn_gdproptout': 'msdynGdprOptOut',
+            'msdyn_taxexempt': 'msdynTaxExempt',
+            'msdyn_taxexemptnumber': 'msdynTaxExemptNumber',
+            'msdyn_travelcharge': 'msdynTravelCharge',
+            'msdyn_travelcharge_base': 'msdynTravelChargeBase',
+            'msdyn_travelchargetype': 'msdynTravelChargeType',
+            'msdyn_workorderinstructions': 'msdynWorkOrderInstructions',
+            'msdyn_primarytimezone': 'msdynPrimaryTimezone',
+            '_msdyn_salestaxcode_value': 'msdynSalesTaxCodeValue',
+            '_msdyn_serviceterritory_value': 'msdynServiceTerritoryValue',
+            '_msdyn_billingaccount_value': 'msdynBillingAccountValue',
+            '_msdyn_workhourtemplate_value': 'msdynWorkHourTemplateValue',
+            '_msdyn_preferredresource_value': 'msdynPreferredResourceValue',
+            '_msdyn_accountkpiid_value': 'msdynAccountKpiIdValue',
+            '_msdyn_salesaccelerationinsightid_value': 'msdynSalesAccelerationInsightIdValue',
+            '_msdyn_segmentid_value': 'msdynSegmentIdValue',
+            '_msa_managingpartnerid_value': 'msaManagingPartnerIdValue',
+            
+            # Workflow & Process
+            'processid': 'processId',
+            'stageid': 'stageId',
+            'traversedpath': 'traversedPath',
+            
+            # System Fields
             'createdon': 'createdOn',
-            'createdby': 'createdBy',
             'modifiedon': 'modifiedOn',
-            'modifiedby': 'modifiedBy'
+            '_createdby_value': 'createdByValue',
+            '_modifiedby_value': 'modifiedByValue',
+            '_createdonbehalfby_value': 'createdOnBehalfByValue',
+            '_modifiedonbehalfby_value': 'modifiedOnBehalfByValue',
+            'createdby': 'createdBy',
+            'modifiedby': 'modifiedBy',
+            'overriddencreatedon': 'overriddenCreatedOn',
+            'importsequencenumber': 'importSequenceNumber',
+            'timezoneruleversionnumber': 'timeZoneRuleVersionNumber',
+            'utcconversiontimezonecode': 'utcConversionTimeZoneCode',
+            'versionnumber': 'versionNumber',
+            'teamsfollowed': 'teamsFollowed',
+            'timespentbymeonemailandmeetings': 'timeSpentByMeOnEmailAndMeetings',
+            
+            # Image
+            'entityimageid': 'entityImageId',
+            'entityimage_timestamp': 'entityImageTimestamp',
+            'entityimage_url': 'entityImageUrl',
+            
+            # Portal/ADX fields
+            'adx_createdbyipaddress': 'adxCreatedByIpAddress',
+            'adx_createdbyusername': 'adxCreatedByUsername',
+            'adx_modifiedbyipaddress': 'adxModifiedByIpAddress',
+            'adx_modifiedbyusername': 'adxModifiedByUsername',
+            
+            # External Party
+            '_createdbyexternalparty_value': 'createdByExternalPartyValue',
+            '_modifiedbyexternalparty_value': 'modifiedByExternalPartyValue',
+            
+            'shippingmethodcode': 'shippingMethodCode'
         },
         'contact': {
             'contactid': 'id',
@@ -721,10 +932,47 @@ class D365ToERPMigrator:
 
 
 def main():
-    """Run the migration"""
+    """Run the migration
+    
+    Usage:
+        python migrate_data.py              # Migrate all entities
+        python migrate_data.py account      # Migrate only accounts
+        python migrate_data.py account contact  # Migrate multiple entities
+    """
     try:
         migrator = D365ToERPMigrator()
-        migrator.migrate_all()
+        
+        # Check if specific entities were requested
+        if len(sys.argv) > 1:
+            requested_entities = sys.argv[1:]
+            
+            # Validate all requested entities exist
+            invalid_entities = [e for e in requested_entities if e not in migrator.ENTITY_MAPPING]
+            if invalid_entities:
+                print(f"\n✗ Unknown entities: {', '.join(invalid_entities)}")
+                print(f"\nAvailable entities: {', '.join(migrator.ENTITY_MAPPING.keys())}")
+                return 1
+            
+            # Migrate requested entities
+            print("\n" + "="*70)
+            print("MILLENNIUM ROOFING DATA MIGRATION")
+            print("Dynamics 365 → New ERP System")
+            print(f"Entities: {', '.join(requested_entities)}")
+            print("="*70)
+            
+            for entity in requested_entities:
+                migrator.migrate_entity(entity)
+            
+            # Print summary
+            print("\n" + "="*70)
+            print("MIGRATION COMPLETE")
+            print("="*70)
+            print(f"\nTotal Records Fetched: {migrator.stats['total_fetched']}")
+            print(f"Successfully Migrated: {migrator.stats['total_migrated']}")
+            print(f"Failed: {migrator.stats['total_failed']}")
+        else:
+            # No entities specified - migrate all
+            migrator.migrate_all()
         
     except Exception as e:
         print(f"\n✗ Migration failed: {str(e)}")

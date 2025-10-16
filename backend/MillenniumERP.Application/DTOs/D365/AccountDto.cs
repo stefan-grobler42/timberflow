@@ -25,6 +25,7 @@ public class AccountDto
 
 public class CreateAccountDto
 {
+    public Guid? Id { get; set; }  // Allow migration to preserve D365 GUIDs
     public string? Name { get; set; }
     public string? AccountNumber { get; set; }
     public string? Telephone1 { get; set; }

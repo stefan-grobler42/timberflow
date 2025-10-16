@@ -29,8 +29,8 @@ export function useLookupData(): LookupData {
 
         const employeeMap = new Map<string, string>(
           employees
-            .filter((e: Employee) => e.cr694_driversid)
-            .map((e: Employee) => [e.cr694_driversid.toLowerCase(), e.cr694_name || 'Unknown Employee'])
+            .filter((e: Employee) => e.id)
+            .map((e: Employee) => [e.id.toLowerCase(), e.name || 'Unknown Employee'])
         );
 
         const customerMap = new Map<string, string>(

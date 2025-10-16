@@ -48,7 +48,7 @@ public class AccountsController : ControllerBase
     {
         var account = new Account
         {
-            Id = Guid.NewGuid(),
+            Id = createDto.Id ?? Guid.NewGuid(),  // Use provided ID (for migration) or generate new one
             Name = createDto.Name,
             AccountNumber = createDto.AccountNumber,
             Telephone1 = createDto.Telephone1,

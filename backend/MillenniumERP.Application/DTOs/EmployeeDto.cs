@@ -30,6 +30,7 @@ public class EmployeeDto
 
 public class CreateEmployeeDto
 {
+    public Guid? Id { get; set; }  // Allow migration to preserve D365 GUIDs
     public string? Name { get; set; }
     public string? EmployeeNo { get; set; }
     public string? IdNo { get; set; }

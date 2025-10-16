@@ -55,7 +55,7 @@ public class EmployeesController : ControllerBase
     {
         var employee = new Employee
         {
-            Id = Guid.NewGuid(),
+            Id = createDto.Id ?? Guid.NewGuid(),  // Use provided ID (for migration) or generate new one
             Name = createDto.Name,
             Employeeno = createDto.EmployeeNo,
             Idno = createDto.IdNo,
