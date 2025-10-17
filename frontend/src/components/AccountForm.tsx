@@ -7,17 +7,19 @@ import {
   MessageBarType,
   DefaultButton,
   Dropdown,
-  DetailsList,
-  SelectionMode,
-  CommandBar,
 } from '@fluentui/react';
-import type { IDropdownOption, IColumn, ICommandBarItemProps } from '@fluentui/react';
-import { accountService, d365ContactService, d365QuoteService, d365OrderService, lookupService, type LookupOption as ServiceLookupOption } from '../services/d365Services';
+import type { IDropdownOption, IColumn } from '@fluentui/react';
+import { accountService, d365ContactService, d365QuoteService, d365OrderService, lookupService } from '../services/d365Services';
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
 import { AsyncLookupField, type LookupOption } from './AsyncLookupField';
 import { EntityFormActionBar } from './EntityFormActionBar';
+import { RelatedEntityGrid } from './RelatedEntityGrid';
+import { D365ContactFormWrapper } from './D365ContactFormWrapper';
+import { D365QuoteFormWrapper } from './D365QuoteFormWrapper';
+import { D365OrderFormWrapper } from './D365OrderFormWrapper';
+import { TenderFormWrapper } from './TenderFormWrapper';
 import type { Account, D365Contact, D365Quote, D365Order, Tender } from '../types/millennium';
 
 declare global {
@@ -91,8 +93,8 @@ export const AccountForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [marker, setMarker] = useState<google.maps.Marker | null>(null);
+  const [map, setMap] = useState<any>(null);
+  const [marker, setMarker] = useState<any>(null);
   
   const [contacts, setContacts] = useState<D365Contact[]>([]);
   const [quotes, setQuotes] = useState<D365Quote[]>([]);
@@ -100,22 +102,6 @@ export const AccountForm = ({
   const [tenders, setTenders] = useState<Tender[]>([]);
   
   const lookupData = useLookupData();
-
-  // Convert lookup maps to option arrays
-  const accountOptions: LookupOption[] = Array.from(lookupData.customers.entries()).map(([id, name]) => ({
-    id,
-    text: name,
-  }));
-
-  const employeeOptions: LookupOption[] = Array.from(lookupData.employees.entries()).map(([id, name]) => ({
-    id,
-    text: name,
-  }));
-
-  const contactOptions: LookupOption[] = Array.from(lookupData.contacts.entries()).map(([id, name]) => ({
-    id,
-    text: name,
-  }));
 
   // Search functions for AsyncLookupField using backend API
   const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
@@ -490,66 +476,6 @@ export const AccountForm = ({
     },
   ];
 
-  const contactsCommandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'new',
-      text: 'New',
-      iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New contact'),
-    },
-    {
-      key: 'refresh',
-      text: 'Refresh',
-      iconProps: { iconName: 'Refresh' },
-      onClick: () => account && loadRelatedData(account.id),
-    },
-  ];
-
-  const quotesCommandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'new',
-      text: 'New',
-      iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New quote'),
-    },
-    {
-      key: 'refresh',
-      text: 'Refresh',
-      iconProps: { iconName: 'Refresh' },
-      onClick: () => account && loadRelatedData(account.id),
-    },
-  ];
-
-  const ordersCommandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'new',
-      text: 'New',
-      iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New order'),
-    },
-    {
-      key: 'refresh',
-      text: 'Refresh',
-      iconProps: { iconName: 'Refresh' },
-      onClick: () => account && loadRelatedData(account.id),
-    },
-  ];
-
-  const tendersCommandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'new',
-      text: 'New',
-      iconProps: { iconName: 'Add' },
-      onClick: () => console.log('New tender'),
-    },
-    {
-      key: 'refresh',
-      text: 'Refresh',
-      iconProps: { iconName: 'Refresh' },
-      onClick: () => account && loadRelatedData(account.id),
-    },
-  ];
-
   return (
     <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { padding: '12px 20px', borderBottom: '1px solid #edebe9' } }}>
@@ -685,21 +611,17 @@ export const AccountForm = ({
                 onSearch={searchContacts}
               />
 
-              <Stack styles={{ root: { marginTop: 24 } }}>
-                <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 12 } }}>
-                  CONTACTS ({contacts.length})
-                </Text>
-                <CommandBar
-                  items={contactsCommandBarItems}
-                  styles={{ root: { padding: 0 } }}
-                />
-                <DetailsList
-                  items={contacts}
-                  columns={contactColumns}
-                  selectionMode={SelectionMode.none}
-                  styles={{ root: { minHeight: 100 } }}
-                />
-              </Stack>
+              <RelatedEntityGrid
+                title="Contacts"
+                items={contacts}
+                columns={contactColumns}
+                entityName="Contact"
+                parentId={account?.id}
+                onRefresh={() => account?.id && loadRelatedData(account.id)}
+                FormComponent={D365ContactFormWrapper}
+                onDelete={async (id) => await d365ContactService.delete(id)}
+                getItemId={(item) => item.id}
+              />
             </Stack>
 
             <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: '0 0 38%' } }}>
@@ -777,57 +699,45 @@ export const AccountForm = ({
         )}
 
         {activeTab === 'quotes' && (
-          <Stack>
-            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
-              Quotes ({quotes.length})
-            </Text>
-            <CommandBar
-              items={quotesCommandBarItems}
-              styles={{ root: { padding: 0, marginBottom: 8 } }}
-            />
-            <DetailsList
-              items={quotes}
-              columns={quoteColumns}
-              selectionMode={SelectionMode.none}
-              styles={{ root: { minHeight: 200 } }}
-            />
-          </Stack>
+          <RelatedEntityGrid
+            title="Quotes"
+            items={quotes}
+            columns={quoteColumns}
+            entityName="Quote"
+            parentId={account?.id}
+            onRefresh={() => account?.id && loadRelatedData(account.id)}
+            FormComponent={D365QuoteFormWrapper}
+            onDelete={async (id) => await d365QuoteService.delete(id)}
+            getItemId={(item) => item.id}
+          />
         )}
 
         {activeTab === 'orders' && (
-          <Stack>
-            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
-              Orders ({orders.length})
-            </Text>
-            <CommandBar
-              items={ordersCommandBarItems}
-              styles={{ root: { padding: 0, marginBottom: 8 } }}
-            />
-            <DetailsList
-              items={orders}
-              columns={orderColumns}
-              selectionMode={SelectionMode.none}
-              styles={{ root: { minHeight: 200 } }}
-            />
-          </Stack>
+          <RelatedEntityGrid
+            title="Orders"
+            items={orders}
+            columns={orderColumns}
+            entityName="Order"
+            parentId={account?.id}
+            onRefresh={() => account?.id && loadRelatedData(account.id)}
+            FormComponent={D365OrderFormWrapper}
+            onDelete={async (id) => await d365OrderService.delete(id)}
+            getItemId={(item) => item.id}
+          />
         )}
 
         {activeTab === 'tenders' && (
-          <Stack>
-            <Text variant="large" styles={{ root: { fontWeight: 600, marginBottom: 16 } }}>
-              Tenders ({tenders.length})
-            </Text>
-            <CommandBar
-              items={tendersCommandBarItems}
-              styles={{ root: { padding: 0, marginBottom: 8 } }}
-            />
-            <DetailsList
-              items={tenders}
-              columns={tenderColumns}
-              selectionMode={SelectionMode.none}
-              styles={{ root: { minHeight: 200 } }}
-            />
-          </Stack>
+          <RelatedEntityGrid
+            title="Tenders"
+            items={tenders}
+            columns={tenderColumns}
+            entityName="Tender"
+            parentId={account?.id}
+            onRefresh={() => account?.id && loadRelatedData(account.id)}
+            FormComponent={TenderFormWrapper}
+            onDelete={async (id) => await tenderService.delete(id)}
+            getItemId={(item) => item.id}
+          />
         )}
       </Stack>
     </Stack>
