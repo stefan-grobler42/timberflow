@@ -3,7 +3,29 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roofing contractors. Its purpose is to manage complex projects from quotation to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client types, aiming to streamline business operations, improve material calculation efficiency, and provide comprehensive project workflow management.
 
-## Recent Changes (October 16, 2025)
+## Recent Changes
+
+### October 17, 2025 - Advanced CRM Components & Duplicate Detection System
+- **✅ EntityFormActionBar Component**: Reusable action bar with back arrow + Save/Save & Close/Delete buttons for all entity forms - consistent UI across all forms
+- **✅ AsyncLookupField Component**: Search-first lookup with debounced search, max 3 inline suggestions, keyboard navigation (Tab/Enter/Escape), and advanced search modal with column filtering
+- **✅ Backend Lookup Search Endpoints**: Multi-field relevance scoring (exact match=3, starts with=2, contains=1) for /lookups/{entity}/recent and /lookups/{entity}/search endpoints
+- **✅ RelatedEntityGrid Component**: Generic subgrid wrapper with New/Edit/Delete that opens entity forms in Panel popups - full CRUD operations in subgrids
+- **✅ Duplicate Detection Backend Service**: 
+  - EF Core-compatible 3-step JOIN pattern for scalable duplicate detection (no O(n²) in-memory scans)
+  - Configurable match rules per entity (Exact, CaseInsensitive, Fuzzy, Phone, Email)
+  - Weighted scoring algorithm with configurable threshold
+  - Fuzzy matching with Levenshtein distance + database-side narrowing
+  - Transaction-wrapped merge with auto-relinking of related records (contacts, quotes, orders, tenders)
+- **✅ Duplicate Detection & Merge UI**:
+  - Entity selector with dynamic match rules configuration
+  - Side-by-side field comparison of master vs duplicate records
+  - Field-level selection with radio buttons for merge preview
+  - Confirmation dialogs before destructive operations
+  - Client-side validation for rule weights (1-10)
+  - Auto-clear results when entity type changes
+- **Database Schema**: Added relationshiptypecode column to accounts table
+
+### October 16, 2025 - D365-Style Account Form & Lookup System
 - **✅ D365-Style Account Form with Functional Subgrids COMPLETED**: Fully functional AccountForm matching Dynamics 365 with:
   - **Two-column layout**: Account Information (left) + Address with Google Maps (right)
   - **Google Maps Places Autocomplete**: Search addresses with auto-population of Street, City, State, Postal Code, Country, and coordinates
