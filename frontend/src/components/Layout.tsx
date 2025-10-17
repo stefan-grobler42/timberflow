@@ -137,6 +137,12 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/companies',
           icon: 'CityNext',
         },
+        {
+          key: 'duplicates',
+          name: 'Duplicate Detection',
+          url: '/duplicates',
+          icon: 'MergeDuplicate',
+        },
       ],
     },
     {

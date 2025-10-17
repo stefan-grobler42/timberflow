@@ -22,6 +22,7 @@ import { D365QuotesPage } from './pages/D365QuotesPage';
 import { D365OrdersPage } from './pages/D365OrdersPage';
 import { D365AppointmentsPage } from './pages/D365AppointmentsPage';
 import { D365EmailsPage } from './pages/D365EmailsPage';
+import { DuplicateDetectionPage } from './pages/DuplicateDetectionPage';
 
 initializeIcons();
 
@@ -66,6 +67,7 @@ function App() {
           <Route path="/d365orders" element={<D365OrdersPage />} />
           <Route path="/d365appointments" element={<D365AppointmentsPage />} />
           <Route path="/d365emails" element={<D365EmailsPage />} />
+          <Route path="/duplicates" element={<DuplicateDetectionPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>
