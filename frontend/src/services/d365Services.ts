@@ -59,3 +59,28 @@ export const d365EmailService = {
   update: (id: string, data: Partial<D365Email>) => api.put<D365Email>(`/d365emails/${id}`, data),
   delete: (id: string) => api.delete(`/d365emails/${id}`),
 };
+
+export interface LookupOption {
+  id: string;
+  text: string;
+}
+
+export const lookupService = {
+  searchAccounts: (term: string = '') => 
+    api.get<LookupOption[]>(`/lookups/accounts/search?term=${encodeURIComponent(term)}`),
+  
+  searchEmployees: (term: string = '') => 
+    api.get<LookupOption[]>(`/lookups/employees/search?term=${encodeURIComponent(term)}`),
+  
+  searchContacts: (term: string = '') => 
+    api.get<LookupOption[]>(`/lookups/contacts/search?term=${encodeURIComponent(term)}`),
+  
+  getRecentAccounts: () => 
+    api.get<LookupOption[]>('/lookups/accounts/recent'),
+  
+  getRecentEmployees: () => 
+    api.get<LookupOption[]>('/lookups/employees/recent'),
+  
+  getRecentContacts: () => 
+    api.get<LookupOption[]>('/lookups/contacts/recent'),
+};

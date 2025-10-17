@@ -266,6 +266,9 @@ public class Account
     [Column("ownershipcode")]
     public int? OwnershipCode { get; set; }
 
+    [Column("relationshiptypecode")]
+    public int? RelationshipTypeCode { get; set; }
+
     [Column("territorycode")]
     public int? TerritoryCode { get; set; }
 

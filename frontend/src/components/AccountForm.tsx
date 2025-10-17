@@ -12,7 +12,7 @@ import {
   CommandBar,
 } from '@fluentui/react';
 import type { IDropdownOption, IColumn, ICommandBarItemProps } from '@fluentui/react';
-import { accountService, d365ContactService, d365QuoteService, d365OrderService } from '../services/d365Services';
+import { accountService, d365ContactService, d365QuoteService, d365OrderService, lookupService, type LookupOption as ServiceLookupOption } from '../services/d365Services';
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
@@ -117,41 +117,35 @@ export const AccountForm = ({
     text: name,
   }));
 
-  // Search functions for AsyncLookupField
+  // Search functions for AsyncLookupField using backend API
   const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
-    if (!searchTerm) {
-      // Return all options for Advanced Search dialog
-      return Promise.resolve(accountOptions);
+    try {
+      const results = await lookupService.searchAccounts(searchTerm);
+      return results.map(r => ({ id: r.id, text: r.text }));
+    } catch (error) {
+      console.error('Error searching accounts:', error);
+      return [];
     }
-    const filtered = accountOptions.filter(opt => 
-      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    // Return max 3 for inline suggestions only
-    return Promise.resolve(filtered.slice(0, 3));
   };
 
   const searchEmployees = async (searchTerm: string): Promise<LookupOption[]> => {
-    if (!searchTerm) {
-      // Return all options for Advanced Search dialog
-      return Promise.resolve(employeeOptions);
+    try {
+      const results = await lookupService.searchEmployees(searchTerm);
+      return results.map(r => ({ id: r.id, text: r.text }));
+    } catch (error) {
+      console.error('Error searching employees:', error);
+      return [];
     }
-    const filtered = employeeOptions.filter(opt => 
-      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    // Return max 3 for inline suggestions only
-    return Promise.resolve(filtered.slice(0, 3));
   };
 
   const searchContacts = async (searchTerm: string): Promise<LookupOption[]> => {
-    if (!searchTerm) {
-      // Return all options for Advanced Search dialog
-      return Promise.resolve(contactOptions);
+    try {
+      const results = await lookupService.searchContacts(searchTerm);
+      return results.map(r => ({ id: r.id, text: r.text }));
+    } catch (error) {
+      console.error('Error searching contacts:', error);
+      return [];
     }
-    const filtered = contactOptions.filter(opt => 
-      opt.text.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    // Return max 3 for inline suggestions only
-    return Promise.resolve(filtered.slice(0, 3));
   };
 
   useEffect(() => {

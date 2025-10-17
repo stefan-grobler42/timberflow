@@ -57,7 +57,7 @@ public class AccountsController : ControllerBase
             Cr694CompanyRegistrationNumber = createDto.Cr694CompanyRegistrationNumber,
             Cr694VatRegistrationNo = createDto.Cr694VatRegistrationNo,
             Cr694AccountType = createDto.Cr694AccountType,
-            Cr694SalesRepresentative = createDto.Cr694SalesRepresentative,
+            Cr694SalesRepresentativeValue = createDto.Cr694SalesRepresentative,
             
             // Contact Information
             Telephone1 = createDto.Telephone1,
@@ -83,8 +83,8 @@ public class AccountsController : ControllerBase
             Address1Longitude = createDto.Address1Longitude,
             
             // Relationships
-            ParentAccountId = createDto.ParentAccountId,
-            PrimaryContactId = createDto.PrimaryContactId,
+            ParentAccountIdValue = createDto.ParentAccountId,
+            PrimaryContactIdValue = createDto.PrimaryContactId,
             
             // Financial
             Revenue = createDto.Revenue,
@@ -125,7 +125,7 @@ public class AccountsController : ControllerBase
         if (updateDto.Cr694CompanyRegistrationNumber != null) account.Cr694CompanyRegistrationNumber = updateDto.Cr694CompanyRegistrationNumber;
         if (updateDto.Cr694VatRegistrationNo != null) account.Cr694VatRegistrationNo = updateDto.Cr694VatRegistrationNo;
         if (updateDto.Cr694AccountType.HasValue) account.Cr694AccountType = updateDto.Cr694AccountType;
-        if (updateDto.Cr694SalesRepresentative.HasValue) account.Cr694SalesRepresentative = updateDto.Cr694SalesRepresentative;
+        if (updateDto.Cr694SalesRepresentative.HasValue) account.Cr694SalesRepresentativeValue = updateDto.Cr694SalesRepresentative;
         
         // Contact Information
         if (updateDto.Telephone1 != null) account.Telephone1 = updateDto.Telephone1;
@@ -151,8 +151,8 @@ public class AccountsController : ControllerBase
         if (updateDto.Address1Longitude.HasValue) account.Address1Longitude = updateDto.Address1Longitude;
         
         // Relationships
-        if (updateDto.ParentAccountId.HasValue) account.ParentAccountId = updateDto.ParentAccountId;
-        if (updateDto.PrimaryContactId.HasValue) account.PrimaryContactId = updateDto.PrimaryContactId;
+        if (updateDto.ParentAccountId.HasValue) account.ParentAccountIdValue = updateDto.ParentAccountId;
+        if (updateDto.PrimaryContactId.HasValue) account.PrimaryContactIdValue = updateDto.PrimaryContactId;
         
         // Financial
         if (updateDto.Revenue.HasValue) account.Revenue = updateDto.Revenue;
@@ -205,7 +205,7 @@ public class AccountsController : ControllerBase
             Cr694CompanyRegistrationNumber = account.Cr694CompanyRegistrationNumber,
             Cr694VatRegistrationNo = account.Cr694VatRegistrationNo,
             Cr694AccountType = account.Cr694AccountType,
-            Cr694SalesRepresentative = account.Cr694SalesRepresentative,
+            Cr694SalesRepresentative = account.Cr694SalesRepresentativeValue,
             
             // Contact Information
             Telephone1 = account.Telephone1,
@@ -231,8 +231,8 @@ public class AccountsController : ControllerBase
             Address1Longitude = account.Address1Longitude,
             
             // Relationships
-            ParentAccountId = account.ParentAccountId,
-            PrimaryContactId = account.PrimaryContactId,
+            ParentAccountId = account.ParentAccountIdValue,
+            PrimaryContactId = account.PrimaryContactIdValue,
             
             // Financial
             Revenue = account.Revenue,
