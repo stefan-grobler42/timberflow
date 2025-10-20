@@ -928,10 +928,10 @@ public class DuplicatesController : ControllerBase
         
         if (findMethod != null)
         {
-            var task = (Task)findMethod.Invoke(dbSet, new object[] { new object[] { guid } })!;
-            await task.ConfigureAwait(false);
-            var resultProperty = task.GetType().GetProperty("Result");
-            return resultProperty?.GetValue(task);
+            // FindAsync returns ValueTask<TEntity>, not Task
+            dynamic valueTask = findMethod.Invoke(dbSet, new object[] { new object[] { guid } })!;
+            var result = await valueTask;
+            return result;
         }
 
         return null;

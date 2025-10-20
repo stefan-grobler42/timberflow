@@ -514,7 +514,7 @@ export const AccountForm = ({
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: 20 } }}>
         {activeTab === 'summary' && (
           <Stack horizontal tokens={{ childrenGap: 20 }}>
-            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: '0 0 60%' } }}>
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { width: '60%', flexShrink: 0 } }}>
               <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
                 ACCOUNT INFORMATION
               </Text>
@@ -624,7 +624,7 @@ export const AccountForm = ({
               />
             </Stack>
 
-            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: '0 0 38%' } }}>
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { width: '38%', flexShrink: 0 } }}>
               <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
                 ADDRESS
               </Text>
