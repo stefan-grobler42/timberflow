@@ -70,8 +70,13 @@ export const LookupField: React.FC<LookupFieldProps> = ({
   const calloutId = useId('callout');
   const peekButtonId = useId('peek-button');
 
-  // Filter options based on search text
+  // Filter options based on search text (only for client-side filtering)
   useEffect(() => {
+    // Skip client-side filtering if async search is available
+    if (onSearch) {
+      return;
+    }
+
     if (!searchText.trim()) {
       setFilteredOptions(options);
       return;
@@ -85,7 +90,7 @@ export const LookupField: React.FC<LookupFieldProps> = ({
     );
     
     setFilteredOptions(filtered);
-  }, [searchText, options]);
+  }, [searchText, options, onSearch]);
 
   // Update search text when selectedText prop changes
   useEffect(() => {
