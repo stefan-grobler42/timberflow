@@ -8,18 +8,12 @@ import {
   DefaultButton,
   CommandBar,
   Dropdown,
+  DatePicker,
+  Label,
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { d365ContactService, accountService } from '../services/d365Services';
 import type { D365Contact, Account } from '../types/millennium';
-
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-
-declare const google: any;
 
 interface D365ContactFormProps {
   contact?: D365Contact;
@@ -34,65 +28,94 @@ export const D365ContactForm = ({
   onSave,
   onDelete,
 }: D365ContactFormProps) => {
-  const [activeTab, setActiveTab] = useState<string>('basic');
+  const [activeTab, setActiveTab] = useState<string>('general');
   const [formData, setFormData] = useState<Partial<D365Contact>>({
+    salutation: '',
     firstName: '',
+    middleName: '',
     lastName: '',
     fullName: '',
     emailAddress1: '',
     telephone1: '',
+    telephone2: '',
+    telephone3: '',
     mobilePhone: '',
+    fax: '',
     jobTitle: '',
     parentCustomerId: '',
+    address1AddressTypeCode: undefined,
+    address1Name: '',
     address1Line1: '',
+    address1Line2: '',
+    address1Line3: '',
     address1City: '',
     address1StateOrProvince: '',
     address1PostalCode: '',
     address1Country: '',
-    latitude: null,
-    longitude: null,
+    address1Telephone1: '',
+    description: '',
+    department: '',
+    managerName: '',
+    managerPhone: '',
+    role: '',
+    assistantName: '',
+    assistantPhone: '',
+    genderCode: undefined,
+    familyStatusCode: undefined,
+    spousesPartner: '',
+    birthDate: undefined,
+    anniversary: undefined,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [map, setMap] = useState<any>(null);
-  const [marker, setMarker] = useState<any>(null);
 
   useEffect(() => {
     loadAccounts();
-    initializeGoogleMaps();
   }, []);
 
   useEffect(() => {
     if (contact) {
       setFormData({
+        salutation: contact.salutation || '',
         firstName: contact.firstName || '',
+        middleName: contact.middleName || '',
         lastName: contact.lastName || '',
         fullName: contact.fullName || '',
         emailAddress1: contact.emailAddress1 || '',
         telephone1: contact.telephone1 || '',
+        telephone2: contact.telephone2 || '',
+        telephone3: contact.telephone3 || '',
         mobilePhone: contact.mobilePhone || '',
+        fax: contact.fax || '',
         jobTitle: contact.jobTitle || '',
         parentCustomerId: contact.parentCustomerId || '',
+        address1AddressTypeCode: contact.address1AddressTypeCode,
+        address1Name: contact.address1Name || '',
         address1Line1: contact.address1Line1 || '',
+        address1Line2: contact.address1Line2 || '',
+        address1Line3: contact.address1Line3 || '',
         address1City: contact.address1City || '',
         address1StateOrProvince: contact.address1StateOrProvince || '',
         address1PostalCode: contact.address1PostalCode || '',
         address1Country: contact.address1Country || '',
-        latitude: contact.latitude,
-        longitude: contact.longitude,
+        address1Telephone1: contact.address1Telephone1 || '',
+        description: contact.description || '',
+        department: contact.department || '',
+        managerName: contact.managerName || '',
+        managerPhone: contact.managerPhone || '',
+        role: contact.role || '',
+        assistantName: contact.assistantName || '',
+        assistantPhone: contact.assistantPhone || '',
+        genderCode: contact.genderCode,
+        familyStatusCode: contact.familyStatusCode,
+        spousesPartner: contact.spousesPartner || '',
+        birthDate: contact.birthDate,
+        anniversary: contact.anniversary,
       });
-
-      if (contact.latitude && contact.longitude && map) {
-        const position = { lat: contact.latitude, lng: contact.longitude };
-        map.setCenter(position);
-        if (marker) {
-          marker.setPosition(position);
-        }
-      }
     }
     setError(null);
-  }, [contact, map, marker]);
+  }, [contact]);
 
   const loadAccounts = async () => {
     try {
@@ -103,134 +126,40 @@ export const D365ContactForm = ({
     }
   };
 
+  const salutationOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    { key: 'Mr.', text: 'Mr.' },
+    { key: 'Ms.', text: 'Ms.' },
+    { key: 'Mrs.', text: 'Mrs.' },
+    { key: 'Dr.', text: 'Dr.' },
+  ];
+
   const accountOptions: IDropdownOption[] = [
     { key: '', text: '(None)' },
     ...accounts.map((a) => ({ key: a.id, text: a.name ?? '' })),
   ];
 
-  const initializeGoogleMaps = () => {
-    if (typeof google === 'undefined' || !google.maps) {
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${
-        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-      }&libraries=places`;
-      script.async = true;
-      script.onload = () => setupMap();
-      document.head.appendChild(script);
-    } else {
-      setupMap();
-    }
-  };
+  const addressTypeOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    { key: 1, text: 'Bill To' },
+    { key: 2, text: 'Ship To' },
+    { key: 3, text: 'Primary' },
+    { key: 4, text: 'Other' },
+  ];
 
-  const setupMap = () => {
-    const mapElement = document.getElementById('contact-map');
-    if (!mapElement) {
-      setTimeout(setupMap, 100);
-      return;
-    }
+  const genderOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    { key: 1, text: 'Male' },
+    { key: 2, text: 'Female' },
+  ];
 
-    const defaultCenter = { lat: -26.2041, lng: 28.0473 };
-    const mapInstance = new google.maps.Map(mapElement, {
-      center: defaultCenter,
-      zoom: 12,
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
-    });
-
-    const markerInstance = new google.maps.Marker({
-      map: mapInstance,
-      draggable: true,
-      position: defaultCenter,
-    });
-
-    markerInstance.addListener('dragend', () => {
-      const position = markerInstance.getPosition();
-      if (position) {
-        setFormData((prev) => ({
-          ...prev,
-          latitude: position.lat(),
-          longitude: position.lng(),
-        }));
-      }
-    });
-
-    const input = document.getElementById('contact-address-autocomplete') as HTMLInputElement;
-    if (input) {
-      const autocompleteInstance = new google.maps.places.Autocomplete(input, {
-        componentRestrictions: { country: 'za' },
-        fields: ['address_components', 'geometry', 'formatted_address'],
-      });
-
-      autocompleteInstance.addListener('place_changed', () => {
-        const place = autocompleteInstance.getPlace();
-        if (place.geometry?.location) {
-          const position = place.geometry.location;
-          mapInstance.setCenter(position);
-          mapInstance.setZoom(15);
-          markerInstance.setPosition(position);
-
-          setFormData((prev) => ({
-            ...prev,
-            address1Line1: place.formatted_address || '',
-            latitude: position.lat(),
-            longitude: position.lng(),
-          }));
-
-          if (place.address_components) {
-            const components = place.address_components;
-            const city = components.find((c: any) => c.types.includes('locality'))?.long_name;
-            const province = components.find((c: any) =>
-              c.types.includes('administrative_area_level_1')
-            )?.long_name;
-            const postalCode = components.find((c: any) => c.types.includes('postal_code'))?.long_name;
-
-            setFormData((prev) => ({
-              ...prev,
-              address1City: city || prev.address1City || '',
-              address1StateOrProvince: province || prev.address1StateOrProvince || '',
-              address1PostalCode: postalCode || prev.address1PostalCode || '',
-            }));
-          }
-
-          input.value = '';
-        }
-      });
-
-    }
-
-    setMap(mapInstance);
-    setMarker(markerInstance);
-  };
-
-  const handleUseMyLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const pos = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-
-          if (map) {
-            map.setCenter(pos);
-          }
-          if (marker) {
-            marker.setPosition(pos);
-          }
-
-          setFormData((prev) => ({
-            ...prev,
-            latitude: pos.lat,
-            longitude: pos.lng,
-          }));
-        },
-        () => {
-          setError('Failed to get your location');
-        }
-      );
-    }
-  };
+  const maritalStatusOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    { key: 1, text: 'Single' },
+    { key: 2, text: 'Married' },
+    { key: 3, text: 'Divorced' },
+    { key: 4, text: 'Widowed' },
+  ];
 
   const handleSubmit = async () => {
     try {
@@ -262,21 +191,41 @@ export const D365ContactForm = ({
       }
 
       setFormData({
+        salutation: '',
         firstName: '',
+        middleName: '',
         lastName: '',
         fullName: '',
         emailAddress1: '',
         telephone1: '',
+        telephone2: '',
+        telephone3: '',
         mobilePhone: '',
+        fax: '',
         jobTitle: '',
         parentCustomerId: '',
+        address1AddressTypeCode: undefined,
+        address1Name: '',
         address1Line1: '',
+        address1Line2: '',
+        address1Line3: '',
         address1City: '',
         address1StateOrProvince: '',
         address1PostalCode: '',
         address1Country: '',
-        latitude: null,
-        longitude: null,
+        address1Telephone1: '',
+        description: '',
+        department: '',
+        managerName: '',
+        managerPhone: '',
+        role: '',
+        assistantName: '',
+        assistantPhone: '',
+        genderCode: undefined,
+        familyStatusCode: undefined,
+        spousesPartner: '',
+        birthDate: undefined,
+        anniversary: undefined,
       });
       setSaving(false);
     } catch (err) {
@@ -338,222 +287,362 @@ export const D365ContactForm = ({
         <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
           <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
             <DefaultButton
-              text="Basic Information"
-              iconProps={{ iconName: 'Info' }}
-              onClick={() => setActiveTab('basic')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'basic' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Contact Details"
+              text="General"
               iconProps={{ iconName: 'Contact' }}
-              onClick={() => setActiveTab('contact')}
+              onClick={() => setActiveTab('general')}
               styles={{
                 root: {
                   height: 48,
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'contact' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'contact' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'contact' ? 600 : 400,
+                  backgroundColor: activeTab === 'general' ? '#0078d4' : 'transparent',
+                  color: activeTab === 'general' ? 'white' : '#323130',
+                  fontWeight: activeTab === 'general' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'contact' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'contact' ? 'white' : '#323130',
+                  backgroundColor: activeTab === 'general' ? '#106ebe' : '#f3f2f1',
+                  color: activeTab === 'general' ? 'white' : '#323130',
                 },
               }}
             />
             <DefaultButton
-              text="Address"
-              iconProps={{ iconName: 'MapPin' }}
-              onClick={() => setActiveTab('address')}
+              text="Details"
+              iconProps={{ iconName: 'Info' }}
+              onClick={() => setActiveTab('details')}
               styles={{
                 root: {
                   height: 48,
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'address' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'address' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'address' ? 600 : 400,
+                  backgroundColor: activeTab === 'details' ? '#0078d4' : 'transparent',
+                  color: activeTab === 'details' ? 'white' : '#323130',
+                  fontWeight: activeTab === 'details' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'address' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'address' ? 'white' : '#323130',
+                  backgroundColor: activeTab === 'details' ? '#106ebe' : '#f3f2f1',
+                  color: activeTab === 'details' ? 'white' : '#323130',
                 },
               }}
             />
           </Stack>
 
           <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
-            {activeTab === 'basic' && (
-              <Stack
-                horizontal
-                tokens={{ childrenGap: 32 }}
-                styles={{ root: { marginTop: 16, overflowY: 'auto' } }}
-              >
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <TextField
-                    label="First Name"
-                    required
-                    value={formData.firstName}
-                    onChange={(_, value) => setFormData({ ...formData, firstName: value || '' })}
-                  />
-
-                  <TextField
-                    label="Last Name"
-                    required
-                    value={formData.lastName}
-                    onChange={(_, value) => setFormData({ ...formData, lastName: value || '' })}
-                  />
-
-                  <TextField
-                    label="Full Name"
-                    value={formData.fullName}
-                    onChange={(_, value) => setFormData({ ...formData, fullName: value || '' })}
-                  />
-                </Stack>
-
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <TextField
-                    label="Job Title"
-                    value={formData.jobTitle}
-                    onChange={(_, value) => setFormData({ ...formData, jobTitle: value || '' })}
-                  />
-
-                  <Dropdown
-                    label="Parent Customer"
-                    options={accountOptions}
-                    selectedKey={formData.parentCustomerId || ''}
-                    onChange={(_, option) =>
-                      setFormData({ ...formData, parentCustomerId: option?.key as string || '' })
-                    }
-                  />
-                </Stack>
-              </Stack>
-            )}
-
-            {activeTab === 'contact' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <TextField
-                  label="Email"
-                  type="email"
-                  value={formData.emailAddress1}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, emailAddress1: value || '' })
-                  }
-                />
-
-                <TextField
-                  label="Phone"
-                  value={formData.telephone1}
-                  onChange={(_, value) => setFormData({ ...formData, telephone1: value || '' })}
-                />
-
-                <TextField
-                  label="Mobile Phone"
-                  value={formData.mobilePhone}
-                  onChange={(_, value) => setFormData({ ...formData, mobilePhone: value || '' })}
-                />
-              </Stack>
-            )}
-
-            {activeTab === 'address' && (
-              <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 16 } }}>
-                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
-                  <TextField
-                    id="contact-address-autocomplete"
-                    label="Search Address"
-                    placeholder="Start typing an address..."
-                    styles={{ root: { flex: 1 } }}
-                  />
-                  <DefaultButton
-                    text="Use My Location"
-                    iconProps={{ iconName: 'MyLocation' }}
-                    onClick={handleUseMyLocation}
-                  />
-                </Stack>
-
-                <div
-                  id="contact-map"
-                  style={{
-                    height: '400px',
-                    width: '100%',
-                    border: '1px solid #ccc',
-                    borderRadius: '4px',
-                  }}
-                />
-
-                <Stack horizontal tokens={{ childrenGap: 16 }}>
+            {activeTab === 'general' && (
+              <Stack tokens={{ childrenGap: 20 }}>
+                <Stack
+                  horizontal
+                  tokens={{ childrenGap: 32 }}
+                  styles={{ root: { marginTop: 16 } }}
+                >
                   <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                    <TextField
-                      label="Street Address"
-                      multiline
-                      rows={2}
-                      value={formData.address1Line1}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1Line1: value || '' })
+                    <Dropdown
+                      label="Salutation"
+                      options={salutationOptions}
+                      selectedKey={formData.salutation || ''}
+                      onChange={(_, option) =>
+                        setFormData({ ...formData, salutation: option?.key as string || '' })
                       }
                     />
 
                     <TextField
-                      label="City"
-                      value={formData.address1City}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1City: value || '' })
+                      label="First Name"
+                      required
+                      value={formData.firstName}
+                      onChange={(_, value) => setFormData({ ...formData, firstName: value || '' })}
+                    />
+
+                    <TextField
+                      label="Middle Name"
+                      value={formData.middleName}
+                      onChange={(_, value) => setFormData({ ...formData, middleName: value || '' })}
+                    />
+
+                    <TextField
+                      label="Last Name"
+                      required
+                      value={formData.lastName}
+                      onChange={(_, value) => setFormData({ ...formData, lastName: value || '' })}
+                    />
+
+                    <TextField
+                      label="Job Title"
+                      value={formData.jobTitle}
+                      onChange={(_, value) => setFormData({ ...formData, jobTitle: value || '' })}
+                    />
+
+                    <Dropdown
+                      label="Company Name"
+                      options={accountOptions}
+                      selectedKey={formData.parentCustomerId || ''}
+                      onChange={(_, option) =>
+                        setFormData({ ...formData, parentCustomerId: option?.key as string || '' })
                       }
                     />
                   </Stack>
 
                   <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                     <TextField
-                      label="State/Province"
-                      value={formData.address1StateOrProvince}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1StateOrProvince: value || '' })
-                      }
+                      label="Business Phone"
+                      value={formData.telephone2}
+                      onChange={(_, value) => setFormData({ ...formData, telephone2: value || '' })}
                     />
 
                     <TextField
-                      label="Postal Code"
-                      value={formData.address1PostalCode}
+                      label="Home Phone"
+                      value={formData.telephone3}
+                      onChange={(_, value) => setFormData({ ...formData, telephone3: value || '' })}
+                    />
+
+                    <TextField
+                      label="Mobile Phone"
+                      value={formData.mobilePhone}
+                      onChange={(_, value) => setFormData({ ...formData, mobilePhone: value || '' })}
+                    />
+
+                    <TextField
+                      label="Fax"
+                      value={formData.fax}
+                      onChange={(_, value) => setFormData({ ...formData, fax: value || '' })}
+                    />
+
+                    <TextField
+                      label="Email"
+                      type="email"
+                      value={formData.emailAddress1}
                       onChange={(_, value) =>
-                        setFormData({ ...formData, address1PostalCode: value || '' })
+                        setFormData({ ...formData, emailAddress1: value || '' })
                       }
                     />
                   </Stack>
                 </Stack>
 
-                <TextField
-                  label="Country"
-                  value={formData.address1Country}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, address1Country: value || '' })
-                  }
-                />
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 20 } }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Address</Label>
+                  
+                  <Stack horizontal tokens={{ childrenGap: 16 }}>
+                    <Dropdown
+                      label="Address Type"
+                      options={addressTypeOptions}
+                      selectedKey={formData.address1AddressTypeCode || ''}
+                      onChange={(_, option) =>
+                        setFormData({ ...formData, address1AddressTypeCode: option?.key as number || undefined })
+                      }
+                      styles={{ root: { flex: 1 } }}
+                    />
 
-                {formData.latitude && formData.longitude && (
-                  <Text variant="small">
-                    Coordinates: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
-                  </Text>
-                )}
+                    <TextField
+                      label="Address Name"
+                      value={formData.address1Name}
+                      onChange={(_, value) =>
+                        setFormData({ ...formData, address1Name: value || '' })
+                      }
+                      styles={{ root: { flex: 1 } }}
+                    />
+                  </Stack>
+
+                  <Stack horizontal tokens={{ childrenGap: 16 }}>
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <TextField
+                        label="Street"
+                        value={formData.address1Line1}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1Line1: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Street 2"
+                        value={formData.address1Line2}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1Line2: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Street 3"
+                        value={formData.address1Line3}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1Line3: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="City"
+                        value={formData.address1City}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1City: value || '' })
+                        }
+                      />
+                    </Stack>
+
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <TextField
+                        label="State/Province"
+                        value={formData.address1StateOrProvince}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1StateOrProvince: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="ZIP/Postal Code"
+                        value={formData.address1PostalCode}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1PostalCode: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Country/Region"
+                        value={formData.address1Country}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1Country: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Phone"
+                        value={formData.address1Telephone1}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, address1Telephone1: value || '' })
+                        }
+                      />
+                    </Stack>
+                  </Stack>
+                </Stack>
+
+                <TextField
+                  label="Description"
+                  multiline
+                  rows={4}
+                  value={formData.description}
+                  onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
+                  styles={{ root: { marginTop: 20 } }}
+                />
+              </Stack>
+            )}
+
+            {activeTab === 'details' && (
+              <Stack tokens={{ childrenGap: 32 }} styles={{ root: { marginTop: 16 } }}>
+                <Stack tokens={{ childrenGap: 16 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>
+                    Professional Information
+                  </Label>
+                  
+                  <Stack horizontal tokens={{ childrenGap: 32 }}>
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <TextField
+                        label="Department"
+                        value={formData.department}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, department: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Manager"
+                        value={formData.managerName}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, managerName: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Manager Phone"
+                        value={formData.managerPhone}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, managerPhone: value || '' })
+                        }
+                      />
+                    </Stack>
+
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <TextField
+                        label="Role"
+                        value={formData.role}
+                        onChange={(_, value) => setFormData({ ...formData, role: value || '' })}
+                      />
+
+                      <TextField
+                        label="Assistant"
+                        value={formData.assistantName}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, assistantName: value || '' })
+                        }
+                      />
+
+                      <TextField
+                        label="Assistant Phone"
+                        value={formData.assistantPhone}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, assistantPhone: value || '' })
+                        }
+                      />
+                    </Stack>
+                  </Stack>
+                </Stack>
+
+                <Stack tokens={{ childrenGap: 16 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>
+                    Personal Information
+                  </Label>
+                  
+                  <Stack horizontal tokens={{ childrenGap: 32 }}>
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <Dropdown
+                        label="Gender"
+                        options={genderOptions}
+                        selectedKey={formData.genderCode || ''}
+                        onChange={(_, option) =>
+                          setFormData({ ...formData, genderCode: option?.key as number || undefined })
+                        }
+                      />
+
+                      <Dropdown
+                        label="Marital Status"
+                        options={maritalStatusOptions}
+                        selectedKey={formData.familyStatusCode || ''}
+                        onChange={(_, option) =>
+                          setFormData({ ...formData, familyStatusCode: option?.key as number || undefined })
+                        }
+                      />
+
+                      <TextField
+                        label="Spouse/Partner Name"
+                        value={formData.spousesPartner}
+                        onChange={(_, value) =>
+                          setFormData({ ...formData, spousesPartner: value || '' })
+                        }
+                      />
+                    </Stack>
+
+                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                      <DatePicker
+                        label="Birthday"
+                        value={formData.birthDate ? new Date(formData.birthDate) : undefined}
+                        onSelectDate={(date) =>
+                          setFormData({ ...formData, birthDate: date?.toISOString() })
+                        }
+                        formatDate={(date) =>
+                          date ? date.toLocaleDateString() : ''
+                        }
+                      />
+
+                      <DatePicker
+                        label="Anniversary"
+                        value={formData.anniversary ? new Date(formData.anniversary) : undefined}
+                        onSelectDate={(date) =>
+                          setFormData({ ...formData, anniversary: date?.toISOString() })
+                        }
+                        formatDate={(date) =>
+                          date ? date.toLocaleDateString() : ''
+                        }
+                      />
+                    </Stack>
+                  </Stack>
+                </Stack>
               </Stack>
             )}
           </Stack>

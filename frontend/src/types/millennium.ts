@@ -480,19 +480,48 @@ export interface Account {
 
 export interface D365Contact {
   id: string;
+  salutation?: string;
   firstName?: string;
+  middleName?: string;
   lastName?: string;
   fullName?: string;
   emailAddress1?: string;
   telephone1?: string;
+  telephone2?: string;
+  telephone3?: string;
   mobilePhone?: string;
+  fax?: string;
   jobTitle?: string;
   parentCustomerId?: string;
+  
+  // Address Information
+  address1AddressTypeCode?: number;
+  address1Name?: string;
   address1Line1?: string;
+  address1Line2?: string;
+  address1Line3?: string;
   address1City?: string;
   address1StateOrProvince?: string;
   address1PostalCode?: string;
   address1Country?: string;
+  address1Telephone1?: string;
+  description?: string;
+  
+  // Professional Information
+  department?: string;
+  managerName?: string;
+  managerPhone?: string;
+  role?: string;
+  assistantName?: string;
+  assistantPhone?: string;
+  
+  // Personal Information
+  genderCode?: number;
+  familyStatusCode?: number;
+  spousesPartner?: string;
+  birthDate?: string;
+  anniversary?: string;
+  
   latitude?: number | null;
   longitude?: number | null;
   createdOn?: string;
