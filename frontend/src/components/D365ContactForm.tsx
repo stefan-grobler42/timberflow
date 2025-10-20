@@ -17,6 +17,13 @@ import type { D365Contact } from '../types/millennium';
 import { SouthAfricanPhoneInput } from './SouthAfricanPhoneInput';
 import { LookupField } from './LookupField';
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+declare const google: any;
+
 interface D365ContactFormProps {
   contact?: D365Contact;
   onDismiss: () => void;
@@ -71,30 +78,71 @@ export const D365ContactForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [companyNameText, setCompanyNameText] = useState<string>('');
+  const [autocomplete, setAutocomplete] = useState<any>(null);
 
-  // Normalize phone number: remove spaces, dashes, parentheses, leading +27, and leading 0
-  const normalizePhoneNumber = (phone: string | undefined): string => {
-    if (!phone) return '';
+  // Normalize phone number to E.164 format: +27XXXXXXXXX
+  const normalizePhoneNumber = (phone: string | undefined): string | undefined => {
+    if (!phone) return undefined;
     
-    // Remove all spaces, dashes, parentheses
-    let cleaned = phone.replace(/[\s\-()]/g, '');
+    const trimmed = phone.trim();
+    if (!trimmed) return undefined;
     
-    // Remove all non-digit characters
-    cleaned = cleaned.replace(/\D/g, '');
+    // Step 1: Extract only digits and leading + sign
+    let digitsOnly = '';
+    let hasPlus = trimmed.startsWith('+');
     
-    if (!cleaned) return '';
-    
-    // Remove leading +27 if present
-    if (cleaned.startsWith('27')) {
-      cleaned = cleaned.substring(2);
+    for (let i = 0; i < trimmed.length; i++) {
+      const char = trimmed[i];
+      if (char >= '0' && char <= '9') {
+        digitsOnly += char;
+      } else if (char === '+' && i === 0) {
+        // Keep the leading +, handled separately
+        continue;
+      }
     }
     
-    // Remove leading 0 if present
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
+    if (!digitsOnly) return undefined;
+    
+    // Step 2: Handle different formats and convert to E.164
+    let normalized: string;
+    
+    // Format: +27XXXXXXXXX (already E.164)
+    if (hasPlus && digitsOnly.startsWith('27') && digitsOnly.length === 11) {
+      normalized = '+' + digitsOnly;
+    }
+    // Format: 0027XXXXXXXXX (international with 00)
+    else if (digitsOnly.startsWith('0027') && digitsOnly.length === 13) {
+      normalized = '+27' + digitsOnly.substring(4);
+    }
+    // Format: 01127XXXXXXXXX (international with 011)
+    else if (digitsOnly.startsWith('01127') && digitsOnly.length === 14) {
+      normalized = '+27' + digitsOnly.substring(5);
+    }
+    // Format: 27XXXXXXXXX (without +)
+    else if (digitsOnly.startsWith('27') && digitsOnly.length === 11) {
+      normalized = '+' + digitsOnly;
+    }
+    // Format: 0XXXXXXXXX (local with leading 0)
+    else if (digitsOnly.startsWith('0') && digitsOnly.length === 10) {
+      normalized = '+27' + digitsOnly.substring(1);
+    }
+    // Format: XXXXXXXXX (local without 0)
+    else if (digitsOnly.length === 9) {
+      normalized = '+27' + digitsOnly;
+    }
+    // Invalid format
+    else {
+      console.warn(`Invalid SA phone number - cannot normalize: "${phone}" (digits: ${digitsOnly})`);
+      return undefined; // Return undefined for invalid numbers instead of malformed values
     }
     
-    return cleaned;
+    // Step 3: Final validation - must be exactly +27 followed by 9 digits
+    if (!normalized.match(/^\+27\d{9}$/)) {
+      console.error(`Phone normalization produced invalid E.164: "${phone}" → "${normalized}"`);
+      return undefined;
+    }
+    
+    return normalized;
   };
 
   // Fetch account name when contact has parentCustomerId
@@ -230,6 +278,104 @@ export const D365ContactForm = ({
 
     return null;
   };
+
+  const initializeGoogleMaps = () => {
+    if (typeof google === 'undefined' || !google.maps) {
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => setupAutocomplete());
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+      }&libraries=places`;
+      script.async = true;
+      script.onload = () => setupAutocomplete();
+      document.head.appendChild(script);
+    } else {
+      setupAutocomplete();
+    }
+  };
+
+  const setupAutocomplete = () => {
+    const streetInput = document.getElementById('contact-street-input') as HTMLInputElement;
+    
+    if (!streetInput || !google?.maps?.places) {
+      setTimeout(setupAutocomplete, 100);
+      return;
+    }
+
+    const autocompleteInstance = new google.maps.places.Autocomplete(
+      streetInput,
+      {
+        types: ['address'],
+        fields: ['address_components', 'formatted_address', 'geometry'],
+      }
+    );
+
+    autocompleteInstance.addListener('place_changed', () => {
+      const place = autocompleteInstance.getPlace();
+
+      if (!place.geometry || !place.geometry.location) {
+        return;
+      }
+
+      const addressComponents = place.address_components || [];
+      let street = '';
+      let city = '';
+      let state = '';
+      let postalCode = '';
+      let country = '';
+
+      addressComponents.forEach((component: any) => {
+        const types = component.types;
+        if (types.includes('street_number')) {
+          street = component.long_name + ' ';
+        }
+        if (types.includes('route')) {
+          street += component.long_name;
+        }
+        if (types.includes('sublocality') || types.includes('locality')) {
+          city = component.long_name;
+        }
+        if (types.includes('administrative_area_level_1')) {
+          state = component.long_name;
+        }
+        if (types.includes('postal_code')) {
+          postalCode = component.long_name;
+        }
+        if (types.includes('country')) {
+          country = component.long_name;
+        }
+      });
+
+      const location = place.geometry.location;
+      setFormData((prev) => ({
+        ...prev,
+        address1Line1: street.trim(),
+        address1City: city,
+        address1StateOrProvince: state,
+        address1PostalCode: postalCode,
+        address1Country: country,
+        address1Latitude: location.lat(),
+        address1Longitude: location.lng(),
+      }));
+    });
+
+    setAutocomplete(autocompleteInstance);
+  };
+
+  useEffect(() => {
+    initializeGoogleMaps();
+
+    return () => {
+      if (autocomplete) {
+        google.maps.event.clearInstanceListeners(autocomplete);
+      }
+    };
+  }, []);
 
   const handleSubmit = async () => {
     try {
@@ -552,6 +698,7 @@ export const D365ContactForm = ({
 
                   <TextField
                     label="Street"
+                    id="contact-street-input"
                     value={formData.address1Line1}
                     onChange={(_, value) =>
                       setFormData({ ...formData, address1Line1: value || '' })

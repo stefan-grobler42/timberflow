@@ -17,25 +17,31 @@ export const SouthAfricanPhoneInput = ({
   error,
   disabled = false,
 }: SouthAfricanPhoneInputProps) => {
-  // Extract digits only from any phone input format
+  // Extract digits only from any phone input format (for display purposes)
   const parsePhoneValue = (input: string): string => {
+    // Remove all non-digit characters except + at the start
+    let cleaned = input.replace(/[\s\-()]/g, '');
+    
+    if (!cleaned) {
+      return '';
+    }
+    
+    // If starts with +27, extract just the digits after it
+    if (cleaned.startsWith('+27')) {
+      const digits = cleaned.substring(3).replace(/\D/g, '');
+      return digits;
+    }
+    
     // Remove all non-digit characters
-    const cleaned = input.replace(/\D/g, '');
+    cleaned = cleaned.replace(/\D/g, '');
     
     if (!cleaned) {
       return '';
     }
 
-    // Remove leading +27 if present
-    if (cleaned.startsWith('27')) {
-      const withoutCountryCode = cleaned.substring(2);
-      if (withoutCountryCode.length > 0) {
-        // Remove leading 0 if present after removing country code
-        if (withoutCountryCode.startsWith('0')) {
-          return withoutCountryCode.substring(1);
-        }
-        return withoutCountryCode;
-      }
+    // If starts with 27 (country code without +)
+    if (cleaned.startsWith('27') && cleaned.length > 2) {
+      return cleaned.substring(2);
     }
 
     // Remove leading 0 if present
@@ -76,8 +82,12 @@ export const SouthAfricanPhoneInput = ({
     // Parse to get clean digits
     const cleanDigits = parsePhoneValue(newValue);
     
-    // Pass clean digits (no +27 prefix) to parent
-    onChange(cleanDigits);
+    // Pass E.164 format (+27 + digits) to parent
+    if (cleanDigits.length > 0) {
+      onChange(`+27${cleanDigits}`);
+    } else {
+      onChange('');
+    }
   };
 
   // Display the formatted version with +27
