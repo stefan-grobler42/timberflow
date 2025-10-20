@@ -5,6 +5,11 @@ Millennium Timber Roof ERP is a specialized, web-based ERP system for timber roo
 
 ## Recent Changes
 
+### October 20, 2025 - Bug Fixes & UX Enhancements
+- **✅ AccountForm UI Fix**: Fixed resizing issue where fields were getting endlessly bigger to the right - replaced percentage-based flex values with stable width values
+- **✅ Backend Bug Fix**: Fixed DuplicatesController ValueTask casting exception - replaced unsafe Task cast with dynamic await for EF Core FindAsync
+- **✅ Merge Duplicates Button Integration**: Added "Merge Duplicates" button to CommandBar in all module grid views (Accounts, D365Contacts, Customers, Employees) with automatic entity pre-selection via query parameter
+
 ### October 17, 2025 - Advanced CRM Components & Duplicate Detection System
 - **✅ EntityFormActionBar Component**: Reusable action bar with back arrow + Save/Save & Close/Delete buttons for all entity forms - consistent UI across all forms
 - **✅ AsyncLookupField Component**: Search-first lookup with debounced search, max 3 inline suggestions, keyboard navigation (Tab/Enter/Escape), and advanced search modal with column filtering
