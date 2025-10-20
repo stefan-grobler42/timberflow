@@ -513,7 +513,7 @@ export const AccountForm = ({
   return (
     <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
       <StandardFormHeader
-        title={account ? account.name : 'New Account'}
+        title={account ? (account.name || 'New Account') : 'New Account'}
         subtitle="Account"
         onBack={onDismiss}
         onSave={() => handleSave(false)}
@@ -664,49 +664,31 @@ export const AccountForm = ({
               />
 
               <TextField
-                label="Address 1: Name"
+                label="Address Name"
                 value={formData.address1Name}
                 onChange={(_, value) => setFormData({ ...formData, address1Name: value || '' })}
               />
 
               <TextField
-                label="Address 1: Street 1"
+                label="Street 1"
                 value={formData.address1Line1}
                 onChange={(_, value) => setFormData({ ...formData, address1Line1: value || '' })}
               />
 
               <TextField
-                label="Address 1: Street 2"
-                value={formData.address1Line2}
-                onChange={(_, value) => setFormData({ ...formData, address1Line2: value || '' })}
-              />
-
-              <TextField
-                label="Address 1: Street 3"
-                value={formData.address1Line3}
-                onChange={(_, value) => setFormData({ ...formData, address1Line3: value || '' })}
-              />
-
-              <TextField
-                label="Address 1: City"
-                value={formData.address1City}
-                onChange={(_, value) => setFormData({ ...formData, address1City: value || '' })}
-              />
-
-              <TextField
-                label="Address 1: State/Province"
+                label="State/Province"
                 value={formData.address1StateOrProvince}
                 onChange={(_, value) => setFormData({ ...formData, address1StateOrProvince: value || '' })}
               />
 
               <TextField
-                label="Address 1: ZIP/Postal code"
+                label="ZIP/Postal Code"
                 value={formData.address1PostalCode}
                 onChange={(_, value) => setFormData({ ...formData, address1PostalCode: value || '' })}
               />
 
               <TextField
-                label="Address 1: Country/Region"
+                label="Country/Region"
                 value={formData.address1Country}
                 onChange={(_, value) => setFormData({ ...formData, address1Country: value || '' })}
               />

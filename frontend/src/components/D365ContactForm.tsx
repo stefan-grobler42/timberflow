@@ -16,10 +16,17 @@ import type { D365Contact } from '../types/millennium';
 import { 
   StandardLookupField, 
   StandardPhoneField, 
-  StandardAddressFields, 
   StandardFormHeader,
   type LookupOption 
 } from './standards';
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+declare const google: any;
 
 
 interface D365ContactFormProps {
@@ -60,6 +67,8 @@ export const D365ContactForm = ({
     address1PostalCode: '',
     address1Country: '',
     address1Telephone1: '',
+    address1Latitude: undefined,
+    address1Longitude: undefined,
     description: '',
     department: '',
     managerName: '',
@@ -76,6 +85,8 @@ export const D365ContactForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [companyNameText, setCompanyNameText] = useState<string>('');
+  const [map, setMap] = useState<any>(null);
+  const [marker, setMarker] = useState<any>(null);
 
   // Normalize phone number to E.164 format: +27XXXXXXXXX
   const normalizePhoneNumber = (phone: string | undefined): string | undefined => {
@@ -187,6 +198,8 @@ export const D365ContactForm = ({
         address1PostalCode: contact.address1PostalCode || '',
         address1Country: contact.address1Country || '',
         address1Telephone1: normalizePhoneNumber(contact.address1Telephone1),
+        address1Latitude: contact.address1Latitude,
+        address1Longitude: contact.address1Longitude,
         description: contact.description || '',
         department: contact.department || '',
         managerName: contact.managerName || '',
@@ -200,9 +213,17 @@ export const D365ContactForm = ({
         birthDate: contact.birthDate,
         anniversary: contact.anniversary,
       });
+
+      if (contact.address1Latitude && contact.address1Longitude && map) {
+        const position = { lat: contact.address1Latitude, lng: contact.address1Longitude };
+        map.setCenter(position);
+        if (marker) {
+          marker.setPosition(position);
+        }
+      }
     }
     setError(null);
-  }, [contact]);
+  }, [contact, map, marker]);
 
   const salutationOptions: IDropdownOption[] = [
     { key: '', text: '(None)' },
@@ -210,14 +231,6 @@ export const D365ContactForm = ({
     { key: 'Ms.', text: 'Ms.' },
     { key: 'Mrs.', text: 'Mrs.' },
     { key: 'Dr.', text: 'Dr.' },
-  ];
-
-  const addressTypeOptions: IDropdownOption[] = [
-    { key: '', text: '(None)' },
-    { key: 1, text: 'Bill To' },
-    { key: 2, text: 'Ship To' },
-    { key: 3, text: 'Primary' },
-    { key: 4, text: 'Other' },
   ];
 
   const genderOptions: IDropdownOption[] = [
@@ -349,6 +362,8 @@ export const D365ContactForm = ({
         address1PostalCode: '',
         address1Country: '',
         address1Telephone1: '',
+        address1Latitude: undefined,
+        address1Longitude: undefined,
         description: '',
         department: '',
         managerName: '',
@@ -380,6 +395,140 @@ export const D365ContactForm = ({
     }
   };
 
+  const tabStyles = (isActive: boolean) => ({
+    root: {
+      height: 40,
+      padding: '0 16px',
+      borderRadius: 0,
+      border: 'none',
+      borderBottom: isActive ? '2px solid #0078d4' : '2px solid transparent',
+      backgroundColor: 'transparent',
+      color: isActive ? '#0078d4' : '#323130',
+      fontWeight: isActive ? '600' : '400',
+    },
+    rootHovered: {
+      backgroundColor: '#f3f2f1',
+      color: '#0078d4',
+    },
+  });
+
+  useEffect(() => {
+    initializeGoogleMaps();
+  }, []);
+
+  const initializeGoogleMaps = () => {
+    if (typeof google === 'undefined' || !google.maps) {
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', () => setupMap());
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${
+        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
+      }&libraries=places`;
+      script.async = true;
+      script.onload = () => setupMap();
+      document.head.appendChild(script);
+    } else {
+      setupMap();
+    }
+  };
+
+  const setupMap = () => {
+    const mapElement = document.getElementById('contact-form-map');
+    const searchInput = document.getElementById('contact-address-search-input') as HTMLInputElement;
+    
+    if (!mapElement) {
+      setTimeout(setupMap, 100);
+      return;
+    }
+
+    const defaultCenter = { lat: -26.2041, lng: 28.0473 };
+    const mapInstance = new google.maps.Map(mapElement, {
+      center: defaultCenter,
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+    });
+
+    const markerInstance = new google.maps.Marker({
+      map: mapInstance,
+      draggable: true,
+      position: defaultCenter,
+    });
+
+    markerInstance.addListener('dragend', () => {
+      const position = markerInstance.getPosition();
+      if (position) {
+        setFormData((prev) => ({
+          ...prev,
+          address1Latitude: position.lat(),
+          address1Longitude: position.lng(),
+        }));
+      }
+    });
+
+    if (searchInput && google.maps.places) {
+      const autocompleteInstance = new google.maps.places.Autocomplete(searchInput, {
+        componentRestrictions: { country: 'za' },
+      });
+
+      autocompleteInstance.addListener('place_changed', () => {
+        const place = autocompleteInstance.getPlace();
+        
+        if (!place.geometry || !place.geometry.location) {
+          return;
+        }
+
+        const location = place.geometry.location;
+        mapInstance.setCenter(location);
+        mapInstance.setZoom(15);
+        markerInstance.setPosition(location);
+
+        const addressComponents = place.address_components || [];
+        let street = '';
+        let state = '';
+        let postalCode = '';
+        let country = '';
+
+        addressComponents.forEach((component: any) => {
+          const types = component.types;
+          if (types.includes('street_number')) {
+            street = component.long_name + ' ' + street;
+          }
+          if (types.includes('route')) {
+            street += component.long_name;
+          }
+          if (types.includes('administrative_area_level_1')) {
+            state = component.long_name;
+          }
+          if (types.includes('postal_code')) {
+            postalCode = component.long_name;
+          }
+          if (types.includes('country')) {
+            country = component.long_name;
+          }
+        });
+
+        setFormData((prev) => ({
+          ...prev,
+          address1Line1: street.trim(),
+          address1StateOrProvince: state,
+          address1PostalCode: postalCode,
+          address1Country: country,
+          address1Latitude: location.lat(),
+          address1Longitude: location.lng(),
+        }));
+      });
+    }
+
+    setMap(mapInstance);
+    setMarker(markerInstance);
+  };
+
   return (
     <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%' } }}>
       <StandardFormHeader
@@ -402,46 +551,16 @@ export const D365ContactForm = ({
         )}
 
         <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
-          <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
+          <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9', backgroundColor: '#faf9f8' } }}>
             <DefaultButton
               text="General"
-              iconProps={{ iconName: 'Contact' }}
               onClick={() => setActiveTab('general')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'general' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'general' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'general' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'general' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'general' ? 'white' : '#323130',
-                },
-              }}
+              styles={tabStyles(activeTab === 'general')}
             />
             <DefaultButton
               text="Details"
-              iconProps={{ iconName: 'Info' }}
               onClick={() => setActiveTab('details')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'details' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'details' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'details' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'details' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'details' ? 'white' : '#323130',
-                },
-              }}
+              styles={tabStyles(activeTab === 'details')}
             />
           </Stack>
 
@@ -554,21 +673,56 @@ export const D365ContactForm = ({
                 </Stack>
 
                 <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <StandardAddressFields
-                    sectionTitle="ADDRESS INFORMATION"
-                    uniqueId="contact-address"
-                    street={formData.address1Line1}
-                    stateOrProvince={formData.address1StateOrProvince}
-                    postalCode={formData.address1PostalCode}
-                    country={formData.address1Country}
-                    latitude={formData.address1Latitude}
-                    longitude={formData.address1Longitude}
-                    onStreetChange={(value) => setFormData({ ...formData, address1Line1: value })}
-                    onStateOrProvinceChange={(value) => setFormData({ ...formData, address1StateOrProvince: value })}
-                    onPostalCodeChange={(value) => setFormData({ ...formData, address1PostalCode: value })}
-                    onCountryChange={(value) => setFormData({ ...formData, address1Country: value })}
-                    onLatitudeChange={(value) => setFormData({ ...formData, address1Latitude: value })}
-                    onLongitudeChange={(value) => setFormData({ ...formData, address1Longitude: value })}
+                  <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                    ADDRESS
+                  </Text>
+
+                  <TextField
+                    id="contact-address-search-input"
+                    label="Search Address"
+                    placeholder="Start typing to search..."
+                    iconProps={{ iconName: 'MapPin' }}
+                  />
+
+                  <TextField
+                    label="Address Name"
+                    value={formData.address1Name}
+                    onChange={(_, value) => setFormData({ ...formData, address1Name: value || '' })}
+                  />
+
+                  <TextField
+                    label="Street 1"
+                    value={formData.address1Line1}
+                    onChange={(_, value) => setFormData({ ...formData, address1Line1: value || '' })}
+                  />
+
+                  <TextField
+                    label="State/Province"
+                    value={formData.address1StateOrProvince}
+                    onChange={(_, value) => setFormData({ ...formData, address1StateOrProvince: value || '' })}
+                  />
+
+                  <TextField
+                    label="ZIP/Postal Code"
+                    value={formData.address1PostalCode}
+                    onChange={(_, value) => setFormData({ ...formData, address1PostalCode: value || '' })}
+                  />
+
+                  <TextField
+                    label="Country/Region"
+                    value={formData.address1Country}
+                    onChange={(_, value) => setFormData({ ...formData, address1Country: value || '' })}
+                  />
+
+                  <div
+                    id="contact-form-map"
+                    style={{
+                      height: '200px',
+                      width: '100%',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      marginTop: 16,
+                    }}
                   />
                 </Stack>
               </Stack>

@@ -505,6 +505,8 @@ export interface D365Contact {
   address1PostalCode?: string;
   address1Country?: string;
   address1Telephone1?: string;
+  address1Latitude?: number | null;
+  address1Longitude?: number | null;
   description?: string;
   
   // Professional Information
