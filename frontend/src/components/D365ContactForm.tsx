@@ -161,18 +161,62 @@ export const D365ContactForm = ({
     { key: 4, text: 'Widowed' },
   ];
 
+  const normalizeFormData = (data: Partial<D365Contact>) => {
+    return {
+      ...data,
+      parentCustomerId: data.parentCustomerId || null,
+      genderCode: data.genderCode ? parseInt(data.genderCode.toString()) : null,
+      familyStatusCode: data.familyStatusCode ? parseInt(data.familyStatusCode.toString()) : null,
+      address1AddressTypeCode: data.address1AddressTypeCode ? parseInt(data.address1AddressTypeCode.toString()) : null,
+      fullName: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim().replace(/\s+/g, ' ')
+    };
+  };
+
+  const validateFormData = (data: Partial<D365Contact>): string | null => {
+    if (!data.lastName?.trim()) {
+      return 'Last Name is required';
+    }
+    
+    if (!data.firstName?.trim()) {
+      return 'First Name is required';
+    }
+
+    if (!data.emailAddress1?.trim()) {
+      return 'Email is required';
+    }
+
+    if (data.emailAddress1?.trim()) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(data.emailAddress1.trim())) {
+        return 'Please enter a valid email address';
+      }
+    }
+
+    return null;
+  };
+
   const handleSubmit = async () => {
     try {
       setSaving(true);
       setError(null);
 
+      const validationError = validateFormData(formData);
+      if (validationError) {
+        setError(validationError);
+        setSaving(false);
+        return;
+      }
+
+      const normalizedContact = normalizeFormData(formData);
+
       if (contact) {
-        await d365ContactService.update(contact.id, formData);
+        await d365ContactService.update(contact.id, normalizedContact);
       } else {
-        await d365ContactService.create(formData);
+        await d365ContactService.create(normalizedContact);
       }
 
       onSave();
+      setSaving(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save contact');
       setSaving(false);
@@ -184,10 +228,19 @@ export const D365ContactForm = ({
       setSaving(true);
       setError(null);
 
+      const validationError = validateFormData(formData);
+      if (validationError) {
+        setError(validationError);
+        setSaving(false);
+        return;
+      }
+
+      const normalizedContact = normalizeFormData(formData);
+
       if (contact) {
-        await d365ContactService.update(contact.id, formData);
+        await d365ContactService.update(contact.id, normalizedContact);
       } else {
-        await d365ContactService.create(formData);
+        await d365ContactService.create(normalizedContact);
       }
 
       setFormData({
@@ -410,6 +463,7 @@ export const D365ContactForm = ({
                     <TextField
                       label="Email"
                       type="email"
+                      required
                       value={formData.emailAddress1}
                       onChange={(_, value) =>
                         setFormData({ ...formData, emailAddress1: value || '' })
