@@ -75,28 +75,38 @@ export function RelatedEntityGrid<T>({
   );
   
   const deletingRef = useRef(false);
+  const dismissingRef = useRef(false);
 
   const handleNewClick = () => {
+    dismissingRef.current = false;
     setSelectedItemId(undefined);
     setIsPanelOpen(true);
   };
 
   const handleRowClick = (item?: T) => {
-    if (item && !deletingRef.current) {
+    if (item && !deletingRef.current && !dismissingRef.current) {
       setSelectedItemId(getItemId(item));
       setIsPanelOpen(true);
     }
   };
 
   const handlePanelDismiss = () => {
+    dismissingRef.current = true;
     setIsPanelOpen(false);
     setSelectedItemId(undefined);
+    setTimeout(() => {
+      dismissingRef.current = false;
+    }, 300);
   };
 
   const handleSaved = () => {
+    dismissingRef.current = true;
     setIsPanelOpen(false);
     setSelectedItemId(undefined);
     onRefresh();
+    setTimeout(() => {
+      dismissingRef.current = false;
+    }, 300);
   };
 
   const handleDeleteClick = (item: T) => {
