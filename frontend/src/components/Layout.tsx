@@ -23,7 +23,7 @@ export const Layout = ({ children }: LayoutProps) => {
         },
         {
           key: 'd365contacts',
-          name: 'D365 Contacts',
+          name: 'Contacts',
           url: '/d365contacts',
           icon: 'People',
         },
