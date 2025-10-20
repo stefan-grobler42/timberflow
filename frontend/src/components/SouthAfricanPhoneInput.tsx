@@ -91,7 +91,7 @@ export const SouthAfricanPhoneInput = ({
   };
 
   // Display the formatted version with +27
-  const displayValue = formatPhoneDisplay(value);
+  const displayValue = formatPhoneDisplay(parsePhoneValue(value));
 
   return (
     <TextField
