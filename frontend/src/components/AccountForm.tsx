@@ -199,6 +199,41 @@ export const AccountForm = ({
     }
   };
 
+  const getAvailableContacts = async (): Promise<D365Contact[]> => {
+    if (!account?.id) return [];
+    
+    try {
+      const allContacts = await d365ContactService.getAll();
+      const accountIdLower = account.id.toLowerCase();
+      
+      return allContacts.filter(
+        (contact) => 
+          !contact.parentCustomerId || 
+          contact.parentCustomerId.toLowerCase() !== accountIdLower
+      );
+    } catch (err) {
+      console.error('Failed to load available contacts:', err);
+      return [];
+    }
+  };
+
+  const handleLinkContacts = async (selectedIds: string[]) => {
+    if (!account?.id) return;
+    
+    try {
+      await Promise.all(
+        selectedIds.map((contactId) =>
+          d365ContactService.update(contactId, { parentCustomerId: account.id })
+        )
+      );
+      
+      await loadRelatedData(account.id);
+    } catch (err) {
+      console.error('Failed to link contacts:', err);
+      setError(err instanceof Error ? err.message : 'Failed to link contacts');
+    }
+  };
+
   const initializeGoogleMaps = () => {
     if (typeof google === 'undefined' || !google.maps) {
       // Check if script is already being loaded
@@ -621,6 +656,8 @@ export const AccountForm = ({
                 FormComponent={D365ContactFormWrapper}
                 onDelete={async (id) => await d365ContactService.delete(id)}
                 getItemId={(item) => item.id}
+                onLinkExisting={handleLinkContacts}
+                getAllAvailableItems={getAvailableContacts}
               />
             </Stack>
 
