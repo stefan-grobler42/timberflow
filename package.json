@@ -16,6 +16,7 @@
     "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.4",
     "express": "^4.18.2",
+    "react-international-phone": "^4.6.0",
     "ws": "^8.18.3",
     "xlsx": "^0.18.5"
   }

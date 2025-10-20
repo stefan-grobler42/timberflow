@@ -12,8 +12,10 @@ import {
   Label,
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
-import { d365ContactService, accountService } from '../services/d365Services';
-import type { D365Contact, Account } from '../types/millennium';
+import { d365ContactService, lookupService, accountService } from '../services/d365Services';
+import type { D365Contact } from '../types/millennium';
+import { SouthAfricanPhoneInput } from './SouthAfricanPhoneInput';
+import { LookupField } from './LookupField';
 
 interface D365ContactFormProps {
   contact?: D365Contact;
@@ -68,11 +70,51 @@ export const D365ContactForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [companyNameText, setCompanyNameText] = useState<string>('');
 
+  // Normalize phone number: remove spaces, dashes, parentheses, leading +27, and leading 0
+  const normalizePhoneNumber = (phone: string | undefined): string => {
+    if (!phone) return '';
+    
+    // Remove all spaces, dashes, parentheses
+    let cleaned = phone.replace(/[\s\-()]/g, '');
+    
+    // Remove all non-digit characters
+    cleaned = cleaned.replace(/\D/g, '');
+    
+    if (!cleaned) return '';
+    
+    // Remove leading +27 if present
+    if (cleaned.startsWith('27')) {
+      cleaned = cleaned.substring(2);
+    }
+    
+    // Remove leading 0 if present
+    if (cleaned.startsWith('0')) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    return cleaned;
+  };
+
+  // Fetch account name when contact has parentCustomerId
   useEffect(() => {
-    loadAccounts();
-  }, []);
+    const fetchAccountName = async () => {
+      if (contact?.parentCustomerId) {
+        try {
+          const account = await accountService.getById(contact.parentCustomerId);
+          setCompanyNameText(account.name || '');
+        } catch (error) {
+          console.error('Failed to fetch account name:', error);
+          setCompanyNameText('');
+        }
+      } else {
+        setCompanyNameText('');
+      }
+    };
+    
+    fetchAccountName();
+  }, [contact?.parentCustomerId]);
 
   useEffect(() => {
     if (contact) {
@@ -83,11 +125,11 @@ export const D365ContactForm = ({
         lastName: contact.lastName || '',
         fullName: contact.fullName || '',
         emailAddress1: contact.emailAddress1 || '',
-        telephone1: contact.telephone1 || '',
-        telephone2: contact.telephone2 || '',
-        telephone3: contact.telephone3 || '',
-        mobilePhone: contact.mobilePhone || '',
-        fax: contact.fax || '',
+        telephone1: normalizePhoneNumber(contact.telephone1),
+        telephone2: normalizePhoneNumber(contact.telephone2),
+        telephone3: normalizePhoneNumber(contact.telephone3),
+        mobilePhone: normalizePhoneNumber(contact.mobilePhone),
+        fax: normalizePhoneNumber(contact.fax),
         jobTitle: contact.jobTitle || '',
         parentCustomerId: contact.parentCustomerId || '',
         address1AddressTypeCode: contact.address1AddressTypeCode,
@@ -99,14 +141,14 @@ export const D365ContactForm = ({
         address1StateOrProvince: contact.address1StateOrProvince || '',
         address1PostalCode: contact.address1PostalCode || '',
         address1Country: contact.address1Country || '',
-        address1Telephone1: contact.address1Telephone1 || '',
+        address1Telephone1: normalizePhoneNumber(contact.address1Telephone1),
         description: contact.description || '',
         department: contact.department || '',
         managerName: contact.managerName || '',
-        managerPhone: contact.managerPhone || '',
+        managerPhone: normalizePhoneNumber(contact.managerPhone),
         role: contact.role || '',
         assistantName: contact.assistantName || '',
-        assistantPhone: contact.assistantPhone || '',
+        assistantPhone: normalizePhoneNumber(contact.assistantPhone),
         genderCode: contact.genderCode,
         familyStatusCode: contact.familyStatusCode,
         spousesPartner: contact.spousesPartner || '',
@@ -117,26 +159,12 @@ export const D365ContactForm = ({
     setError(null);
   }, [contact]);
 
-  const loadAccounts = async () => {
-    try {
-      const data = await accountService.getAll();
-      setAccounts(data);
-    } catch (err) {
-      console.error('Failed to load accounts:', err);
-    }
-  };
-
   const salutationOptions: IDropdownOption[] = [
     { key: '', text: '(None)' },
     { key: 'Mr.', text: 'Mr.' },
     { key: 'Ms.', text: 'Ms.' },
     { key: 'Mrs.', text: 'Mrs.' },
     { key: 'Dr.', text: 'Dr.' },
-  ];
-
-  const accountOptions: IDropdownOption[] = [
-    { key: '', text: '(None)' },
-    ...accounts.map((a) => ({ key: a.id, text: a.name ?? '' })),
   ];
 
   const addressTypeOptions: IDropdownOption[] = [
@@ -164,11 +192,19 @@ export const D365ContactForm = ({
   const normalizeFormData = (data: Partial<D365Contact>) => {
     return {
       ...data,
-      parentCustomerId: data.parentCustomerId || null,
-      genderCode: data.genderCode ? parseInt(data.genderCode.toString()) : null,
-      familyStatusCode: data.familyStatusCode ? parseInt(data.familyStatusCode.toString()) : null,
-      address1AddressTypeCode: data.address1AddressTypeCode ? parseInt(data.address1AddressTypeCode.toString()) : null,
-      fullName: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim().replace(/\s+/g, ' ')
+      parentCustomerId: data.parentCustomerId || undefined,
+      genderCode: data.genderCode ? parseInt(data.genderCode.toString()) : undefined,
+      familyStatusCode: data.familyStatusCode ? parseInt(data.familyStatusCode.toString()) : undefined,
+      address1AddressTypeCode: data.address1AddressTypeCode ? parseInt(data.address1AddressTypeCode.toString()) : undefined,
+      fullName: `${data.firstName || ''} ${data.middleName || ''} ${data.lastName || ''}`.trim().replace(/\s+/g, ' '),
+      telephone1: normalizePhoneNumber(data.telephone1),
+      telephone2: normalizePhoneNumber(data.telephone2),
+      telephone3: normalizePhoneNumber(data.telephone3),
+      mobilePhone: normalizePhoneNumber(data.mobilePhone),
+      fax: normalizePhoneNumber(data.fax),
+      managerPhone: normalizePhoneNumber(data.managerPhone),
+      assistantPhone: normalizePhoneNumber(data.assistantPhone),
+      address1Telephone1: normalizePhoneNumber(data.address1Telephone1),
     };
   };
 
@@ -383,198 +419,199 @@ export const D365ContactForm = ({
 
           <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
             {activeTab === 'general' && (
-              <Stack tokens={{ childrenGap: 20 }}>
-                <Stack
-                  horizontal
-                  tokens={{ childrenGap: 32 }}
-                  styles={{ root: { marginTop: 16 } }}
-                >
-                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                    <Dropdown
-                      label="Salutation"
-                      options={salutationOptions}
-                      selectedKey={formData.salutation || ''}
-                      onChange={(_, option) =>
-                        setFormData({ ...formData, salutation: option?.key as string || '' })
-                      }
-                    />
+              <Stack
+                horizontal
+                tokens={{ childrenGap: 32 }}
+                styles={{ root: { marginTop: 16 } }}
+              >
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16, marginBottom: 8 } }}>
+                    Contact Details
+                  </Label>
 
-                    <TextField
-                      label="First Name"
-                      required
-                      value={formData.firstName}
-                      onChange={(_, value) => setFormData({ ...formData, firstName: value || '' })}
-                    />
+                  <Dropdown
+                    label="Salutation"
+                    options={salutationOptions}
+                    selectedKey={formData.salutation || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, salutation: option?.key as string || '' })
+                    }
+                  />
 
-                    <TextField
-                      label="Middle Name"
-                      value={formData.middleName}
-                      onChange={(_, value) => setFormData({ ...formData, middleName: value || '' })}
-                    />
+                  <TextField
+                    label="First Name"
+                    required
+                    value={formData.firstName}
+                    onChange={(_, value) => setFormData({ ...formData, firstName: value || '' })}
+                  />
 
-                    <TextField
-                      label="Last Name"
-                      required
-                      value={formData.lastName}
-                      onChange={(_, value) => setFormData({ ...formData, lastName: value || '' })}
-                    />
+                  <TextField
+                    label="Middle Name"
+                    value={formData.middleName}
+                    onChange={(_, value) => setFormData({ ...formData, middleName: value || '' })}
+                  />
 
-                    <TextField
-                      label="Job Title"
-                      value={formData.jobTitle}
-                      onChange={(_, value) => setFormData({ ...formData, jobTitle: value || '' })}
-                    />
+                  <TextField
+                    label="Last Name"
+                    required
+                    value={formData.lastName}
+                    onChange={(_, value) => setFormData({ ...formData, lastName: value || '' })}
+                  />
 
-                    <Dropdown
-                      label="Company Name"
-                      options={accountOptions}
-                      selectedKey={formData.parentCustomerId || ''}
-                      onChange={(_, option) =>
-                        setFormData({ ...formData, parentCustomerId: option?.key as string || '' })
-                      }
-                    />
-                  </Stack>
+                  <TextField
+                    label="Email"
+                    type="email"
+                    required
+                    value={formData.emailAddress1}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, emailAddress1: value || '' })
+                    }
+                  />
 
-                  <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                    <TextField
-                      label="Business Phone"
-                      value={formData.telephone2}
-                      onChange={(_, value) => setFormData({ ...formData, telephone2: value || '' })}
-                    />
+                  <SouthAfricanPhoneInput
+                    label="Business Phone"
+                    value={formData.telephone1 || ''}
+                    onChange={(phone) => setFormData({ ...formData, telephone1: phone })}
+                  />
 
-                    <TextField
-                      label="Home Phone"
-                      value={formData.telephone3}
-                      onChange={(_, value) => setFormData({ ...formData, telephone3: value || '' })}
-                    />
+                  <SouthAfricanPhoneInput
+                    label="Home Phone"
+                    value={formData.telephone2 || ''}
+                    onChange={(phone) => setFormData({ ...formData, telephone2: phone })}
+                  />
 
-                    <TextField
-                      label="Mobile Phone"
-                      value={formData.mobilePhone}
-                      onChange={(_, value) => setFormData({ ...formData, mobilePhone: value || '' })}
-                    />
+                  <SouthAfricanPhoneInput
+                    label="Mobile Phone"
+                    value={formData.mobilePhone || ''}
+                    onChange={(phone) => setFormData({ ...formData, mobilePhone: phone })}
+                  />
 
-                    <TextField
-                      label="Fax"
-                      value={formData.fax}
-                      onChange={(_, value) => setFormData({ ...formData, fax: value || '' })}
-                    />
+                  <SouthAfricanPhoneInput
+                    label="Fax"
+                    value={formData.fax || ''}
+                    onChange={(phone) => setFormData({ ...formData, fax: phone })}
+                  />
 
-                    <TextField
-                      label="Email"
-                      type="email"
-                      required
-                      value={formData.emailAddress1}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, emailAddress1: value || '' })
-                      }
-                    />
-                  </Stack>
+                  <TextField
+                    label="Job Title"
+                    value={formData.jobTitle}
+                    onChange={(_, value) => setFormData({ ...formData, jobTitle: value || '' })}
+                  />
+
+                  <LookupField
+                    label="Company Name"
+                    value={formData.parentCustomerId}
+                    selectedText={companyNameText}
+                    options={[]}
+                    onChange={(id, text) => {
+                      setFormData({ ...formData, parentCustomerId: id || '' });
+                      setCompanyNameText(text || '');
+                    }}
+                    onSearch={async (query) => {
+                      const results = await lookupService.searchAccounts(query);
+                      return results.map(r => ({
+                        id: r.id,
+                        text: r.text,
+                        subText: '',
+                      }));
+                    }}
+                    placeholder="Search for an account..."
+                    entityName="Account"
+                  />
+
+                  <TextField
+                    label="Description"
+                    multiline
+                    rows={4}
+                    value={formData.description}
+                    onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
+                  />
                 </Stack>
 
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 20 } }}>
-                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Address</Label>
-                  
-                  <Stack horizontal tokens={{ childrenGap: 16 }}>
-                    <Dropdown
-                      label="Address Type"
-                      options={addressTypeOptions}
-                      selectedKey={formData.address1AddressTypeCode || ''}
-                      onChange={(_, option) =>
-                        setFormData({ ...formData, address1AddressTypeCode: option?.key as number || undefined })
-                      }
-                      styles={{ root: { flex: 1 } }}
-                    />
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16, marginBottom: 8 } }}>
+                    Address Information
+                  </Label>
 
-                    <TextField
-                      label="Address Name"
-                      value={formData.address1Name}
-                      onChange={(_, value) =>
-                        setFormData({ ...formData, address1Name: value || '' })
-                      }
-                      styles={{ root: { flex: 1 } }}
-                    />
-                  </Stack>
+                  <Dropdown
+                    label="Address Type"
+                    options={addressTypeOptions}
+                    selectedKey={formData.address1AddressTypeCode || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, address1AddressTypeCode: option?.key as number || undefined })
+                    }
+                  />
 
-                  <Stack horizontal tokens={{ childrenGap: 16 }}>
-                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                      <TextField
-                        label="Street"
-                        value={formData.address1Line1}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1Line1: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="Address Name"
+                    value={formData.address1Name}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1Name: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="Street 2"
-                        value={formData.address1Line2}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1Line2: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="Street"
+                    value={formData.address1Line1}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1Line1: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="Street 3"
-                        value={formData.address1Line3}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1Line3: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="Street 2"
+                    value={formData.address1Line2}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1Line2: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="City"
-                        value={formData.address1City}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1City: value || '' })
-                        }
-                      />
-                    </Stack>
+                  <TextField
+                    label="Street 3"
+                    value={formData.address1Line3}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1Line3: value || '' })
+                    }
+                  />
 
-                    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                      <TextField
-                        label="State/Province"
-                        value={formData.address1StateOrProvince}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1StateOrProvince: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="City"
+                    value={formData.address1City}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1City: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="ZIP/Postal Code"
-                        value={formData.address1PostalCode}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1PostalCode: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="State/Province"
+                    value={formData.address1StateOrProvince}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1StateOrProvince: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="Country/Region"
-                        value={formData.address1Country}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1Country: value || '' })
-                        }
-                      />
+                  <TextField
+                    label="ZIP/Postal Code"
+                    value={formData.address1PostalCode}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1PostalCode: value || '' })
+                    }
+                  />
 
-                      <TextField
-                        label="Phone"
-                        value={formData.address1Telephone1}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, address1Telephone1: value || '' })
-                        }
-                      />
-                    </Stack>
-                  </Stack>
+                  <TextField
+                    label="Country/Region"
+                    value={formData.address1Country}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, address1Country: value || '' })
+                    }
+                  />
+
+                  <SouthAfricanPhoneInput
+                    label="Phone"
+                    value={formData.address1Telephone1 || ''}
+                    onChange={(phone) => setFormData({ ...formData, address1Telephone1: phone })}
+                  />
                 </Stack>
-
-                <TextField
-                  label="Description"
-                  multiline
-                  rows={4}
-                  value={formData.description}
-                  onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
-                  styles={{ root: { marginTop: 20 } }}
-                />
               </Stack>
             )}
 
