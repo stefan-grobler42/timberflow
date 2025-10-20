@@ -51,18 +51,99 @@ const useDebounce = <T,>(value: T, delay: number): T => {
 };
 
 const styles = mergeStyleSets({
-  selectedValueContainer: {
-    padding: '8px 12px',
-    backgroundColor: '#f3f2f1',
-    borderRadius: '2px',
-    marginBottom: '8px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  selectedValueText: {
-    color: '#323130',
+  fieldLabel: {
+    fontSize: '14px',
     fontWeight: 600,
+    color: '#323130',
+    marginBottom: '4px',
+    display: 'block',
+  },
+  fieldLabelRequired: {
+    color: '#a4262c',
+    paddingLeft: '4px',
+  },
+  customFieldContainer: {
+    position: 'relative',
+    border: '1px solid #605e5c',
+    borderRadius: '2px',
+    minHeight: '32px',
+    padding: '5px 8px',
+    backgroundColor: 'white',
+    display: 'flex',
+    alignItems: 'center',
+    transition: 'border-color 0.2s',
+    selectors: {
+      '&:hover': {
+        borderColor: '#323130',
+      },
+      '&:focus-within': {
+        borderColor: '#0078d4',
+        borderWidth: '2px',
+        padding: '4px 7px',
+      },
+    },
+  },
+  customFieldContainerDisabled: {
+    backgroundColor: '#f3f2f1',
+    borderColor: '#c8c6c4',
+    cursor: 'not-allowed',
+  },
+  customFieldContainerError: {
+    borderColor: '#a4262c',
+    selectors: {
+      '&:hover': {
+        borderColor: '#a4262c',
+      },
+      '&:focus-within': {
+        borderColor: '#a4262c',
+      },
+    },
+  },
+  chip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '4px 8px',
+    backgroundColor: '#e1dfdd',
+    borderRadius: '16px',
+    fontSize: '14px',
+    color: '#323130',
+    maxWidth: '100%',
+  },
+  chipText: {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    marginRight: '4px',
+  },
+  chipRemoveButton: {
+    minWidth: '16px',
+    width: '16px',
+    height: '16px',
+    padding: 0,
+    marginLeft: '4px',
+    backgroundColor: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    color: '#605e5c',
+    selectors: {
+      '&:hover': {
+        backgroundColor: '#c8c6c4',
+        color: '#323130',
+      },
+      '&:active': {
+        backgroundColor: '#a19f9d',
+      },
+    },
+  },
+  errorMessage: {
+    fontSize: '12px',
+    color: '#a4262c',
+    marginTop: '4px',
+    display: 'block',
   },
   suggestionsContainer: {
     position: 'absolute',
@@ -341,42 +422,83 @@ export const AsyncLookupField: React.FC<AsyncLookupFieldProps> = ({
   return (
     <div ref={containerRef} style={{ position: 'relative' }}>
       <Stack tokens={{ childrenGap: 4 }}>
-        {value && selectedText && (
-          <Stack horizontal horizontalAlign="space-between" className={styles.selectedValueContainer}>
-            <Text className={styles.selectedValueText}>{selectedText}</Text>
-            <IconButton
-              iconProps={{ iconName: 'Clear' }}
-              title="Clear selection"
-              ariaLabel="Clear selection"
-              onClick={handleClear}
-              disabled={disabled}
-              styles={{ root: { height: 24, width: 24 } }}
-            />
-          </Stack>
-        )}
-
         <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
           <Stack.Item grow>
-            <div ref={inputRef}>
-              <TextField
-                label={label}
-                value={searchText}
-                onChange={handleSearchChange}
-                onFocus={handleFocus}
-                onKeyDown={handleKeyDown}
-                placeholder={`Search ${entityName}...`}
-                disabled={disabled}
-                required={required}
-                errorMessage={error}
-                iconProps={
-                  searchText && !disabled
-                    ? { iconName: 'Clear', onClick: () => setSearchText('') }
-                    : { iconName: 'Search' }
-                }
-                aria-expanded={showSuggestions}
-                aria-controls={calloutId}
-                aria-autocomplete="list"
-              />
+            <div>
+              <label className={styles.fieldLabel}>
+                {label}
+                {required && <span className={styles.fieldLabelRequired}>*</span>}
+              </label>
+              
+              <div 
+                ref={inputRef}
+                className={`${styles.customFieldContainer} ${
+                  disabled ? styles.customFieldContainerDisabled : ''
+                } ${error ? styles.customFieldContainerError : ''}`}
+                style={{ paddingRight: value && selectedText ? '8px' : '36px' }}
+              >
+                {value && selectedText ? (
+                  <div className={styles.chip}>
+                    <span className={styles.chipText} title={selectedText}>
+                      {selectedText}
+                    </span>
+                    <button
+                      className={styles.chipRemoveButton}
+                      onClick={handleClear}
+                      disabled={disabled}
+                      title="Remove"
+                      aria-label="Remove selection"
+                      type="button"
+                    >
+                      <span style={{ fontSize: '12px', lineHeight: 1 }}>×</span>
+                    </button>
+                  </div>
+                ) : (
+                  <TextField
+                    value={searchText}
+                    onChange={handleSearchChange}
+                    onFocus={handleFocus}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`Search ${entityName}...`}
+                    disabled={disabled}
+                    borderless
+                    styles={{
+                      root: { width: '100%' },
+                      fieldGroup: { 
+                        border: 'none',
+                        minHeight: '22px',
+                        height: '22px',
+                      },
+                      field: {
+                        padding: 0,
+                        fontSize: '14px',
+                      },
+                      wrapper: { 
+                        selectors: {
+                          '&::after': { display: 'none' }
+                        }
+                      }
+                    }}
+                    iconProps={
+                      searchText && !disabled
+                        ? { 
+                            iconName: 'Clear', 
+                            onClick: () => setSearchText(''),
+                            styles: { root: { fontSize: '12px' } }
+                          }
+                        : { 
+                            iconName: 'Search',
+                            styles: { root: { fontSize: '12px' } }
+                          }
+                    }
+                    aria-expanded={showSuggestions}
+                    aria-controls={calloutId}
+                    aria-autocomplete="list"
+                  />
+                )}
+              </div>
+              
+              {error && <span className={styles.errorMessage}>{error}</span>}
             </div>
           </Stack.Item>
 
@@ -395,7 +517,7 @@ export const AsyncLookupField: React.FC<AsyncLookupFieldProps> = ({
           />
         </Stack>
 
-        {showSuggestions && searchText.trim() && (
+        {showSuggestions && searchText.trim() && !value && (
           <div id={calloutId} className={styles.suggestionsContainer} role="listbox">
             {isSearching ? (
               <div className={styles.loadingContainer}>
