@@ -6,23 +6,21 @@ import {
   MessageBar,
   MessageBarType,
   DefaultButton,
-  CommandBar,
   Dropdown,
   DatePicker,
   Label,
 } from '@fluentui/react';
-import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import type { IDropdownOption } from '@fluentui/react';
 import { d365ContactService, lookupService, accountService } from '../services/d365Services';
 import type { D365Contact } from '../types/millennium';
-import { SouthAfricanPhoneInput } from './SouthAfricanPhoneInput';
-import { LookupField } from './LookupField';
+import { 
+  StandardLookupField, 
+  StandardPhoneField, 
+  StandardAddressFields, 
+  StandardFormHeader,
+  type LookupOption 
+} from './standards';
 
-declare global {
-  interface Window {
-    google: any;
-  }
-}
-declare const google: any;
 
 interface D365ContactFormProps {
   contact?: D365Contact;
@@ -78,7 +76,6 @@ export const D365ContactForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [companyNameText, setCompanyNameText] = useState<string>('');
-  const [autocomplete, setAutocomplete] = useState<any>(null);
 
   // Normalize phone number to E.164 format: +27XXXXXXXXX
   const normalizePhoneNumber = (phone: string | undefined): string | undefined => {
@@ -279,103 +276,6 @@ export const D365ContactForm = ({
     return null;
   };
 
-  const initializeGoogleMaps = () => {
-    if (typeof google === 'undefined' || !google.maps) {
-      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-      if (existingScript) {
-        existingScript.addEventListener('load', () => setupAutocomplete());
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${
-        import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''
-      }&libraries=places`;
-      script.async = true;
-      script.onload = () => setupAutocomplete();
-      document.head.appendChild(script);
-    } else {
-      setupAutocomplete();
-    }
-  };
-
-  const setupAutocomplete = () => {
-    const streetInput = document.getElementById('contact-street-input') as HTMLInputElement;
-    
-    if (!streetInput || !google?.maps?.places) {
-      setTimeout(setupAutocomplete, 100);
-      return;
-    }
-
-    const autocompleteInstance = new google.maps.places.Autocomplete(
-      streetInput,
-      {
-        types: ['address'],
-        fields: ['address_components', 'formatted_address', 'geometry'],
-      }
-    );
-
-    autocompleteInstance.addListener('place_changed', () => {
-      const place = autocompleteInstance.getPlace();
-
-      if (!place.geometry || !place.geometry.location) {
-        return;
-      }
-
-      const addressComponents = place.address_components || [];
-      let street = '';
-      let city = '';
-      let state = '';
-      let postalCode = '';
-      let country = '';
-
-      addressComponents.forEach((component: any) => {
-        const types = component.types;
-        if (types.includes('street_number')) {
-          street = component.long_name + ' ';
-        }
-        if (types.includes('route')) {
-          street += component.long_name;
-        }
-        if (types.includes('sublocality') || types.includes('locality')) {
-          city = component.long_name;
-        }
-        if (types.includes('administrative_area_level_1')) {
-          state = component.long_name;
-        }
-        if (types.includes('postal_code')) {
-          postalCode = component.long_name;
-        }
-        if (types.includes('country')) {
-          country = component.long_name;
-        }
-      });
-
-      const location = place.geometry.location;
-      setFormData((prev) => ({
-        ...prev,
-        address1Line1: street.trim(),
-        address1City: city,
-        address1StateOrProvince: state,
-        address1PostalCode: postalCode,
-        address1Country: country,
-        address1Latitude: location.lat(),
-        address1Longitude: location.lng(),
-      }));
-    });
-
-    setAutocomplete(autocompleteInstance);
-  };
-
-  useEffect(() => {
-    initializeGoogleMaps();
-
-    return () => {
-      if (autocomplete) {
-        google.maps.event.clearInstanceListeners(autocomplete);
-      }
-    };
-  }, []);
 
   const handleSubmit = async () => {
     try {
@@ -469,48 +369,30 @@ export const D365ContactForm = ({
     }
   };
 
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
-    },
-    {
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: handleSaveAndNew,
-      disabled: saving,
-    },
-    ...(contact && onDelete
-      ? [
-          {
-            key: 'delete',
-            text: 'Delete',
-            iconProps: { iconName: 'Delete' },
-            onClick: onDelete,
-            disabled: saving,
-          },
-        ]
-      : []),
-    {
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
-    },
-  ];
+  // Search function for StandardLookupField
+  const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
+    try {
+      const results = await lookupService.searchAccounts(searchTerm);
+      return results.map(r => ({ id: r.id, text: r.text }));
+    } catch (error) {
+      console.error('Error searching accounts:', error);
+      return [];
+    }
+  };
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
-        {contact ? 'Edit Contact' : 'New Contact'}
-      </Text>
-
-      <CommandBar items={commandBarItems} />
+    <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%' } }}>
+      <StandardFormHeader
+        title={contact ? 'Edit Contact' : 'New Contact'}
+        subtitle="Contact"
+        onBack={onDismiss}
+        onSave={handleSubmit}
+        onSaveAndNew={handleSaveAndNew}
+        onDelete={contact && onDelete ? onDelete : undefined}
+        onCancel={onDismiss}
+        saving={saving}
+        isNew={!contact}
+      />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
         {error && (
@@ -614,25 +496,25 @@ export const D365ContactForm = ({
                     }
                   />
 
-                  <SouthAfricanPhoneInput
+                  <StandardPhoneField
                     label="Business Phone"
                     value={formData.telephone1 || ''}
                     onChange={(phone) => setFormData({ ...formData, telephone1: phone })}
                   />
 
-                  <SouthAfricanPhoneInput
+                  <StandardPhoneField
                     label="Home Phone"
                     value={formData.telephone2 || ''}
                     onChange={(phone) => setFormData({ ...formData, telephone2: phone })}
                   />
 
-                  <SouthAfricanPhoneInput
+                  <StandardPhoneField
                     label="Mobile Phone"
                     value={formData.mobilePhone || ''}
                     onChange={(phone) => setFormData({ ...formData, mobilePhone: phone })}
                   />
 
-                  <SouthAfricanPhoneInput
+                  <StandardPhoneField
                     label="Fax"
                     value={formData.fax || ''}
                     onChange={(phone) => setFormData({ ...formData, fax: phone })}
@@ -644,25 +526,22 @@ export const D365ContactForm = ({
                     onChange={(_, value) => setFormData({ ...formData, jobTitle: value || '' })}
                   />
 
-                  <LookupField
+                  <StandardLookupField
                     label="Company Name"
                     value={formData.parentCustomerId}
                     selectedText={companyNameText}
-                    options={[]}
-                    onChange={(id, text) => {
-                      setFormData({ ...formData, parentCustomerId: id || '' });
-                      setCompanyNameText(text || '');
-                    }}
-                    onSearch={async (query) => {
-                      const results = await lookupService.searchAccounts(query);
-                      return results.map(r => ({
-                        id: r.id,
-                        text: r.text,
-                        subText: '',
-                      }));
-                    }}
-                    placeholder="Search for an account..."
                     entityName="Account"
+                    onChange={(id) => {
+                      setFormData({ ...formData, parentCustomerId: id || '' });
+                      if (id) {
+                        accountService.getById(id).then(account => {
+                          setCompanyNameText(account.name || '');
+                        }).catch(() => setCompanyNameText(''));
+                      } else {
+                        setCompanyNameText('');
+                      }
+                    }}
+                    onSearch={searchAccounts}
                   />
 
                   <TextField
@@ -675,88 +554,21 @@ export const D365ContactForm = ({
                 </Stack>
 
                 <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <Label styles={{ root: { fontWeight: 600, fontSize: 16, marginBottom: 8 } }}>
-                    Address Information
-                  </Label>
-
-                  <Dropdown
-                    label="Address Type"
-                    options={addressTypeOptions}
-                    selectedKey={formData.address1AddressTypeCode || ''}
-                    onChange={(_, option) =>
-                      setFormData({ ...formData, address1AddressTypeCode: option?.key as number || undefined })
-                    }
-                  />
-
-                  <TextField
-                    label="Address Name"
-                    value={formData.address1Name}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1Name: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="Street"
-                    id="contact-street-input"
-                    value={formData.address1Line1}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1Line1: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="Street 2"
-                    value={formData.address1Line2}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1Line2: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="Street 3"
-                    value={formData.address1Line3}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1Line3: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="City"
-                    value={formData.address1City}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1City: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="State/Province"
-                    value={formData.address1StateOrProvince}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1StateOrProvince: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="ZIP/Postal Code"
-                    value={formData.address1PostalCode}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1PostalCode: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="Country/Region"
-                    value={formData.address1Country}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, address1Country: value || '' })
-                    }
-                  />
-
-                  <SouthAfricanPhoneInput
-                    label="Phone"
-                    value={formData.address1Telephone1 || ''}
-                    onChange={(phone) => setFormData({ ...formData, address1Telephone1: phone })}
+                  <StandardAddressFields
+                    sectionTitle="ADDRESS INFORMATION"
+                    uniqueId="contact-address"
+                    street={formData.address1Line1}
+                    stateOrProvince={formData.address1StateOrProvince}
+                    postalCode={formData.address1PostalCode}
+                    country={formData.address1Country}
+                    latitude={formData.address1Latitude}
+                    longitude={formData.address1Longitude}
+                    onStreetChange={(value) => setFormData({ ...formData, address1Line1: value })}
+                    onStateOrProvinceChange={(value) => setFormData({ ...formData, address1StateOrProvince: value })}
+                    onPostalCodeChange={(value) => setFormData({ ...formData, address1PostalCode: value })}
+                    onCountryChange={(value) => setFormData({ ...formData, address1Country: value })}
+                    onLatitudeChange={(value) => setFormData({ ...formData, address1Latitude: value })}
+                    onLongitudeChange={(value) => setFormData({ ...formData, address1Longitude: value })}
                   />
                 </Stack>
               </Stack>
@@ -787,12 +599,10 @@ export const D365ContactForm = ({
                         }
                       />
 
-                      <TextField
+                      <StandardPhoneField
                         label="Manager Phone"
-                        value={formData.managerPhone}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, managerPhone: value || '' })
-                        }
+                        value={formData.managerPhone || ''}
+                        onChange={(phone) => setFormData({ ...formData, managerPhone: phone })}
                       />
                     </Stack>
 
@@ -811,12 +621,10 @@ export const D365ContactForm = ({
                         }
                       />
 
-                      <TextField
+                      <StandardPhoneField
                         label="Assistant Phone"
-                        value={formData.assistantPhone}
-                        onChange={(_, value) =>
-                          setFormData({ ...formData, assistantPhone: value || '' })
-                        }
+                        value={formData.assistantPhone || ''}
+                        onChange={(phone) => setFormData({ ...formData, assistantPhone: phone })}
                       />
                     </Stack>
                   </Stack>

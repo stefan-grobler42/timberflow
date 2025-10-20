@@ -13,8 +13,7 @@ import { accountService, d365ContactService, d365QuoteService, d365OrderService,
 import { tenderService } from '../services/millenniumServices';
 import { useLookupData } from '../hooks/useLookupData';
 import { resolveLookup } from '../utils/lookupHelpers';
-import { AsyncLookupField, type LookupOption } from './AsyncLookupField';
-import { EntityFormActionBar } from './EntityFormActionBar';
+import { StandardLookupField, StandardPhoneField, StandardFormHeader, type LookupOption } from './standards';
 import { RelatedEntityGrid } from './RelatedEntityGrid';
 import { D365ContactFormWrapper } from './D365ContactFormWrapper';
 import { D365QuoteFormWrapper } from './D365QuoteFormWrapper';
@@ -513,24 +512,15 @@ export const AccountForm = ({
 
   return (
     <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
-      <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { padding: '12px 20px', borderBottom: '1px solid #edebe9' } }}>
-        <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="center">
-          <Text variant="xLarge" styles={{ root: { fontWeight: 600 } }}>
-            {account ? account.name : 'New Account'}
-          </Text>
-          <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>
-            Account
-          </Text>
-        </Stack>
-      </Stack>
-
-      <EntityFormActionBar
+      <StandardFormHeader
+        title={account ? account.name : 'New Account'}
+        subtitle="Account"
         onBack={onDismiss}
         onSave={() => handleSave(false)}
         onSaveAndClose={() => handleSave(true)}
-        onDelete={handleDelete}
+        onDelete={account && onDelete ? handleDelete : undefined}
+        saving={saving}
         isNew={!account}
-        disabled={saving}
       />
 
       {error && (
@@ -586,10 +576,10 @@ export const AccountForm = ({
                 onChange={(_, value) => setFormData({ ...formData, cr694VatRegistrationNo: value || '' })}
               />
 
-              <TextField
+              <StandardPhoneField
                 label="Phone"
-                value={formData.telephone1}
-                onChange={(_, value) => setFormData({ ...formData, telephone1: value || '' })}
+                value={formData.telephone1 || ''}
+                onChange={(phone) => setFormData({ ...formData, telephone1: phone })}
               />
 
               <TextField
@@ -605,7 +595,7 @@ export const AccountForm = ({
                 onChange={(_, value) => setFormData({ ...formData, websiteUrl: value || '' })}
               />
 
-              <AsyncLookupField
+              <StandardLookupField
                 label="Parent Account"
                 value={formData.parentAccountId}
                 selectedText={formData.parentAccountId ? resolveLookup(formData.parentAccountId, lookupData.customers) : ''}
@@ -621,7 +611,7 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, cr694AccountType: option?.key as number })}
               />
 
-              <AsyncLookupField
+              <StandardLookupField
                 label="Sales Representative"
                 value={formData.cr694SalesRepresentative}
                 selectedText={formData.cr694SalesRepresentative ? resolveLookup(formData.cr694SalesRepresentative, lookupData.employees) : ''}
@@ -637,7 +627,7 @@ export const AccountForm = ({
                 onChange={(_, option) => setFormData({ ...formData, relationshipTypeCode: option?.key as number })}
               />
 
-              <AsyncLookupField
+              <StandardLookupField
                 label="Primary Contact"
                 value={formData.primaryContactId}
                 selectedText={formData.primaryContactId ? resolveLookup(formData.primaryContactId, lookupData.contacts) : ''}
