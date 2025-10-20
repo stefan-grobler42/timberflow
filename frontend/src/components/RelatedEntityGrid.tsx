@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   DetailsList,
   DetailsListLayoutMode,
@@ -13,6 +13,7 @@ import {
   DefaultButton,
   Stack,
   Text,
+  TextField,
   Selection,
   Spinner,
   SpinnerSize,
@@ -63,6 +64,7 @@ export function RelatedEntityGrid<T>({
   const [availableItems, setAvailableItems] = useState<T[]>([]);
   const [loadingAvailable, setLoadingAvailable] = useState(false);
   const [linking, setLinking] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [selection] = useState(
     () =>
       new Selection({
@@ -71,6 +73,8 @@ export function RelatedEntityGrid<T>({
         },
       })
   );
+  
+  const deletingRef = useRef(false);
 
   const handleNewClick = () => {
     setSelectedItemId(undefined);
@@ -78,7 +82,7 @@ export function RelatedEntityGrid<T>({
   };
 
   const handleRowClick = (item?: T) => {
-    if (item) {
+    if (item && !deletingRef.current) {
       setSelectedItemId(getItemId(item));
       setIsPanelOpen(true);
     }
@@ -96,8 +100,12 @@ export function RelatedEntityGrid<T>({
   };
 
   const handleDeleteClick = (item: T) => {
+    deletingRef.current = true;
     setItemToDelete(getItemId(item));
     setDeleteDialogOpen(true);
+    setTimeout(() => {
+      deletingRef.current = false;
+    }, 100);
   };
 
   const handleDeleteConfirm = async () => {
@@ -162,7 +170,20 @@ export function RelatedEntityGrid<T>({
     setLinkDialogOpen(false);
     selection.setAllSelected(false);
     setAvailableItems([]);
+    setSearchTerm('');
   };
+
+  const filterItems = (items: T[], search: string): T[] => {
+    if (!search.trim()) return items;
+    
+    const searchLower = search.toLowerCase();
+    return items.filter((item) => {
+      const itemString = JSON.stringify(item).toLowerCase();
+      return itemString.includes(searchLower);
+    });
+  };
+
+  const filteredAvailableItems = filterItems(availableItems, searchTerm);
 
   const commandBarItems: ICommandBarItemProps[] = [
     {
@@ -246,6 +267,8 @@ export function RelatedEntityGrid<T>({
         type={PanelType.medium}
         headerText={selectedItemId ? `Edit ${entityName}` : `New ${entityName}`}
         closeButtonAriaLabel="Close"
+        isBlocking={false}
+        hasCloseButton={true}
       >
         <FormComponent
           entityId={selectedItemId}
@@ -288,27 +311,43 @@ export function RelatedEntityGrid<T>({
         }}
       >
         <Stack tokens={{ childrenGap: 12 }} styles={{ root: { marginTop: 12, marginBottom: 12 } }}>
+          {!loadingAvailable && (
+            <TextField
+              placeholder={`Search ${entityName.toLowerCase()}s...`}
+              value={searchTerm}
+              onChange={(_, value) => setSearchTerm(value || '')}
+              iconProps={{ iconName: 'Search' }}
+              styles={{ root: { marginBottom: 8 } }}
+            />
+          )}
           {loadingAvailable ? (
             <Stack horizontalAlign="center" styles={{ root: { padding: 40 } }}>
               <Spinner size={SpinnerSize.large} label="Loading available items..." />
             </Stack>
           ) : (
-            <DetailsList
-              items={availableItems}
-              columns={columns}
-              layoutMode={DetailsListLayoutMode.justified}
-              selectionMode={SelectionMode.multiple}
-              selection={selection}
-              styles={{
-                root: {
-                  maxHeight: 400,
-                  overflowY: 'auto',
-                  border: '1px solid #edebe9',
-                },
-              }}
-            />
+            <>
+              <DetailsList
+                items={filteredAvailableItems}
+                columns={columns}
+                layoutMode={DetailsListLayoutMode.justified}
+                selectionMode={SelectionMode.multiple}
+                selection={selection}
+                styles={{
+                  root: {
+                    maxHeight: 400,
+                    overflowY: 'auto',
+                    border: '1px solid #edebe9',
+                  },
+                }}
+              />
+              {filteredAvailableItems.length === 0 && searchTerm && (
+                <Text styles={{ root: { padding: 20, textAlign: 'center', color: '#605e5c' } }}>
+                  No {entityName.toLowerCase()}s match your search.
+                </Text>
+              )}
+            </>
           )}
-          {!loadingAvailable && availableItems.length === 0 && (
+          {!loadingAvailable && availableItems.length === 0 && !searchTerm && (
             <Text styles={{ root: { padding: 20, textAlign: 'center', color: '#605e5c' } }}>
               No available {entityName.toLowerCase()}s to link.
             </Text>

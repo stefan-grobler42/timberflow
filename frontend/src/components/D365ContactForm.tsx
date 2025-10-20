@@ -13,6 +13,14 @@ import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { d365ContactService, accountService } from '../services/d365Services';
 import type { D365Contact, Account } from '../types/millennium';
 
+declare global {
+  interface Window {
+    google: any;
+  }
+}
+
+declare const google: any;
+
 interface D365ContactFormProps {
   contact?: D365Contact;
   onDismiss: () => void;
@@ -47,10 +55,8 @@ export const D365ContactForm = ({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [mapInitialized, setMapInitialized] = useState(false);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [marker, setMarker] = useState<google.maps.Marker | null>(null);
-  const [autocomplete, setAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
+  const [map, setMap] = useState<any>(null);
+  const [marker, setMarker] = useState<any>(null);
 
   useEffect(() => {
     loadAccounts();
@@ -99,7 +105,7 @@ export const D365ContactForm = ({
 
   const accountOptions: IDropdownOption[] = [
     { key: '', text: '(None)' },
-    ...accounts.map((a) => ({ key: a.id, text: a.name })),
+    ...accounts.map((a) => ({ key: a.id, text: a.name ?? '' })),
   ];
 
   const initializeGoogleMaps = () => {
@@ -173,11 +179,11 @@ export const D365ContactForm = ({
 
           if (place.address_components) {
             const components = place.address_components;
-            const city = components.find((c) => c.types.includes('locality'))?.long_name;
-            const province = components.find((c) =>
+            const city = components.find((c: any) => c.types.includes('locality'))?.long_name;
+            const province = components.find((c: any) =>
               c.types.includes('administrative_area_level_1')
             )?.long_name;
-            const postalCode = components.find((c) => c.types.includes('postal_code'))?.long_name;
+            const postalCode = components.find((c: any) => c.types.includes('postal_code'))?.long_name;
 
             setFormData((prev) => ({
               ...prev,
@@ -191,12 +197,10 @@ export const D365ContactForm = ({
         }
       });
 
-      setAutocomplete(autocompleteInstance);
     }
 
     setMap(mapInstance);
     setMarker(markerInstance);
-    setMapInitialized(true);
   };
 
   const handleUseMyLocation = () => {
