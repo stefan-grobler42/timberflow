@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -30,6 +31,7 @@ import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const AccountsPage = () => {
+  const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [filteredAccounts, setFilteredAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -579,6 +581,12 @@ export const AccountsPage = () => {
       text: 'Import from Excel',
       iconProps: { iconName: 'ExcelLogoInverse' },
       onClick: () => document.getElementById('accounts-import-input')?.click(),
+    },
+    {
+      key: 'mergeDuplicates',
+      text: 'Merge Duplicates',
+      iconProps: { iconName: 'Merge' },
+      onClick: () => navigate('/duplicates?entity=Accounts'),
     },
   ];
 

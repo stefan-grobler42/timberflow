@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -30,6 +31,7 @@ import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const D365ContactsPage = () => {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<D365Contact[]>([]);
   const [filteredContacts, setFilteredContacts] = useState<D365Contact[]>([]);
   const [loading, setLoading] = useState(true);
@@ -388,7 +390,7 @@ export const D365ContactsPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;
@@ -553,6 +555,12 @@ export const D365ContactsPage = () => {
       text: 'Import from Excel',
       iconProps: { iconName: 'ExcelLogoInverse' },
       onClick: () => document.getElementById('contacts-import-input')?.click(),
+    },
+    {
+      key: 'mergeDuplicates',
+      text: 'Merge Duplicates',
+      iconProps: { iconName: 'Merge' },
+      onClick: () => navigate('/duplicates?entity=D365Contacts'),
     },
   ];
 

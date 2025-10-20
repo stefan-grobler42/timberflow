@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -20,7 +21,6 @@ import {
   PrimaryButton,
   DefaultButton,
   IconButton,
-  Separator,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { employeeService } from '../services/millenniumServices';
@@ -33,6 +33,7 @@ import { FilterBuilder } from '../components/FilterBuilder';
 import * as XLSX from 'xlsx';
 
 export const EmployeesPage = () => {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
@@ -377,7 +378,7 @@ export const EmployeesPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;
@@ -542,6 +543,12 @@ export const EmployeesPage = () => {
       text: 'Import from Excel',
       iconProps: { iconName: 'ExcelLogoInverse' },
       onClick: () => document.getElementById('employees-import-input')?.click(),
+    },
+    {
+      key: 'mergeDuplicates',
+      text: 'Merge Duplicates',
+      iconProps: { iconName: 'Merge' },
+      onClick: () => navigate('/duplicates?entity=Employees'),
     },
   ];
 
@@ -727,8 +734,9 @@ export const EmployeesPage = () => {
       </Dialog>
 
       <DeleteDialog
-        hidden={!isDeleteDialogOpen}
-        itemName={employeeToDelete?.name || ''}
+        isOpen={isDeleteDialogOpen}
+        title="Delete Employee"
+        message={`Are you sure you want to delete ${employeeToDelete?.name || 'this employee'}?`}
         onConfirm={confirmDelete}
         onCancel={() => setIsDeleteDialogOpen(false)}
       />

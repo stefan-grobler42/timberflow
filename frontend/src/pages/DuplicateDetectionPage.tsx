@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -32,6 +33,7 @@ import type {
 import { ENTITY_TYPES, ENTITY_FIELDS, MATCH_TYPES } from '../types/duplicates';
 
 export const DuplicateDetectionPage = () => {
+  const [searchParams] = useSearchParams();
   const [selectedEntityType, setSelectedEntityType] = useState<string>('');
   const [matchRules, setMatchRules] = useState<DuplicateMatchRule[]>([
     { fieldName: '', matchType: 'CaseInsensitive', weight: 5 },
@@ -52,6 +54,13 @@ export const DuplicateDetectionPage = () => {
   const [weightErrors, setWeightErrors] = useState<Record<number, string>>({});
 
   const availableFields = selectedEntityType ? ENTITY_FIELDS[selectedEntityType] || [] : [];
+
+  useEffect(() => {
+    const entityParam = searchParams.get('entity');
+    if (entityParam) {
+      setSelectedEntityType(entityParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setDuplicateGroups([]);

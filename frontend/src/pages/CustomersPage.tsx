@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -33,6 +34,7 @@ import { FilterBuilder } from '../components/FilterBuilder';
 import * as XLSX from 'xlsx';
 
 export const CustomersPage = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
@@ -408,7 +410,7 @@ export const CustomersPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;
@@ -656,6 +658,12 @@ export const CustomersPage = () => {
       text: 'Import from Excel',
       iconProps: { iconName: 'ExcelLogoInverse' },
       onClick: () => document.getElementById('customers-import-input')?.click(),
+    },
+    {
+      key: 'mergeDuplicates',
+      text: 'Merge Duplicates',
+      iconProps: { iconName: 'Merge' },
+      onClick: () => navigate('/duplicates?entity=Customers'),
     },
   ];
 
