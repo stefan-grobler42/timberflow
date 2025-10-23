@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.1",
+    "@octokit/rest": "^22.0.0",
     "@types/google.maps": "^3.58.1",
     "cors": "^2.8.5",
     "drizzle-kit": "^0.31.4",
