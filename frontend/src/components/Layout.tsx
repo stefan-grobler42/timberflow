@@ -124,7 +124,7 @@ export const Layout = ({ children }: LayoutProps) => {
           key: 'trips',
           name: 'Trips',
           url: '/trips',
-          icon: 'Shipping',
+          icon: 'NavigateForward',
         },
         {
           key: 'loads',
