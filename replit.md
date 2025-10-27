@@ -3,7 +3,23 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management. The system integrates with Mitek Pamir design software and supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client needs. The project aims to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution, ultimately enhancing market potential and operational ambitions for timber roofing contractors.
 
-## Recent Changes (October 20, 2025)
+## Recent Changes (October 27, 2025)
+
+### Navigation Structure Reorganization
+**Sidebar Navigation Update:**
+- Restructured sidebar navigation to match comprehensive ERP workflow
+- Top-level navigation: Home, Recent, Pinned (with expandable functionality)
+- **My Work**: Activities, Dashboards
+- **Customers**: Accounts, Contacts
+- **Sales**: Quotes, Orders, Tenders
+- **Procurement**: Procurement module
+- **Production**: Production management
+- **Dispatch**: Trips, Loads
+- **Installation**: Installations, Sub-Contractor Deductions, Sub-Contractors
+- **Settings**: Products, Employees, Designers, Sale Representatives, Vehicles, Suppliers
+- Fixed icon compatibility issues (replaced unregistered "Shipping" icon with "NavigateForward")
+
+## Previous Changes (October 20, 2025)
 
 ### Form Consistency & Google Maps Integration Updates
 **Contact Form Improvements:**
