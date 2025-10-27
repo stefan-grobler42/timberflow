@@ -13,3 +13,4 @@
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/refint/MillenniumERP.Application.dll
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.pdb
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/ref/MillenniumERP.Application.dll
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.sourcelink.json

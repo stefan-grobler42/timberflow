@@ -17,3 +17,4 @@
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.pdb
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.genruntimeconfig.cache
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/ref/MillenniumERP.Infrastructure.dll
+/home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.sourcelink.json

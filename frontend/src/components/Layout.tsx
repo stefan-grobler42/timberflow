@@ -13,7 +13,50 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const navLinkGroups: INavLinkGroup[] = [
     {
-      name: 'CRM',
+      links: [
+        {
+          key: 'home',
+          name: 'Home',
+          url: '/',
+          icon: 'Home',
+        },
+        {
+          key: 'recent',
+          name: 'Recent',
+          url: '#',
+          icon: 'Recent',
+          isExpanded: false,
+          links: [],
+        },
+        {
+          key: 'pinned',
+          name: 'Pinned',
+          url: '#',
+          icon: 'Pinned',
+          isExpanded: false,
+          links: [],
+        },
+      ],
+    },
+    {
+      name: 'My Work',
+      links: [
+        {
+          key: 'activities',
+          name: 'Activities',
+          url: '/activities',
+          icon: 'Timeline',
+        },
+        {
+          key: 'dashboards',
+          name: 'Dashboards',
+          url: '/dashboards',
+          icon: 'ViewDashboard',
+        },
+      ],
+    },
+    {
+      name: 'Customers',
       links: [
         {
           key: 'accounts',
@@ -27,22 +70,22 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/d365contacts',
           icon: 'People',
         },
-        {
-          key: 'activities',
-          name: 'Activities',
-          url: '/activities',
-          icon: 'Timeline',
-        },
       ],
     },
     {
-      name: 'Sales & Quotes',
+      name: 'Sales',
       links: [
         {
           key: 'quotes',
-          name: 'Quotes - MRoofing',
+          name: 'Quotes',
           url: '/quotes',
           icon: 'Documentation',
+        },
+        {
+          key: 'd365orders',
+          name: 'Orders',
+          url: '/d365orders',
+          icon: 'ShoppingCart',
         },
         {
           key: 'tenders',
@@ -50,52 +93,79 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/tenders',
           icon: 'FileRequest',
         },
+      ],
+    },
+    {
+      name: 'Procurement',
+      links: [
         {
-          key: 'pricing',
-          name: 'Pricing Calculations',
-          url: '/pricing',
-          icon: 'Calculator',
-        },
-        {
-          key: 'salerepresentatives',
-          name: 'Sale Representatives',
-          url: '/salerepresentatives',
-          icon: 'RecruitmentManagement',
+          key: 'procurement',
+          name: 'Procurement',
+          url: '/procurement',
+          icon: 'QuickNote',
         },
       ],
     },
     {
-      name: 'Operations',
+      name: 'Production',
       links: [
         {
           key: 'production',
           name: 'Production',
           url: '/production',
-          icon: 'Product',
+          icon: 'Manufacturing',
         },
+      ],
+    },
+    {
+      name: 'Dispatch',
+      links: [
         {
-          key: 'installation',
-          name: 'Installation Progress',
-          url: '/installation',
-          icon: 'ProgressLoopInner',
-        },
-        {
-          key: 'logistics',
-          name: 'Logistics',
-          url: '/logistics',
+          key: 'trips',
+          name: 'Trips',
+          url: '/trips',
           icon: 'Shipping',
         },
         {
-          key: 'deliveries',
-          name: 'Deliveries',
-          url: '/deliveries',
+          key: 'loads',
+          name: 'Loads',
+          url: '/loads',
           icon: 'DeliveryTruck',
         },
       ],
     },
     {
-      name: 'Resources',
+      name: 'Installation',
       links: [
+        {
+          key: 'installations',
+          name: 'Installations',
+          url: '/installations',
+          icon: 'ConstructionCone',
+        },
+        {
+          key: 'subcontractor-deductions',
+          name: 'Sub-Contractor Deductions',
+          url: '/subcontractor-deductions',
+          icon: 'Money',
+        },
+        {
+          key: 'subcontractors',
+          name: 'Sub-Contractors',
+          url: '/subcontractors',
+          icon: 'PeopleRepeat',
+        },
+      ],
+    },
+    {
+      name: 'Settings',
+      links: [
+        {
+          key: 'd365products',
+          name: 'Products',
+          url: '/d365products',
+          icon: 'Product',
+        },
         {
           key: 'employees',
           name: 'Employees',
@@ -109,74 +179,22 @@ export const Layout = ({ children }: LayoutProps) => {
           icon: 'Design',
         },
         {
+          key: 'salerepresentatives',
+          name: 'Sale Representatives',
+          url: '/salerepresentatives',
+          icon: 'RecruitmentManagement',
+        },
+        {
           key: 'vehicles',
           name: 'Vehicles',
           url: '/vehicles',
           icon: 'Car',
         },
-      ],
-    },
-    {
-      name: 'Administration',
-      links: [
         {
-          key: 'users',
-          name: 'Users',
-          url: '/users',
-          icon: 'Accounts',
-        },
-        {
-          key: 'roles',
-          name: 'Roles',
-          url: '/roles',
-          icon: 'SecurityGroup',
-        },
-        {
-          key: 'companies',
-          name: 'Company Types',
-          url: '/companies',
-          icon: 'CityNext',
-        },
-        {
-          key: 'duplicates',
-          name: 'Duplicate Detection',
-          url: '/duplicates',
-          icon: 'MergeDuplicate',
-        },
-      ],
-    },
-    {
-      name: 'Dynamics 365 Data',
-      links: [
-        {
-          key: 'd365products',
-          name: 'Products',
-          url: '/d365products',
-          icon: 'Product',
-        },
-        {
-          key: 'd365quotes',
-          name: 'Quotes',
-          url: '/d365quotes',
-          icon: 'DocumentSet',
-        },
-        {
-          key: 'd365orders',
-          name: 'Orders',
-          url: '/d365orders',
-          icon: 'ShoppingCart',
-        },
-        {
-          key: 'd365appointments',
-          name: 'Appointments',
-          url: '/d365appointments',
-          icon: 'Calendar',
-        },
-        {
-          key: 'd365emails',
-          name: 'Emails',
-          url: '/d365emails',
-          icon: 'Mail',
+          key: 'suppliers',
+          name: 'Suppliers',
+          url: '/suppliers',
+          icon: 'Group',
         },
       ],
     },
