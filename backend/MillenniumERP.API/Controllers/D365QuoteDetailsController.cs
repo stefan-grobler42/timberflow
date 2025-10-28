@@ -60,11 +60,7 @@ public class D365QuoteDetailsController : ControllerBase
     public async Task<ActionResult<D365QuoteDetailDto>> Create([FromBody] CreateD365QuoteDetailDto createDto)
     {
         var quote = await _context.D365Quotes.FindAsync(createDto.QuoteId);
-        if (quote == null)
-        {
-            return NotFound(new { message = $"Quote with ID {createDto.QuoteId} not found" });
-        }
-
+        
         var detail = new D365QuoteDetail
         {
             Id = Guid.NewGuid(),
@@ -85,7 +81,10 @@ public class D365QuoteDetailsController : ControllerBase
         _context.D365QuoteDetails.Add(detail);
         await _context.SaveChangesAsync();
 
-        await RecalculateQuoteTotals(createDto.QuoteId);
+        if (quote != null)
+        {
+            await RecalculateQuoteTotals(createDto.QuoteId);
+        }
 
         _logger.LogInformation("Created quote detail {Id} for quote {QuoteId}", detail.Id, detail.QuoteId);
 
