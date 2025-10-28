@@ -20,9 +20,16 @@ public class D365QuotesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<D365QuoteDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<D365QuoteDto>>> GetAll([FromQuery] bool includeDetails = false)
     {
-        var quotes = await _context.D365Quotes
+        var query = _context.D365Quotes.AsQueryable();
+
+        if (includeDetails)
+        {
+            query = query.Include(q => q.QuoteDetails);
+        }
+
+        var quotes = await query
             .OrderBy(q => q.Name)
             .ToListAsync();
 
@@ -34,6 +41,7 @@ public class D365QuotesController : ControllerBase
     public async Task<ActionResult<D365QuoteDto>> GetById(Guid id)
     {
         var quote = await _context.D365Quotes
+            .Include(q => q.QuoteDetails)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (quote == null)
@@ -265,7 +273,28 @@ public class D365QuotesController : ControllerBase
             // Contact Information
             ContactName = quote.ContactName,
             ContactTelephone = quote.ContactTelephone,
-            ContactEmail = quote.ContactEmail
+            ContactEmail = quote.ContactEmail,
+            
+            // Line Items
+            QuoteDetails = quote.QuoteDetails?.Select(d => new D365QuoteDetailDto
+            {
+                Id = d.Id,
+                QuoteId = d.QuoteId,
+                ProductId = d.ProductId,
+                ProductName = d.ProductName,
+                Description = d.Description,
+                Quantity = d.Quantity,
+                PricePerUnit = d.PricePerUnit,
+                ManualDiscountAmount = d.ManualDiscountAmount,
+                Tax = d.Tax,
+                BaseAmount = d.BaseAmount,
+                ExtendedAmount = d.ExtendedAmount,
+                LineItemNumber = d.LineItemNumber,
+                CreatedOn = d.CreatedOn,
+                ModifiedOn = d.ModifiedOn,
+                CreatedBy = d.CreatedBy,
+                ModifiedBy = d.ModifiedBy
+            }).ToList()
         };
     }
 }

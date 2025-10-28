@@ -6,15 +6,24 @@ import {
   MessageBar,
   MessageBarType,
   DefaultButton,
+  PrimaryButton,
   Dropdown,
   DatePicker,
   DetailsList,
   DetailsListLayoutMode,
   CommandBar,
   Text,
+  Panel,
+  PanelType,
+  Dialog,
+  DialogType,
+  DialogFooter,
+  Selection,
+  SelectionMode,
+  SpinButton,
 } from '@fluentui/react';
 import type { IDropdownOption, IColumn, ICommandBarItemProps } from '@fluentui/react';
-import { d365QuoteService, accountService, lookupService } from '../services/d365Services';
+import { d365QuoteService, d365QuoteDetailService, accountService, lookupService, d365ProductService } from '../services/d365Services';
 import { StandardLookupField, StandardPhoneField, StandardFormHeader, type LookupOption } from '../components/standards';
 import { StandardAddressFields } from '../components/standards/StandardAddressFields';
 import type { D365Quote, D365QuoteDetail } from '../types/millennium';
@@ -71,13 +80,55 @@ export const QuoteForm = () => {
   const [customerName, setCustomerName] = useState('');
   const [quoteDetails, setQuoteDetails] = useState<D365QuoteDetail[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedLineItem, setSelectedLineItem] = useState<D365QuoteDetail | null>(null);
+  const [lineItemFormData, setLineItemFormData] = useState<Partial<D365QuoteDetail>>({
+    productId: undefined,
+    productName: '',
+    description: '',
+    quantity: 1,
+    pricePerUnit: 0,
+    manualDiscountAmount: 0,
+    tax: 0,
+    baseAmount: 0,
+    extendedAmount: 0,
+  });
+  const [productLookupName, setProductLookupName] = useState('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [lineItemToDelete, setLineItemToDelete] = useState<D365QuoteDetail | null>(null);
+
+  const [selection] = useState(
+    () =>
+      new Selection({
+        onSelectionChanged: () => {
+          const selected = selection.getSelection();
+          if (selected.length > 0) {
+            setSelectedLineItem(selected[0] as D365QuoteDetail);
+          } else {
+            setSelectedLineItem(null);
+          }
+        },
+      })
+  );
 
   useEffect(() => {
     if (id && id !== 'new') {
       loadQuote(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    calculateLineItemTotals();
+  }, [
+    lineItemFormData.quantity,
+    lineItemFormData.pricePerUnit,
+    lineItemFormData.manualDiscountAmount,
+    lineItemFormData.tax,
+  ]);
 
   const loadQuote = async (quoteId: string) => {
     try {
@@ -93,13 +144,44 @@ export const QuoteForm = () => {
         }
       }
 
-      // Load quote details if they exist
-      if (quote.quoteDetails) {
-        setQuoteDetails(quote.quoteDetails);
-      }
+      await loadLineItems(quoteId);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quote');
     }
+  };
+
+  const loadLineItems = async (quoteId: string) => {
+    try {
+      const details = await d365QuoteDetailService.getByQuoteId(quoteId);
+      setQuoteDetails(details);
+    } catch (err) {
+      console.error('Failed to load line items:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load line items');
+    }
+  };
+
+  const refreshQuoteAndLineItems = async () => {
+    if (id && id !== 'new') {
+      const quote = await d365QuoteService.getById(id);
+      setFormData(quote);
+      await loadLineItems(id);
+    }
+  };
+
+  const calculateLineItemTotals = () => {
+    const quantity = lineItemFormData.quantity || 0;
+    const pricePerUnit = lineItemFormData.pricePerUnit || 0;
+    const discount = lineItemFormData.manualDiscountAmount || 0;
+    const tax = lineItemFormData.tax || 0;
+
+    const baseAmount = quantity * pricePerUnit;
+    const extendedAmount = baseAmount - discount + tax;
+
+    setLineItemFormData((prev) => ({
+      ...prev,
+      baseAmount,
+      extendedAmount,
+    }));
   };
 
   const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
@@ -112,15 +194,147 @@ export const QuoteForm = () => {
     }
   };
 
+  const searchProducts = async (searchTerm: string): Promise<LookupOption[]> => {
+    try {
+      const results = await lookupService.searchProducts(searchTerm);
+      return results;
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
+  };
+
+  const handleAddLineItem = () => {
+    setIsEditing(false);
+    setLineItemFormData({
+      productId: undefined,
+      productName: '',
+      description: '',
+      quantity: 1,
+      pricePerUnit: 0,
+      manualDiscountAmount: 0,
+      tax: 0,
+      baseAmount: 0,
+      extendedAmount: 0,
+    });
+    setProductLookupName('');
+    setIsPanelOpen(true);
+  };
+
+  const handleEditLineItem = () => {
+    if (!selectedLineItem) return;
+
+    setIsEditing(true);
+    setLineItemFormData({
+      productId: selectedLineItem.productId,
+      productName: selectedLineItem.productName || '',
+      description: selectedLineItem.description || '',
+      quantity: selectedLineItem.quantity || 1,
+      pricePerUnit: selectedLineItem.pricePerUnit || 0,
+      manualDiscountAmount: selectedLineItem.manualDiscountAmount || 0,
+      tax: selectedLineItem.tax || 0,
+      baseAmount: selectedLineItem.baseAmount || 0,
+      extendedAmount: selectedLineItem.extendedAmount || 0,
+    });
+    setProductLookupName(selectedLineItem.productName || '');
+    setIsPanelOpen(true);
+  };
+
+  const handleDeleteLineItem = () => {
+    if (!selectedLineItem) return;
+    setLineItemToDelete(selectedLineItem);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteLineItem = async () => {
+    if (!lineItemToDelete) return;
+
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      await d365QuoteDetailService.delete(lineItemToDelete.id);
+      setIsDeleteDialogOpen(false);
+      setLineItemToDelete(null);
+      setSelectedLineItem(null);
+      selection.setAllSelected(false);
+
+      await refreshQuoteAndLineItems();
+      
+      setSuccessMessage(`Line item deleted successfully. New total: R ${formData.totalAmount?.toFixed(2) || '0.00'}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete line item');
+    }
+  };
+
+  const handleSaveLineItem = async () => {
+    try {
+      setError(null);
+      setSuccessMessage(null);
+      setSaving(true);
+
+      if (!id || id === 'new') {
+        setError('Please save the quote first before adding line items');
+        return;
+      }
+
+      const lineItemData: Partial<D365QuoteDetail> = {
+        ...lineItemFormData,
+        quoteId: id,
+      };
+
+      if (isEditing && selectedLineItem) {
+        await d365QuoteDetailService.update(selectedLineItem.id, lineItemData);
+        setSuccessMessage('Line item updated successfully');
+      } else {
+        await d365QuoteDetailService.create(lineItemData);
+        setSuccessMessage('Line item added successfully');
+      }
+
+      setIsPanelOpen(false);
+      setSelectedLineItem(null);
+      selection.setAllSelected(false);
+
+      await refreshQuoteAndLineItems();
+
+      setSuccessMessage(
+        `Line item ${isEditing ? 'updated' : 'added'} successfully. New total: R ${formData.totalAmount?.toFixed(2) || '0.00'}`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save line item');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePanelDismiss = () => {
+    setIsPanelOpen(false);
+    setIsEditing(false);
+    setLineItemFormData({
+      productId: undefined,
+      productName: '',
+      description: '',
+      quantity: 1,
+      pricePerUnit: 0,
+      manualDiscountAmount: 0,
+      tax: 0,
+      baseAmount: 0,
+      extendedAmount: 0,
+    });
+    setProductLookupName('');
+  };
+
   const handleSave = async (closeAfter: boolean) => {
     try {
       setSaving(true);
       setError(null);
+      setSuccessMessage(null);
 
       if (id && id !== 'new') {
         await d365QuoteService.update(id, formData);
+        setSuccessMessage('Quote saved successfully');
       } else {
         const created = await d365QuoteService.create(formData);
+        setSuccessMessage('Quote created successfully');
         if (closeAfter) {
           navigate('/quotes');
         } else {
@@ -175,6 +389,14 @@ export const QuoteForm = () => {
 
   const quoteDetailColumns: IColumn[] = [
     {
+      key: 'lineItemNumber',
+      name: 'Line #',
+      fieldName: 'lineItemNumber',
+      minWidth: 50,
+      maxWidth: 70,
+      isResizable: true,
+    },
+    {
       key: 'productName',
       name: 'Product',
       fieldName: 'productName',
@@ -214,7 +436,9 @@ export const QuoteForm = () => {
       minWidth: 100,
       maxWidth: 120,
       isResizable: true,
-      onRender: (item: D365QuoteDetail) => <Text>{item.manualDiscountAmount ? `R ${item.manualDiscountAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365QuoteDetail) => (
+        <Text>{item.manualDiscountAmount ? `R ${item.manualDiscountAmount.toFixed(2)}` : '-'}</Text>
+      ),
     },
     {
       key: 'tax',
@@ -239,12 +463,24 @@ export const QuoteForm = () => {
   const lineItemsCommandBarItems: ICommandBarItemProps[] = [
     {
       key: 'addLineItem',
-      text: 'Add Line Item',
+      text: 'New Line Item',
       iconProps: { iconName: 'Add' },
-      onClick: () => {
-        // TODO: Implement add line item modal
-        alert('Add Line Item functionality to be implemented');
-      },
+      onClick: handleAddLineItem,
+      disabled: !id || id === 'new',
+    },
+    {
+      key: 'editLineItem',
+      text: 'Edit',
+      iconProps: { iconName: 'Edit' },
+      onClick: handleEditLineItem,
+      disabled: !selectedLineItem,
+    },
+    {
+      key: 'deleteLineItem',
+      text: 'Delete',
+      iconProps: { iconName: 'Delete' },
+      onClick: handleDeleteLineItem,
+      disabled: !selectedLineItem,
     },
   ];
 
@@ -264,6 +500,12 @@ export const QuoteForm = () => {
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
           {error}
+        </MessageBar>
+      )}
+
+      {successMessage && (
+        <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccessMessage(null)}>
+          {successMessage}
         </MessageBar>
       )}
 
@@ -534,25 +776,165 @@ export const QuoteForm = () => {
               LINE ITEMS
             </Text>
 
+            {(!id || id === 'new') && (
+              <MessageBar messageBarType={MessageBarType.warning}>
+                Please save the quote first before adding line items.
+              </MessageBar>
+            )}
+
             <CommandBar items={lineItemsCommandBarItems} />
 
             <DetailsList
               items={quoteDetails}
               columns={quoteDetailColumns}
               layoutMode={DetailsListLayoutMode.justified}
-              selectionMode={0}
+              selection={selection}
+              selectionMode={SelectionMode.single}
+              onItemInvoked={handleEditLineItem}
             />
 
             {quoteDetails.length === 0 && (
               <Stack horizontalAlign="center" tokens={{ padding: 40 }}>
                 <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>
-                  No line items yet. Click "Add Line Item" to get started.
+                  No line items yet. Click "New Line Item" to get started.
                 </Text>
               </Stack>
             )}
           </Stack>
         )}
       </Stack>
+
+      <Panel
+        isOpen={isPanelOpen}
+        onDismiss={handlePanelDismiss}
+        type={PanelType.medium}
+        headerText={isEditing ? 'Edit Line Item' : 'New Line Item'}
+        closeButtonAriaLabel="Close"
+      >
+        <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 20 } }}>
+          <StandardLookupField
+            label="Product"
+            value={lineItemFormData.productId}
+            selectedText={productLookupName}
+            entityName="Product"
+            onChange={async (productId) => {
+              setLineItemFormData({ ...lineItemFormData, productId });
+              if (productId) {
+                try {
+                  const product = await d365ProductService.getById(productId);
+                  setProductLookupName(product.name || '');
+                  setLineItemFormData({
+                    ...lineItemFormData,
+                    productId,
+                    productName: product.name || '',
+                    pricePerUnit: product.price || 0,
+                  });
+                } catch (err) {
+                  console.error('Failed to load product:', err);
+                }
+              } else {
+                setProductLookupName('');
+              }
+            }}
+            onSearch={searchProducts}
+          />
+
+          <TextField
+            label="Product Name"
+            value={lineItemFormData.productName || ''}
+            onChange={(_, value) => setLineItemFormData({ ...lineItemFormData, productName: value || '' })}
+          />
+
+          <TextField
+            label="Description"
+            multiline
+            rows={3}
+            value={lineItemFormData.description || ''}
+            onChange={(_, value) => setLineItemFormData({ ...lineItemFormData, description: value || '' })}
+          />
+
+          <SpinButton
+            label="Quantity"
+            value={lineItemFormData.quantity?.toString() || '1'}
+            min={1}
+            step={1}
+            onIncrement={(value) => {
+              const newValue = (parseInt(value) || 0) + 1;
+              setLineItemFormData({ ...lineItemFormData, quantity: newValue });
+            }}
+            onDecrement={(value) => {
+              const newValue = Math.max(1, (parseInt(value) || 0) - 1);
+              setLineItemFormData({ ...lineItemFormData, quantity: newValue });
+            }}
+            onValidate={(value) => {
+              const parsed = parseInt(value) || 1;
+              setLineItemFormData({ ...lineItemFormData, quantity: Math.max(1, parsed) });
+            }}
+          />
+
+          <TextField
+            label="Price Per Unit"
+            type="number"
+            value={lineItemFormData.pricePerUnit?.toString() || '0'}
+            onChange={(_, value) => {
+              const parsed = parseFloat(value || '0');
+              setLineItemFormData({ ...lineItemFormData, pricePerUnit: isNaN(parsed) ? 0 : parsed });
+            }}
+            prefix="R"
+          />
+
+          <TextField
+            label="Manual Discount"
+            type="number"
+            value={lineItemFormData.manualDiscountAmount?.toString() || '0'}
+            onChange={(_, value) => {
+              const parsed = parseFloat(value || '0');
+              setLineItemFormData({ ...lineItemFormData, manualDiscountAmount: isNaN(parsed) ? 0 : parsed });
+            }}
+            prefix="R"
+          />
+
+          <TextField
+            label="Tax"
+            type="number"
+            value={lineItemFormData.tax?.toString() || '0'}
+            onChange={(_, value) => {
+              const parsed = parseFloat(value || '0');
+              setLineItemFormData({ ...lineItemFormData, tax: isNaN(parsed) ? 0 : parsed });
+            }}
+            prefix="R"
+          />
+
+          <TextField label="Base Amount" value={`R ${lineItemFormData.baseAmount?.toFixed(2) || '0.00'}`} readOnly />
+
+          <TextField
+            label="Extended Amount"
+            value={`R ${lineItemFormData.extendedAmount?.toFixed(2) || '0.00'}`}
+            readOnly
+            styles={{ root: { fontWeight: 600 } }}
+          />
+
+          <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { marginTop: 20 } }}>
+            <PrimaryButton text="Save" onClick={handleSaveLineItem} disabled={saving} />
+            <DefaultButton text="Cancel" onClick={handlePanelDismiss} />
+          </Stack>
+        </Stack>
+      </Panel>
+
+      <Dialog
+        hidden={!isDeleteDialogOpen}
+        onDismiss={() => setIsDeleteDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: 'Confirm Delete',
+          subText: 'Are you sure you want to delete this line item? This action cannot be undone.',
+        }}
+      >
+        <DialogFooter>
+          <PrimaryButton onClick={confirmDeleteLineItem} text="Delete" />
+          <DefaultButton onClick={() => setIsDeleteDialogOpen(false)} text="Cancel" />
+        </DialogFooter>
+      </Dialog>
     </Stack>
   );
 };

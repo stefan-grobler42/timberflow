@@ -59,7 +59,17 @@ public class D365QuoteDetailsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<D365QuoteDetailDto>> Create([FromBody] CreateD365QuoteDetailDto createDto)
     {
+        if (createDto.QuoteId == Guid.Empty)
+        {
+            return BadRequest(new { message = "QuoteId is required and cannot be empty" });
+        }
+
         var quote = await _context.D365Quotes.FindAsync(createDto.QuoteId);
+        
+        if (quote == null)
+        {
+            return BadRequest(new { message = $"Quote with ID {createDto.QuoteId} not found" });
+        }
         
         var detail = new D365QuoteDetail
         {
@@ -81,10 +91,7 @@ public class D365QuoteDetailsController : ControllerBase
         _context.D365QuoteDetails.Add(detail);
         await _context.SaveChangesAsync();
 
-        if (quote != null)
-        {
-            await RecalculateQuoteTotals(createDto.QuoteId);
-        }
+        await RecalculateQuoteTotals(createDto.QuoteId);
 
         _logger.LogInformation("Created quote detail {Id} for quote {QuoteId}", detail.Id, detail.QuoteId);
 
@@ -156,18 +163,30 @@ public class D365QuoteDetailsController : ControllerBase
             .Where(d => d.QuoteId == quoteId)
             .ToListAsync();
 
-        quote.TotalLineItemAmount = quoteDetails.Sum(d => d.ExtendedAmount ?? 0);
+        quote.TotalLineItemAmount = quoteDetails.Sum(d => (d.BaseAmount ?? 0) - (d.ManualDiscountAmount ?? 0));
         quote.TotalTax = quoteDetails.Sum(d => d.Tax ?? 0);
-        quote.TotalDiscountAmount = quoteDetails.Sum(d => d.ManualDiscountAmount ?? 0);
         
-        quote.TotalAmount = quote.TotalLineItemAmount + quote.TotalTax + (quote.FreightAmount ?? 0);
+        decimal quoteLevelDiscount = 0;
+        if (quote.DiscountPercentage.HasValue && quote.DiscountPercentage.Value > 0)
+        {
+            quoteLevelDiscount = (quote.TotalLineItemAmount ?? 0) * (quote.DiscountPercentage.Value / 100);
+        }
+        
+        quote.TotalDiscountAmount = quoteLevelDiscount;
+        
+        quote.TotalAmountLessFreight = (quote.TotalLineItemAmount ?? 0) + (quote.TotalTax ?? 0);
+        
+        quote.TotalAmount = (quote.TotalLineItemAmount ?? 0) 
+            + (quote.TotalTax ?? 0) 
+            + (quote.FreightAmount ?? 0) 
+            - (quote.TotalDiscountAmount ?? 0);
 
         quote.ModifiedOn = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Recalculated totals for quote {QuoteId}: Total={Total}, LineItems={LineItems}, Tax={Tax}", 
-            quoteId, quote.TotalAmount, quote.TotalLineItemAmount, quote.TotalTax);
+        _logger.LogInformation("Recalculated totals for quote {QuoteId}: Total={Total}, LineItems={LineItems}, Tax={Tax}, Discount={Discount}, Freight={Freight}", 
+            quoteId, quote.TotalAmount, quote.TotalLineItemAmount, quote.TotalTax, quote.TotalDiscountAmount, quote.FreightAmount);
     }
 
     private D365QuoteDetailDto MapToDto(D365QuoteDetail detail)

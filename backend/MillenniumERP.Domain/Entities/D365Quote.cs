@@ -177,4 +177,6 @@ public class D365Quote
     [Column("contactemail")]
     [MaxLength(100)]
     public string? ContactEmail { get; set; }
+
+    public ICollection<D365QuoteDetail>? QuoteDetails { get; set; }
 }

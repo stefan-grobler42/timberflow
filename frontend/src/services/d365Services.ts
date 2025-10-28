@@ -1,6 +1,6 @@
 import { api } from './api';
 import type { 
-  Account, D365Contact, D365Product, D365Quote, D365Order,
+  Account, D365Contact, D365Product, D365Quote, D365QuoteDetail, D365Order,
   D365Appointment, D365Email
 } from '../types/millennium';
 
@@ -34,6 +34,15 @@ export const d365QuoteService = {
   create: (data: Partial<D365Quote>) => api.post<D365Quote>('/d365quotes', data),
   update: (id: string, data: Partial<D365Quote>) => api.put<D365Quote>(`/d365quotes/${id}`, data),
   delete: (id: string) => api.delete(`/d365quotes/${id}`),
+};
+
+export const d365QuoteDetailService = {
+  getAll: () => api.get<D365QuoteDetail[]>('/d365quotedetails'),
+  getById: (id: string) => api.get<D365QuoteDetail>(`/d365quotedetails/${id}`),
+  getByQuoteId: (quoteId: string) => api.get<D365QuoteDetail[]>(`/d365quotes/${quoteId}/details`),
+  create: (data: Partial<D365QuoteDetail>) => api.post<D365QuoteDetail>('/d365quotedetails', data),
+  update: (id: string, data: Partial<D365QuoteDetail>) => api.put<D365QuoteDetail>(`/d365quotedetails/${id}`, data),
+  delete: (id: string) => api.delete(`/d365quotedetails/${id}`),
 };
 
 export const d365OrderService = {
@@ -74,6 +83,23 @@ export const lookupService = {
   
   searchContacts: (term: string = '') => 
     api.get<LookupOption[]>(`/lookups/contacts/search?term=${encodeURIComponent(term)}`),
+  
+  searchProducts: async (term: string = ''): Promise<LookupOption[]> => {
+    try {
+      const products = await d365ProductService.getAll();
+      const filtered = products.filter(p => 
+        p.name?.toLowerCase().includes(term.toLowerCase()) ||
+        p.productNumber?.toLowerCase().includes(term.toLowerCase())
+      );
+      return filtered.map(p => ({ 
+        id: p.id, 
+        text: p.productNumber ? `${p.productNumber} - ${p.name || ''}` : (p.name || '')
+      }));
+    } catch (error) {
+      console.error('Error searching products:', error);
+      return [];
+    }
+  },
   
   getRecentAccounts: () => 
     api.get<LookupOption[]>('/lookups/accounts/recent'),
