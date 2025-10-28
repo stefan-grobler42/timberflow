@@ -139,5 +139,14 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.CreatedByUserId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
+        
+        modelBuilder.Entity<D365Quote>(entity =>
+        {
+            entity.HasOne(q => q.Customer)
+                  .WithMany()
+                  .HasForeignKey(q => q.CustomerId)
+                  .IsRequired(false)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 }

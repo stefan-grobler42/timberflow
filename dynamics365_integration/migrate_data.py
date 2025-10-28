@@ -112,6 +112,12 @@ class D365ToERPMigrator:
             'primary_key': 'quoteid',
             'name_field': 'name'
         },
+        'quotedetail': {
+            'd365_entity_set': 'quotedetails',
+            'endpoint': 'd365quotedetails',
+            'primary_key': 'quotedetailid',
+            'name_field': 'productdescription'
+        },
         'salesorder': {
             'd365_entity_set': 'salesorders',
             'endpoint': 'd365orders',
@@ -642,23 +648,98 @@ class D365ToERPMigrator:
             'modifiedby': 'modifiedBy'
         },
         'quote': {
-            'quoteid': 'id',
-            'quotenumber': 'quoteNumber',
-            'name': 'name',
-            'customerid': 'customerId',
-            'effectivefrom': 'effectiveFrom',
-            'effectiveto': 'effectiveTo',
-            'totalamount': 'totalAmount',
-            'totaldiscountamount': 'totalDiscountAmount',
-            'totallineitemamount': 'totalLineItemAmount',
-            'statecode': 'stateCode',
-            'statuscode': 'statusCode',
-            'description': 'description',
-            'ownerid': 'ownerId',
-            'createdon': 'createdOn',
-            'createdby': 'createdBy',
-            'modifiedon': 'modifiedOn',
-            'modifiedby': 'modifiedBy'
+            # Primary and Basic Fields
+            'quoteid': 'Id',
+            'quotenumber': 'QuoteNumber',
+            'name': 'Name',
+            '_customerid_value': 'CustomerId',
+            
+            # Date Fields
+            'effectivefrom': 'EffectiveFrom',
+            'effectiveto': 'EffectiveTo',
+            'expireson': 'ExpiresOn',
+            'requestdeliveryby': 'RequestDeliveryBy',
+            'closedon': 'ClosedOn',
+            
+            # Billing Address
+            'billto_name': 'BillTo_Name',
+            'billto_line1': 'BillTo_Line1',
+            'billto_city': 'BillTo_City',
+            'billto_stateorprovince': 'BillTo_StateOrProvince',
+            'billto_postalcode': 'BillTo_PostalCode',
+            'billto_country': 'BillTo_Country',
+            'billto_telephone': 'BillTo_Telephone',
+            'billto_latitude': 'BillTo_Latitude',
+            'billto_longitude': 'BillTo_Longitude',
+            
+            # Shipping Address
+            'shipto_name': 'ShipTo_Name',
+            'shipto_line1': 'ShipTo_Line1',
+            'shipto_city': 'ShipTo_City',
+            'shipto_stateorprovince': 'ShipTo_StateOrProvince',
+            'shipto_postalcode': 'ShipTo_PostalCode',
+            'shipto_country': 'ShipTo_Country',
+            'shipto_telephone': 'ShipTo_Telephone',
+            'shipto_latitude': 'ShipTo_Latitude',
+            'shipto_longitude': 'ShipTo_Longitude',
+            
+            # Financial Fields
+            'totalamount': 'TotalAmount',
+            'totaldiscountamount': 'TotalDiscountAmount',
+            'totallineitemamount': 'TotalLineItemAmount',
+            'totalamountlessfreight': 'TotalAmountLessFreight',
+            'totaltax': 'TotalTax',
+            'freightamount': 'FreightAmount',
+            'discountpercentage': 'DiscountPercentage',
+            
+            # Status Fields
+            'statecode': 'StateCode',
+            'statuscode': 'StatusCode',
+            'description': 'Description',
+            
+            # Reference Fields (Lookups)
+            '_ownerid_value': 'OwnerId',
+            '_opportunityid_value': 'OpportunityId',
+            '_pricelevelid_value': 'PriceLevelId',
+            '_transactioncurrencyid_value': 'TransactionCurrencyId',
+            
+            # Contact Information
+            'contactname': 'ContactName',
+            'contacttelephone': 'ContactTelephone',
+            'contactemail': 'ContactEmail',
+            
+            # Audit Fields
+            'createdon': 'CreatedOn',
+            'modifiedon': 'ModifiedOn',
+            '_createdby_value': 'CreatedBy',
+            '_modifiedby_value': 'ModifiedBy'
+        },
+        'quotedetail': {
+            # Primary and Foreign Keys
+            'quotedetailid': 'Id',
+            '_quoteid_value': 'QuoteId',
+            '_productid_value': 'ProductId',
+            
+            # Product Information
+            'productdescription': 'ProductName',  # D365 standard field for product name in quote detail
+            'description': 'Description',
+            
+            # Pricing and Quantity
+            'quantity': 'Quantity',
+            'priceperunit': 'PricePerUnit',
+            'baseamount': 'BaseAmount',
+            'manualdiscountamount': 'ManualDiscountAmount',
+            'tax': 'Tax',
+            'extendedamount': 'ExtendedAmount',
+            
+            # Line Information
+            'lineitemnumber': 'LineItemNumber',
+            
+            # Audit Fields
+            'createdon': 'CreatedOn',
+            'modifiedon': 'ModifiedOn',
+            '_createdby_value': 'CreatedBy',
+            '_modifiedby_value': 'ModifiedBy'
         },
         'salesorder': {
             'salesorderid': 'id',
@@ -931,21 +1012,58 @@ class D365ToERPMigrator:
             print(f"  {entity:30} {stats['migrated']:4}/{stats['fetched']:4} ({success_rate:5.1f}%)")
 
 
+def migrate_quotes(migrator: 'D365ToERPMigrator') -> int:
+    """
+    Migrate quotes from D365 to the new database
+    
+    Args:
+        migrator: D365ToERPMigrator instance
+        
+    Returns:
+        Number of quotes successfully migrated
+    """
+    return migrator.migrate_entity('quote')
+
+
+def migrate_quote_details(migrator: 'D365ToERPMigrator') -> int:
+    """
+    Migrate quote details (line items) from D365 to the new database
+    
+    Args:
+        migrator: D365ToERPMigrator instance
+        
+    Returns:
+        Number of quote details successfully migrated
+    """
+    return migrator.migrate_entity('quotedetail')
+
+
 def main():
     """Run the migration
     
     Usage:
-        python migrate_data.py              # Migrate all entities
-        python migrate_data.py account      # Migrate only accounts
-        python migrate_data.py account contact  # Migrate multiple entities
+        python migrate_data.py                          # Migrate all entities
+        python migrate_data.py account                  # Migrate only accounts
+        python migrate_data.py account contact          # Migrate multiple entities
+        python migrate_data.py --entities quote quotedetail  # Using --entities flag
     """
     try:
         migrator = D365ToERPMigrator()
         
-        # Check if specific entities were requested
+        # Parse command line arguments
+        requested_entities = []
+        
         if len(sys.argv) > 1:
-            requested_entities = sys.argv[1:]
-            
+            # Check if --entities flag is used
+            if sys.argv[1] == '--entities':
+                # Use entities after --entities flag
+                requested_entities = sys.argv[2:]
+            else:
+                # Use positional arguments (backward compatible)
+                requested_entities = sys.argv[1:]
+        
+        # Check if specific entities were requested
+        if requested_entities:
             # Validate all requested entities exist
             invalid_entities = [e for e in requested_entities if e not in migrator.ENTITY_MAPPING]
             if invalid_entities:
@@ -961,7 +1079,13 @@ def main():
             print("="*70)
             
             for entity in requested_entities:
-                migrator.migrate_entity(entity)
+                # Use convenience functions for quote entities if available
+                if entity == 'quote':
+                    migrate_quotes(migrator)
+                elif entity == 'quotedetail':
+                    migrate_quote_details(migrator)
+                else:
+                    migrator.migrate_entity(entity)
             
             # Print summary
             print("\n" + "="*70)
