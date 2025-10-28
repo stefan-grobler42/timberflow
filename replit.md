@@ -3,7 +3,47 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management. The system integrates with Mitek Pamir design software and supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client needs. The project aims to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution, ultimately enhancing market potential and operational ambitions for timber roofing contractors.
 
-## Recent Changes (October 27, 2025)
+## Recent Changes (October 28, 2025)
+
+### Quotes Module - Complete D365 Implementation
+**Backend Implementation:**
+- D365Quote entity with 48 fields: billing/shipping addresses (with lat/long), financial fields (totalAmount, tax, freight, discount), dates (effective from/to, expires, closed, delivery), contact info (name, phone, email), status codes
+- D365QuoteDetail entity with 16 fields for line items: product lookup, quantity, pricing, manual discount, tax, base amount, extended amount, line item number
+- Full CRUD APIs: /api/d365quotes, /api/d365quotedetails with DTOs for Create/Update/Read operations
+- QuoteDetails navigation property in D365Quote entity for parent-child relationships
+- GET /api/d365quotes/{id} returns quote WITH line items array
+- GET /api/d365quotes?includeDetails=true returns all quotes with line items (optional loading for performance)
+- Automatic total recalculation when line items change: TotalLineItemAmount = sum of (BaseAmount - ManualDiscountAmount), TotalTax = sum of Tax, TotalAmount = LineItems + Tax + Freight - Discount
+- Strict QuoteId validation in quote details creation (prevents orphaned records)
+
+**Frontend Implementation:**
+- Quotes grid page (/quotes) with DetailsList showing 4,542 quotes: Quote Number, Name, Customer, Total Amount, Status, Effective From
+- CommandBar with New, Edit, Delete, Refresh, Export to Excel buttons
+- Search across all columns functionality
+- Quote form with 5 tabs using all standardized components:
+  - **General**: Quote Number, Name, Customer lookup (StandardLookupField), dates, status, description
+  - **Billing Address**: StandardAddressFields with Google Maps mini map (200px), autocomplete, draggable marker, StandardPhoneField
+  - **Shipping Address**: StandardAddressFields with Google Maps mini map (200px), autocomplete, draggable marker, StandardPhoneField
+  - **Financials**: Total calculations (read-only), manual discount/freight fields
+  - **Line Items**: Full CRUD subgrid with Add Panel (+ New Line Item button), Edit Panel (click row), Delete Dialog with confirmation
+- Line items features: Product lookup (StandardLookupField), automatic calculation (Base Amount = Quantity × Price, Extended Amount = Base - Discount + Tax), POST/PUT/DELETE operations, auto-refresh grid and quote totals, success messages with updated totals
+- Consistent tab animation using borderBottom indicator (matches Account/Contact forms)
+
+**D365 Data Migration:**
+- Successfully migrated 4,542 quotes from Microsoft Dynamics 365
+- Successfully migrated 5,000 quote details (line items) from D365 (average 1.1 details per quote)
+- Removed all foreign key constraints from D365 entities to allow flexible migration with nullable GUIDs
+- Migration handles field mapping with fallback for unmapped D365 custom fields
+- Orphaned quote details (referencing non-existent quotes) properly rejected with validation
+
+**Technical Architecture:**
+- Backend: ASP.NET Core 8 Web API with Entity Framework Core, clean controller-based architecture
+- Frontend: React + TypeScript with Fluent UI v8, consistent component patterns
+- Data integrity: Strict parent-child validation for production, flexible migration for D365 import
+- Total calculation accuracy: Single-pass calculation without tax double-counting
+- Component reuse: StandardLookupField, StandardPhoneField, StandardAddressFields, StandardFormHeader used throughout
+
+## Previous Changes (October 27, 2025)
 
 ### Navigation Structure Reorganization
 **Sidebar Navigation Update:**
