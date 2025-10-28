@@ -33,6 +33,7 @@ public class AppDbContext : DbContext
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
     public DbSet<D365Quote> D365Quotes { get; set; }
+    public DbSet<D365QuoteDetail> D365QuoteDetails { get; set; }
     public DbSet<D365Order> D365Orders { get; set; }
     public DbSet<D365Product> D365Products { get; set; }
     public DbSet<D365Appointment> D365Appointments { get; set; }
