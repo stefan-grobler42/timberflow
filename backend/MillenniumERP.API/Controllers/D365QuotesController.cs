@@ -23,7 +23,6 @@ public class D365QuotesController : ControllerBase
     public async Task<ActionResult<IEnumerable<D365QuoteDto>>> GetAll()
     {
         var quotes = await _context.D365Quotes
-            .Include(q => q.QuoteDetails)
             .OrderBy(q => q.Name)
             .ToListAsync();
 
@@ -35,7 +34,6 @@ public class D365QuotesController : ControllerBase
     public async Task<ActionResult<D365QuoteDto>> GetById(Guid id)
     {
         var quote = await _context.D365Quotes
-            .Include(q => q.QuoteDetails)
             .FirstOrDefaultAsync(q => q.Id == id);
 
         if (quote == null)
@@ -267,28 +265,7 @@ public class D365QuotesController : ControllerBase
             // Contact Information
             ContactName = quote.ContactName,
             ContactTelephone = quote.ContactTelephone,
-            ContactEmail = quote.ContactEmail,
-            
-            // Line Items
-            QuoteDetails = quote.QuoteDetails?.Select(qd => new D365QuoteDetailDto
-            {
-                Id = qd.Id,
-                QuoteId = qd.QuoteId,
-                ProductId = qd.ProductId,
-                ProductName = qd.ProductName,
-                Description = qd.Description,
-                Quantity = qd.Quantity,
-                PricePerUnit = qd.PricePerUnit,
-                ManualDiscountAmount = qd.ManualDiscountAmount,
-                Tax = qd.Tax,
-                BaseAmount = qd.BaseAmount,
-                ExtendedAmount = qd.ExtendedAmount,
-                LineItemNumber = qd.LineItemNumber,
-                CreatedOn = qd.CreatedOn,
-                ModifiedOn = qd.ModifiedOn,
-                CreatedBy = qd.CreatedBy,
-                ModifiedBy = qd.ModifiedBy
-            }).ToList()
+            ContactEmail = quote.ContactEmail
         };
     }
 }

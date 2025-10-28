@@ -57,8 +57,4 @@ public class D365QuoteDetail
     [Column("ModifiedBy")]
     [MaxLength(100)]
     public string? ModifiedBy { get; set; }
-
-    // Navigation property
-    [ForeignKey("QuoteId")]
-    public D365Quote? Quote { get; set; }
 }

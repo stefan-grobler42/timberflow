@@ -8,9 +8,9 @@
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.AssemblyInfoInputs.cache
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.AssemblyInfo.cs
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.csproj.CoreCompileInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.sourcelink.json
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/Millenni.26D75E21.Up2Date
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.dll
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/refint/MillenniumERP.Application.dll
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.pdb
 /home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/ref/MillenniumERP.Application.dll
-/home/runner/workspace/backend/MillenniumERP.Application/obj/Debug/net8.0/MillenniumERP.Application.sourcelink.json

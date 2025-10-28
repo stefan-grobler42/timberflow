@@ -177,10 +177,4 @@ public class D365Quote
     [Column("contactemail")]
     [MaxLength(100)]
     public string? ContactEmail { get; set; }
-
-    // Navigation properties
-    [ForeignKey("CustomerId")]
-    public Account? Customer { get; set; }
-
-    public ICollection<D365QuoteDetail>? QuoteDetails { get; set; }
 }

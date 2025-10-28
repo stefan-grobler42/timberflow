@@ -149,14 +149,17 @@ public class D365QuoteDetailsController : ControllerBase
     private async Task RecalculateQuoteTotals(Guid quoteId)
     {
         var quote = await _context.D365Quotes
-            .Include(q => q.QuoteDetails)
             .FirstOrDefaultAsync(q => q.Id == quoteId);
 
         if (quote == null) return;
 
-        quote.TotalLineItemAmount = quote.QuoteDetails?.Sum(d => d.ExtendedAmount ?? 0) ?? 0;
-        quote.TotalTax = quote.QuoteDetails?.Sum(d => d.Tax ?? 0) ?? 0;
-        quote.TotalDiscountAmount = quote.QuoteDetails?.Sum(d => d.ManualDiscountAmount ?? 0) ?? 0;
+        var quoteDetails = await _context.D365QuoteDetails
+            .Where(d => d.QuoteId == quoteId)
+            .ToListAsync();
+
+        quote.TotalLineItemAmount = quoteDetails.Sum(d => d.ExtendedAmount ?? 0);
+        quote.TotalTax = quoteDetails.Sum(d => d.Tax ?? 0);
+        quote.TotalDiscountAmount = quoteDetails.Sum(d => d.ManualDiscountAmount ?? 0);
         
         quote.TotalAmount = quote.TotalLineItemAmount + quote.TotalTax + (quote.FreightAmount ?? 0);
 

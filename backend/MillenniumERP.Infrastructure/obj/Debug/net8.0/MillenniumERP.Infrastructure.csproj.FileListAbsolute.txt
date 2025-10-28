@@ -11,10 +11,10 @@
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.AssemblyInfoInputs.cache
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.AssemblyInfo.cs
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.csproj.CoreCompileInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.sourcelink.json
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/Millenni.261819D3.Up2Date
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.dll
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/refint/MillenniumERP.Infrastructure.dll
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.pdb
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.genruntimeconfig.cache
 /home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/ref/MillenniumERP.Infrastructure.dll
-/home/runner/workspace/backend/MillenniumERP.Infrastructure/obj/Debug/net8.0/MillenniumERP.Infrastructure.sourcelink.json
