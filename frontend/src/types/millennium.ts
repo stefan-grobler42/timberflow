@@ -568,6 +568,73 @@ export interface D365Quote {
   statusCode?: number;
   description?: string;
   ownerId?: string;
+  
+  // Billing Address
+  billTo_Name?: string;
+  billTo_Line1?: string;
+  billTo_City?: string;
+  billTo_StateOrProvince?: string;
+  billTo_PostalCode?: string;
+  billTo_Country?: string;
+  billTo_Telephone?: string;
+  billTo_Latitude?: number;
+  billTo_Longitude?: number;
+  
+  // Shipping Address
+  shipTo_Name?: string;
+  shipTo_Line1?: string;
+  shipTo_City?: string;
+  shipTo_StateOrProvince?: string;
+  shipTo_PostalCode?: string;
+  shipTo_Country?: string;
+  shipTo_Telephone?: string;
+  shipTo_Latitude?: number;
+  shipTo_Longitude?: number;
+  
+  // Financial Fields
+  totalTax?: number;
+  totalAmountLessFreight?: number;
+  freightAmount?: number;
+  discountPercentage?: number;
+  
+  // Date Fields
+  expiresOn?: string;
+  closedOn?: string;
+  requestDeliveryBy?: string;
+  
+  // Reference Fields
+  opportunityId?: string;
+  priceLevelId?: string;
+  transactionCurrencyId?: string;
+  
+  // Contact Information
+  contactName?: string;
+  contactTelephone?: string;
+  contactEmail?: string;
+  
+  // Line Items
+  quoteDetails?: D365QuoteDetail[];
+  
+  // System Fields
+  createdOn?: string;
+  modifiedOn?: string;
+  createdBy?: string;
+  modifiedBy?: string;
+}
+
+export interface D365QuoteDetail {
+  id: string;
+  quoteId: string;
+  productId?: string;
+  productName?: string;
+  description?: string;
+  quantity?: number;
+  pricePerUnit?: number;
+  manualDiscountAmount?: number;
+  tax?: number;
+  baseAmount?: number;
+  extendedAmount?: number;
+  lineItemNumber?: number;
   createdOn?: string;
   modifiedOn?: string;
   createdBy?: string;

@@ -23,6 +23,8 @@ import { D365OrdersPage } from './pages/D365OrdersPage';
 import { D365AppointmentsPage } from './pages/D365AppointmentsPage';
 import { D365EmailsPage } from './pages/D365EmailsPage';
 import { DuplicateDetectionPage } from './pages/DuplicateDetectionPage';
+import { QuotesList } from './pages/QuotesList';
+import { QuoteForm } from './pages/QuoteForm';
 
 initializeIcons();
 
@@ -50,7 +52,9 @@ function App() {
           <Route path="/salerepresentatives" element={<SaleRepresentativesPage />} />
           <Route path="/vehicles" element={<VehiclesPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
-          <Route path="/quotes" element={<QuotesPage />} />
+          <Route path="/quotes" element={<QuotesList />} />
+          <Route path="/quotes/:id" element={<QuoteForm />} />
+          <Route path="/quotes-legacy" element={<QuotesPage />} />
           <Route path="/tenders" element={<TendersPage />} />
           <Route path="/pricing" element={<PricingCalculationsPage />} />
           <Route path="/installation" element={<InstallationProgressPage />} />
