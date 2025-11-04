@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 import {
   Stack,
   TextField,
@@ -36,10 +35,30 @@ const statusOptions: IDropdownOption[] = [
   { key: 5, text: 'Closed' },
 ];
 
-export const QuoteForm = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<string>('general');
+const freightTermsOptions: IDropdownOption[] = [
+  { key: 1, text: 'FOB' },
+  { key: 2, text: 'No Charge' },
+  { key: 3, text: 'Freight Included' },
+  { key: 4, text: 'Collect' },
+];
+
+const paymentTermsOptions: IDropdownOption[] = [
+  { key: 1, text: 'Net 30' },
+  { key: 2, text: 'Net 60' },
+  { key: 3, text: '2% 10 Net 30' },
+  { key: 4, text: 'Due on Receipt' },
+  { key: 5, text: 'Net 45' },
+];
+
+interface QuoteFormProps {
+  quote?: D365Quote;
+  onDismiss: () => void;
+  onSave: () => void;
+  onDelete?: () => void;
+}
+
+export const QuoteForm = ({ quote, onDismiss, onSave, onDelete }: QuoteFormProps) => {
+  const [activeTab, setActiveTab] = useState<string>('summary');
   const [formData, setFormData] = useState<Partial<D365Quote>>({
     quoteNumber: '',
     name: '',
@@ -75,9 +94,18 @@ export const QuoteForm = () => {
     totalTax: 0,
     freightAmount: 0,
     totalAmountLessFreight: 0,
+    priceLevelId: undefined,
+    opportunityId: undefined,
   });
 
+  // revisionId does not exist in backend D365Quote entity - commented out
+  // const [revisionId, setRevisionId] = useState('');
+  const [freightTermsCode, setFreightTermsCode] = useState<number | undefined>(undefined);
+  const [paymentTermsCode, setPaymentTermsCode] = useState<number | undefined>(undefined);
+
   const [customerName, setCustomerName] = useState('');
+  // const [priceLevelName, setPriceLevelName] = useState('');
+  // const [opportunityName, setOpportunityName] = useState('');
   const [quoteDetails, setQuoteDetails] = useState<D365QuoteDetail[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -116,10 +144,97 @@ export const QuoteForm = () => {
   );
 
   useEffect(() => {
-    if (id && id !== 'new') {
-      loadQuote(id);
+    if (quote) {
+      setFormData({
+        quoteNumber: quote.quoteNumber || '',
+        name: quote.name || '',
+        customerId: quote.customerId,
+        effectiveFrom: quote.effectiveFrom,
+        effectiveTo: quote.effectiveTo,
+        requestDeliveryBy: quote.requestDeliveryBy,
+        expiresOn: quote.expiresOn,
+        statusCode: quote.statusCode || 1,
+        description: quote.description || '',
+        billTo_Name: quote.billTo_Name || '',
+        billTo_Line1: quote.billTo_Line1 || '',
+        billTo_City: quote.billTo_City || '',
+        billTo_StateOrProvince: quote.billTo_StateOrProvince || '',
+        billTo_PostalCode: quote.billTo_PostalCode || '',
+        billTo_Country: quote.billTo_Country || '',
+        billTo_Telephone: quote.billTo_Telephone || '',
+        billTo_Latitude: quote.billTo_Latitude,
+        billTo_Longitude: quote.billTo_Longitude,
+        shipTo_Name: quote.shipTo_Name || '',
+        shipTo_Line1: quote.shipTo_Line1 || '',
+        shipTo_City: quote.shipTo_City || '',
+        shipTo_StateOrProvince: quote.shipTo_StateOrProvince || '',
+        shipTo_PostalCode: quote.shipTo_PostalCode || '',
+        shipTo_Country: quote.shipTo_Country || '',
+        shipTo_Telephone: quote.shipTo_Telephone || '',
+        shipTo_Latitude: quote.shipTo_Latitude,
+        shipTo_Longitude: quote.shipTo_Longitude,
+        totalAmount: quote.totalAmount || 0,
+        totalLineItemAmount: quote.totalLineItemAmount || 0,
+        totalDiscountAmount: quote.totalDiscountAmount || 0,
+        discountPercentage: quote.discountPercentage || 0,
+        totalTax: quote.totalTax || 0,
+        freightAmount: quote.freightAmount || 0,
+        totalAmountLessFreight: quote.totalAmountLessFreight || 0,
+        priceLevelId: quote.priceLevelId,
+        opportunityId: quote.opportunityId,
+      });
+
+      if (quote.customerId) {
+        loadCustomerName(quote.customerId);
+      }
+
+      loadLineItems(quote.id);
+    } else {
+      setFormData({
+        quoteNumber: '',
+        name: '',
+        customerId: undefined,
+        effectiveFrom: undefined,
+        effectiveTo: undefined,
+        requestDeliveryBy: undefined,
+        expiresOn: undefined,
+        statusCode: 1,
+        description: '',
+        billTo_Name: '',
+        billTo_Line1: '',
+        billTo_City: '',
+        billTo_StateOrProvince: '',
+        billTo_PostalCode: '',
+        billTo_Country: '',
+        billTo_Telephone: '',
+        billTo_Latitude: undefined,
+        billTo_Longitude: undefined,
+        shipTo_Name: '',
+        shipTo_Line1: '',
+        shipTo_City: '',
+        shipTo_StateOrProvince: '',
+        shipTo_PostalCode: '',
+        shipTo_Country: '',
+        shipTo_Telephone: '',
+        shipTo_Latitude: undefined,
+        shipTo_Longitude: undefined,
+        totalAmount: 0,
+        totalLineItemAmount: 0,
+        totalDiscountAmount: 0,
+        discountPercentage: 0,
+        totalTax: 0,
+        freightAmount: 0,
+        totalAmountLessFreight: 0,
+        priceLevelId: undefined,
+        opportunityId: undefined,
+      });
+      setCustomerName('');
+      // setPriceLevelName('');
+      // setOpportunityName('');
+      setQuoteDetails([]);
     }
-  }, [id]);
+    setError(null);
+  }, [quote]);
 
   useEffect(() => {
     calculateLineItemTotals();
@@ -130,23 +245,12 @@ export const QuoteForm = () => {
     lineItemFormData.tax,
   ]);
 
-  const loadQuote = async (quoteId: string) => {
+  const loadCustomerName = async (customerId: string) => {
     try {
-      const quote = await d365QuoteService.getById(quoteId);
-      setFormData(quote);
-
-      if (quote.customerId) {
-        try {
-          const customer = await accountService.getById(quote.customerId);
-          setCustomerName(customer.name || '');
-        } catch (err) {
-          console.error('Failed to load customer:', err);
-        }
-      }
-
-      await loadLineItems(quoteId);
+      const customer = await accountService.getById(customerId);
+      setCustomerName(customer.name || '');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load quote');
+      console.error('Failed to load customer:', err);
     }
   };
 
@@ -161,10 +265,10 @@ export const QuoteForm = () => {
   };
 
   const refreshQuoteAndLineItems = async () => {
-    if (id && id !== 'new') {
-      const quote = await d365QuoteService.getById(id);
-      setFormData(quote);
-      await loadLineItems(id);
+    if (quote?.id) {
+      const updatedQuote = await d365QuoteService.getById(quote.id);
+      setFormData(updatedQuote);
+      await loadLineItems(quote.id);
     }
   };
 
@@ -203,6 +307,25 @@ export const QuoteForm = () => {
       return [];
     }
   };
+
+  // PriceLevel and Opportunity entities do not exist in backend - commenting out
+  // const searchPriceLevels = async (searchTerm: string): Promise<LookupOption[]> => {
+  //   try {
+  //     return [];
+  //   } catch (error) {
+  //     console.error('Error searching price levels:', error);
+  //     return [];
+  //   }
+  // };
+
+  // const searchOpportunities = async (searchTerm: string): Promise<LookupOption[]> => {
+  //   try {
+  //     return [];
+  //   } catch (error) {
+  //     console.error('Error searching opportunities:', error);
+  //     return [];
+  //   }
+  // };
 
   const handleAddLineItem = () => {
     setIsEditing(false);
@@ -272,14 +395,14 @@ export const QuoteForm = () => {
       setSuccessMessage(null);
       setSaving(true);
 
-      if (!id || id === 'new') {
+      if (!quote?.id) {
         setError('Please save the quote first before adding line items');
         return;
       }
 
       const lineItemData: Partial<D365QuoteDetail> = {
         ...lineItemFormData,
-        quoteId: id,
+        quoteId: quote.id,
       };
 
       if (isEditing && selectedLineItem) {
@@ -329,24 +452,16 @@ export const QuoteForm = () => {
       setError(null);
       setSuccessMessage(null);
 
-      if (id && id !== 'new') {
-        await d365QuoteService.update(id, formData);
+      if (quote?.id) {
+        await d365QuoteService.update(quote.id, formData);
         setSuccessMessage('Quote saved successfully');
-      } else {
-        const created = await d365QuoteService.create(formData);
-        setSuccessMessage('Quote created successfully');
         if (closeAfter) {
-          navigate('/quotes');
-        } else {
-          navigate(`/quotes/${created.id}`);
+          onSave();
         }
-        return;
-      }
-
-      if (closeAfter) {
-        navigate('/quotes');
       } else {
-        await loadQuote(id!);
+        await d365QuoteService.create(formData);
+        setSuccessMessage('Quote created successfully');
+        onSave();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save quote');
@@ -356,18 +471,16 @@ export const QuoteForm = () => {
   };
 
   const handleDelete = async () => {
-    if (id && id !== 'new' && window.confirm(`Are you sure you want to delete this quote?`)) {
+    if (quote?.id && window.confirm(`Are you sure you want to delete this quote?`)) {
       try {
-        await d365QuoteService.delete(id);
-        navigate('/quotes');
+        await d365QuoteService.delete(quote.id);
+        if (onDelete) {
+          onDelete();
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to delete quote');
       }
     }
-  };
-
-  const handleBack = () => {
-    navigate('/quotes');
   };
 
   const tabStyles = (isActive: boolean) => ({
@@ -466,7 +579,7 @@ export const QuoteForm = () => {
       text: 'New Line Item',
       iconProps: { iconName: 'Add' },
       onClick: handleAddLineItem,
-      disabled: !id || id === 'new',
+      disabled: !quote?.id,
     },
     {
       key: 'editLineItem',
@@ -489,12 +602,12 @@ export const QuoteForm = () => {
       <StandardFormHeader
         title={formData.name || 'New Quote'}
         subtitle="Quote"
-        onBack={handleBack}
+        onBack={onDismiss}
         onSave={() => handleSave(false)}
         onSaveAndClose={() => handleSave(true)}
-        onDelete={id && id !== 'new' ? handleDelete : undefined}
+        onDelete={quote?.id ? handleDelete : undefined}
         saving={saving}
-        isNew={!id || id === 'new'}
+        isNew={!quote?.id}
       />
 
       {error && (
@@ -510,191 +623,257 @@ export const QuoteForm = () => {
       )}
 
       <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9', backgroundColor: '#faf9f8' } }}>
-        <DefaultButton text="General" onClick={() => setActiveTab('general')} styles={tabStyles(activeTab === 'general')} />
-        <DefaultButton text="Billing Address" onClick={() => setActiveTab('billing')} styles={tabStyles(activeTab === 'billing')} />
-        <DefaultButton text="Shipping Address" onClick={() => setActiveTab('shipping')} styles={tabStyles(activeTab === 'shipping')} />
+        <DefaultButton text="Summary" onClick={() => setActiveTab('summary')} styles={tabStyles(activeTab === 'summary')} />
         <DefaultButton text="Financials" onClick={() => setActiveTab('financials')} styles={tabStyles(activeTab === 'financials')} />
-        <DefaultButton text="Line Items" onClick={() => setActiveTab('lineitems')} styles={tabStyles(activeTab === 'lineitems')} />
+        <DefaultButton text="Products" onClick={() => setActiveTab('products')} styles={tabStyles(activeTab === 'products')} />
       </Stack>
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: 20 } }}>
-        {activeTab === 'general' && (
-          <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
-            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
-              QUOTE INFORMATION
-            </Text>
+        {activeTab === 'summary' && (
+          <Stack tokens={{ childrenGap: 24 }}>
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
+              <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                QUOTE INFORMATION
+              </Text>
 
-            <TextField
-              label="Quote Number"
-              value={formData.quoteNumber || ''}
-              onChange={(_, value) => setFormData({ ...formData, quoteNumber: value || '' })}
-              readOnly={id !== 'new'}
-            />
+              <TextField
+                label="Quote Number"
+                value={formData.quoteNumber || ''}
+                onChange={(_, value) => setFormData({ ...formData, quoteNumber: value || '' })}
+                readOnly={!!quote?.id}
+              />
 
-            <TextField
-              label="Name"
-              required
-              value={formData.name || ''}
-              onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
-            />
+              <TextField
+                label="Name"
+                required
+                value={formData.name || ''}
+                onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
+              />
 
-            <StandardLookupField
-              label="Customer (Account)"
-              value={formData.customerId}
-              selectedText={customerName}
-              entityName="Account"
-              onChange={async (customerId) => {
-                setFormData({ ...formData, customerId });
-                if (customerId) {
-                  try {
-                    const customer = await accountService.getById(customerId);
-                    setCustomerName(customer.name || '');
-                  } catch (err) {
-                    console.error('Failed to load customer:', err);
-                  }
-                } else {
-                  setCustomerName('');
+              {/* revisionId does not exist in backend D365Quote entity - commented out
+              <TextField
+                label="Revision ID"
+                value={revisionId}
+                onChange={(_, value) => setRevisionId(value || '')}
+              />
+              */}
+
+              <DatePicker
+                label="Effective From"
+                value={formData.effectiveFrom ? new Date(formData.effectiveFrom) : undefined}
+                onSelectDate={(date) =>
+                  setFormData({
+                    ...formData,
+                    effectiveFrom: date ? date.toISOString() : undefined,
+                  })
                 }
-              }}
-              onSearch={searchAccounts}
-            />
+              />
 
-            <DatePicker
-              label="Effective From"
-              value={formData.effectiveFrom ? new Date(formData.effectiveFrom) : undefined}
-              onSelectDate={(date) =>
-                setFormData({
-                  ...formData,
-                  effectiveFrom: date ? date.toISOString() : undefined,
-                })
-              }
-            />
+              <DatePicker
+                label="Effective To"
+                value={formData.effectiveTo ? new Date(formData.effectiveTo) : undefined}
+                onSelectDate={(date) =>
+                  setFormData({
+                    ...formData,
+                    effectiveTo: date ? date.toISOString() : undefined,
+                  })
+                }
+              />
 
-            <DatePicker
-              label="Effective To"
-              value={formData.effectiveTo ? new Date(formData.effectiveTo) : undefined}
-              onSelectDate={(date) =>
-                setFormData({
-                  ...formData,
-                  effectiveTo: date ? date.toISOString() : undefined,
-                })
-              }
-            />
+              <DatePicker
+                label="Expires On"
+                value={formData.expiresOn ? new Date(formData.expiresOn) : undefined}
+                onSelectDate={(date) =>
+                  setFormData({
+                    ...formData,
+                    expiresOn: date ? date.toISOString() : undefined,
+                  })
+                }
+              />
 
-            <DatePicker
-              label="Request Delivery By"
-              value={formData.requestDeliveryBy ? new Date(formData.requestDeliveryBy) : undefined}
-              onSelectDate={(date) =>
-                setFormData({
-                  ...formData,
-                  requestDeliveryBy: date ? date.toISOString() : undefined,
-                })
-              }
-            />
+              <DatePicker
+                label="Request Delivery By"
+                value={formData.requestDeliveryBy ? new Date(formData.requestDeliveryBy) : undefined}
+                onSelectDate={(date) =>
+                  setFormData({
+                    ...formData,
+                    requestDeliveryBy: date ? date.toISOString() : undefined,
+                  })
+                }
+              />
 
-            <DatePicker
-              label="Expires On"
-              value={formData.expiresOn ? new Date(formData.expiresOn) : undefined}
-              onSelectDate={(date) =>
-                setFormData({
-                  ...formData,
-                  expiresOn: date ? date.toISOString() : undefined,
-                })
-              }
-            />
+              <Dropdown
+                label="Status"
+                options={statusOptions}
+                selectedKey={formData.statusCode}
+                onChange={(_, option) => setFormData({ ...formData, statusCode: option?.key as number })}
+              />
 
-            <Dropdown
-              label="Status"
-              options={statusOptions}
-              selectedKey={formData.statusCode}
-              onChange={(_, option) => setFormData({ ...formData, statusCode: option?.key as number })}
-            />
+              <TextField
+                label="Description"
+                multiline
+                rows={4}
+                value={formData.description || ''}
+                onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
+              />
+            </Stack>
 
-            <TextField
-              label="Description"
-              multiline
-              rows={4}
-              value={formData.description || ''}
-              onChange={(_, value) => setFormData({ ...formData, description: value || '' })}
-            />
-          </Stack>
-        )}
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
+              <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                SALES INFORMATION
+              </Text>
 
-        {activeTab === 'billing' && (
-          <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
-            <StandardAddressFields
-              sectionTitle="BILLING ADDRESS"
-              uniqueId="quote-billing"
-              street={formData.billTo_Line1 || ''}
-              stateOrProvince={formData.billTo_StateOrProvince || ''}
-              postalCode={formData.billTo_PostalCode || ''}
-              country={formData.billTo_Country || ''}
-              latitude={formData.billTo_Latitude}
-              longitude={formData.billTo_Longitude}
-              onStreetChange={(value) => setFormData({ ...formData, billTo_Line1: value })}
-              onStateOrProvinceChange={(value) => setFormData({ ...formData, billTo_StateOrProvince: value })}
-              onPostalCodeChange={(value) => setFormData({ ...formData, billTo_PostalCode: value })}
-              onCountryChange={(value) => setFormData({ ...formData, billTo_Country: value })}
-              onLatitudeChange={(value) => setFormData({ ...formData, billTo_Latitude: value })}
-              onLongitudeChange={(value) => setFormData({ ...formData, billTo_Longitude: value })}
-            />
+              <StandardLookupField
+                label="Potential Customer"
+                value={formData.customerId}
+                selectedText={customerName}
+                entityName="Account"
+                onChange={async (customerId) => {
+                  setFormData({ ...formData, customerId });
+                  if (customerId) {
+                    try {
+                      const customer = await accountService.getById(customerId);
+                      setCustomerName(customer.name || '');
+                    } catch (err) {
+                      console.error('Failed to load customer:', err);
+                    }
+                  } else {
+                    setCustomerName('');
+                  }
+                }}
+                onSearch={searchAccounts}
+              />
 
-            <TextField
-              label="Address Name"
-              value={formData.billTo_Name || ''}
-              onChange={(_, value) => setFormData({ ...formData, billTo_Name: value || '' })}
-            />
+              {/* PriceLevel entity does not exist in backend - commented out
+              <StandardLookupField
+                label="Price List"
+                value={formData.priceLevelId}
+                selectedText={priceLevelName}
+                entityName="PriceLevel"
+                onChange={(priceLevelId) => {
+                  setFormData({ ...formData, priceLevelId });
+                  setPriceLevelName('');
+                }}
+                onSearch={searchPriceLevels}
+              />
+              */}
 
-            <TextField
-              label="City"
-              value={formData.billTo_City || ''}
-              onChange={(_, value) => setFormData({ ...formData, billTo_City: value || '' })}
-            />
+              <Dropdown
+                label="Freight Terms"
+                options={freightTermsOptions}
+                selectedKey={freightTermsCode}
+                onChange={(_, option) => setFreightTermsCode(option?.key as number)}
+              />
 
-            <StandardPhoneField
-              label="Billing Phone"
-              value={formData.billTo_Telephone || ''}
-              onChange={(value) => setFormData({ ...formData, billTo_Telephone: value })}
-            />
-          </Stack>
-        )}
+              <Dropdown
+                label="Payment Terms"
+                options={paymentTermsOptions}
+                selectedKey={paymentTermsCode}
+                onChange={(_, option) => setPaymentTermsCode(option?.key as number)}
+              />
 
-        {activeTab === 'shipping' && (
-          <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
-            <StandardAddressFields
-              sectionTitle="SHIPPING ADDRESS"
-              uniqueId="quote-shipping"
-              street={formData.shipTo_Line1 || ''}
-              stateOrProvince={formData.shipTo_StateOrProvince || ''}
-              postalCode={formData.shipTo_PostalCode || ''}
-              country={formData.shipTo_Country || ''}
-              latitude={formData.shipTo_Latitude}
-              longitude={formData.shipTo_Longitude}
-              onStreetChange={(value) => setFormData({ ...formData, shipTo_Line1: value })}
-              onStateOrProvinceChange={(value) => setFormData({ ...formData, shipTo_StateOrProvince: value })}
-              onPostalCodeChange={(value) => setFormData({ ...formData, shipTo_PostalCode: value })}
-              onCountryChange={(value) => setFormData({ ...formData, shipTo_Country: value })}
-              onLatitudeChange={(value) => setFormData({ ...formData, shipTo_Latitude: value })}
-              onLongitudeChange={(value) => setFormData({ ...formData, shipTo_Longitude: value })}
-            />
+              {/* Opportunity entity does not exist in backend - commented out
+              <StandardLookupField
+                label="Opportunity"
+                value={formData.opportunityId}
+                selectedText={opportunityName}
+                entityName="Opportunity"
+                onChange={(opportunityId) => {
+                  setFormData({ ...formData, opportunityId });
+                  setOpportunityName('');
+                }}
+                onSearch={searchOpportunities}
+              />
+              */}
+            </Stack>
 
-            <TextField
-              label="Address Name"
-              value={formData.shipTo_Name || ''}
-              onChange={(_, value) => setFormData({ ...formData, shipTo_Name: value || '' })}
-            />
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
+                ADDRESSES
+              </Text>
 
-            <TextField
-              label="City"
-              value={formData.shipTo_City || ''}
-              onChange={(_, value) => setFormData({ ...formData, shipTo_City: value || '' })}
-            />
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap>
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1, minWidth: 400 } }}>
+                  <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
+                    Bill To
+                  </Text>
 
-            <StandardPhoneField
-              label="Shipping Phone"
-              value={formData.shipTo_Telephone || ''}
-              onChange={(value) => setFormData({ ...formData, shipTo_Telephone: value })}
-            />
+                  <StandardAddressFields
+                    uniqueId="quote-billing"
+                    street={formData.billTo_Line1 || ''}
+                    stateOrProvince={formData.billTo_StateOrProvince || ''}
+                    postalCode={formData.billTo_PostalCode || ''}
+                    country={formData.billTo_Country || ''}
+                    latitude={formData.billTo_Latitude}
+                    longitude={formData.billTo_Longitude}
+                    onStreetChange={(value) => setFormData({ ...formData, billTo_Line1: value })}
+                    onStateOrProvinceChange={(value) => setFormData({ ...formData, billTo_StateOrProvince: value })}
+                    onPostalCodeChange={(value) => setFormData({ ...formData, billTo_PostalCode: value })}
+                    onCountryChange={(value) => setFormData({ ...formData, billTo_Country: value })}
+                    onLatitudeChange={(value) => setFormData({ ...formData, billTo_Latitude: value })}
+                    onLongitudeChange={(value) => setFormData({ ...formData, billTo_Longitude: value })}
+                  />
+
+                  <TextField
+                    label="Address Name"
+                    value={formData.billTo_Name || ''}
+                    onChange={(_, value) => setFormData({ ...formData, billTo_Name: value || '' })}
+                  />
+
+                  <TextField
+                    label="City"
+                    value={formData.billTo_City || ''}
+                    onChange={(_, value) => setFormData({ ...formData, billTo_City: value || '' })}
+                  />
+
+                  <StandardPhoneField
+                    label="Phone"
+                    value={formData.billTo_Telephone || ''}
+                    onChange={(value) => setFormData({ ...formData, billTo_Telephone: value })}
+                  />
+                </Stack>
+
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1, minWidth: 400 } }}>
+                  <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
+                    Ship To
+                  </Text>
+
+                  <StandardAddressFields
+                    uniqueId="quote-shipping"
+                    street={formData.shipTo_Line1 || ''}
+                    stateOrProvince={formData.shipTo_StateOrProvince || ''}
+                    postalCode={formData.shipTo_PostalCode || ''}
+                    country={formData.shipTo_Country || ''}
+                    latitude={formData.shipTo_Latitude}
+                    longitude={formData.shipTo_Longitude}
+                    onStreetChange={(value) => setFormData({ ...formData, shipTo_Line1: value })}
+                    onStateOrProvinceChange={(value) => setFormData({ ...formData, shipTo_StateOrProvince: value })}
+                    onPostalCodeChange={(value) => setFormData({ ...formData, shipTo_PostalCode: value })}
+                    onCountryChange={(value) => setFormData({ ...formData, shipTo_Country: value })}
+                    onLatitudeChange={(value) => setFormData({ ...formData, shipTo_Latitude: value })}
+                    onLongitudeChange={(value) => setFormData({ ...formData, shipTo_Longitude: value })}
+                  />
+
+                  <TextField
+                    label="Address Name"
+                    value={formData.shipTo_Name || ''}
+                    onChange={(_, value) => setFormData({ ...formData, shipTo_Name: value || '' })}
+                  />
+
+                  <TextField
+                    label="City"
+                    value={formData.shipTo_City || ''}
+                    onChange={(_, value) => setFormData({ ...formData, shipTo_City: value || '' })}
+                  />
+
+                  <StandardPhoneField
+                    label="Phone"
+                    value={formData.shipTo_Telephone || ''}
+                    onChange={(value) => setFormData({ ...formData, shipTo_Telephone: value })}
+                  />
+                </Stack>
+              </Stack>
+            </Stack>
           </Stack>
         )}
 
@@ -770,13 +949,13 @@ export const QuoteForm = () => {
           </Stack>
         )}
 
-        {activeTab === 'lineitems' && (
+        {activeTab === 'products' && (
           <Stack tokens={{ childrenGap: 16 }}>
             <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>
-              LINE ITEMS
+              PRODUCTS
             </Text>
 
-            {(!id || id === 'new') && (
+            {!quote?.id && (
               <MessageBar messageBarType={MessageBarType.warning}>
                 Please save the quote first before adding line items.
               </MessageBar>

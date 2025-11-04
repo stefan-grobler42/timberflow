@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Stack,
   Text,
@@ -14,12 +13,14 @@ import {
   SpinnerSize,
   SearchBox,
   Panel,
+  PanelType,
   Checkbox,
   IconButton,
   Separator,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { d365QuoteService } from '../services/d365Services';
+import { QuoteForm } from './QuoteForm';
 import type { D365Quote } from '../types/millennium';
 import type { GridView, GridFilter } from '../types/gridView';
 import { ViewManager } from '../components/ViewManager';
@@ -29,12 +30,12 @@ import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const QuotesList = () => {
-  const navigate = useNavigate();
   const [quotes, setQuotes] = useState<D365Quote[]>([]);
   const [filteredQuotes, setFilteredQuotes] = useState<D365Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<D365Quote | undefined>();
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
@@ -231,17 +232,19 @@ export const QuotesList = () => {
   };
 
   const handleNew = () => {
-    navigate('/quotes/new');
+    setSelectedQuote(undefined);
+    setIsFormOpen(true);
   };
 
   const handleEdit = () => {
     if (selectedQuote) {
-      navigate(`/quotes/${selectedQuote.id}`);
+      setIsFormOpen(true);
     }
   };
 
   const handleRowDoubleClick = (quote: D365Quote) => {
-    navigate(`/quotes/${quote.id}`);
+    setSelectedQuote(quote);
+    setIsFormOpen(true);
   };
 
   const handleDelete = async () => {
@@ -608,6 +611,35 @@ export const QuotesList = () => {
         onFiltersChange={handleFiltersChange}
         availableFields={availableFilterFields}
       />
+
+      <Panel
+        isOpen={isFormOpen}
+        type={PanelType.custom}
+        customWidth="85%"
+        onDismiss={() => {
+          setIsFormOpen(false);
+          setSelectedQuote(undefined);
+        }}
+        isBlocking={false}
+        closeButtonAriaLabel="Close"
+      >
+        <QuoteForm
+          quote={selectedQuote}
+          onDismiss={() => {
+            setIsFormOpen(false);
+            setSelectedQuote(undefined);
+          }}
+          onSave={() => {
+            loadQuotes();
+            setIsFormOpen(false);
+            setSelectedQuote(undefined);
+          }}
+          onDelete={selectedQuote ? () => {
+            setIsFormOpen(false);
+            handleDelete();
+          } : undefined}
+        />
+      </Panel>
     </Stack>
   );
 };
