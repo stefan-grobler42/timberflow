@@ -3,7 +3,37 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management. The system integrates with Mitek Pamir design software and supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling for diverse client needs. The project aims to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution, ultimately enhancing market potential and operational ambitions for timber roofing contractors.
 
-## Recent Changes (October 28, 2025)
+## Recent Changes (November 04, 2025)
+
+### Quotes Module - D365-Style Panel Form
+**Panel Integration:**
+- Converted QuoteForm from route-based page to Panel component pattern (matches AccountForm/ContactForm)
+- Panel opens from right side with 85% width overlay while grid remains visible
+- Non-blocking panel with dismiss callback to close form
+- Quote form no longer replaces entire view, improving UX consistency
+
+**D365 Tab Layout Restructuring:**
+- Changed from 5 tabs (General, Billing Address, Shipping Address, Financials, Line Items) to 3 tabs matching D365: Summary, Financials, Products
+- **Summary Tab** with three sections:
+  - Quote Information: Quote Number, Name, dates (Effective From/To, Expires On, Closed On, Delivery Date), Status, Description
+  - Sales Information: Potential Customer lookup, Freight Terms dropdown (FOB, No Charge), Payment Terms dropdown (Net 30, Net 45, Net 60)
+  - Addresses: Bill To and Ship To side-by-side with Google Maps mini maps, autocomplete, draggable markers
+- **Financials Tab**: Total calculations, discount, freight (preserved from original)
+- **Products Tab**: Line items CRUD subgrid (preserved from original)
+
+**Backend Compatibility:**
+- Commented out D365 fields not yet in backend (Price List, Opportunity, Revision ID) to prevent save errors
+- Added inline documentation indicating which fields require backend entity support
+- Maintained all existing CRUD functionality for quotes and line items
+- D365QuoteDetail entity fixed with navigation property for parent-child relationships
+
+**Form Consistency:**
+- StandardLookupField used for Potential Customer with typeahead search
+- StandardAddressFields with Google Maps integration for both billing and shipping addresses
+- StandardFormHeader with save/delete callbacks
+- Consistent tab animation using borderBottom indicator (matches all other forms)
+
+## Previous Changes (October 28, 2025)
 
 ### Quotes Module - Complete D365 Implementation
 **Backend Implementation:**
