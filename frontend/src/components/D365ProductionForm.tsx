@@ -422,7 +422,7 @@ export const D365ProductionForm = ({
                       />
 
                       <TextField
-                        label="Estimated E-Finas"
+                        label="Estimated E-Finks"
                         type="number"
                         value={String(formData.newEstimateDefinks || '')}
                         onChange={(_, value) =>
@@ -506,7 +506,7 @@ export const D365ProductionForm = ({
 
                     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                       <TextField
-                        label="Work Units (E-Finas)"
+                        label="Work Units (E-Finks)"
                         value={formData.workUnitsEfinks ? String(formData.workUnitsEfinks) : '---'}
                         readOnly
                         disabled={saving}

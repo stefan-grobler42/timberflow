@@ -13,7 +13,6 @@ import {
   SpinnerSize,
   SearchBox,
   Panel,
-  PanelType,
   Checkbox,
   Dialog,
   DialogType,
@@ -46,24 +45,26 @@ export const ProductionPage = () => {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
-  const [sortColumn, setSortColumn] = useState<string>('');
-  const [isSortedDescending, setIsSortedDescending] = useState(false);
+  const [sortColumn, setSortColumn] = useState<string>('orderNo');
+  const [isSortedDescending, setIsSortedDescending] = useState(true);
   const lookupData = useLookupData();
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
-    name: true,
     customer: true,
-    sawOperator: true,
-    jigLeader: true,
+    name: true,
+    createdOn: true,
+    productionPlannedDate: true,
+    productionComplete: true,
+    totalCuts: true,
     orderNo: false,
+    sawOperator: false,
+    jigLeader: false,
     jigStart: false,
     jigEnd: false,
-    productionComplete: true,
-    productionPlannedDate: false,
   };
 
   const defaultColumnOrder = [
-    'name', 'customer', 'sawOperator', 'jigLeader', 'orderNo', 'jigStart', 'jigEnd', 'productionComplete', 'productionPlannedDate'
+    'customer', 'name', 'createdOn', 'productionPlannedDate', 'productionComplete', 'totalCuts', 'orderNo', 'sawOperator', 'jigLeader', 'jigStart', 'jigEnd'
   ];
 
   const defaultView: GridView = {
@@ -395,6 +396,17 @@ export const ProductionPage = () => {
 
   const allColumns: IColumn[] = [
     {
+      key: 'customer',
+      name: 'Customer',
+      minWidth: 150,
+      maxWidth: 250,
+      isResizable: true,
+      isSorted: sortColumn === 'customer',
+      isSortedDescending: sortColumn === 'customer' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{resolveLookup(item.customer, lookupData.customers)}</Text>,
+    },
+    {
       key: 'name',
       name: 'Name',
       fieldName: 'name',
@@ -406,15 +418,48 @@ export const ProductionPage = () => {
       onColumnClick: onColumnClick,
     },
     {
-      key: 'customer',
-      name: 'Customer',
-      minWidth: 150,
-      maxWidth: 250,
+      key: 'createdOn',
+      name: 'Date Loaded on Photo',
+      minWidth: 140,
+      maxWidth: 170,
       isResizable: true,
-      isSorted: sortColumn === 'customer',
-      isSortedDescending: sortColumn === 'customer' && isSortedDescending,
+      isSorted: sortColumn === 'createdOn',
+      isSortedDescending: sortColumn === 'createdOn' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{resolveLookup(item.customer, lookupData.customers)}</Text>,
+      onRender: (item: Production) => <Text>{item.createdOn ? new Date(item.createdOn).toLocaleDateString() : '-'}</Text>,
+    },
+    {
+      key: 'productionPlannedDate',
+      name: 'Production Planned Date',
+      minWidth: 140,
+      maxWidth: 170,
+      isResizable: true,
+      isSorted: sortColumn === 'productionPlannedDate',
+      isSortedDescending: sortColumn === 'productionPlannedDate' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.productionPlannedDate ? new Date(item.productionPlannedDate).toLocaleDateString() : '-'}</Text>,
+    },
+    {
+      key: 'productionComplete',
+      name: 'Production Complete',
+      minWidth: 100,
+      maxWidth: 120,
+      isResizable: true,
+      isSorted: sortColumn === 'productionComplete',
+      isSortedDescending: sortColumn === 'productionComplete' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.productionComplete ? 'Yes' : 'No'}</Text>,
+    },
+    {
+      key: 'totalCuts',
+      name: 'Total M Sqg',
+      minWidth: 100,
+      maxWidth: 120,
+      isResizable: true,
+      isSorted: sortColumn === 'totalCuts',
+      isSortedDescending: sortColumn === 'totalCuts' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.totalCuts || '-'}</Text>,
     },
     {
       key: 'sawOperator',
@@ -428,17 +473,6 @@ export const ProductionPage = () => {
       onRender: (item: Production) => <Text>{resolveLookup(item.sawOperator, lookupData.employees)}</Text>,
     },
     {
-      key: 'jigLeader',
-      name: 'Jig Leader',
-      minWidth: 150,
-      maxWidth: 200,
-      isResizable: true,
-      isSorted: sortColumn === 'jigLeader',
-      isSortedDescending: sortColumn === 'jigLeader' && isSortedDescending,
-      onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{resolveLookup(item.jigLeader, lookupData.employees)}</Text>,
-    },
-    {
       key: 'orderNo',
       name: 'Order No',
       fieldName: 'orderNo',
@@ -448,6 +482,17 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'orderNo',
       isSortedDescending: sortColumn === 'orderNo' && isSortedDescending,
       onColumnClick: onColumnClick,
+    },
+    {
+      key: 'jigLeader',
+      name: 'Jig Leader',
+      minWidth: 150,
+      maxWidth: 200,
+      isResizable: true,
+      isSorted: sortColumn === 'jigLeader',
+      isSortedDescending: sortColumn === 'jigLeader' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{resolveLookup(item.jigLeader, lookupData.employees)}</Text>,
     },
     {
       key: 'jigStart',
@@ -470,28 +515,6 @@ export const ProductionPage = () => {
       isSortedDescending: sortColumn === 'jigEnd' && isSortedDescending,
       onColumnClick: onColumnClick,
       onRender: (item: Production) => <Text>{item.jigEnd ? new Date(item.jigEnd).toLocaleDateString() : '-'}</Text>,
-    },
-    {
-      key: 'productionComplete',
-      name: 'Complete',
-      minWidth: 80,
-      maxWidth: 100,
-      isResizable: true,
-      isSorted: sortColumn === 'productionComplete',
-      isSortedDescending: sortColumn === 'productionComplete' && isSortedDescending,
-      onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{item.productionComplete ? 'Yes' : 'No'}</Text>,
-    },
-    {
-      key: 'productionPlannedDate',
-      name: 'Planned Date',
-      minWidth: 100,
-      maxWidth: 120,
-      isResizable: true,
-      isSorted: sortColumn === 'productionPlannedDate',
-      isSortedDescending: sortColumn === 'productionPlannedDate' && isSortedDescending,
-      onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{item.productionPlannedDate ? new Date(item.productionPlannedDate).toLocaleDateString() : '-'}</Text>,
     },
   ];
 
@@ -561,6 +584,27 @@ export const ProductionPage = () => {
       setIsDeleteDialogOpen(true);
     }
   };
+
+  // If form is open, show it instead of the grid
+  if (isFormOpen) {
+    return (
+      <Stack styles={{ root: { height: '100vh', overflow: 'hidden' } }}>
+        <D365ProductionForm
+          production={selectedProduction}
+          onDismiss={() => {
+            setIsFormOpen(false);
+            setSelectedProduction(undefined);
+          }}
+          onSave={() => {
+            loadProduction();
+            setIsFormOpen(false);
+            setSelectedProduction(undefined);
+          }}
+          onDelete={selectedProduction ? handleFormDelete : undefined}
+        />
+      </Stack>
+    );
+  }
 
   return (
     <Stack tokens={{ childrenGap: 16 }}>
@@ -715,32 +759,6 @@ export const ProductionPage = () => {
         onConfirm={confirmDelete}
         onCancel={() => setIsDeleteDialogOpen(false)}
       />
-
-      <Panel
-        isOpen={isFormOpen}
-        type={PanelType.custom}
-        customWidth="85%"
-        onDismiss={() => {
-          setIsFormOpen(false);
-          setSelectedProduction(undefined);
-        }}
-        isBlocking={false}
-        closeButtonAriaLabel="Close"
-      >
-        <D365ProductionForm
-          production={selectedProduction}
-          onDismiss={() => {
-            setIsFormOpen(false);
-            setSelectedProduction(undefined);
-          }}
-          onSave={() => {
-            loadProduction();
-            setIsFormOpen(false);
-            setSelectedProduction(undefined);
-          }}
-          onDelete={selectedProduction ? handleFormDelete : undefined}
-        />
-      </Panel>
     </Stack>
   );
 };
