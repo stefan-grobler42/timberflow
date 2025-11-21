@@ -1,3 +1,21 @@
+export interface Activity {
+  id: number;
+  activityType: string;
+  subject: string;
+  description?: string;
+  activityDate?: string;
+  dueDate?: string;
+  status: string;
+  priority: string;
+  customerId?: number;
+  assignedToUserId?: number;
+  createdByUserId?: number;
+  isCompleted: boolean;
+  completedDate?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Designer {
   id: string;
   name: string;

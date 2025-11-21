@@ -1,7 +1,7 @@
 import { api } from './api';
 import type { 
   Account, D365Contact, D365Product, D365Quote, D365QuoteDetail, D365Order,
-  D365Appointment, D365Email
+  D365Appointment, D365Email, Activity, InstallationProgress, Delivery, Logistics
 } from '../types/millennium';
 
 export const accountService = {
@@ -67,6 +67,38 @@ export const d365EmailService = {
   create: (data: Partial<D365Email>) => api.post<D365Email>('/d365emails', data),
   update: (id: string, data: Partial<D365Email>) => api.put<D365Email>(`/d365emails/${id}`, data),
   delete: (id: string) => api.delete(`/d365emails/${id}`),
+};
+
+export const activityService = {
+  getAll: () => api.get<Activity[]>('/activities'),
+  getById: (id: number) => api.get<Activity>(`/activities/${id}`),
+  create: (data: Partial<Activity>) => api.post<Activity>('/activities', data),
+  update: (id: number, data: Partial<Activity>) => api.put<Activity>(`/activities/${id}`, data),
+  delete: (id: number) => api.delete(`/activities/${id}`),
+};
+
+export const installationProgressService = {
+  getAll: () => api.get<InstallationProgress[]>('/installationprogress'),
+  getById: (id: string) => api.get<InstallationProgress>(`/installationprogress/${id}`),
+  create: (data: Partial<InstallationProgress>) => api.post<InstallationProgress>('/installationprogress', data),
+  update: (id: string, data: Partial<InstallationProgress>) => api.put<InstallationProgress>(`/installationprogress/${id}`, data),
+  delete: (id: string) => api.delete(`/installationprogress/${id}`),
+};
+
+export const deliveryService = {
+  getAll: () => api.get<Delivery[]>('/deliveries'),
+  getById: (id: string) => api.get<Delivery>(`/deliveries/${id}`),
+  create: (data: Partial<Delivery>) => api.post<Delivery>('/deliveries', data),
+  update: (id: string, data: Partial<Delivery>) => api.put<Delivery>(`/deliveries/${id}`, data),
+  delete: (id: string) => api.delete(`/deliveries/${id}`),
+};
+
+export const logisticsService = {
+  getAll: () => api.get<Logistics[]>('/logistics'),
+  getById: (id: string) => api.get<Logistics>(`/logistics/${id}`),
+  create: (data: Partial<Logistics>) => api.post<Logistics>('/logistics', data),
+  update: (id: string, data: Partial<Logistics>) => api.put<Logistics>(`/logistics/${id}`, data),
+  delete: (id: string) => api.delete(`/logistics/${id}`),
 };
 
 export interface LookupOption {
