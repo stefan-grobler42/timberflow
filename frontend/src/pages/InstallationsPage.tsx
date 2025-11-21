@@ -13,6 +13,7 @@ import {
   SpinnerSize,
   SearchBox,
   Panel,
+  PanelType,
   Checkbox,
   IconButton,
   Separator,
