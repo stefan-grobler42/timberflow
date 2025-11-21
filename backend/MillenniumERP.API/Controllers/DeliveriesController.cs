@@ -20,9 +20,16 @@ public class DeliveriesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<DeliveryDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<DeliveryDto>>> GetAll([FromQuery] Guid? orderNo = null)
     {
-        var deliveries = await _context.Deliveries
+        var query = _context.Deliveries.AsQueryable();
+
+        if (orderNo.HasValue)
+        {
+            query = query.Where(d => d.Orderno == orderNo.Value);
+        }
+
+        var deliveries = await query
             .OrderBy(d => d.Deliveryno)
             .ToListAsync();
 

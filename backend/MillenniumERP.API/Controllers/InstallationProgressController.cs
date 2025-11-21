@@ -20,9 +20,16 @@ public class InstallationProgressController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<InstallationProgressDto>>> GetAll()
+    public async Task<ActionResult<IEnumerable<InstallationProgressDto>>> GetAll([FromQuery] string? orderNo = null)
     {
-        var progressRecords = await _context.InstallationProgresses
+        var query = _context.InstallationProgresses.AsQueryable();
+
+        if (!string.IsNullOrEmpty(orderNo))
+        {
+            query = query.Where(i => i.NewInstallationorderno == orderNo);
+        }
+
+        var progressRecords = await query
             .OrderBy(i => i.Name)
             .ToListAsync();
 

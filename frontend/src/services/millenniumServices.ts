@@ -67,7 +67,14 @@ export const pricingCalculationService = {
 };
 
 export const installationProgressService = {
-  getAll: () => api.get<InstallationProgress[]>('/installationprogress'),
+  getAll: (orderNo?: string) => {
+    const params = new URLSearchParams();
+    if (orderNo) params.append('orderNo', orderNo);
+    const queryString = params.toString();
+    return api.get<InstallationProgress[]>(`/installationprogress${queryString ? '?' + queryString : ''}`);
+  },
+  getByOrderNo: (orderNo: string) => 
+    api.get<InstallationProgress[]>(`/installationprogress?orderNo=${orderNo}`),
   getById: (id: string) => api.get<InstallationProgress>(`/installationprogress/${id}`),
   create: (data: Partial<InstallationProgress>) => api.post<InstallationProgress>('/installationprogress', data),
   update: (id: string, data: Partial<InstallationProgress>) => api.put<InstallationProgress>(`/installationprogress/${id}`, data),
@@ -75,8 +82,15 @@ export const installationProgressService = {
 };
 
 export const productionService = {
-  getAll: (completeOnly?: boolean) => 
-    api.get<Production[]>(`/productions${completeOnly ? '?completeOnly=true' : ''}`),
+  getAll: (completeOnly?: boolean, orderNo?: string) => {
+    const params = new URLSearchParams();
+    if (completeOnly) params.append('completeOnly', 'true');
+    if (orderNo) params.append('orderNo', orderNo);
+    const queryString = params.toString();
+    return api.get<Production[]>(`/productions${queryString ? '?' + queryString : ''}`);
+  },
+  getByOrderNo: (orderNo: string) => 
+    api.get<Production[]>(`/productions?orderNo=${orderNo}`),
   getById: (id: string) => api.get<Production>(`/productions/${id}`),
   create: (data: Partial<Production>) => api.post<Production>('/productions', data),
   update: (id: string, data: Partial<Production>) => api.put<Production>(`/productions/${id}`, data),
@@ -93,7 +107,14 @@ export const logisticsService = {
 };
 
 export const deliveryService = {
-  getAll: () => api.get<Delivery[]>('/deliveries'),
+  getAll: (orderNo?: string) => {
+    const params = new URLSearchParams();
+    if (orderNo) params.append('orderNo', orderNo);
+    const queryString = params.toString();
+    return api.get<Delivery[]>(`/deliveries${queryString ? '?' + queryString : ''}`);
+  },
+  getByOrderNo: (orderNo: string) => 
+    api.get<Delivery[]>(`/deliveries?orderNo=${orderNo}`),
   getById: (id: string) => api.get<Delivery>(`/deliveries/${id}`),
   create: (data: Partial<Delivery>) => api.post<Delivery>('/deliveries', data),
   update: (id: string, data: Partial<Delivery>) => api.put<Delivery>(`/deliveries/${id}`, data),

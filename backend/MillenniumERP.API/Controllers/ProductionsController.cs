@@ -20,13 +20,18 @@ public class ProductionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductionDto>>> GetAll([FromQuery] bool? completeOnly = null)
+    public async Task<ActionResult<IEnumerable<ProductionDto>>> GetAll([FromQuery] bool? completeOnly = null, [FromQuery] Guid? orderNo = null)
     {
         var query = _context.Productions.AsQueryable();
 
         if (completeOnly == true)
         {
             query = query.Where(p => p.Productioncomplete == true);
+        }
+
+        if (orderNo.HasValue)
+        {
+            query = query.Where(p => p.Orderno == orderNo.Value);
         }
 
         var productions = await query.OrderBy(p => p.Name).ToListAsync();
