@@ -1,7 +1,8 @@
 import { api } from './api';
 import type { 
   Account, D365Contact, D365Product, D365Quote, D365QuoteDetail, D365Order,
-  D365Appointment, D365Email, Activity, InstallationProgress, Delivery, Logistics
+  D365Appointment, D365Email, Activity, InstallationProgress, Delivery, Logistics,
+  Production
 } from '../types/millennium';
 
 export const accountService = {
@@ -101,6 +102,14 @@ export const logisticsService = {
   delete: (id: string) => api.delete(`/logistics/${id}`),
 };
 
+export const productionService = {
+  getAll: () => api.get<Production[]>('/productions'),
+  getById: (id: string) => api.get<Production>(`/productions/${id}`),
+  create: (data: Partial<Production>) => api.post<Production>('/productions', data),
+  update: (id: string, data: Partial<Production>) => api.put<Production>(`/productions/${id}`, data),
+  delete: (id: string) => api.delete(`/productions/${id}`),
+};
+
 export interface LookupOption {
   id: string;
   text: string;
@@ -129,6 +138,23 @@ export const lookupService = {
       }));
     } catch (error) {
       console.error('Error searching products:', error);
+      return [];
+    }
+  },
+  
+  searchOrders: async (term: string = ''): Promise<LookupOption[]> => {
+    try {
+      const orders = await d365OrderService.getAll();
+      const filtered = orders.filter(o => 
+        o.name?.toLowerCase().includes(term.toLowerCase()) ||
+        o.orderNumber?.toLowerCase().includes(term.toLowerCase())
+      );
+      return filtered.map(o => ({ 
+        id: o.id, 
+        text: o.orderNumber ? `${o.orderNumber} - ${o.name || ''}` : (o.name || '')
+      }));
+    } catch (error) {
+      console.error('Error searching orders:', error);
       return [];
     }
   },

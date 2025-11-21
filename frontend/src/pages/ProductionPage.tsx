@@ -13,6 +13,7 @@ import {
   SpinnerSize,
   SearchBox,
   Panel,
+  PanelType,
   Checkbox,
   Dialog,
   DialogType,
@@ -20,13 +21,12 @@ import {
   PrimaryButton,
   DefaultButton,
   IconButton,
-  Separator,
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { productionService } from '../services/millenniumServices';
 import type { Production } from '../types/millennium';
 import type { GridView, GridFilter } from '../types/gridView';
-import { ProductionForm } from '../components/ProductionForm';
+import { D365ProductionForm } from '../components/D365ProductionForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
@@ -375,7 +375,7 @@ export const ProductionPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;
@@ -554,25 +554,13 @@ export const ProductionPage = () => {
     },
   ];
 
-  if (isFormOpen) {
-    return (
-      <div style={{ height: '100vh', overflow: 'auto' }}>
-        <ProductionForm
-          production={selectedProduction}
-          onDismiss={() => {
-            setIsFormOpen(false);
-            setSelectedProduction(undefined);
-          }}
-          onSave={() => {
-            loadProduction();
-            setIsFormOpen(false);
-            setSelectedProduction(undefined);
-          }}
-          onDelete={selectedProduction ? () => handleDelete() : undefined}
-        />
-      </div>
-    );
-  }
+  const handleFormDelete = () => {
+    setIsFormOpen(false);
+    if (selectedProduction) {
+      setProductionToDelete(selectedProduction);
+      setIsDeleteDialogOpen(true);
+    }
+  };
 
   return (
     <Stack tokens={{ childrenGap: 16 }}>
@@ -721,11 +709,38 @@ export const ProductionPage = () => {
       </Dialog>
 
       <DeleteDialog
-        hidden={!isDeleteDialogOpen}
-        itemName={productionToDelete?.name || ''}
+        isOpen={isDeleteDialogOpen}
+        title="Delete Production"
+        message={`Are you sure you want to delete "${productionToDelete?.name || ''}"?`}
         onConfirm={confirmDelete}
         onCancel={() => setIsDeleteDialogOpen(false)}
       />
+
+      <Panel
+        isOpen={isFormOpen}
+        type={PanelType.custom}
+        customWidth="85%"
+        onDismiss={() => {
+          setIsFormOpen(false);
+          setSelectedProduction(undefined);
+        }}
+        isBlocking={false}
+        closeButtonAriaLabel="Close"
+      >
+        <D365ProductionForm
+          production={selectedProduction}
+          onDismiss={() => {
+            setIsFormOpen(false);
+            setSelectedProduction(undefined);
+          }}
+          onSave={() => {
+            loadProduction();
+            setIsFormOpen(false);
+            setSelectedProduction(undefined);
+          }}
+          onDelete={selectedProduction ? handleFormDelete : undefined}
+        />
+      </Panel>
     </Stack>
   );
 };
