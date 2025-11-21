@@ -86,6 +86,51 @@ export interface Employee {
   modifiedBy?: string;
 }
 
+export interface PickingTeam {
+  id: string;
+  name: string;
+  description?: string;
+  teamLeaderId?: string;
+  teamLeader?: string;
+  averageTimePerM3?: number;
+  createdOn?: string;
+  createdBy?: string;
+  modifiedOn?: string;
+  modifiedBy?: string;
+}
+
+export interface Saw {
+  id: string;
+  name: string;
+  description?: string;
+  operatorId?: string;
+  operator?: string;
+  averageTimePerCut?: number;
+  lastServiceDate?: string;
+  serialNumber?: string;
+  assetNumber?: string;
+  lastBladeChange?: string;
+  createdOn?: string;
+  createdBy?: string;
+  modifiedOn?: string;
+  modifiedBy?: string;
+}
+
+export interface Jig {
+  id: string;
+  name: string;
+  description?: string;
+  leaderId?: string;
+  leader?: string;
+  proficiency?: string;
+  reliabilityScore?: number;
+  strengths?: string;
+  createdOn?: string;
+  createdBy?: string;
+  modifiedOn?: string;
+  modifiedBy?: string;
+}
+
 export interface QuoteMRoofing {
   id: string;
   name: string;
@@ -190,6 +235,9 @@ export interface Production {
   trussSelling?: number;
   workUnitsEfinks?: number;
   newEstimateDefinks?: number;
+  pickingTeamId?: string;
+  sawId?: string;
+  jigId?: string;
   createdOn?: string;
   createdBy?: string;
   modifiedOn?: string;

@@ -12,8 +12,8 @@ import {
   Dropdown,
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
-import { productionService, customerService } from '../services';
-import type { Production, Customer } from '../types/millennium';
+import { productionService, customerService, pickingTeamService, sawService, jigService } from '../services';
+import type { Production, Customer, PickingTeam, Saw, Jig } from '../types/millennium';
 
 interface ProductionFormProps {
   production?: Production;
@@ -59,13 +59,22 @@ export const ProductionForm = ({
     trussSelling: 0,
     workUnitsEfinks: 0,
     newEstimateDefinks: 0,
+    pickingTeamId: null,
+    sawId: null,
+    jigId: null,
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [pickingTeams, setPickingTeams] = useState<PickingTeam[]>([]);
+  const [saws, setSaws] = useState<Saw[]>([]);
+  const [jigs, setJigs] = useState<Jig[]>([]);
 
   useEffect(() => {
     loadCustomers();
+    loadPickingTeams();
+    loadSaws();
+    loadJigs();
   }, []);
 
   const loadCustomers = async () => {
@@ -77,9 +86,51 @@ export const ProductionForm = ({
     }
   };
 
+  const loadPickingTeams = async () => {
+    try {
+      const data = await pickingTeamService.getAll();
+      setPickingTeams(data);
+    } catch (err) {
+      console.error('Failed to load picking teams:', err);
+    }
+  };
+
+  const loadSaws = async () => {
+    try {
+      const data = await sawService.getAll();
+      setSaws(data);
+    } catch (err) {
+      console.error('Failed to load saws:', err);
+    }
+  };
+
+  const loadJigs = async () => {
+    try {
+      const data = await jigService.getAll();
+      setJigs(data);
+    } catch (err) {
+      console.error('Failed to load jigs:', err);
+    }
+  };
+
   const customerOptions: IDropdownOption[] = [
     { key: '', text: '(None)' },
     ...customers.map((c) => ({ key: c.id, text: c.accountName })),
+  ];
+
+  const pickingTeamOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...pickingTeams.map((pt) => ({ key: pt.id, text: pt.name })),
+  ];
+
+  const sawOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...saws.map((s) => ({ key: s.id, text: s.name })),
+  ];
+
+  const jigOptions: IDropdownOption[] = [
+    { key: '', text: '(None)' },
+    ...jigs.map((j) => ({ key: j.id, text: j.name })),
   ];
 
   useEffect(() => {
@@ -114,6 +165,9 @@ export const ProductionForm = ({
         trussSelling: production.trussSelling || 0,
         workUnitsEfinks: production.workUnitsEfinks || 0,
         newEstimateDefinks: production.newEstimateDefinks || 0,
+        pickingTeamId: production.pickingTeamId || null,
+        sawId: production.sawId || null,
+        jigId: production.jigId || null,
       });
     }
     setError(null);
@@ -178,6 +232,9 @@ export const ProductionForm = ({
         trussSelling: 0,
         workUnitsEfinks: 0,
         newEstimateDefinks: 0,
+        pickingTeamId: null,
+        sawId: null,
+        jigId: null,
       });
       setSaving(false);
     } catch (err) {
@@ -319,22 +376,22 @@ export const ProductionForm = ({
               }}
             />
             <DefaultButton
-              text="Production Metrics"
+              text="Tracking"
               iconProps={{ iconName: 'Chart' }}
-              onClick={() => setActiveTab('metrics')}
+              onClick={() => setActiveTab('tracking')}
               styles={{
                 root: {
                   height: 48,
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'metrics' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'metrics' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'metrics' ? 600 : 400,
+                  backgroundColor: activeTab === 'tracking' ? '#0078d4' : 'transparent',
+                  color: activeTab === 'tracking' ? 'white' : '#323130',
+                  fontWeight: activeTab === 'tracking' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'metrics' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'metrics' ? 'white' : '#323130',
+                  backgroundColor: activeTab === 'tracking' ? '#106ebe' : '#f3f2f1',
+                  color: activeTab === 'tracking' ? 'white' : '#323130',
                 },
               }}
             />
@@ -378,6 +435,26 @@ export const ProductionForm = ({
                   checked={formData.productionComplete}
                   onChange={(_, checked) =>
                     setFormData({ ...formData, productionComplete: checked || false })
+                  }
+                />
+
+                <TextField
+                  label="Truss Cost"
+                  type="number"
+                  prefix="R"
+                  value={String(formData.trussCost || '')}
+                  onChange={(_, value) =>
+                    setFormData({ ...formData, trussCost: Number(value) || 0 })
+                  }
+                />
+
+                <TextField
+                  label="Truss Selling"
+                  type="number"
+                  prefix="R"
+                  value={String(formData.trussSelling || '')}
+                  onChange={(_, value) =>
+                    setFormData({ ...formData, trussSelling: Number(value) || 0 })
                   }
                 />
               </Stack>
@@ -547,12 +624,48 @@ export const ProductionForm = ({
               </Stack>
             )}
 
-            {activeTab === 'metrics' && (
+            {activeTab === 'tracking' && (
               <Stack
                 horizontal
                 tokens={{ childrenGap: 32 }}
                 styles={{ root: { marginTop: 16 } }}
               >
+                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+                  <TextField
+                    label="Total Timber Cubes"
+                    type="number"
+                    value={String(formData.totalTimberCubes || '')}
+                    onChange={(_, value) =>
+                      setFormData({ ...formData, totalTimberCubes: Number(value) || 0 })
+                    }
+                  />
+
+                  <DatePicker
+                    label="Pick Start"
+                    value={formData.pickStart ? new Date(formData.pickStart) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, pickStart: date?.toISOString() || '' })
+                    }
+                  />
+
+                  <DatePicker
+                    label="Pick End"
+                    value={formData.pickEnd ? new Date(formData.pickEnd) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, pickEnd: date?.toISOString() || '' })
+                    }
+                  />
+
+                  <Dropdown
+                    label="Picking Team"
+                    options={pickingTeamOptions}
+                    selectedKey={formData.pickingTeamId || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, pickingTeamId: option?.key === '' ? null : (option?.key as string) })
+                    }
+                  />
+                </Stack>
+
                 <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                   <TextField
                     label="Total Cuts"
@@ -563,39 +676,35 @@ export const ProductionForm = ({
                     }
                   />
 
-                  <TextField
-                    label="Total Timber Cubes"
-                    type="number"
-                    value={String(formData.totalTimberCubes || '')}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, totalTimberCubes: Number(value) || 0 })
+                  <DatePicker
+                    label="Saw Start"
+                    value={formData.sawStart ? new Date(formData.sawStart) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, sawStart: date?.toISOString() || '' })
                     }
                   />
 
-                  <TextField
-                    label="Truss Cost"
-                    type="number"
-                    prefix="R"
-                    value={String(formData.trussCost || '')}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, trussCost: Number(value) || 0 })
+                  <DatePicker
+                    label="Saw End"
+                    value={formData.sawEnd ? new Date(formData.sawEnd) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, sawEnd: date?.toISOString() || '' })
+                    }
+                  />
+
+                  <Dropdown
+                    label="Saws"
+                    options={sawOptions}
+                    selectedKey={formData.sawId || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, sawId: option?.key === '' ? null : (option?.key as string) })
                     }
                   />
                 </Stack>
 
                 <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                   <TextField
-                    label="Truss Selling"
-                    type="number"
-                    prefix="R"
-                    value={String(formData.trussSelling || '')}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, trussSelling: Number(value) || 0 })
-                    }
-                  />
-
-                  <TextField
-                    label="Work Units Efinks"
+                    label="Work Units (E-Finks)"
                     type="number"
                     value={String(formData.workUnitsEfinks || '')}
                     onChange={(_, value) =>
@@ -603,12 +712,28 @@ export const ProductionForm = ({
                     }
                   />
 
-                  <TextField
-                    label="Estimate Definks"
-                    type="number"
-                    value={String(formData.newEstimateDefinks || '')}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, newEstimateDefinks: Number(value) || 0 })
+                  <DatePicker
+                    label="Jig Start"
+                    value={formData.jigStart ? new Date(formData.jigStart) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, jigStart: date?.toISOString() || '' })
+                    }
+                  />
+
+                  <DatePicker
+                    label="Jig End"
+                    value={formData.jigEnd ? new Date(formData.jigEnd) : undefined}
+                    onSelectDate={(date) =>
+                      setFormData({ ...formData, jigEnd: date?.toISOString() || '' })
+                    }
+                  />
+
+                  <Dropdown
+                    label="Jigs"
+                    options={jigOptions}
+                    selectedKey={formData.jigId || ''}
+                    onChange={(_, option) =>
+                      setFormData({ ...formData, jigId: option?.key === '' ? null : (option?.key as string) })
                     }
                   />
                 </Stack>

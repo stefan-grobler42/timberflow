@@ -98,6 +98,10 @@ public class ProductionsController : ControllerBase
             Trussselling = createDto.TrussSelling,
             Workunitsefinks = createDto.WorkUnitsEfinks,
             NewEstimatedefinks = createDto.NewEstimateDefinks,
+            // Treat zero GUIDs as null for lookup fields
+            PickingTeamId = createDto.PickingTeamId == Guid.Empty ? null : createDto.PickingTeamId,
+            SawId = createDto.SawId == Guid.Empty ? null : createDto.SawId,
+            JigId = createDto.JigId == Guid.Empty ? null : createDto.JigId,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -155,6 +159,17 @@ public class ProductionsController : ControllerBase
         if (updateDto.TrussSelling.HasValue) production.Trussselling = updateDto.TrussSelling;
         if (updateDto.WorkUnitsEfinks.HasValue) production.Workunitsefinks = updateDto.WorkUnitsEfinks;
         if (updateDto.NewEstimateDefinks.HasValue) production.NewEstimatedefinks = updateDto.NewEstimateDefinks;
+        
+        // Always assign lookup fields to allow clearing (treat zero GUIDs as null)
+        production.PickingTeamId = updateDto.PickingTeamId == Guid.Empty || updateDto.PickingTeamId == null 
+            ? null 
+            : updateDto.PickingTeamId;
+        production.SawId = updateDto.SawId == Guid.Empty || updateDto.SawId == null 
+            ? null 
+            : updateDto.SawId;
+        production.JigId = updateDto.JigId == Guid.Empty || updateDto.JigId == null 
+            ? null 
+            : updateDto.JigId;
         
         production.ModifiedOn = DateTime.UtcNow;
 
@@ -225,6 +240,9 @@ public class ProductionsController : ControllerBase
             TrussSelling = production.Trussselling,
             WorkUnitsEfinks = production.Workunitsefinks,
             NewEstimateDefinks = production.NewEstimatedefinks,
+            PickingTeamId = production.PickingTeamId,
+            SawId = production.SawId,
+            JigId = production.JigId,
             CreatedOn = production.CreatedOn,
             CreatedBy = production.CreatedBy,
             ModifiedOn = production.ModifiedOn,

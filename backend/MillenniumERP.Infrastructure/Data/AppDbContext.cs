@@ -29,6 +29,11 @@ public class AppDbContext : DbContext
     public DbSet<Logistics> Logistics { get; set; }
     public DbSet<Delivery> Deliveries { get; set; }
     
+    // Production lookup tables
+    public DbSet<PickingTeam> PickingTeams { get; set; }
+    public DbSet<Saw> Saws { get; set; }
+    public DbSet<Jig> Jigs { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }

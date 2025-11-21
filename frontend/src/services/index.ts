@@ -15,4 +15,7 @@ export {
   productionService,
   logisticsService,
   deliveryService,
+  pickingTeamService,
+  sawService,
+  jigService,
 } from './millenniumServices';

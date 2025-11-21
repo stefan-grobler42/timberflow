@@ -118,7 +118,7 @@ namespace MillenniumERP.Domain.Entities
 
         /// <summary>Truss Selling</summary>
         [Column("cr694_trussselling")]
-        public int? Trussselling { get; set; }
+        public decimal? Trussselling { get; set; }
 
         /// <summary>Work Units (E-Finks)</summary>
         [Column("cr694_workunitsefinks")]
@@ -127,6 +127,18 @@ namespace MillenniumERP.Domain.Entities
         /// <summary>Estimated E-Finks</summary>
         [Column("new_estimatedefinks")]
         public decimal? NewEstimatedefinks { get; set; }
+
+        /// <summary>Picking Team Lookup</summary>
+        [Column("picking_team_id")]
+        public Guid? PickingTeamId { get; set; }
+
+        /// <summary>Saw Lookup</summary>
+        [Column("saw_id")]
+        public Guid? SawId { get; set; }
+
+        /// <summary>Jig Lookup</summary>
+        [Column("jig_id")]
+        public Guid? JigId { get; set; }
 
         // Audit fields
         public DateTime? CreatedOn { get; set; }

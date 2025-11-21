@@ -30,9 +30,12 @@ public class ProductionDto
     public int? TotalCuts { get; set; }
     public decimal? TotalTimberCubes { get; set; }
     public decimal? TrussCost { get; set; }
-    public int? TrussSelling { get; set; }
+    public decimal? TrussSelling { get; set; }
     public decimal? WorkUnitsEfinks { get; set; }
     public decimal? NewEstimateDefinks { get; set; }
+    public Guid? PickingTeamId { get; set; }
+    public Guid? SawId { get; set; }
+    public Guid? JigId { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -67,9 +70,12 @@ public class CreateProductionDto
     public int? TotalCuts { get; set; }
     public decimal? TotalTimberCubes { get; set; }
     public decimal? TrussCost { get; set; }
-    public int? TrussSelling { get; set; }
+    public decimal? TrussSelling { get; set; }
     public decimal? WorkUnitsEfinks { get; set; }
     public decimal? NewEstimateDefinks { get; set; }
+    public Guid? PickingTeamId { get; set; }
+    public Guid? SawId { get; set; }
+    public Guid? JigId { get; set; }
 }
 
 public class UpdateProductionDto
@@ -100,7 +106,10 @@ public class UpdateProductionDto
     public int? TotalCuts { get; set; }
     public decimal? TotalTimberCubes { get; set; }
     public decimal? TrussCost { get; set; }
-    public int? TrussSelling { get; set; }
+    public decimal? TrussSelling { get; set; }
     public decimal? WorkUnitsEfinks { get; set; }
     public decimal? NewEstimateDefinks { get; set; }
+    public Guid? PickingTeamId { get; set; }
+    public Guid? SawId { get; set; }
+    public Guid? JigId { get; set; }
 }

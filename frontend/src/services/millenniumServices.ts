@@ -2,7 +2,7 @@ import { api } from './api';
 import type { 
   Designer, SaleRepresentative, Vehicle, Employee, 
   QuoteMRoofing, Tender, PricingCalculation, InstallationProgress,
-  Production, Logistics, Delivery 
+  Production, Logistics, Delivery, PickingTeam, Saw, Jig 
 } from '../types/millennium';
 
 export const designerService = {
@@ -119,4 +119,28 @@ export const deliveryService = {
   create: (data: Partial<Delivery>) => api.post<Delivery>('/deliveries', data),
   update: (id: string, data: Partial<Delivery>) => api.put<Delivery>(`/deliveries/${id}`, data),
   delete: (id: string) => api.delete(`/deliveries/${id}`),
+};
+
+export const pickingTeamService = {
+  getAll: () => api.get<PickingTeam[]>('/pickingteams'),
+  getById: (id: string) => api.get<PickingTeam>(`/pickingteams/${id}`),
+  create: (data: Partial<PickingTeam>) => api.post<PickingTeam>('/pickingteams', data),
+  update: (id: string, data: Partial<PickingTeam>) => api.put<PickingTeam>(`/pickingteams/${id}`, data),
+  delete: (id: string) => api.delete(`/pickingteams/${id}`),
+};
+
+export const sawService = {
+  getAll: () => api.get<Saw[]>('/saws'),
+  getById: (id: string) => api.get<Saw>(`/saws/${id}`),
+  create: (data: Partial<Saw>) => api.post<Saw>('/saws', data),
+  update: (id: string, data: Partial<Saw>) => api.put<Saw>(`/saws/${id}`, data),
+  delete: (id: string) => api.delete(`/saws/${id}`),
+};
+
+export const jigService = {
+  getAll: () => api.get<Jig[]>('/jigs'),
+  getById: (id: string) => api.get<Jig>(`/jigs/${id}`),
+  create: (data: Partial<Jig>) => api.post<Jig>('/jigs', data),
+  update: (id: string, data: Partial<Jig>) => api.put<Jig>(`/jigs/${id}`, data),
+  delete: (id: string) => api.delete(`/jigs/${id}`),
 };
