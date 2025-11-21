@@ -163,6 +163,7 @@ export interface Production {
   name: string;
   customer?: string;
   orderNo?: string;
+  orderNumber?: string;
   jigStart?: string;
   jigEnd?: string;
   jigLeader?: string;

@@ -30,24 +30,37 @@ public class ProductionsController : ControllerBase
         }
 
         var productions = await query
-            .OrderBy(p => p.Name)
+            .GroupJoin(
+                _context.D365Orders,
+                p => p.Orderno,
+                o => o.Id,
+                (p, orders) => new { Production = p, Order = orders.FirstOrDefault() }
+            )
+            .OrderBy(x => x.Production.Name)
             .ToListAsync();
 
-        var productionDtos = productions.Select(MapToDto).ToList();
+        var productionDtos = productions.Select(x => MapToDto(x.Production, x.Order?.OrderNumber)).ToList();
         return Ok(productionDtos);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductionDto>> GetById(Guid id)
     {
-        var production = await _context.Productions.FindAsync(id);
+        var result = await _context.Productions
+            .GroupJoin(
+                _context.D365Orders,
+                p => p.Orderno,
+                o => o.Id,
+                (p, orders) => new { Production = p, Order = orders.FirstOrDefault() }
+            )
+            .FirstOrDefaultAsync(x => x.Production.Id == id);
 
-        if (production == null)
+        if (result == null)
         {
             return NotFound(new { message = $"Production with ID {id} not found" });
         }
 
-        return Ok(MapToDto(production));
+        return Ok(MapToDto(result.Production, result.Order?.OrderNumber));
     }
 
     [HttpPost]
@@ -93,7 +106,14 @@ public class ProductionsController : ControllerBase
 
         _logger.LogInformation("Created production {Id}: {Name}", production.Id, production.Name);
 
-        return CreatedAtAction(nameof(GetById), new { id = production.Id }, MapToDto(production));
+        string? orderNumber = null;
+        if (production.Orderno.HasValue)
+        {
+            var order = await _context.D365Orders.FindAsync(production.Orderno.Value);
+            orderNumber = order?.OrderNumber;
+        }
+
+        return CreatedAtAction(nameof(GetById), new { id = production.Id }, MapToDto(production, orderNumber));
     }
 
     [HttpPut("{id}")]
@@ -142,7 +162,14 @@ public class ProductionsController : ControllerBase
 
         _logger.LogInformation("Updated production {Id}: {Name}", production.Id, production.Name);
 
-        return Ok(MapToDto(production));
+        string? orderNumber = null;
+        if (production.Orderno.HasValue)
+        {
+            var order = await _context.D365Orders.FindAsync(production.Orderno.Value);
+            orderNumber = order?.OrderNumber;
+        }
+
+        return Ok(MapToDto(production, orderNumber));
     }
 
     [HttpDelete("{id}")]
@@ -163,7 +190,7 @@ public class ProductionsController : ControllerBase
         return NoContent();
     }
 
-    private ProductionDto MapToDto(Production production)
+    private ProductionDto MapToDto(Production production, string? orderNumber = null)
     {
         return new ProductionDto
         {
@@ -171,6 +198,7 @@ public class ProductionsController : ControllerBase
             Name = production.Name,
             Customer = production.Customer,
             OrderNo = production.Orderno,
+            OrderNumber = orderNumber,
             JigStart = production.Jigstart,
             JigEnd = production.Jigend,
             JigLeader = production.Jigleader,

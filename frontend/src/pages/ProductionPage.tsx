@@ -45,18 +45,22 @@ export const ProductionPage = () => {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
-  const [sortColumn, setSortColumn] = useState<string>('orderNo');
+  const [sortColumn, setSortColumn] = useState<string>('orderNumber');
   const [isSortedDescending, setIsSortedDescending] = useState(true);
   const lookupData = useLookupData();
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
+    orderNumber: true,
     customer: true,
     name: true,
-    createdOn: true,
     productionPlannedDate: true,
+    newEstimateDefinks: true,
+    workUnitsEfinks: true,
     productionComplete: true,
-    totalCuts: true,
-    orderNo: false,
+    createdOn: false,
+    totalCuts: false,
+    trussCost: false,
+    trussSelling: false,
     sawOperator: false,
     jigLeader: false,
     jigStart: false,
@@ -64,7 +68,7 @@ export const ProductionPage = () => {
   };
 
   const defaultColumnOrder = [
-    'customer', 'name', 'createdOn', 'productionPlannedDate', 'productionComplete', 'totalCuts', 'orderNo', 'sawOperator', 'jigLeader', 'jigStart', 'jigEnd'
+    'orderNumber', 'customer', 'name', 'productionPlannedDate', 'newEstimateDefinks', 'workUnitsEfinks', 'productionComplete', 'createdOn', 'totalCuts', 'trussCost', 'trussSelling', 'sawOperator', 'jigLeader', 'jigStart', 'jigEnd'
   ];
 
   const defaultView: GridView = {
@@ -268,7 +272,7 @@ export const ProductionPage = () => {
   const exportToExcel = (itemsToExport: Production[]) => {
     const exportData = itemsToExport.map((item) => ({
       'Name': item.name || '',
-      'Order No': item.orderNo || '',
+      'Order No': item.orderNumber || '',
       'Jig Start': item.jigStart ? new Date(item.jigStart).toLocaleDateString() : '',
       'Jig End': item.jigEnd ? new Date(item.jigEnd).toLocaleDateString() : '',
       'Complete': item.productionComplete ? 'Yes' : 'No',
@@ -390,11 +394,23 @@ export const ProductionPage = () => {
 
   const availableFields = [
     { key: 'name', name: 'Name', type: 'text' as const },
-    { key: 'orderNo', name: 'Order No', type: 'text' as const },
+    { key: 'orderNumber', name: 'Order No', type: 'text' as const },
     { key: 'productionComplete', name: 'Complete', type: 'boolean' as const },
   ];
 
   const allColumns: IColumn[] = [
+    {
+      key: 'orderNumber',
+      name: 'Order No.',
+      fieldName: 'orderNumber',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      isSorted: sortColumn === 'orderNumber',
+      isSortedDescending: sortColumn === 'orderNumber' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.orderNumber || '-'}</Text>,
+    },
     {
       key: 'customer',
       name: 'Customer',
@@ -408,7 +424,7 @@ export const ProductionPage = () => {
     },
     {
       key: 'name',
-      name: 'Name',
+      name: 'Description',
       fieldName: 'name',
       minWidth: 150,
       maxWidth: 200,
@@ -416,17 +432,6 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'name',
       isSortedDescending: sortColumn === 'name' && isSortedDescending,
       onColumnClick: onColumnClick,
-    },
-    {
-      key: 'createdOn',
-      name: 'Date Loaded on Photo',
-      minWidth: 140,
-      maxWidth: 170,
-      isResizable: true,
-      isSorted: sortColumn === 'createdOn',
-      isSortedDescending: sortColumn === 'createdOn' && isSortedDescending,
-      onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{item.createdOn ? new Date(item.createdOn).toLocaleDateString() : '-'}</Text>,
     },
     {
       key: 'productionPlannedDate',
@@ -440,6 +445,28 @@ export const ProductionPage = () => {
       onRender: (item: Production) => <Text>{item.productionPlannedDate ? new Date(item.productionPlannedDate).toLocaleDateString() : '-'}</Text>,
     },
     {
+      key: 'newEstimateDefinks',
+      name: 'Estimated E-Finks',
+      minWidth: 120,
+      maxWidth: 150,
+      isResizable: true,
+      isSorted: sortColumn === 'newEstimateDefinks',
+      isSortedDescending: sortColumn === 'newEstimateDefinks' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.newEstimateDefinks !== null && item.newEstimateDefinks !== undefined ? item.newEstimateDefinks.toFixed(2) : '-'}</Text>,
+    },
+    {
+      key: 'workUnitsEfinks',
+      name: 'Work Units (E-Finks)',
+      minWidth: 130,
+      maxWidth: 160,
+      isResizable: true,
+      isSorted: sortColumn === 'workUnitsEfinks',
+      isSortedDescending: sortColumn === 'workUnitsEfinks' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.workUnitsEfinks !== null && item.workUnitsEfinks !== undefined ? item.workUnitsEfinks.toFixed(2) : '-'}</Text>,
+    },
+    {
       key: 'productionComplete',
       name: 'Production Complete',
       minWidth: 100,
@@ -449,6 +476,17 @@ export const ProductionPage = () => {
       isSortedDescending: sortColumn === 'productionComplete' && isSortedDescending,
       onColumnClick: onColumnClick,
       onRender: (item: Production) => <Text>{item.productionComplete ? 'Yes' : 'No'}</Text>,
+    },
+    {
+      key: 'createdOn',
+      name: 'Date Loaded on Photo',
+      minWidth: 140,
+      maxWidth: 170,
+      isResizable: true,
+      isSorted: sortColumn === 'createdOn',
+      isSortedDescending: sortColumn === 'createdOn' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.createdOn ? new Date(item.createdOn).toLocaleDateString() : '-'}</Text>,
     },
     {
       key: 'totalCuts',
@@ -462,6 +500,28 @@ export const ProductionPage = () => {
       onRender: (item: Production) => <Text>{item.totalCuts || '-'}</Text>,
     },
     {
+      key: 'trussCost',
+      name: 'Truss Cost',
+      minWidth: 100,
+      maxWidth: 120,
+      isResizable: true,
+      isSorted: sortColumn === 'trussCost',
+      isSortedDescending: sortColumn === 'trussCost' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.trussCost !== null && item.trussCost !== undefined ? `R${item.trussCost.toFixed(2)}` : '-'}</Text>,
+    },
+    {
+      key: 'trussSelling',
+      name: 'Truss Selling',
+      minWidth: 100,
+      maxWidth: 120,
+      isResizable: true,
+      isSorted: sortColumn === 'trussSelling',
+      isSortedDescending: sortColumn === 'trussSelling' && isSortedDescending,
+      onColumnClick: onColumnClick,
+      onRender: (item: Production) => <Text>{item.trussSelling !== null && item.trussSelling !== undefined ? `R${item.trussSelling.toFixed(2)}` : '-'}</Text>,
+    },
+    {
       key: 'sawOperator',
       name: 'Saw Operator',
       minWidth: 150,
@@ -471,17 +531,6 @@ export const ProductionPage = () => {
       isSortedDescending: sortColumn === 'sawOperator' && isSortedDescending,
       onColumnClick: onColumnClick,
       onRender: (item: Production) => <Text>{resolveLookup(item.sawOperator, lookupData.employees)}</Text>,
-    },
-    {
-      key: 'orderNo',
-      name: 'Order No',
-      fieldName: 'orderNo',
-      minWidth: 100,
-      maxWidth: 120,
-      isResizable: true,
-      isSorted: sortColumn === 'orderNo',
-      isSortedDescending: sortColumn === 'orderNo' && isSortedDescending,
-      onColumnClick: onColumnClick,
     },
     {
       key: 'jigLeader',

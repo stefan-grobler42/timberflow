@@ -191,11 +191,12 @@ export const D365OrderForm = ({
     <Stack styles={{ root: { height: '100%', overflow: 'hidden' } }}>
       <StandardFormHeader
         title={order ? `Order: ${order.orderNumber || order.name || 'Untitled'}` : 'New Order'}
+        onBack={onDismiss}
         onSave={() => handleSubmit(false)}
         onSaveAndNew={order ? undefined : () => handleSubmit(true)}
         onCancel={onDismiss}
         onDelete={order && onDelete ? onDelete : undefined}
-        isSaving={saving}
+        saving={saving}
       />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
@@ -244,24 +245,26 @@ export const D365OrderForm = ({
 
                 <StandardLookupField
                   label="Customer"
-                  selectedId={formData.customerId || ''}
+                  value={formData.customerId || ''}
                   selectedText={selectedCustomerText}
+                  entityName="Customer"
                   onSearch={handleCustomerSearch}
-                  onChange={(id, text) => {
+                  onChange={(id) => {
                     setFormData({ ...formData, customerId: id });
-                    setSelectedCustomerText(text);
+                    if (!id) setSelectedCustomerText('');
                   }}
                   disabled={saving}
                 />
 
                 <StandardLookupField
                   label="Quote"
-                  selectedId={formData.quoteId || ''}
+                  value={formData.quoteId || ''}
                   selectedText={selectedQuoteText}
+                  entityName="Quote"
                   onSearch={handleQuoteSearch}
-                  onChange={(id, text) => {
+                  onChange={(id) => {
                     setFormData({ ...formData, quoteId: id });
-                    setSelectedQuoteText(text);
+                    if (!id) setSelectedQuoteText('');
                   }}
                   disabled={saving}
                 />
@@ -361,12 +364,13 @@ export const D365OrderForm = ({
 
               <StandardLookupField
                 label="Customer"
-                selectedId={formData.customerId || ''}
+                value={formData.customerId || ''}
                 selectedText={selectedCustomerText}
+                entityName="Customer"
                 onSearch={handleCustomerSearch}
-                onChange={(id, text) => {
+                onChange={(id) => {
                   setFormData({ ...formData, customerId: id });
-                  setSelectedCustomerText(text);
+                  if (!id) setSelectedCustomerText('');
                 }}
                 disabled={saving}
               />
@@ -408,12 +412,13 @@ export const D365OrderForm = ({
               
               <StandardLookupField
                 label="Quote"
-                selectedId={formData.quoteId || ''}
+                value={formData.quoteId || ''}
                 selectedText={selectedQuoteText}
+                entityName="Quote"
                 onSearch={handleQuoteSearch}
-                onChange={(id, text) => {
+                onChange={(id) => {
                   setFormData({ ...formData, quoteId: id });
-                  setSelectedQuoteText(text);
+                  if (!id) setSelectedQuoteText('');
                 }}
                 disabled={saving}
               />
@@ -486,12 +491,13 @@ export const D365OrderForm = ({
 
               <StandardLookupField
                 label="Customer"
-                selectedId={formData.customerId || ''}
+                value={formData.customerId || ''}
                 selectedText={selectedCustomerText}
+                entityName="Customer"
                 onSearch={handleCustomerSearch}
-                onChange={(id, text) => {
+                onChange={(id) => {
                   setFormData({ ...formData, customerId: id });
-                  setSelectedCustomerText(text);
+                  if (!id) setSelectedCustomerText('');
                 }}
                 disabled={saving}
               />
@@ -569,24 +575,26 @@ export const D365OrderForm = ({
               
               <StandardLookupField
                 label="Quote"
-                selectedId={formData.quoteId || ''}
+                value={formData.quoteId || ''}
                 selectedText={selectedQuoteText}
+                entityName="Quote"
                 onSearch={handleQuoteSearch}
-                onChange={(id, text) => {
+                onChange={(id) => {
                   setFormData({ ...formData, quoteId: id });
-                  setSelectedQuoteText(text);
+                  if (!id) setSelectedQuoteText('');
                 }}
                 disabled={saving}
               />
 
               <StandardLookupField
                 label="Customer"
-                selectedId={formData.customerId || ''}
+                value={formData.customerId || ''}
                 selectedText={selectedCustomerText}
+                entityName="Customer"
                 onSearch={handleCustomerSearch}
-                onChange={(id, text) => {
+                onChange={(id) => {
                   setFormData({ ...formData, customerId: id });
-                  setSelectedCustomerText(text);
+                  if (!id) setSelectedCustomerText('');
                 }}
                 disabled={saving}
               />
