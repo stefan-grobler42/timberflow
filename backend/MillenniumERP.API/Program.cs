@@ -4,22 +4,25 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add DbContext with PostgreSQL - parse DATABASE_URL properly
-var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+// Add DbContext with PostgreSQL using individual environment variables
+var pgHost = Environment.GetEnvironmentVariable("PGHOST");
+var pgPort = Environment.GetEnvironmentVariable("PGPORT");
+var pgUser = Environment.GetEnvironmentVariable("PGUSER");
+var pgPassword = Environment.GetEnvironmentVariable("PGPASSWORD");
+var pgDatabase = Environment.GetEnvironmentVariable("PGDATABASE");
+
 string connectionString;
 
-if (!string.IsNullOrEmpty(databaseUrl))
+if (!string.IsNullOrEmpty(pgHost) && !string.IsNullOrEmpty(pgUser) && !string.IsNullOrEmpty(pgPassword))
 {
-    // Parse the DATABASE_URL (postgresql://user:pass@host:port/dbname?params)
-    var uri = new Uri(databaseUrl.Replace("?sslmode", "?sslmode=require")); // Fix malformed parameter
-    var userInfo = uri.UserInfo.Split(':');
+    // Use individual PostgreSQL environment variables (more reliable than DATABASE_URL)
     var connBuilder = new NpgsqlConnectionStringBuilder
     {
-        Host = uri.Host,
-        Port = uri.Port > 0 ? uri.Port : 5432,
-        Username = Uri.UnescapeDataString(userInfo[0]),
-        Password = Uri.UnescapeDataString(userInfo[1]),
-        Database = uri.AbsolutePath.TrimStart('/').Split('?')[0], // Remove query params
+        Host = pgHost,
+        Port = int.TryParse(pgPort, out var port) ? port : 5432,
+        Username = pgUser,
+        Password = pgPassword,
+        Database = pgDatabase ?? "neondb",
         SslMode = SslMode.Require
     };
     connectionString = connBuilder.ConnectionString;
