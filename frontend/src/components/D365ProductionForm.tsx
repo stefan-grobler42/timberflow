@@ -332,13 +332,13 @@ export const D365ProductionForm = ({
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'general' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'general' ? 'white' : '#323130',
+                  backgroundColor: 'transparent',
+                  borderBottom: activeTab === 'general' ? '2px solid #0078d4' : '2px solid transparent',
+                  color: '#323130',
                   fontWeight: activeTab === 'general' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'general' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'general' ? 'white' : '#323130',
+                  backgroundColor: '#f3f2f1',
                 },
               }}
             />
@@ -352,13 +352,13 @@ export const D365ProductionForm = ({
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'related' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'related' ? 'white' : '#323130',
+                  backgroundColor: 'transparent',
+                  borderBottom: activeTab === 'related' ? '2px solid #0078d4' : '2px solid transparent',
+                  color: '#323130',
                   fontWeight: activeTab === 'related' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'related' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'related' ? 'white' : '#323130',
+                  backgroundColor: '#f3f2f1',
                 },
               }}
             />

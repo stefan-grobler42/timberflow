@@ -1,18 +1,15 @@
 import { useState, useEffect } from 'react';
 import {
   Stack,
-  Text,
   TextField,
   MessageBar,
   MessageBarType,
   DefaultButton,
-  CommandBar,
   DatePicker,
-  Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
-import { d365QuoteService, accountService } from '../services/d365Services';
-import type { D365Quote, Account } from '../types/millennium';
+import { d365QuoteService, lookupService } from '../services/d365Services';
+import { StandardLookupField, StandardFormHeader, type LookupOption } from './standards';
+import type { D365Quote } from '../types/millennium';
 
 interface D365QuoteFormProps {
   quote?: D365Quote;
@@ -44,25 +41,17 @@ export const D365QuoteForm = ({
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedCustomerText, setSelectedCustomerText] = useState<string>('');
 
-  useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  const loadAccounts = async () => {
+  const searchAccounts = async (searchTerm: string): Promise<LookupOption[]> => {
     try {
-      const data = await accountService.getAll();
-      setAccounts(data);
-    } catch (err) {
-      console.error('Failed to load accounts:', err);
+      const results = await lookupService.searchAccounts(searchTerm);
+      return results.map(r => ({ id: r.id, text: r.text }));
+    } catch (error) {
+      console.error('Error searching accounts:', error);
+      return [];
     }
   };
-
-  const accountOptions: IDropdownOption[] = [
-    { key: '', text: '(None)' },
-    ...accounts.map((a) => ({ key: a.id, text: a.name })),
-  ];
 
   useEffect(() => {
     if (quote) {
@@ -80,11 +69,27 @@ export const D365QuoteForm = ({
         description: quote.description || '',
         ownerId: quote.ownerId || '',
       });
+      
+      if (quote.customerId) {
+        loadCustomerText(quote.customerId);
+      }
     }
     setError(null);
   }, [quote]);
 
-  const handleSubmit = async () => {
+  const loadCustomerText = async (customerId: string) => {
+    try {
+      const results = await lookupService.searchAccounts('');
+      const customer = results.find(r => r.id === customerId);
+      if (customer) {
+        setSelectedCustomerText(customer.text);
+      }
+    } catch (err) {
+      console.error('Failed to load customer text:', err);
+    }
+  };
+
+  const handleSave = async (closeAfter: boolean) => {
     try {
       setSaving(true);
       setError(null);
@@ -96,78 +101,39 @@ export const D365QuoteForm = ({
       }
 
       onSave();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save quote');
       setSaving(false);
-    }
-  };
-
-  const handleSaveAndNew = async () => {
-    try {
-      setSaving(true);
-      setError(null);
-
-      if (quote) {
-        await d365QuoteService.update(quote.id, formData);
-      } else {
-        await d365QuoteService.create(formData);
+      
+      if (closeAfter) {
+        onDismiss();
       }
-
-      setFormData({
-        quoteNumber: '',
-        name: '',
-        customerId: '',
-        effectiveFrom: '',
-        effectiveTo: '',
-        totalAmount: 0,
-        totalDiscountAmount: 0,
-        totalLineItemAmount: 0,
-        stateCode: 0,
-        statusCode: 0,
-        description: '',
-        ownerId: '',
-      });
-      setSaving(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save quote');
       setSaving(false);
     }
   };
 
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
+  const handleDelete = () => {
+    if (onDelete) {
+      onDelete();
+    }
+  };
+
+  const tabStyles = (isActive: boolean) => ({
+    root: {
+      height: 40,
+      padding: '0 16px',
+      borderRadius: 0,
+      border: 'none',
+      borderBottom: isActive ? '2px solid #0078d4' : '2px solid transparent',
+      backgroundColor: 'transparent',
+      color: isActive ? '#0078d4' : '#323130',
+      fontWeight: isActive ? '600' : '400',
     },
-    {
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: handleSaveAndNew,
-      disabled: saving,
+    rootHovered: {
+      backgroundColor: '#f3f2f1',
+      color: '#0078d4',
     },
-    ...(quote && onDelete
-      ? [
-          {
-            key: 'delete',
-            text: 'Delete',
-            iconProps: { iconName: 'Delete' },
-            onClick: onDelete,
-            disabled: saving,
-          },
-        ]
-      : []),
-    {
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
-    },
-  ];
+  });
 
   const parseDate = (dateString?: string): Date | undefined => {
     if (!dateString) return undefined;
@@ -176,92 +142,34 @@ export const D365QuoteForm = ({
   };
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
-        {quote ? 'Edit Quote' : 'New Quote'}
-      </Text>
+    <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%', backgroundColor: 'white' } }}>
+      <StandardFormHeader
+        title={quote ? (quote.name || 'Edit Quote') : 'New Quote'}
+        subtitle="Quote"
+        onBack={onDismiss}
+        onSave={() => handleSave(false)}
+        onSaveAndClose={() => handleSave(true)}
+        onDelete={quote && onDelete ? handleDelete : undefined}
+        saving={saving}
+        isNew={!quote}
+      />
 
-      <CommandBar items={commandBarItems} />
+      {error && (
+        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+          {error}
+        </MessageBar>
+      )}
 
-      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
-        {error && (
-          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
-            {error}
-          </MessageBar>
-        )}
+      <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9', backgroundColor: '#faf9f8' } }}>
+        <DefaultButton text="Quote Information" onClick={() => setActiveTab('basic')} styles={tabStyles(activeTab === 'basic')} />
+        <DefaultButton text="Customer Details" onClick={() => setActiveTab('customer')} styles={tabStyles(activeTab === 'customer')} />
+        <DefaultButton text="Amounts" onClick={() => setActiveTab('amounts')} styles={tabStyles(activeTab === 'amounts')} />
+      </Stack>
 
-        <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
-          <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
-            <DefaultButton
-              text="Quote Information"
-              iconProps={{ iconName: 'PageHeaderEdit' }}
-              onClick={() => setActiveTab('basic')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'basic' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Customer Details"
-              iconProps={{ iconName: 'People' }}
-              onClick={() => setActiveTab('customer')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'customer' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'customer' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'customer' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'customer' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'customer' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Amounts"
-              iconProps={{ iconName: 'Money' }}
-              onClick={() => setActiveTab('amounts')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'amounts' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'amounts' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'amounts' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'amounts' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'amounts' ? 'white' : '#323130',
-                },
-              }}
-            />
-          </Stack>
-
-          <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
-            {activeTab === 'basic' && (
-              <Stack
-                horizontal
-                tokens={{ childrenGap: 32 }}
-                styles={{ root: { marginTop: 16, overflowY: 'auto' } }}
-              >
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
+      <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: 20 } }}>
+        {activeTab === 'basic' && (
+          <Stack horizontal tokens={{ childrenGap: 20 }}>
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { width: '60%', flexShrink: 0 } }}>
                   <TextField
                     label="Quote Number"
                     required
@@ -287,10 +195,10 @@ export const D365QuoteForm = ({
                       setFormData({ ...formData, description: value || '' })
                     }
                   />
-                </Stack>
+            </Stack>
 
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <DatePicker
+            <Stack tokens={{ childrenGap: 16 }} styles={{ root: { width: '40%' } }}>
+              <DatePicker
                     label="Effective From"
                     value={parseDate(formData.effectiveFrom)}
                     onSelectDate={(date) =>
@@ -315,78 +223,70 @@ export const D365QuoteForm = ({
                     }
                   />
 
-                  <TextField
-                    label="Status Code"
-                    type="number"
-                    value={String(formData.statusCode)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, statusCode: Number(value) || 0 })
-                    }
-                  />
-                </Stack>
-              </Stack>
-            )}
-
-            {activeTab === 'customer' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <Dropdown
-                  label="Customer"
-                  options={accountOptions}
-                  selectedKey={formData.customerId || ''}
-                  onChange={(_, option) =>
-                    setFormData({ ...formData, customerId: option?.key as string || '' })
-                  }
-                />
-
-                <TextField
-                  label="Owner ID"
-                  value={formData.ownerId}
-                  onChange={(_, value) => setFormData({ ...formData, ownerId: value || '' })}
-                />
-              </Stack>
-            )}
-
-            {activeTab === 'amounts' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <TextField
-                  label="Total Amount"
-                  type="number"
-                  value={String(formData.totalAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
-                />
-
-                <TextField
-                  label="Total Discount Amount"
-                  type="number"
-                  value={String(formData.totalDiscountAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalDiscountAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
-                />
-
-                <TextField
-                  label="Total Line Item Amount"
-                  type="number"
-                  value={String(formData.totalLineItemAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalLineItemAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
-                />
-              </Stack>
-            )}
+              <TextField
+                label="Status Code"
+                type="number"
+                value={String(formData.statusCode)}
+                onChange={(_, value) =>
+                  setFormData({ ...formData, statusCode: Number(value) || 0 })
+                }
+              />
+            </Stack>
           </Stack>
-        </Stack>
+        )}
+
+        {activeTab === 'customer' && (
+          <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
+            <StandardLookupField
+              label="Customer"
+              value={formData.customerId}
+              selectedText={selectedCustomerText}
+              entityName="Account"
+              onChange={(id) => setFormData({ ...formData, customerId: id })}
+              onSearch={searchAccounts}
+            />
+
+            <TextField
+              label="Owner ID"
+              value={formData.ownerId}
+              onChange={(_, value) => setFormData({ ...formData, ownerId: value || '' })}
+            />
+          </Stack>
+        )}
+
+        {activeTab === 'amounts' && (
+          <Stack tokens={{ childrenGap: 16 }} styles={{ root: { maxWidth: 600 } }}>
+            <TextField
+              label="Total Amount"
+              type="number"
+              value={String(formData.totalAmount)}
+              onChange={(_, value) =>
+                setFormData({ ...formData, totalAmount: Number(value) || 0 })
+              }
+              prefix="R"
+            />
+
+            <TextField
+              label="Total Discount Amount"
+              type="number"
+              value={String(formData.totalDiscountAmount)}
+              onChange={(_, value) =>
+                setFormData({ ...formData, totalDiscountAmount: Number(value) || 0 })
+              }
+              prefix="R"
+            />
+
+            <TextField
+              label="Total Line Item Amount"
+              type="number"
+              value={String(formData.totalLineItemAmount)}
+              onChange={(_, value) =>
+                setFormData({ ...formData, totalLineItemAmount: Number(value) || 0 })
+              }
+              prefix="R"
+            />
+          </Stack>
+        )}
       </Stack>
     </Stack>
   );

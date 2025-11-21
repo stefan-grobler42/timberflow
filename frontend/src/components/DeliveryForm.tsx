@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
 import {
   Stack,
-  Text,
   TextField,
   Checkbox,
   MessageBar,
   MessageBarType,
   DefaultButton,
-  CommandBar,
   DatePicker,
   Dropdown,
 } from '@fluentui/react';
-import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import type { IDropdownOption } from '@fluentui/react';
 import { deliveryService, employeeService } from '../services';
 import type { Delivery, Employee } from '../types/millennium';
+import { StandardFormHeader } from './standards';
 
 interface DeliveryFormProps {
   delivery?: Delivery;
@@ -165,57 +164,38 @@ export const DeliveryForm = ({
     }
   };
 
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
-    },
-    {
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: handleSaveAndNew,
-      disabled: saving,
-    },
-    ...(delivery && onDelete
-      ? [
-          {
-            key: 'delete',
-            text: 'Delete',
-            iconProps: { iconName: 'Delete' },
-            onClick: onDelete,
-            disabled: saving,
-          },
-        ]
-      : []),
-    {
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
-    },
-  ];
+  const getFormTitle = (): string => {
+    if (delivery && formData.deliveryNo) {
+      return `${formData.deliveryNo}${delivery ? ' - Saved' : ''}`;
+    }
+    return delivery ? 'Edit Delivery' : 'New Delivery';
+  };
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
-        {delivery ? 'Edit Delivery' : 'New Delivery'}
-      </Text>
-
-      <CommandBar items={commandBarItems} />
+    <Stack tokens={{ childrenGap: 0 }} styles={{ root: { height: '100%' } }}>
+      <StandardFormHeader
+        title={getFormTitle()}
+        onBack={onDismiss}
+        onSave={handleSubmit}
+        onSaveAndNew={handleSaveAndNew}
+        onDelete={delivery && onDelete ? onDelete : undefined}
+        onCancel={onDismiss}
+        saving={saving}
+        isNew={!delivery}
+      />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
         {error && (
-          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
+          <MessageBar 
+            messageBarType={MessageBarType.error} 
+            onDismiss={() => setError(null)}
+            styles={{ root: { marginTop: 16 } }}
+          >
             {error}
           </MessageBar>
         )}
 
-        <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
+        <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column', marginTop: 16 } }}>
           <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
             <DefaultButton
               text="Basic Info"
@@ -227,13 +207,13 @@ export const DeliveryForm = ({
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
+                  backgroundColor: 'transparent',
+                  borderBottom: activeTab === 'basic' ? '2px solid #0078d4' : '2px solid transparent',
+                  color: '#323130',
                   fontWeight: activeTab === 'basic' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
+                  backgroundColor: '#f3f2f1',
                 },
               }}
             />
@@ -247,13 +227,13 @@ export const DeliveryForm = ({
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'personnel' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'personnel' ? 'white' : '#323130',
+                  backgroundColor: 'transparent',
+                  borderBottom: activeTab === 'personnel' ? '2px solid #0078d4' : '2px solid transparent',
+                  color: '#323130',
                   fontWeight: activeTab === 'personnel' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'personnel' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'personnel' ? 'white' : '#323130',
+                  backgroundColor: '#f3f2f1',
                 },
               }}
             />
@@ -267,13 +247,13 @@ export const DeliveryForm = ({
                   padding: '0 24px',
                   borderRadius: 0,
                   border: 'none',
-                  backgroundColor: activeTab === 'timing' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'timing' ? 'white' : '#323130',
+                  backgroundColor: 'transparent',
+                  borderBottom: activeTab === 'timing' ? '2px solid #0078d4' : '2px solid transparent',
+                  color: '#323130',
                   fontWeight: activeTab === 'timing' ? 600 : 400,
                 },
                 rootHovered: {
-                  backgroundColor: activeTab === 'timing' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'timing' ? 'white' : '#323130',
+                  backgroundColor: '#f3f2f1',
                 },
               }}
             />

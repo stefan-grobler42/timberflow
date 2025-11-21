@@ -1,0 +1,41 @@
+System-wide visual and behavioural alignment directive (one-time instruction):
+
+Conduct a full audit of all existing modules, pages, tables, components, and forms across the system. For each of the following standardised elements, cross-check and enforce uniformity. Wherever current implementations deviate, you must update and align them to match the established standard as defined in the Accounts table/forms:
+
+Action Bar (Accounts table standard)
+
+Grid Controls (Accounts table standard)
+
+Lookup Field Behaviour (Accounts table standard)
+
+Address Fields and Address Function (Accounts table standard)
+
+Value Field Formatting (Accounts table standard)
+
+Subgrid Functionality (Accounts table standard)
+
+Phone Number Field (Contacts table standard)
+
+Form Behaviour and Visual Layout (Accounts record standard – including form structure, section layout, spacing, input controls, labels, header/footer, and control behaviours)
+
+Instructions:
+
+Identify every module, form, page, component, or view where any of the above elements exist.
+
+Compare each instance against the established standard in the Accounts table (or Contacts table where applicable).
+
+If differences exist, update those modules to accurately mirror the standard—both in functionality and visual design.
+
+Use the Accounts record layout as the master reference template for form behaviour, field arrangement, styling, input control interactions, section layouts, spacing, side panels, and visual consistency.
+
+Important:
+
+This is a once-off directive to standardise and synchronise the system look and behaviour.
+
+You are expected to proactively implement corrections—without waiting for confirmation—but only for inconsistencies that violate the standards above.
+
+Do not introduce new features, refactors, or optimisations beyond standard alignment.
+
+If any alignment requires a change that may impact core data logic, APIs, or existing workflows, pause and report these potential impacts before proceeding.
+
+Once alignment is completed, the system will adopt the instruction guardrails I provide going forward.

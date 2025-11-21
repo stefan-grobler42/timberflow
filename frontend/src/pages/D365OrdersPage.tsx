@@ -436,7 +436,7 @@ export const D365OrdersPage = () => {
       isSorted: sortColumn === 'totalAmount',
       isSortedDescending: sortColumn === 'totalAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Order) => <Text>{item.totalAmount ? `$${item.totalAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Order) => <Text>{item.totalAmount ? `R ${item.totalAmount.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'requestDeliveryBy',
@@ -483,7 +483,7 @@ export const D365OrdersPage = () => {
       isSorted: sortColumn === 'totalDiscountAmount',
       isSortedDescending: sortColumn === 'totalDiscountAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Order) => <Text>{item.totalDiscountAmount ? `$${item.totalDiscountAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Order) => <Text>{item.totalDiscountAmount ? `R ${item.totalDiscountAmount.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'totalLineItemAmount',
@@ -495,7 +495,7 @@ export const D365OrdersPage = () => {
       isSorted: sortColumn === 'totalLineItemAmount',
       isSortedDescending: sortColumn === 'totalLineItemAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Order) => <Text>{item.totalLineItemAmount ? `$${item.totalLineItemAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Order) => <Text>{item.totalLineItemAmount ? `R ${item.totalLineItemAmount.toFixed(2)}` : '-'}</Text>,
     },
   ];
 

@@ -29,7 +29,9 @@ import { D365ProductionForm } from '../components/D365ProductionForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
 import { useLookupData, resolveLookup } from '../hooks/useLookupData';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const ProductionPage = () => {
@@ -48,6 +50,7 @@ export const ProductionPage = () => {
   const [sortColumn, setSortColumn] = useState<string>('orderNumber');
   const [isSortedDescending, setIsSortedDescending] = useState(true);
   const lookupData = useLookupData();
+  const pagination = usePagination({ items: filteredProduction });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     orderNumber: true,
@@ -508,7 +511,7 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'trussCost',
       isSortedDescending: sortColumn === 'trussCost' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{item.trussCost !== null && item.trussCost !== undefined ? `R${item.trussCost.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: Production) => <Text>{item.trussCost !== null && item.trussCost !== undefined ? `R ${item.trussCost.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'trussSelling',
@@ -519,7 +522,7 @@ export const ProductionPage = () => {
       isSorted: sortColumn === 'trussSelling',
       isSortedDescending: sortColumn === 'trussSelling' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: Production) => <Text>{item.trussSelling !== null && item.trussSelling !== undefined ? `R${item.trussSelling.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: Production) => <Text>{item.trussSelling !== null && item.trussSelling !== undefined ? `R ${item.trussSelling.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'sawOperator',
@@ -717,17 +720,27 @@ export const ProductionPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading production..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredProduction}
-            columns={columns}
-            selection={selection}
-            selectionMode={1}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            onItemInvoked={handleRowDoubleClick}
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={pagination.paginatedItems}
+              columns={columns}
+              selection={selection}
+              selectionMode={1}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              onItemInvoked={handleRowDoubleClick}
+            />
+          </div>
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={filteredProduction.length}
+            onPageChange={pagination.setCurrentPage}
+            onPageSizeChange={pagination.setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel

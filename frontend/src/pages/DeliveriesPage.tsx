@@ -30,6 +30,8 @@ import { DeliveryForm } from '../components/DeliveryForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const DeliveriesPage = () => {
@@ -47,6 +49,7 @@ export const DeliveriesPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+  const pagination = usePagination({ items: filteredDeliveries });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     deliveryNo: true,
@@ -598,17 +601,27 @@ export const DeliveriesPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading deliveries..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredDeliveries}
-            columns={columns}
-            selection={selection}
-            selectionMode={1}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            onItemInvoked={handleRowDoubleClick}
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={pagination.paginatedItems}
+              columns={columns}
+              selection={selection}
+              selectionMode={1}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              onItemInvoked={handleRowDoubleClick}
+            />
+          </div>
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            pageSize={pagination.pageSize}
+            totalItems={filteredDeliveries.length}
+            onPageChange={pagination.setCurrentPage}
+            onPageSizeChange={pagination.setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel

@@ -25,6 +25,8 @@ import { D365QuoteForm } from '../components/D365QuoteForm';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { ViewManager } from '../components/ViewManager';
 import { FilterBuilder } from '../components/FilterBuilder';
+import { Pagination } from '../components/Pagination';
+import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
 
 export const D365QuotesPage = () => {
@@ -42,6 +44,14 @@ export const D365QuotesPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+
+  const {
+    currentPage,
+    pageSize,
+    paginatedItems: paginatedQuotes,
+    setCurrentPage,
+    setPageSize,
+  } = usePagination({ items: filteredQuotes, initialPageSize: 50 });
   
   const defaultVisibleColumns: { [key: string]: boolean } = {
     quoteNumber: true,
@@ -423,7 +433,7 @@ export const D365QuotesPage = () => {
       isSorted: sortColumn === 'totalAmount',
       isSortedDescending: sortColumn === 'totalAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Quote) => <Text>{item.totalAmount ? `$${item.totalAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Quote) => <Text>{item.totalAmount ? `R ${item.totalAmount.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'effectiveFrom',
@@ -470,7 +480,7 @@ export const D365QuotesPage = () => {
       isSorted: sortColumn === 'totalDiscountAmount',
       isSortedDescending: sortColumn === 'totalDiscountAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Quote) => <Text>{item.totalDiscountAmount ? `$${item.totalDiscountAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Quote) => <Text>{item.totalDiscountAmount ? `R ${item.totalDiscountAmount.toFixed(2)}` : '-'}</Text>,
     },
     {
       key: 'totalLineItemAmount',
@@ -482,7 +492,7 @@ export const D365QuotesPage = () => {
       isSorted: sortColumn === 'totalLineItemAmount',
       isSortedDescending: sortColumn === 'totalLineItemAmount' && isSortedDescending,
       onColumnClick: onColumnClick,
-      onRender: (item: D365Quote) => <Text>{item.totalLineItemAmount ? `$${item.totalLineItemAmount.toFixed(2)}` : '-'}</Text>,
+      onRender: (item: D365Quote) => <Text>{item.totalLineItemAmount ? `R ${item.totalLineItemAmount.toFixed(2)}` : '-'}</Text>,
     },
   ];
 
@@ -635,26 +645,36 @@ export const D365QuotesPage = () => {
           <Spinner size={SpinnerSize.large} label="Loading quotes..." />
         </Stack>
       ) : (
-        <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
-          <DetailsList
-            items={filteredQuotes}
-            columns={columns}
-            layoutMode={DetailsListLayoutMode.justified}
-            constrainMode={ConstrainMode.unconstrained}
-            selection={selection}
-            selectionPreservedOnEmptyClick
-            onItemInvoked={handleRowDoubleClick}
-            styles={{
-              root: {
-                selectors: {
-                  '.ms-DetailsRow': {
-                    cursor: 'pointer',
+        <>
+          <div style={{ overflowX: 'auto', overflowY: 'visible' }}>
+            <DetailsList
+              items={paginatedQuotes}
+              columns={columns}
+              layoutMode={DetailsListLayoutMode.justified}
+              constrainMode={ConstrainMode.unconstrained}
+              selection={selection}
+              selectionPreservedOnEmptyClick
+              onItemInvoked={handleRowDoubleClick}
+              styles={{
+                root: {
+                  selectors: {
+                    '.ms-DetailsRow': {
+                      cursor: 'pointer',
+                    },
                   },
                 },
-              },
-            }}
+              }}
+            />
+          </div>
+          
+          <Pagination
+            currentPage={currentPage}
+            pageSize={pageSize}
+            totalItems={filteredQuotes.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
-        </div>
+        </>
       )}
 
       <Panel
