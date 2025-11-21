@@ -24,6 +24,7 @@ public class D365OrderDto
 
 public class CreateD365OrderDto
 {
+    public Guid? Id { get; set; }
     public string? OrderNumber { get; set; }
     public string? Name { get; set; }
     public Guid? CustomerId { get; set; }

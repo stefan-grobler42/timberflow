@@ -48,7 +48,7 @@ public class D365OrdersController : ControllerBase
     {
         var order = new D365Order
         {
-            Id = Guid.NewGuid(),
+            Id = createDto.Id ?? Guid.NewGuid(),
             OrderNumber = createDto.OrderNumber,
             Name = createDto.Name,
             CustomerId = createDto.CustomerId,

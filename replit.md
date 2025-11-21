@@ -3,6 +3,14 @@
 ## Overview
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution. The project aims to enhance market potential and operational ambitions for timber roofing contractors.
 
+## Recent Changes
+**November 21, 2025 - Critical Data Migration Fix:**
+- **Issue**: Production-to-Order GUID linking failed (0 matches out of 2,904 production records)
+- **Root Cause**: D365OrdersController was generating new GUIDs with `Guid.NewGuid()` instead of accepting original D365 salesorderid values from migration script
+- **Fix**: Modified `CreateD365OrderDto` to include `Id` field and updated controller to use `createDto.Id ?? Guid.NewGuid()` for GUID preservation
+- **Result**: Re-migrated 3,187 salesorders with original D365 GUIDs preserved; 2,904 production-order links now working (100% success rate)
+- **Additional**: Fixed pagination display bug in ProductionPage (changed `totalItems` prop to `totalRecords`)
+
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 Technology stack preference: React + Fluent UI v8 for modern, Microsoft-style interface
