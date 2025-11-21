@@ -3,10 +3,11 @@ using MillenniumERP.Infrastructure.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add DbContext with SQLite
+// Add DbContext with PostgreSQL
+var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") 
-        ?? "Data Source=millennium_erp.db"));
+    options.UseNpgsql(connectionString));
 
 // Add services to the container
 builder.Services.AddControllers()
