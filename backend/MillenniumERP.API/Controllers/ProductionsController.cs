@@ -29,38 +29,33 @@ public class ProductionsController : ControllerBase
             query = query.Where(p => p.Productioncomplete == true);
         }
 
-        var productions = await query
-            .GroupJoin(
-                _context.D365Orders,
-                p => p.Orderno,
-                o => o.Id,
-                (p, orders) => new { Production = p, Order = orders.FirstOrDefault() }
-            )
-            .OrderBy(x => x.Production.Name)
-            .ToListAsync();
+        var productions = await query.OrderBy(p => p.Name).ToListAsync();
+        
+        var orderIds = productions.Where(p => p.Orderno != null).Select(p => p.Orderno!.Value).Distinct().ToList();
+        var orders = await _context.D365Orders.Where(o => orderIds.Contains(o.Id)).ToDictionaryAsync(o => o.Id, o => o.OrderNumber);
 
-        var productionDtos = productions.Select(x => MapToDto(x.Production, x.Order?.OrderNumber)).ToList();
+        var productionDtos = productions.Select(p => MapToDto(p, p.Orderno.HasValue && orders.ContainsKey(p.Orderno.Value) ? orders[p.Orderno.Value] : null)).ToList();
         return Ok(productionDtos);
     }
 
     [HttpGet("{id}")]
     public async Task<ActionResult<ProductionDto>> GetById(Guid id)
     {
-        var result = await _context.Productions
-            .GroupJoin(
-                _context.D365Orders,
-                p => p.Orderno,
-                o => o.Id,
-                (p, orders) => new { Production = p, Order = orders.FirstOrDefault() }
-            )
-            .FirstOrDefaultAsync(x => x.Production.Id == id);
+        var production = await _context.Productions.FirstOrDefaultAsync(p => p.Id == id);
 
-        if (result == null)
+        if (production == null)
         {
             return NotFound(new { message = $"Production with ID {id} not found" });
         }
 
-        return Ok(MapToDto(result.Production, result.Order?.OrderNumber));
+        string? orderNumber = null;
+        if (production.Orderno.HasValue)
+        {
+            var order = await _context.D365Orders.FirstOrDefaultAsync(o => o.Id == production.Orderno.Value);
+            orderNumber = order?.OrderNumber;
+        }
+
+        return Ok(MapToDto(production, orderNumber));
     }
 
     [HttpPost]
