@@ -734,9 +734,8 @@ export const ProductionPage = () => {
           </div>
           <Pagination
             currentPage={pagination.currentPage}
-            totalPages={pagination.totalPages}
             pageSize={pagination.pageSize}
-            totalItems={filteredProduction.length}
+            totalRecords={filteredProduction.length}
             onPageChange={pagination.setCurrentPage}
             onPageSizeChange={pagination.setPageSize}
           />
