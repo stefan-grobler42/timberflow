@@ -24,6 +24,14 @@ import { D365AppointmentsPage } from './pages/D365AppointmentsPage';
 import { D365EmailsPage } from './pages/D365EmailsPage';
 import { DuplicateDetectionPage } from './pages/DuplicateDetectionPage';
 import { QuotesList } from './pages/QuotesList';
+import { ActivitiesPage } from './pages/ActivitiesPage';
+import { InstallationsPage } from './pages/InstallationsPage';
+import { TripsPage } from './pages/TripsPage';
+import { LoadsPage } from './pages/LoadsPage';
+import { ProcurementPage } from './pages/ProcurementPage';
+import { SuppliersPage } from './pages/SuppliersPage';
+import { SubContractorsPage } from './pages/SubContractorsPage';
+import { SubContractorDeductionsPage } from './pages/SubContractorDeductionsPage';
 
 initializeIcons();
 
@@ -43,7 +51,7 @@ function App() {
             </ul>
             <p><em>Note: Full data consolidation (merging legacy and D365 contacts) is planned for a future release.</em></p>
           </div>} />
-          <Route path="/activities" element={<div>Activities (Coming Soon)</div>} />
+          <Route path="/activities" element={<ActivitiesPage />} />
           <Route path="/roles" element={<div>Roles (Coming Soon)</div>} />
           <Route path="/companies" element={<div>Company Types (Coming Soon)</div>} />
           
@@ -51,12 +59,23 @@ function App() {
           <Route path="/salerepresentatives" element={<SaleRepresentativesPage />} />
           <Route path="/vehicles" element={<VehiclesPage />} />
           <Route path="/employees" element={<EmployeesPage />} />
+          <Route path="/suppliers" element={<SuppliersPage />} />
+          
           <Route path="/quotes" element={<QuotesList />} />
           <Route path="/quotes-legacy" element={<QuotesPage />} />
           <Route path="/tenders" element={<TendersPage />} />
+          <Route path="/procurement" element={<ProcurementPage />} />
           <Route path="/pricing" element={<PricingCalculationsPage />} />
-          <Route path="/installation" element={<InstallationProgressPage />} />
           <Route path="/production" element={<ProductionPage />} />
+          
+          <Route path="/trips" element={<TripsPage />} />
+          <Route path="/loads" element={<LoadsPage />} />
+          <Route path="/installations" element={<InstallationsPage />} />
+          <Route path="/subcontractors" element={<SubContractorsPage />} />
+          <Route path="/subcontractor-deductions" element={<SubContractorDeductionsPage />} />
+          
+          {/* Legacy routes - kept for backward compatibility */}
+          <Route path="/installation" element={<InstallationProgressPage />} />
           <Route path="/logistics" element={<LogisticsPage />} />
           <Route path="/deliveries" element={<DeliveriesPage />} />
           
