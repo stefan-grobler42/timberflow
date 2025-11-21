@@ -1,18 +1,19 @@
 import { useState, useEffect } from 'react';
 import {
   Stack,
-  Text,
   TextField,
   MessageBar,
   MessageBarType,
-  DefaultButton,
-  CommandBar,
   DatePicker,
   Dropdown,
+  Label,
+  Pivot,
+  PivotItem,
 } from '@fluentui/react';
-import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import type { IDropdownOption } from '@fluentui/react';
 import { d365OrderService, accountService, d365QuoteService } from '../services/d365Services';
-import type { D365Order, Account, D365Quote } from '../types/millennium';
+import { StandardLookupField, StandardFormHeader, type LookupOption } from './standards';
+import type { D365Order } from '../types/millennium';
 
 interface D365OrderFormProps {
   order?: D365Order;
@@ -21,13 +22,31 @@ interface D365OrderFormProps {
   onDelete?: () => void;
 }
 
+const stateCodeOptions: IDropdownOption[] = [
+  { key: 0, text: 'Active' },
+  { key: 1, text: 'Inactive' },
+  { key: 2, text: 'Submitted' },
+  { key: 3, text: 'Canceled' },
+];
+
+const statusCodeOptions: IDropdownOption[] = [
+  { key: 1, text: 'New' },
+  { key: 2, text: 'Pending' },
+  { key: 3, text: 'In Progress' },
+  { key: 4, text: 'No Money' },
+  { key: 100000, text: 'Complete' },
+  { key: 100001, text: 'Partial' },
+  { key: 100002, text: 'Invoiced' },
+  { key: 5, text: 'Canceled' },
+];
+
 export const D365OrderForm = ({
   order,
   onDismiss,
   onSave,
   onDelete,
 }: D365OrderFormProps) => {
-  const [activeTab, setActiveTab] = useState<string>('basic');
+  const [activeTab, setActiveTab] = useState<string>('summary');
   const [formData, setFormData] = useState<Partial<D365Order>>({
     orderNumber: '',
     name: '',
@@ -39,14 +58,15 @@ export const D365OrderForm = ({
     totalDiscountAmount: 0,
     totalLineItemAmount: 0,
     stateCode: 0,
-    statusCode: 0,
+    statusCode: 1,
     description: '',
     ownerId: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [quotes, setQuotes] = useState<D365Quote[]>([]);
+  
+  const [selectedCustomerText, setSelectedCustomerText] = useState<string>('');
+  const [selectedQuoteText, setSelectedQuoteText] = useState<string>('');
 
   useEffect(() => {
     if (order) {
@@ -60,43 +80,40 @@ export const D365OrderForm = ({
         totalAmount: order.totalAmount || 0,
         totalDiscountAmount: order.totalDiscountAmount || 0,
         totalLineItemAmount: order.totalLineItemAmount || 0,
-        stateCode: order.stateCode || 0,
-        statusCode: order.statusCode || 0,
+        stateCode: order.stateCode ?? 0,
+        statusCode: order.statusCode ?? 1,
         description: order.description || '',
         ownerId: order.ownerId || '',
       });
+      
+      loadLookupTexts(order);
     }
     setError(null);
   }, [order]);
 
-  useEffect(() => {
-    loadLookupData();
-  }, []);
-
-  const loadLookupData = async () => {
+  const loadLookupTexts = async (ord: D365Order) => {
     try {
-      const [accountsData, quotesData] = await Promise.all([
-        accountService.getAll(),
-        d365QuoteService.getAll(),
-      ]);
-      setAccounts(accountsData);
-      setQuotes(quotesData);
+      if (ord.customerId) {
+        const accounts = await accountService.getAll();
+        const account = accounts.find(a => a.id === ord.customerId);
+        if (account) {
+          setSelectedCustomerText(account.name || '');
+        }
+      }
+      
+      if (ord.quoteId) {
+        const quotes = await d365QuoteService.getAll();
+        const quote = quotes.find(q => q.id === ord.quoteId);
+        if (quote) {
+          setSelectedQuoteText(quote.quoteNumber ? `${quote.quoteNumber}${quote.name ? ' - ' + quote.name : ''}` : (quote.name || ''));
+        }
+      }
     } catch (err) {
-      console.error('Failed to load lookup data:', err);
+      console.error('Failed to load lookup texts:', err);
     }
   };
 
-  const accountOptions: IDropdownOption[] = [
-    { key: '', text: '(None)' },
-    ...accounts.map((a) => ({ key: a.id, text: a.name })),
-  ];
-
-  const quoteOptions: IDropdownOption[] = [
-    { key: '', text: '(None)' },
-    ...quotes.map((q) => ({ key: q.id, text: q.name || q.quoteNumber || `Quote ${q.id}` })),
-  ];
-
-  const handleSubmit = async () => {
+  const handleSubmit = async (saveAndNew: boolean = false) => {
     try {
       setSaving(true);
       setError(null);
@@ -107,80 +124,33 @@ export const D365OrderForm = ({
         await d365OrderService.create(formData);
       }
 
-      onSave();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save order');
-      setSaving(false);
-    }
-  };
-
-  const handleSaveAndNew = async () => {
-    try {
-      setSaving(true);
-      setError(null);
-
-      if (order) {
-        await d365OrderService.update(order.id, formData);
+      if (saveAndNew) {
+        setFormData({
+          orderNumber: '',
+          name: '',
+          customerId: '',
+          quoteId: '',
+          dateFulfilled: '',
+          requestDeliveryBy: '',
+          totalAmount: 0,
+          totalDiscountAmount: 0,
+          totalLineItemAmount: 0,
+          stateCode: 0,
+          statusCode: 1,
+          description: '',
+          ownerId: '',
+        });
+        setSelectedCustomerText('');
+        setSelectedQuoteText('');
+        setSaving(false);
       } else {
-        await d365OrderService.create(formData);
+        onSave();
       }
-
-      setFormData({
-        orderNumber: '',
-        name: '',
-        customerId: '',
-        quoteId: '',
-        dateFulfilled: '',
-        requestDeliveryBy: '',
-        totalAmount: 0,
-        totalDiscountAmount: 0,
-        totalLineItemAmount: 0,
-        stateCode: 0,
-        statusCode: 0,
-        description: '',
-        ownerId: '',
-      });
-      setSaving(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save order');
       setSaving(false);
     }
   };
-
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: handleSubmit,
-      disabled: saving,
-    },
-    {
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: handleSaveAndNew,
-      disabled: saving,
-    },
-    ...(order && onDelete
-      ? [
-          {
-            key: 'delete',
-            text: 'Delete',
-            iconProps: { iconName: 'Delete' },
-            onClick: onDelete,
-            disabled: saving,
-          },
-        ]
-      : []),
-    {
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onDismiss,
-      disabled: saving,
-    },
-  ];
 
   const parseDate = (dateString?: string): Date | undefined => {
     if (!dateString) return undefined;
@@ -188,13 +158,45 @@ export const D365OrderForm = ({
     return isNaN(date.getTime()) ? undefined : date;
   };
 
-  return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { padding: '20px 20px 0 20px' } }}>
-        {order ? 'Edit Order' : 'New Order'}
-      </Text>
+  const formatDateForInput = (date?: Date): string => {
+    if (!date) return '';
+    return date.toISOString();
+  };
 
-      <CommandBar items={commandBarItems} />
+  const handleCustomerSearch = async (term: string): Promise<LookupOption[]> => {
+    const accounts = await accountService.getAll();
+    const search = term.toLowerCase();
+    return accounts
+      .filter(a => (a.name?.toLowerCase() || '').includes(search))
+      .slice(0, 50)
+      .map(a => ({ id: a.id, text: a.name || '' }));
+  };
+
+  const handleQuoteSearch = async (term: string): Promise<LookupOption[]> => {
+    const quotes = await d365QuoteService.getAll();
+    const search = term.toLowerCase();
+    return quotes
+      .filter(q => 
+        (q.quoteNumber?.toLowerCase() || '').includes(search) ||
+        (q.name?.toLowerCase() || '').includes(search)
+      )
+      .slice(0, 50)
+      .map(q => ({
+        id: q.id,
+        text: q.quoteNumber ? `${q.quoteNumber}${q.name ? ' - ' + q.name : ''}` : (q.name || q.id)
+      }));
+  };
+
+  return (
+    <Stack styles={{ root: { height: '100%', overflow: 'hidden' } }}>
+      <StandardFormHeader
+        title={order ? `Order: ${order.orderNumber || order.name || 'Untitled'}` : 'New Order'}
+        onSave={() => handleSubmit(false)}
+        onSaveAndNew={order ? undefined : () => handleSubmit(true)}
+        onCancel={onDismiss}
+        onDelete={order && onDelete ? onDelete : undefined}
+        isSaving={saving}
+      />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
         {error && (
@@ -203,211 +205,393 @@ export const D365OrderForm = ({
           </MessageBar>
         )}
 
-        <Stack styles={{ root: { flex: 1, display: 'flex', flexDirection: 'column' } }}>
-          <Stack horizontal styles={{ root: { borderBottom: '1px solid #edebe9' } }}>
-            <DefaultButton
-              text="Order Information"
-              iconProps={{ iconName: 'ShoppingCart' }}
-              onClick={() => setActiveTab('basic')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'basic' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'basic' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'basic' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'basic' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Customer Details"
-              iconProps={{ iconName: 'People' }}
-              onClick={() => setActiveTab('customer')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'customer' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'customer' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'customer' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'customer' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'customer' ? 'white' : '#323130',
-                },
-              }}
-            />
-            <DefaultButton
-              text="Amounts"
-              iconProps={{ iconName: 'Money' }}
-              onClick={() => setActiveTab('amounts')}
-              styles={{
-                root: {
-                  height: 48,
-                  padding: '0 24px',
-                  borderRadius: 0,
-                  border: 'none',
-                  backgroundColor: activeTab === 'amounts' ? '#0078d4' : 'transparent',
-                  color: activeTab === 'amounts' ? 'white' : '#323130',
-                  fontWeight: activeTab === 'amounts' ? 600 : 400,
-                },
-                rootHovered: {
-                  backgroundColor: activeTab === 'amounts' ? '#106ebe' : '#f3f2f1',
-                  color: activeTab === 'amounts' ? 'white' : '#323130',
-                },
-              }}
-            />
-          </Stack>
+        <Pivot
+          selectedKey={activeTab}
+          onLinkClick={(item) => setActiveTab(item?.props.itemKey || 'summary')}
+          headersOnly
+          styles={{ root: { marginTop: 10 } }}
+        >
+          <PivotItem headerText="Summary" itemKey="summary" />
+          <PivotItem headerText="General" itemKey="general" />
+          <PivotItem headerText="Production" itemKey="production" />
+          <PivotItem headerText="Costing" itemKey="costing" />
+          <PivotItem headerText="Dispatch" itemKey="dispatch" />
+          <PivotItem headerText="Invoices" itemKey="invoices" />
+          <PivotItem headerText="Details" itemKey="details" />
+          <PivotItem headerText="Related" itemKey="related" />
+        </Pivot>
 
-          <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '20px 0' } }}>
-            {activeTab === 'basic' && (
-              <Stack
-                horizontal
-                tokens={{ childrenGap: 32 }}
-                styles={{ root: { marginTop: 16, overflowY: 'auto' } }}
-              >
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <TextField
-                    label="Order Number"
-                    required
-                    value={formData.orderNumber}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, orderNumber: value || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="Order Name"
-                    required
-                    value={formData.name}
-                    onChange={(_, value) => setFormData({ ...formData, name: value || '' })}
-                  />
-
-                  <TextField
-                    label="Description"
-                    multiline
-                    rows={3}
-                    value={formData.description}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, description: value || '' })
-                    }
-                  />
-                </Stack>
-
-                <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
-                  <DatePicker
-                    label="Date Fulfilled"
-                    value={parseDate(formData.dateFulfilled)}
-                    onSelectDate={(date) =>
-                      setFormData({ ...formData, dateFulfilled: date?.toISOString() || '' })
-                    }
-                  />
-
-                  <DatePicker
-                    label="Request Delivery By"
-                    value={parseDate(formData.requestDeliveryBy)}
-                    onSelectDate={(date) =>
-                      setFormData({ ...formData, requestDeliveryBy: date?.toISOString() || '' })
-                    }
-                  />
-
-                  <TextField
-                    label="State Code"
-                    type="number"
-                    value={String(formData.stateCode)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, stateCode: Number(value) || 0 })
-                    }
-                  />
-
-                  <TextField
-                    label="Status Code"
-                    type="number"
-                    value={String(formData.statusCode)}
-                    onChange={(_, value) =>
-                      setFormData({ ...formData, statusCode: Number(value) || 0 })
-                    }
-                  />
-                </Stack>
-              </Stack>
-            )}
-
-            {activeTab === 'customer' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
-                <Dropdown
-                  label="Customer"
-                  options={accountOptions}
-                  selectedKey={formData.customerId || ''}
-                  onChange={(_, option) =>
-                    setFormData({ ...formData, customerId: option?.key as string || '' })
-                  }
-                />
-
-                <Dropdown
-                  label="Quote"
-                  options={quoteOptions}
-                  selectedKey={formData.quoteId || ''}
-                  onChange={(_, option) =>
-                    setFormData({ ...formData, quoteId: option?.key as string || '' })
-                  }
+        <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 20 } }}>
+          {activeTab === 'summary' && (
+            <Stack tokens={{ childrenGap: 20 }}>
+              <Stack tokens={{ childrenGap: 12 }}>
+                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Order Information</Label>
+                
+                <TextField
+                  label="Order Number"
+                  value={formData.orderNumber || ''}
+                  onChange={(_, value) => setFormData({ ...formData, orderNumber: value })}
+                  disabled={saving}
                 />
 
                 <TextField
-                  label="Owner ID"
-                  value={formData.ownerId}
-                  onChange={(_, value) => setFormData({ ...formData, ownerId: value || '' })}
+                  label="Name"
+                  value={formData.name || ''}
+                  onChange={(_, value) => setFormData({ ...formData, name: value })}
+                  disabled={saving}
+                  required
+                />
+
+                <StandardLookupField
+                  label="Customer"
+                  selectedId={formData.customerId || ''}
+                  selectedText={selectedCustomerText}
+                  onSearch={handleCustomerSearch}
+                  onChange={(id, text) => {
+                    setFormData({ ...formData, customerId: id });
+                    setSelectedCustomerText(text);
+                  }}
+                  disabled={saving}
+                />
+
+                <StandardLookupField
+                  label="Quote"
+                  selectedId={formData.quoteId || ''}
+                  selectedText={selectedQuoteText}
+                  onSearch={handleQuoteSearch}
+                  onChange={(id, text) => {
+                    setFormData({ ...formData, quoteId: id });
+                    setSelectedQuoteText(text);
+                  }}
+                  disabled={saving}
+                />
+
+                <DatePicker
+                  label="Request Delivery By"
+                  value={parseDate(formData.requestDeliveryBy)}
+                  onSelectDate={(date) => 
+                    setFormData({ ...formData, requestDeliveryBy: formatDateForInput(date || undefined) })
+                  }
+                  disabled={saving}
                 />
               </Stack>
-            )}
 
-            {activeTab === 'amounts' && (
-              <Stack
-                tokens={{ childrenGap: 16 }}
-                styles={{ root: { marginTop: 16, maxWidth: 600 } }}
-              >
+              <Stack tokens={{ childrenGap: 12 }}>
+                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Key Prices</Label>
+                
                 <TextField
                   label="Total Amount"
                   type="number"
-                  value={String(formData.totalAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
+                  value={formData.totalAmount?.toString() || '0'}
+                  onChange={(_, value) => setFormData({ ...formData, totalAmount: parseFloat(value || '0') })}
+                  disabled={saving}
+                  prefix="R"
                 />
 
                 <TextField
                   label="Total Discount Amount"
                   type="number"
-                  value={String(formData.totalDiscountAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalDiscountAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
+                  value={formData.totalDiscountAmount?.toString() || '0'}
+                  onChange={(_, value) => setFormData({ ...formData, totalDiscountAmount: parseFloat(value || '0') })}
+                  disabled={saving}
+                  prefix="R"
                 />
 
                 <TextField
                   label="Total Line Item Amount"
                   type="number"
-                  value={String(formData.totalLineItemAmount)}
-                  onChange={(_, value) =>
-                    setFormData({ ...formData, totalLineItemAmount: Number(value) || 0 })
-                  }
-                  prefix="$"
+                  value={formData.totalLineItemAmount?.toString() || '0'}
+                  onChange={(_, value) => setFormData({ ...formData, totalLineItemAmount: parseFloat(value || '0') })}
+                  disabled={saving}
+                  prefix="R"
                 />
               </Stack>
-            )}
-          </Stack>
+
+              <Stack tokens={{ childrenGap: 12 }}>
+                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Other Information</Label>
+                
+                <Dropdown
+                  label="Status"
+                  selectedKey={formData.stateCode ?? 0}
+                  options={stateCodeOptions}
+                  onChange={(_, option) => 
+                    setFormData({ ...formData, stateCode: option?.key as number })
+                  }
+                  disabled={saving}
+                />
+
+                <Dropdown
+                  label="Status Reason"
+                  selectedKey={formData.statusCode ?? 1}
+                  options={statusCodeOptions}
+                  onChange={(_, option) => 
+                    setFormData({ ...formData, statusCode: option?.key as number })
+                  }
+                  disabled={saving}
+                />
+
+                <DatePicker
+                  label="Date Fulfilled"
+                  value={parseDate(formData.dateFulfilled)}
+                  onSelectDate={(date) => 
+                    setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+                  }
+                  disabled={saving}
+                />
+              </Stack>
+            </Stack>
+          )}
+
+          {activeTab === 'general' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <TextField
+                label="Order Number"
+                value={formData.orderNumber || ''}
+                onChange={(_, value) => setFormData({ ...formData, orderNumber: value })}
+                disabled={saving}
+              />
+
+              <TextField
+                label="Name"
+                value={formData.name || ''}
+                onChange={(_, value) => setFormData({ ...formData, name: value })}
+                disabled={saving}
+                required
+              />
+
+              <StandardLookupField
+                label="Customer"
+                selectedId={formData.customerId || ''}
+                selectedText={selectedCustomerText}
+                onSearch={handleCustomerSearch}
+                onChange={(id, text) => {
+                  setFormData({ ...formData, customerId: id });
+                  setSelectedCustomerText(text);
+                }}
+                disabled={saving}
+              />
+
+              <DatePicker
+                label="Request Delivery By"
+                value={parseDate(formData.requestDeliveryBy)}
+                onSelectDate={(date) => 
+                  setFormData({ ...formData, requestDeliveryBy: formatDateForInput(date || undefined) })
+                }
+                disabled={saving}
+              />
+
+              <Dropdown
+                label="Status"
+                selectedKey={formData.stateCode ?? 0}
+                options={stateCodeOptions}
+                onChange={(_, option) => 
+                  setFormData({ ...formData, stateCode: option?.key as number })
+                }
+                disabled={saving}
+              />
+
+              <Dropdown
+                label="Status Reason"
+                selectedKey={formData.statusCode ?? 1}
+                options={statusCodeOptions}
+                onChange={(_, option) => 
+                  setFormData({ ...formData, statusCode: option?.key as number })
+                }
+                disabled={saving}
+              />
+            </Stack>
+          )}
+
+          {activeTab === 'production' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Label>Production-related fields will be managed through the Production module</Label>
+              
+              <StandardLookupField
+                label="Quote"
+                selectedId={formData.quoteId || ''}
+                selectedText={selectedQuoteText}
+                onSearch={handleQuoteSearch}
+                onChange={(id, text) => {
+                  setFormData({ ...formData, quoteId: id });
+                  setSelectedQuoteText(text);
+                }}
+                disabled={saving}
+              />
+
+              <DatePicker
+                label="Date Fulfilled"
+                value={parseDate(formData.dateFulfilled)}
+                onSelectDate={(date) => 
+                  setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+                }
+                disabled={saving}
+              />
+            </Stack>
+          )}
+
+          {activeTab === 'costing' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Financial Details</Label>
+              
+              <TextField
+                label="Total Amount"
+                type="number"
+                value={formData.totalAmount?.toString() || '0'}
+                onChange={(_, value) => setFormData({ ...formData, totalAmount: parseFloat(value || '0') })}
+                disabled={saving}
+                prefix="R"
+              />
+
+              <TextField
+                label="Total Discount Amount"
+                type="number"
+                value={formData.totalDiscountAmount?.toString() || '0'}
+                onChange={(_, value) => setFormData({ ...formData, totalDiscountAmount: parseFloat(value || '0') })}
+                disabled={saving}
+                prefix="R"
+              />
+
+              <TextField
+                label="Total Line Item Amount"
+                type="number"
+                value={formData.totalLineItemAmount?.toString() || '0'}
+                onChange={(_, value) => setFormData({ ...formData, totalLineItemAmount: parseFloat(value || '0') })}
+                disabled={saving}
+                prefix="R"
+              />
+            </Stack>
+          )}
+
+          {activeTab === 'dispatch' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Label>Dispatch information will be managed through the Deliveries module</Label>
+              
+              <DatePicker
+                label="Request Delivery By"
+                value={parseDate(formData.requestDeliveryBy)}
+                onSelectDate={(date) => 
+                  setFormData({ ...formData, requestDeliveryBy: formatDateForInput(date || undefined) })
+                }
+                disabled={saving}
+              />
+
+              <DatePicker
+                label="Date Fulfilled"
+                value={parseDate(formData.dateFulfilled)}
+                onSelectDate={(date) => 
+                  setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+                }
+                disabled={saving}
+              />
+
+              <StandardLookupField
+                label="Customer"
+                selectedId={formData.customerId || ''}
+                selectedText={selectedCustomerText}
+                onSearch={handleCustomerSearch}
+                onChange={(id, text) => {
+                  setFormData({ ...formData, customerId: id });
+                  setSelectedCustomerText(text);
+                }}
+                disabled={saving}
+              />
+            </Stack>
+          )}
+
+          {activeTab === 'invoices' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Label>Invoice information will be managed through the Invoicing module</Label>
+              
+              <Dropdown
+                label="Status"
+                selectedKey={formData.stateCode ?? 0}
+                options={stateCodeOptions}
+                onChange={(_, option) => 
+                  setFormData({ ...formData, stateCode: option?.key as number })
+                }
+                disabled={saving}
+              />
+
+              <DatePicker
+                label="Date Fulfilled"
+                value={parseDate(formData.dateFulfilled)}
+                onSelectDate={(date) => 
+                  setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+                }
+                disabled={saving}
+              />
+
+              <TextField
+                label="Total Amount"
+                type="number"
+                value={formData.totalAmount?.toString() || '0'}
+                onChange={(_, value) => setFormData({ ...formData, totalAmount: parseFloat(value || '0') })}
+                disabled={saving}
+                prefix="R"
+              />
+            </Stack>
+          )}
+
+          {activeTab === 'details' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <TextField
+                label="Description"
+                multiline
+                rows={6}
+                value={formData.description || ''}
+                onChange={(_, value) => setFormData({ ...formData, description: value })}
+                disabled={saving}
+              />
+
+              {order && (
+                <>
+                  <TextField
+                    label="Created On"
+                    value={order.createdOn ? new Date(order.createdOn).toLocaleString() : ''}
+                    disabled
+                    readOnly
+                  />
+
+                  <TextField
+                    label="Modified On"
+                    value={order.modifiedOn ? new Date(order.modifiedOn).toLocaleString() : ''}
+                    disabled
+                    readOnly
+                  />
+                </>
+              )}
+            </Stack>
+          )}
+
+          {activeTab === 'related' && (
+            <Stack tokens={{ childrenGap: 16 }}>
+              <Label>Related entities such as Order Products, Activities, and Documents can be managed here</Label>
+              
+              <StandardLookupField
+                label="Quote"
+                selectedId={formData.quoteId || ''}
+                selectedText={selectedQuoteText}
+                onSearch={handleQuoteSearch}
+                onChange={(id, text) => {
+                  setFormData({ ...formData, quoteId: id });
+                  setSelectedQuoteText(text);
+                }}
+                disabled={saving}
+              />
+
+              <StandardLookupField
+                label="Customer"
+                selectedId={formData.customerId || ''}
+                selectedText={selectedCustomerText}
+                onSearch={handleCustomerSearch}
+                onChange={(id, text) => {
+                  setFormData({ ...formData, customerId: id });
+                  setSelectedCustomerText(text);
+                }}
+                disabled={saving}
+              />
+            </Stack>
+          )}
         </Stack>
       </Stack>
     </Stack>

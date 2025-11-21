@@ -384,7 +384,7 @@ export const D365OrdersPage = () => {
     }
   };
 
-  const onColumnClick = (ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
+  const onColumnClick = (_ev?: React.MouseEvent<HTMLElement>, column?: IColumn) => {
     if (!column) return;
     
     const columnKey = column.key;

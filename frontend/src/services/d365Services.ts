@@ -52,6 +52,20 @@ export const d365OrderService = {
   create: (data: Partial<D365Order>) => api.post<D365Order>('/d365orders', data),
   update: (id: string, data: Partial<D365Order>) => api.put<D365Order>(`/d365orders/${id}`, data),
   delete: (id: string) => api.delete(`/d365orders/${id}`),
+  searchOrders: async (term: string = ''): Promise<LookupOption[]> => {
+    const orders = await api.get<D365Order[]>('/d365orders');
+    const search = term.toLowerCase();
+    return orders
+      .filter(o => 
+        (o.orderNumber?.toLowerCase() || '').includes(search) ||
+        (o.name?.toLowerCase() || '').includes(search)
+      )
+      .slice(0, 50)
+      .map(o => ({
+        id: o.id,
+        text: o.orderNumber ? `${o.orderNumber}${o.name ? ' - ' + o.name : ''}` : (o.name || o.id)
+      }));
+  },
 };
 
 export const d365AppointmentService = {

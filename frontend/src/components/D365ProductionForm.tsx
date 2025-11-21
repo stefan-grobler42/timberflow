@@ -168,7 +168,7 @@ export const D365ProductionForm = ({
 
   const searchOrders = async (searchTerm: string): Promise<LookupOption[]> => {
     try {
-      const results = await lookupService.searchOrders(searchTerm);
+      const results = await d365OrderService.searchOrders(searchTerm);
       return results;
     } catch (error) {
       console.error('Error searching orders:', error);
