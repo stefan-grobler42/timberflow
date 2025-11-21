@@ -1,11 +1,35 @@
 using Microsoft.EntityFrameworkCore;
 using MillenniumERP.Infrastructure.Data;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add DbContext with PostgreSQL
-var connectionString = Environment.GetEnvironmentVariable("DATABASE_URL") 
-    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+// Add DbContext with PostgreSQL - parse DATABASE_URL properly
+var databaseUrl = Environment.GetEnvironmentVariable("DATABASE_URL");
+string connectionString;
+
+if (!string.IsNullOrEmpty(databaseUrl))
+{
+    // Parse the DATABASE_URL (postgresql://user:pass@host:port/dbname?params)
+    var uri = new Uri(databaseUrl.Replace("?sslmode", "?sslmode=require")); // Fix malformed parameter
+    var userInfo = uri.UserInfo.Split(':');
+    var connBuilder = new NpgsqlConnectionStringBuilder
+    {
+        Host = uri.Host,
+        Port = uri.Port > 0 ? uri.Port : 5432,
+        Username = Uri.UnescapeDataString(userInfo[0]),
+        Password = Uri.UnescapeDataString(userInfo[1]),
+        Database = uri.AbsolutePath.TrimStart('/').Split('?')[0], // Remove query params
+        SslMode = SslMode.Require
+    };
+    connectionString = connBuilder.ConnectionString;
+}
+else
+{
+    connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+        ?? throw new InvalidOperationException("No database connection string configured");
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
