@@ -81,7 +81,14 @@ export const ProductionPage = () => {
     entityType: 'production',
     columnVisibility: defaultVisibleColumns,
     columnOrder: defaultColumnOrder,
-    filters: [],
+    filters: [
+      {
+        field: 'productionComplete',
+        operator: 'equals',
+        value: 'false',
+        logicOperator: 'AND'
+      }
+    ],
   };
 
   const loadViews = (): GridView[] => {
