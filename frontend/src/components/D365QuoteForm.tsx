@@ -89,7 +89,7 @@ export const D365QuoteForm = ({
     }
   };
 
-  const handleSave = async (closeAfter: boolean) => {
+  const handleSave = async () => {
     try {
       setSaving(true);
       setError(null);
@@ -102,10 +102,25 @@ export const D365QuoteForm = ({
 
       onSave();
       setSaving(false);
-      
-      if (closeAfter) {
-        onDismiss();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save quote');
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndExit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (quote) {
+        await d365QuoteService.update(quote.id, formData);
+      } else {
+        await d365QuoteService.create(formData);
       }
+
+      onSave();
+      onDismiss();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save quote');
       setSaving(false);
@@ -147,9 +162,10 @@ export const D365QuoteForm = ({
         title={quote ? (quote.name || 'Edit Quote') : 'New Quote'}
         subtitle="Quote"
         onBack={onDismiss}
-        onSave={() => handleSave(false)}
-        onSaveAndClose={() => handleSave(true)}
+        onSave={handleSave}
+        onSaveAndExit={handleSaveAndExit}
         onDelete={quote && onDelete ? handleDelete : undefined}
+        onCancel={onDismiss}
         saving={saving}
         isNew={!quote}
       />

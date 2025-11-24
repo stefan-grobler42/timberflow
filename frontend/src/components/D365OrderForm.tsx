@@ -122,7 +122,7 @@ export const D365OrderForm = ({
     }
   };
 
-  const handleSubmit = async (saveAndNew: boolean = false) => {
+  const handleSubmit = async () => {
     try {
       setSaving(true);
       setError(null);
@@ -133,28 +133,62 @@ export const D365OrderForm = ({
         await d365OrderService.create(formData);
       }
 
-      if (saveAndNew) {
-        setFormData({
-          orderNumber: '',
-          name: '',
-          customerId: '',
-          quoteId: '',
-          dateFulfilled: '',
-          requestDeliveryBy: '',
-          totalAmount: 0,
-          totalDiscountAmount: 0,
-          totalLineItemAmount: 0,
-          stateCode: 0,
-          statusCode: 1,
-          description: '',
-          ownerId: '',
-        });
-        setSelectedCustomerText('');
-        setSelectedQuoteText('');
-        setSaving(false);
+      onSave();
+      setSaving(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save order');
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndExit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (order) {
+        await d365OrderService.update(order.id, formData);
       } else {
-        onSave();
+        await d365OrderService.create(formData);
       }
+
+      onSave();
+      onDismiss();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save order');
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndNew = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (order) {
+        await d365OrderService.update(order.id, formData);
+      } else {
+        await d365OrderService.create(formData);
+      }
+
+      setFormData({
+        orderNumber: '',
+        name: '',
+        customerId: '',
+        quoteId: '',
+        dateFulfilled: '',
+        requestDeliveryBy: '',
+        totalAmount: 0,
+        totalDiscountAmount: 0,
+        totalLineItemAmount: 0,
+        stateCode: 0,
+        statusCode: 1,
+        description: '',
+        ownerId: '',
+      });
+      setSelectedCustomerText('');
+      setSelectedQuoteText('');
+      setSaving(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save order');
       setSaving(false);
@@ -323,11 +357,12 @@ export const D365OrderForm = ({
       <StandardFormHeader
         title={order ? `Order: ${order.orderNumber || order.name || 'Untitled'}` : 'New Order'}
         onBack={onDismiss}
-        onSave={() => handleSubmit(false)}
-        onSaveAndNew={order ? undefined : () => handleSubmit(true)}
+        onSave={handleSubmit}
+        onSaveAndExit={handleSaveAndExit}
         onCancel={onDismiss}
         onDelete={order && onDelete ? onDelete : undefined}
         saving={saving}
+        onSaveAndNew={order ? undefined : handleSaveAndNew}
       />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>

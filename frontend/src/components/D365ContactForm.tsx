@@ -323,6 +323,34 @@ export const D365ContactForm = ({
     }
   };
 
+  const handleSaveAndExit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      const validationError = validateFormData(formData);
+      if (validationError) {
+        setError(validationError);
+        setSaving(false);
+        return;
+      }
+
+      const normalizedContact = normalizeFormData(formData);
+
+      if (contact) {
+        await d365ContactService.update(contact.id, normalizedContact);
+      } else {
+        await d365ContactService.create(normalizedContact);
+      }
+
+      onSave();
+      onDismiss();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save contact');
+      setSaving(false);
+    }
+  };
+
   const handleSaveAndNew = async () => {
     try {
       setSaving(true);
@@ -541,11 +569,12 @@ export const D365ContactForm = ({
         subtitle="Contact"
         onBack={onDismiss}
         onSave={handleSubmit}
-        onSaveAndNew={handleSaveAndNew}
+        onSaveAndExit={handleSaveAndExit}
         onDelete={contact && onDelete ? onDelete : undefined}
         onCancel={onDismiss}
         saving={saving}
         isNew={!contact}
+        onSaveAndNew={handleSaveAndNew}
       />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>

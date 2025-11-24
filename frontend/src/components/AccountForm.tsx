@@ -352,7 +352,7 @@ export const AccountForm = ({
     setMarker(markerInstance);
   };
 
-  const handleSave = async (closeAfter: boolean) => {
+  const handleSave = async () => {
     try {
       setSaving(true);
       setError(null);
@@ -365,10 +365,25 @@ export const AccountForm = ({
 
       onSave();
       setSaving(false);
-      
-      if (closeAfter) {
-        onDismiss();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save account');
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndExit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (account) {
+        await accountService.update(account.id, formData);
+      } else {
+        await accountService.create(formData);
       }
+
+      onSave();
+      onDismiss();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save account');
       setSaving(false);
@@ -516,9 +531,10 @@ export const AccountForm = ({
         title={account ? (account.name || 'New Account') : 'New Account'}
         subtitle="Account"
         onBack={onDismiss}
-        onSave={() => handleSave(false)}
-        onSaveAndClose={() => handleSave(true)}
+        onSave={handleSave}
+        onSaveAndExit={handleSaveAndExit}
         onDelete={account && onDelete ? handleDelete : undefined}
+        onCancel={onDismiss}
         saving={saving}
         isNew={!account}
       />
