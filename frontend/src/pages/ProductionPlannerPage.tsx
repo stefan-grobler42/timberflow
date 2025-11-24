@@ -35,32 +35,38 @@ export const ProductionPlannerPage = () => {
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
+    console.log('[PLANNER] Starting to load data...');
     setLoading(true);
     setError(null);
     try {
       const productions = await productionService.getAll();
-      console.log('Sample production:', productions[0]);
+      console.log(`[PLANNER] ✓ Loaded ${productions.length} total productions`);
+      
       const jobList: Job[] = productions
-        .filter((p: any) => !p.ProductionComplete)
+        .filter((p: any) => p.productionComplete !== true)
         .map((p: any) => ({
-          id: p.Id,
-          name: p.Name || '',
-          orderNumber: p.OrderNumber || p.Name || 'N/A',
-          customer: p.CustomerName || 'Unknown',
-          estimatedEFinks: p.NewEstimateDefinks || 0,
-          plannedDateStr: p.ProductionPlannedDate ? new Date(p.ProductionPlannedDate).toISOString().split('T')[0] : null,
-          jigId: p.JigId || null
+          id: p.id,
+          name: p.name || '',
+          orderNumber: p.orderNumber || p.name || 'N/A',
+          customer: p.customerName || 'Unknown',
+          estimatedEFinks: p.newEstimateDefinks || 0,
+          plannedDateStr: p.productionPlannedDate ? new Date(p.productionPlannedDate).toISOString().split('T')[0] : null,
+          jigId: p.jigId || null
         }));
-      console.log(`Filtered ${jobList.length} incomplete jobs from ${productions.length} total`);
+      
+      console.log(`[PLANNER] ✓ Filtered to ${jobList.length} incomplete jobs`);
       setJobs(jobList);
+      setLoading(false);
+      console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}`);
     } catch (err) {
+      console.error('[PLANNER] ✗ Error loading:', err);
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
-    } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    console.log('[PLANNER] Component mounted, calling loadData()');
     loadData();
   }, [loadData]);
 
@@ -234,7 +240,7 @@ export const ProductionPlannerPage = () => {
   return (
     <Stack styles={{ root: { height: '100%', padding: 20 } }}>
       <Text variant="xxLarge" styles={{ root: { marginBottom: 20 } }}>
-        Production Planner ({jobs.length} jobs)
+        Production Planner ({jobs.length} incomplete jobs loaded successfully!)
       </Text>
 
       {error && (
@@ -243,167 +249,27 @@ export const ProductionPlannerPage = () => {
         </MessageBar>
       )}
 
-      <CommandBar items={commandItems} />
+      <div style={{ marginBottom: 20 }}>
+        <Text variant="large">Unallocated Jobs: {unallocated.length}</Text>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '10px' }}>
+        {jobs.slice(0, 20).map(job => (
+          <div key={job.id} style={{ padding: 10, border: '1px solid #ddd', borderRadius: 4, backgroundColor: 'white' }}>
+            <div style={{ fontWeight: 'bold' }}>{job.orderNumber}</div>
+            <div>{job.customer}</div>
+            <div style={{ fontSize: '12px', color: '#666' }}>{job.name}</div>
+            <div style={{ color: '#0078d4' }}>{job.estimatedEFinks} E-Finks</div>
+          </div>
+        ))}
+      </div>
+
+      {/* <CommandBar items={commandItems} />
 
       <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 10 } }}>
-        <Stack
-          styles={{
-            root: {
-              width: basketCollapsed ? 50 : 300,
-              backgroundColor: '#f3f2f1',
-              borderRadius: 4,
-              padding: basketCollapsed ? 10 : 15,
-              transition: 'width 0.3s ease'
-            }
-          }}
-        >
-          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-            {!basketCollapsed && (
-              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-                Unallocated ({unallocated.length})
-              </Text>
-            )}
-            <IconButton
-              iconProps={{ iconName: basketCollapsed ? 'DoubleChevronRight' : 'DoubleChevronLeft' }}
-              onClick={() => setBasketCollapsed(!basketCollapsed)}
-            />
-          </Stack>
 
-          {!basketCollapsed && (
-            <Stack styles={{ root: { marginTop: 15, gap: 8, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' } }}>
-              {unallocated.map(job => (
-                <div
-                  key={job.id}
-                  draggable
-                  onDragStart={() => handleDragStart(job.id)}
-                  onDoubleClick={() => handleJobDoubleClick(job.id)}
-                  style={{
-                    padding: 10,
-                    backgroundColor: 'white',
-                    borderRadius: 4,
-                    cursor: 'grab',
-                    border: '1px solid #ddd'
-                  }}
-                >
-                  <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
-                    {job.orderNumber}
-                  </Text>
-                  <Text variant="small" block>
-                    {job.customer}
-                  </Text>
-                  <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
-                    {job.name}
-                  </Text>
-                  <Text variant="tiny" block styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
-                    {job.estimatedEFinks} E-Finks
-                  </Text>
-                </div>
-              ))}
-              {unallocated.length === 0 && (
-                <Text variant="small" styles={{ root: { color: '#666', textAlign: 'center', marginTop: 20 } }}>
-                  No unallocated jobs
-                </Text>
-              )}
-            </Stack>
-          )}
-        </Stack>
 
-        <Stack styles={{ root: { flex: 1, overflowY: 'auto' } }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: viewMode === 'month' ? 'repeat(auto-fill, minmax(250px, 1fr))' : `repeat(${viewMode === 'week' ? 'auto-fit' : '1'}, minmax(250px, 1fr))`,
-              gap: 15
-            }}
-          >
-            {getDaysInView.map(dateStr => {
-              const totalEFinks = getTotalEFinksForDate(dateStr);
-              return (
-                <div
-                  key={dateStr}
-                  style={{
-                    border: '1px solid #ddd',
-                    borderRadius: 4,
-                    backgroundColor: 'white',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <Stack
-                    horizontal
-                    horizontalAlign="space-between"
-                    styles={{
-                      root: {
-                        padding: '10px 15px',
-                        backgroundColor: '#0078d4',
-                        color: 'white'
-                      }
-                    }}
-                  >
-                    <Text styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                      {formatDate(dateStr)}
-                    </Text>
-                    <Text styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                      {totalEFinks} E-Finks
-                    </Text>
-                  </Stack>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, backgroundColor: '#ddd' }}>
-                    {JIG_TEAMS.map(jigInfo => {
-                      const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
-                      const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
-
-                      return (
-                        <div
-                          key={jigInfo.id}
-                          onDragOver={handleDragOver}
-                          onDrop={() => handleDrop(dateStr, jigInfo.id)}
-                          style={{
-                            backgroundColor: '#faf9f8',
-                            padding: 10,
-                            minHeight: 150
-                          }}
-                        >
-                          <Text variant="small" styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8, display: 'block' } }}>
-                            {jigInfo.name} ({jigEFinks})
-                          </Text>
-                          <Stack styles={{ root: { gap: 6 } }}>
-                            {jigJobs.map(job => (
-                              <div
-                                key={job.id}
-                                draggable
-                                onDragStart={() => handleDragStart(job.id)}
-                                onDoubleClick={() => handleJobDoubleClick(job.id)}
-                                style={{
-                                  padding: 8,
-                                  backgroundColor: 'white',
-                                  borderRadius: 3,
-                                  border: '1px solid #e1dfdd',
-                                  cursor: 'grab',
-                                  fontSize: 12
-                                }}
-                              >
-                                <Text variant="small" styles={{ root: { fontWeight: 600, display: 'block' } }}>
-                                  {job.orderNumber}
-                                </Text>
-                                <Text variant="tiny" block>
-                                  {job.customer}
-                                </Text>
-                                <Text variant="tiny" block styles={{ root: { color: '#0078d4' } }}>
-                                  {job.estimatedEFinks} E-Finks
-                                </Text>
-                              </div>
-                            ))}
-                          </Stack>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Stack>
-      </Stack>
+      */}
 
       {formVisible && selectedProduction && (
         <ProductionForm
