@@ -8,6 +8,7 @@ Millennium Timber Roof ERP is a specialized, web-based ERP system designed for t
 - **Architecture**: System-wide timezone strategy using UTC storage with South Africa timezone conversions at all ingress/egress points
 - **Backend**:
   - Created UTC DateTime value converters (UtcDateTimeConverter, NullableUtcDateTimeConverter) for Entity Framework Core
+  - Converters perform real SAST→UTC conversion using TimeZoneInfo.ConvertTimeToUtc (not just Kind relabeling) to prevent timezone drift
   - Configured AppDbContext with Npgsql.EnableLegacyTimestampBehavior=false to enforce UTC timestamps
   - Created TimezoneService for SAST↔UTC conversions using TimeZoneInfo with 'South Africa Standard Time'
   - Applied UTC converter globally to all DateTime and DateTime? properties via modelBuilder
