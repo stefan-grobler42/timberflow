@@ -261,6 +261,8 @@ export const Layout = ({ children }: LayoutProps) => {
           styles={{
             root: {
               width: 250,
+              minWidth: 250,
+              flexShrink: 0,
               backgroundColor: '#f3f2f1',
               borderRight: '1px solid #e1dfdd',
               overflowY: 'auto',
@@ -333,6 +335,7 @@ export const Layout = ({ children }: LayoutProps) => {
           styles={{
             root: {
               overflowY: 'auto',
+              overflowX: 'hidden',
               padding: '20px',
               backgroundColor: '#faf9f8',
             },

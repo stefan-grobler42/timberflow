@@ -258,7 +258,7 @@ export const ProductionPlannerPage = () => {
   }
 
   return (
-    <Stack styles={{ root: { height: '100%' } }}>
+    <Stack styles={{ root: { height: '100%', overflow: 'hidden' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
         <Text variant="xxLarge">
           Production Planner ({jobs.length} jobs)
@@ -281,15 +281,17 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 10 } }}>
+      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 10, overflow: 'hidden' } }}>
         <Stack
           styles={{
             root: {
               width: basketCollapsed ? 50 : 300,
+              minWidth: basketCollapsed ? 50 : 300,
+              flexShrink: 0,
               backgroundColor: '#f3f2f1',
               borderRadius: 4,
               padding: basketCollapsed ? 10 : 15,
-              transition: 'width 0.3s ease'
+              transition: 'all 0.3s ease'
             }
           }}
         >
@@ -346,7 +348,7 @@ export const ProductionPlannerPage = () => {
           )}
         </Stack>
 
-        <Stack styles={{ root: { flex: 1, overflowY: 'auto' } }}>
+        <Stack styles={{ root: { flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0 } }}>
           <div
             style={{
               display: 'grid',
