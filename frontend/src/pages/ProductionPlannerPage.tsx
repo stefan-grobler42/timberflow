@@ -4,7 +4,7 @@ import {
 } from '@fluentui/react';
 import type { ICommandBarItemProps } from '@fluentui/react';
 import { productionService } from '../services/d365Services';
-import { ProductionForm } from '../components/ProductionForm';
+import { D365ProductionForm } from '../components/D365ProductionForm';
 import type { Production } from '../types/millennium';
 
 interface Job {
@@ -419,7 +419,7 @@ export const ProductionPlannerPage = () => {
       </Stack>
 
       {formVisible && selectedProduction && (
-        <ProductionForm
+        <D365ProductionForm
           production={selectedProduction}
           onSave={handleFormSave}
           onDismiss={() => {
