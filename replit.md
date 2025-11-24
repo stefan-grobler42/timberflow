@@ -4,6 +4,33 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution. The project aims to enhance market potential and operational ambitions for timber roofing contractors.
 
 ## Recent Changes
+**November 24, 2025 - South Africa Timezone (GMT+2) Implementation:**
+- **Architecture**: System-wide timezone strategy using UTC storage with South Africa timezone conversions at all ingress/egress points
+- **Backend**:
+  - Created UTC DateTime value converters (UtcDateTimeConverter, NullableUtcDateTimeConverter) for Entity Framework Core
+  - Configured AppDbContext with Npgsql.EnableLegacyTimestampBehavior=false to enforce UTC timestamps
+  - Created TimezoneService for SAST↔UTC conversions using TimeZoneInfo with 'South Africa Standard Time'
+  - Applied UTC converter globally to all DateTime and DateTime? properties via modelBuilder
+- **Database**: PostgreSQL stores all timestamps in UTC (timestamp with time zone)
+- **Migration Script**:
+  - Updated migrate_data.py to parse D365 datetimes with timezone awareness using Python zoneinfo
+  - Assumes South Africa timezone (Africa/Johannesburg) if no timezone info present
+  - Converts all datetimes to UTC and formats with 'Z' suffix for PostgreSQL compatibility
+  - Fixed DateTime.Kind=Unspecified error that caused 99.9% failure rate (2,915/2,918 records failed → 100% success)
+- **Frontend**:
+  - Installed Luxon library for timezone-aware date handling
+  - Created timezoneUtils.ts with comprehensive SAST↔UTC conversion utilities
+  - Functions: convertUtcToSast(), convertSastToUtc(), formatUtcAsSast(), displaySastDateTime(), displaySastDate()
+  - DatePicker components configured to work in Africa/Johannesburg timezone
+- **Data Flow**: User inputs SAST dates → API receives → Convert to UTC → Store in PostgreSQL UTC → Read from DB → Convert to SAST → Display to user in South Africa time
+
+**November 24, 2025 - Production Form Team Allocation Enhancements:**
+- **Feature**: Fixed team lookup sources to use distinct lookup tables for three team types
+- **Team Lookups**: Picking Team uses Picking_Teams table, Saw Team uses Saws table, Jig Team uses Jigs table
+- **UI Layout**: Team selectors in top row with 24px spacing below, individual staff allocation columns beneath for clear visual separation
+- **Bug Fix**: Save & New now properly clears all team lookup text and ID fields to prevent inconsistent state
+- **cleanFormData**: Extended to handle team ID fields (pickingTeamId, sawId, jigId) for proper null conversion before API submission
+
 **November 24, 2025 - Three-Level Production Planner with Hierarchical Drill-Down:**
 - **Feature**: Created staged/stepped Production Planner with Month → Week → Day navigation hierarchy
 - **Month View (Default)**: 
