@@ -238,7 +238,7 @@ export const ProductionPlannerPage = () => {
   }
 
   return (
-    <Stack styles={{ root: { height: '100%', padding: 20 } }}>
+    <Stack styles={{ root: { height: '100%' } }}>
       <Text variant="xxLarge" styles={{ root: { marginBottom: 20 } }}>
         Production Planner ({jobs.length} jobs)
       </Text>
