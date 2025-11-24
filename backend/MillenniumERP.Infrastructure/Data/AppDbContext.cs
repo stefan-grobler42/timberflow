@@ -34,6 +34,9 @@ public class AppDbContext : DbContext
     public DbSet<Saw> Saws { get; set; }
     public DbSet<Jig> Jigs { get; set; }
     
+    // System configuration
+    public DbSet<SystemSetting> SystemSettings { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }

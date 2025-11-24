@@ -34,6 +34,7 @@ import { ProcurementPage } from './pages/ProcurementPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { SubContractorsPage } from './pages/SubContractorsPage';
 import { SubContractorDeductionsPage } from './pages/SubContractorDeductionsPage';
+import { SettingsPage } from './pages/SettingsPage';
 
 initializeIcons();
 
@@ -93,6 +94,8 @@ function App() {
           <Route path="/d365appointments" element={<D365AppointmentsPage />} />
           <Route path="/d365emails" element={<D365EmailsPage />} />
           <Route path="/duplicates" element={<DuplicateDetectionPage />} />
+          
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Layout>
     </BrowserRouter>

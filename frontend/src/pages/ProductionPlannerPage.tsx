@@ -182,7 +182,7 @@ export const ProductionPlannerPage = () => {
     ];
   }, [jigTeams]);
 
-  const handleJigFilterChange = (event: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+  const handleJigFilterChange = (_event: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
     if (!option) return;
     
     if (option.key === 'all') {

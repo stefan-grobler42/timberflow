@@ -202,6 +202,12 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/suppliers',
           icon: 'Group',
         },
+        {
+          key: 'settings',
+          name: 'System Settings',
+          url: '/settings',
+          icon: 'Settings',
+        },
       ],
     },
   ];
