@@ -75,11 +75,10 @@ export const ProductionPlannerPage = () => {
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
       
-      // Find sales orders that don't have production records yet
-      // Note: All sales orders could potentially need production, we don't filter by productionRequired
+      // Find sales orders that require production but don't have production records yet
       const productionOrderIds = new Set(productions.map((p: any) => p.orderNo).filter(Boolean));
       const ordersNeedingProduction = orders
-        .filter((o: D365Order) => !productionOrderIds.has(o.id))
+        .filter((o: D365Order) => o.productionRequired === true && !productionOrderIds.has(o.id))
         .map((o: D365Order) => ({
           id: `order-${o.id}`, // Prefix to distinguish from production records
           name: o.name || '',

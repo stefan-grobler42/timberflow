@@ -18,7 +18,11 @@ export const formatIsoDateLocal = (dateStr: string | null | undefined): string |
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return null;
-    return date.toISOString().split('T')[0];
+    
+    // Convert UTC to SAST (GMT+2) for display
+    // Add 2 hours (7200000 ms) to convert from UTC to SAST
+    const sastDate = new Date(date.getTime() + (2 * 60 * 60 * 1000));
+    return sastDate.toISOString().split('T')[0];
   } catch {
     return null;
   }

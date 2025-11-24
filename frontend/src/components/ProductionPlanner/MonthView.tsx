@@ -77,7 +77,9 @@ export const MonthView: React.FC<MonthViewProps> = ({
     <Stack styles={{ root: { overflowY: 'auto', overflowX: 'hidden' } }}>
       {Object.keys(weeks).map(weekNum => {
         const weekDays = weeks[parseInt(weekNum)];
-        const weekStartDate = getWeekStartDate(weekDays[0]);
+        // Use the first day shown in this week group for navigation
+        // Don't use startOfWeekUtc as it can go back to previous month
+        const firstDayInWeek = weekDays[0];
         const weekTotalEFinks = weekDays.reduce((sum, dateStr) => sum + getTotalEFinksForDate(dateStr), 0);
 
         return (
@@ -98,7 +100,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                   }
                 }
               }}
-              onClick={() => onWeekClick(weekStartDate)}
+              onClick={() => onWeekClick(firstDayInWeek)}
             >
               <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
                 Week {weekNum}
