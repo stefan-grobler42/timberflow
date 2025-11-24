@@ -75,10 +75,11 @@ export const ProductionPlannerPage = () => {
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
       
-      // Find sales orders that need production but don't have production records
-      const productionOrderIds = new Set(productions.map((p: any) => p.orderId).filter(Boolean));
+      // Find sales orders that don't have production records yet
+      // Note: All sales orders could potentially need production, we don't filter by productionRequired
+      const productionOrderIds = new Set(productions.map((p: any) => p.orderNo).filter(Boolean));
       const ordersNeedingProduction = orders
-        .filter((o: D365Order) => o.productionRequired === true && !productionOrderIds.has(o.id))
+        .filter((o: D365Order) => !productionOrderIds.has(o.id))
         .map((o: D365Order) => ({
           id: `order-${o.id}`, // Prefix to distinguish from production records
           name: o.name || '',
@@ -90,7 +91,7 @@ export const ProductionPlannerPage = () => {
           productionComplete: false
         }));
       
-      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} sales orders needing production`);
+      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} sales orders without production records`);
       
       setJobs(jobList);
       setUnallocatedOrders(ordersNeedingProduction);
