@@ -242,7 +242,11 @@ export const D365QuoteForm = ({
               value={formData.customerId}
               selectedText={selectedCustomerText}
               entityName="Account"
-              onChange={(id) => setFormData({ ...formData, customerId: id })}
+              onChange={(id) => {
+                setFormData({ ...formData, customerId: id });
+                if (!id) setSelectedCustomerText('');
+              }}
+              onTextChange={(text) => setSelectedCustomerText(text)}
               onSearch={searchAccounts}
             />
 

@@ -383,6 +383,7 @@ export const D365OrderForm = ({
                     setFormData({ ...formData, customerId: id });
                     if (!id) setSelectedCustomerText('');
                   }}
+                  onTextChange={(text) => setSelectedCustomerText(text)}
                   disabled={saving}
                 />
 
@@ -396,6 +397,7 @@ export const D365OrderForm = ({
                     setFormData({ ...formData, quoteId: id });
                     if (!id) setSelectedQuoteText('');
                   }}
+                  onTextChange={(text) => setSelectedQuoteText(text)}
                   disabled={saving}
                 />
               </Stack>

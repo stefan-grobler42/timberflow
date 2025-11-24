@@ -4,14 +4,14 @@ import type { ICommandBarItemProps } from '@fluentui/react';
 interface StandardFormHeaderProps {
   title: string;
   subtitle?: string;
-  onBack: () => void;
+  onBack?: () => void;
   onSave: () => void;
-  onSaveAndClose?: () => void;
-  onSaveAndNew?: () => void;
+  onSaveAndExit: () => void;
   onDelete?: () => void;
-  onCancel?: () => void;
+  onCancel: () => void;
   saving?: boolean;
   isNew?: boolean;
+  onSaveAndNew?: () => void;
 }
 
 export const StandardFormHeader = ({
@@ -19,49 +19,40 @@ export const StandardFormHeader = ({
   subtitle,
   onBack,
   onSave,
-  onSaveAndClose,
-  onSaveAndNew,
+  onSaveAndExit,
   onDelete,
   onCancel,
   saving = false,
   isNew = false,
+  onSaveAndNew,
 }: StandardFormHeaderProps) => {
-  const commandBarItems: ICommandBarItemProps[] = [
-    {
+  const commandBarItems: ICommandBarItemProps[] = [];
+
+  if (onBack) {
+    commandBarItems.push({
       key: 'back',
       iconProps: { iconName: 'Back' },
       onClick: onBack,
       disabled: saving,
       ariaLabel: 'Back',
-    },
-    {
-      key: 'save',
-      text: 'Save',
-      iconProps: { iconName: 'Save' },
-      onClick: onSave,
-      disabled: saving,
-    },
-  ];
-
-  if (onSaveAndClose) {
-    commandBarItems.push({
-      key: 'saveAndClose',
-      text: 'Save & Close',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: onSaveAndClose,
-      disabled: saving,
     });
   }
 
-  if (onSaveAndNew) {
-    commandBarItems.push({
-      key: 'saveAndNew',
-      text: 'Save & New',
-      iconProps: { iconName: 'SaveAndClose' },
-      onClick: onSaveAndNew,
-      disabled: saving,
-    });
-  }
+  commandBarItems.push({
+    key: 'save',
+    text: 'Save',
+    iconProps: { iconName: 'Save' },
+    onClick: onSave,
+    disabled: saving,
+  });
+
+  commandBarItems.push({
+    key: 'saveAndExit',
+    text: 'Save & Exit',
+    iconProps: { iconName: 'SaveAndClose' },
+    onClick: onSaveAndExit,
+    disabled: saving,
+  });
 
   if (!isNew && onDelete) {
     commandBarItems.push({
@@ -73,12 +64,20 @@ export const StandardFormHeader = ({
     });
   }
 
-  if (onCancel) {
+  commandBarItems.push({
+    key: 'cancel',
+    text: 'Cancel',
+    iconProps: { iconName: 'Cancel' },
+    onClick: onCancel,
+    disabled: saving,
+  });
+
+  if (onSaveAndNew) {
     commandBarItems.push({
-      key: 'cancel',
-      text: 'Cancel',
-      iconProps: { iconName: 'Cancel' },
-      onClick: onCancel,
+      key: 'saveAndNew',
+      text: 'Save & New',
+      iconProps: { iconName: 'AddToShoppingList' },
+      onClick: onSaveAndNew,
       disabled: saving,
     });
   }

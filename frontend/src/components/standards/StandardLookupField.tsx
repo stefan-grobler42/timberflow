@@ -29,6 +29,7 @@ interface StandardLookupFieldProps {
   onChange: (id: string | undefined) => void;
   onSearch?: (searchTerm: string) => Promise<LookupOption[]>;
   onNavigate?: (id: string) => void;
+  onTextChange?: (text: string) => void;
   disabled?: boolean;
   required?: boolean;
   error?: string;
@@ -226,6 +227,7 @@ export const StandardLookupField: React.FC<StandardLookupFieldProps> = ({
   onChange,
   onSearch,
   onNavigate,
+  onTextChange,
   disabled = false,
   required = false,
   error,
@@ -328,6 +330,7 @@ export const StandardLookupField: React.FC<StandardLookupFieldProps> = ({
 
   const handleOptionSelect = (option: LookupOption) => {
     onChange(option.id);
+    onTextChange?.(option.text);
     setSearchText('');
     setShowSuggestions(false);
     setSuggestions([]);
@@ -336,12 +339,14 @@ export const StandardLookupField: React.FC<StandardLookupFieldProps> = ({
 
   const handleDialogSelect = (option: LookupOption) => {
     onChange(option.id);
+    onTextChange?.(option.text);
     setDialogSearchText('');
     closeDialog();
   };
 
   const handleClear = () => {
     onChange(undefined);
+    onTextChange?.('');
     setSearchText('');
     setSuggestions([]);
     setShowSuggestions(false);

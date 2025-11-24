@@ -208,6 +208,26 @@ export const D365ProductionForm = ({
       }
 
       onSave();
+      setSaving(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save production');
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAndExit = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      if (production) {
+        await productionService.update(production.id, formData);
+      } else {
+        await productionService.create(formData);
+      }
+
+      onSave();
+      onDismiss();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save production');
       setSaving(false);
@@ -302,11 +322,12 @@ export const D365ProductionForm = ({
         title={getFormTitle()}
         onBack={onDismiss}
         onSave={handleSubmit}
-        onSaveAndNew={handleSaveAndNew}
+        onSaveAndExit={handleSaveAndExit}
         onDelete={production && onDelete ? onDelete : undefined}
         onCancel={onDismiss}
         saving={saving}
         isNew={!production}
+        onSaveAndNew={handleSaveAndNew}
       />
 
       <Stack styles={{ root: { flex: 1, overflowY: 'auto', padding: '0 20px 20px 20px' } }}>
@@ -383,6 +404,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, orderNo: id });
                           if (!id) setSelectedOrderText('');
                         }}
+                        onTextChange={(text) => setSelectedOrderText(text)}
                         onSearch={searchOrders}
                         disabled={saving}
                       />
@@ -396,6 +418,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, customer: id });
                           if (!id) setSelectedCustomerText('');
                         }}
+                        onTextChange={(text) => setSelectedCustomerText(text)}
                         onSearch={searchAccounts}
                         disabled={saving}
                       />
@@ -561,6 +584,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, pickingMaster: id });
                           if (!id) setSelectedPickingMasterText('');
                         }}
+                        onTextChange={(text) => setSelectedPickingMasterText(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -573,6 +597,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, pickingHelper1: id });
                           if (!id) setSelectedPickingHelper1Text('');
                         }}
+                        onTextChange={(text) => setSelectedPickingHelper1Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -585,6 +610,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, pickingHelper2: id });
                           if (!id) setSelectedPickingHelper2Text('');
                         }}
+                        onTextChange={(text) => setSelectedPickingHelper2Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -597,6 +623,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, pickingHelper3: id });
                           if (!id) setSelectedPickingHelper3Text('');
                         }}
+                        onTextChange={(text) => setSelectedPickingHelper3Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -613,6 +640,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, sawOperator: id });
                           if (!id) setSelectedSawOperatorText('');
                         }}
+                        onTextChange={(text) => setSelectedSawOperatorText(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -625,6 +653,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, sawHelper1: id });
                           if (!id) setSelectedSawHelper1Text('');
                         }}
+                        onTextChange={(text) => setSelectedSawHelper1Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -637,6 +666,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, sawHelper2: id });
                           if (!id) setSelectedSawHelper2Text('');
                         }}
+                        onTextChange={(text) => setSelectedSawHelper2Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -653,6 +683,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, jigLeader: id });
                           if (!id) setSelectedJigLeaderText('');
                         }}
+                        onTextChange={(text) => setSelectedJigLeaderText(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -665,6 +696,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, jigHelper1: id });
                           if (!id) setSelectedJigHelper1Text('');
                         }}
+                        onTextChange={(text) => setSelectedJigHelper1Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -677,6 +709,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, jigHelper2: id });
                           if (!id) setSelectedJigHelper2Text('');
                         }}
+                        onTextChange={(text) => setSelectedJigHelper2Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -689,6 +722,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, jigHelper3: id });
                           if (!id) setSelectedJigHelper3Text('');
                         }}
+                        onTextChange={(text) => setSelectedJigHelper3Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
@@ -701,6 +735,7 @@ export const D365ProductionForm = ({
                           setFormData({ ...formData, jigHelper4: id });
                           if (!id) setSelectedJigHelper4Text('');
                         }}
+                        onTextChange={(text) => setSelectedJigHelper4Text(text)}
                         onSearch={searchEmployees}
                         disabled={saving}
                       />
