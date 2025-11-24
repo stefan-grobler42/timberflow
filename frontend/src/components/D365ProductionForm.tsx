@@ -196,15 +196,46 @@ export const D365ProductionForm = ({
     }
   };
 
+  const cleanFormData = (data: Partial<Production>): Partial<Production> => {
+    const cleaned = { ...data };
+    
+    // Convert empty strings to undefined for date fields
+    const dateFields: (keyof Production)[] = [
+      'pickStart', 'pickEnd', 'sawStart', 'sawEnd', 'jigStart', 'jigEnd', 'productionPlannedDate'
+    ];
+    
+    dateFields.forEach(field => {
+      if (cleaned[field] === '') {
+        cleaned[field] = undefined as any;
+      }
+    });
+    
+    // Convert empty strings to undefined for lookup/ID fields
+    const idFields: (keyof Production)[] = [
+      'orderNo', 'customer', 'pickingMaster', 'pickingHelper1', 'pickingHelper2', 'pickingHelper3',
+      'sawOperator', 'sawHelper1', 'sawHelper2', 'jigLeader', 'jigHelper1', 'jigHelper2', 'jigHelper3', 'jigHelper4'
+    ];
+    
+    idFields.forEach(field => {
+      if (cleaned[field] === '') {
+        cleaned[field] = undefined as any;
+      }
+    });
+    
+    return cleaned;
+  };
+
   const handleSubmit = async () => {
     try {
       setSaving(true);
       setError(null);
 
+      const cleanedData = cleanFormData(formData);
+
       if (production) {
-        await productionService.update(production.id, formData);
+        await productionService.update(production.id, cleanedData);
       } else {
-        await productionService.create(formData);
+        await productionService.create(cleanedData);
       }
 
       onSave();
@@ -220,10 +251,12 @@ export const D365ProductionForm = ({
       setSaving(true);
       setError(null);
 
+      const cleanedData = cleanFormData(formData);
+
       if (production) {
-        await productionService.update(production.id, formData);
+        await productionService.update(production.id, cleanedData);
       } else {
-        await productionService.create(formData);
+        await productionService.create(cleanedData);
       }
 
       onSave();
@@ -239,10 +272,12 @@ export const D365ProductionForm = ({
       setSaving(true);
       setError(null);
 
+      const cleanedData = cleanFormData(formData);
+
       if (production) {
-        await productionService.update(production.id, formData);
+        await productionService.update(production.id, cleanedData);
       } else {
-        await productionService.create(formData);
+        await productionService.create(cleanedData);
       }
 
       setFormData({
