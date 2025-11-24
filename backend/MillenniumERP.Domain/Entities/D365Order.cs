@@ -51,6 +51,9 @@ public class D365Order
     [Column("ownerid")]
     public Guid? OwnerId { get; set; }
 
+    [Column("production_required")]
+    public bool? ProductionRequired { get; set; }
+
     [Column("createdon")]
     public DateTime CreatedOn { get; set; }
 

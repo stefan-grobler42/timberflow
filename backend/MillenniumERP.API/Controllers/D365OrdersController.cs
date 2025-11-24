@@ -88,6 +88,7 @@ public class D365OrdersController : ControllerBase
         if (updateDto.StateCode.HasValue) order.StateCode = updateDto.StateCode;
         if (updateDto.StatusCode.HasValue) order.StatusCode = updateDto.StatusCode;
         if (updateDto.Description != null) order.Description = updateDto.Description;
+        if (updateDto.ProductionRequired.HasValue) order.ProductionRequired = updateDto.ProductionRequired;
 
         order.ModifiedOn = DateTime.UtcNow;
 
@@ -134,6 +135,7 @@ public class D365OrdersController : ControllerBase
             StatusCode = order.StatusCode,
             Description = order.Description,
             OwnerId = order.OwnerId,
+            ProductionRequired = order.ProductionRequired,
             CreatedOn = order.CreatedOn,
             CreatedBy = order.CreatedBy,
             ModifiedOn = order.ModifiedOn,

@@ -16,6 +16,7 @@ public class D365OrderDto
     public int? StatusCode { get; set; }
     public string? Description { get; set; }
     public Guid? OwnerId { get; set; }
+    public bool? ProductionRequired { get; set; }
     public DateTime CreatedOn { get; set; }
     public DateTime? ModifiedOn { get; set; }
     public string? CreatedBy { get; set; }
@@ -47,4 +48,5 @@ public class UpdateD365OrderDto
     public int? StateCode { get; set; }
     public int? StatusCode { get; set; }
     public string? Description { get; set; }
+    public bool? ProductionRequired { get; set; }
 }
