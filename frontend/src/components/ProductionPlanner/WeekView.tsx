@@ -8,6 +8,7 @@ interface Job {
   estimatedEFinks: number;
   plannedDateStr: string | null;
   jigId: string | null;
+  productionComplete: boolean;
 }
 
 interface Jig {
@@ -155,21 +156,22 @@ export const WeekView: React.FC<WeekViewProps> = ({
                         styles={{
                           root: {
                             padding: 6,
-                            backgroundColor: 'white',
+                            backgroundColor: job.productionComplete ? '#e0e0e0' : 'white',
                             borderRadius: 3,
-                            border: '1px solid #ffc7ce',
+                            border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #ffc7ce',
                             cursor: 'grab',
-                            boxSizing: 'border-box'
+                            boxSizing: 'border-box',
+                            opacity: job.productionComplete ? 0.6 : 1
                           }
                         }}
                       >
-                        <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word' } }}>
+                        <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : '#000' } }}>
                           {job.orderNumber}
                         </Text>
-                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word' } }}>
+                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: '#666' } }}>
                           {job.customer}
                         </Text>
-                        <Text variant="tiny" block styles={{ root: { color: '#d13438' } }}>
+                        <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#d13438' } }}>
                           {job.estimatedEFinks} E-Finks
                         </Text>
                       </Stack>
@@ -211,21 +213,22 @@ export const WeekView: React.FC<WeekViewProps> = ({
                           styles={{
                             root: {
                               padding: 6,
-                              backgroundColor: 'white',
+                              backgroundColor: job.productionComplete ? '#e0e0e0' : 'white',
                               borderRadius: 3,
-                              border: '1px solid #e1dfdd',
+                              border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #e1dfdd',
                               cursor: 'grab',
-                              boxSizing: 'border-box'
+                              boxSizing: 'border-box',
+                              opacity: job.productionComplete ? 0.6 : 1
                             }
                           }}
                         >
-                          <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word' } }}>
+                          <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : '#000' } }}>
                             {job.orderNumber}
                           </Text>
-                          <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word' } }}>
+                          <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: '#666' } }}>
                             {job.customer}
                           </Text>
-                          <Text variant="tiny" block styles={{ root: { color: '#0078d4' } }}>
+                          <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#0078d4' } }}>
                             {job.estimatedEFinks} E-Finks
                           </Text>
                         </Stack>

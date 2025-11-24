@@ -10,6 +10,7 @@ interface Job {
   estimatedEFinks: number;
   plannedDateStr: string | null;
   jigId: string | null;
+  productionComplete: boolean;
 }
 
 interface Jig {
@@ -204,23 +205,24 @@ export const DayView: React.FC<DayViewProps> = ({
                       left: 8,
                       right: 8,
                       padding: 10,
-                      backgroundColor: 'rgba(209, 52, 56, 0.9)',
-                      color: 'white',
+                      backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : 'rgba(209, 52, 56, 0.9)',
+                      color: job.productionComplete ? '#666' : 'white',
                       borderRadius: 4,
-                      border: '2px solid #d13438',
+                      border: job.productionComplete ? '2px solid #c0c0c0' : '2px solid #d13438',
                       cursor: 'grab',
                       zIndex: 10,
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      opacity: job.productionComplete ? 0.6 : 1
                     }
                   }}
                 >
-                  <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                  <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
                     {job.orderNumber}
                   </Text>
-                  <Text variant="tiny" styles={{ root: { color: 'white' } }}>
+                  <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                     {job.customer}
                   </Text>
-                  <Text variant="tiny" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                  <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'white', fontWeight: 600 } }}>
                     {job.estimatedEFinks} E-Finks
                   </Text>
                 </Stack>
@@ -305,23 +307,24 @@ export const DayView: React.FC<DayViewProps> = ({
                         left: 8,
                         right: 8,
                         padding: 10,
-                        backgroundColor: 'rgba(0, 120, 212, 0.9)',
-                        color: 'white',
+                        backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : 'rgba(0, 120, 212, 0.9)',
+                        color: job.productionComplete ? '#666' : 'white',
                         borderRadius: 4,
-                        border: '2px solid #0078d4',
+                        border: job.productionComplete ? '2px solid #c0c0c0' : '2px solid #0078d4',
                         cursor: 'grab',
                         zIndex: 10,
-                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        opacity: job.productionComplete ? 0.6 : 1
                       }
                     }}
                   >
-                    <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
                       {job.orderNumber}
                     </Text>
-                    <Text variant="tiny" styles={{ root: { color: 'white' } }}>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                       {job.customer}
                     </Text>
-                    <Text variant="tiny" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'white', fontWeight: 600 } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>
                   </Stack>

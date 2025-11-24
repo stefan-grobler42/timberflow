@@ -9,6 +9,7 @@ interface Job {
   estimatedEFinks: number;
   plannedDateStr: string | null;
   jigId: string | null;
+  productionComplete: boolean;
 }
 
 interface MonthViewProps {
@@ -173,23 +174,24 @@ export const MonthView: React.FC<MonthViewProps> = ({
                           styles={{
                             root: {
                               padding: 6,
-                              backgroundColor: '#f8f8f8',
+                              backgroundColor: job.productionComplete ? '#e0e0e0' : '#f8f8f8',
                               borderRadius: 3,
-                              border: '1px solid #e1dfdd',
+                              border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #e1dfdd',
                               cursor: 'grab',
+                              opacity: job.productionComplete ? 0.6 : 1,
                               ':hover': {
-                                backgroundColor: '#f0f0f0'
+                                backgroundColor: job.productionComplete ? '#d0d0d0' : '#f0f0f0'
                               }
                             }
                           }}
                         >
-                          <Text variant="tiny" block styles={{ root: { fontWeight: 600 } }}>
+                          <Text variant="tiny" block styles={{ root: { fontWeight: 600, color: job.productionComplete ? '#666' : '#000' } }}>
                             {job.orderNumber}
                           </Text>
                           <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
                             {job.customer}
                           </Text>
-                          <Text variant="tiny" block styles={{ root: { color: '#0078d4' } }}>
+                          <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#0078d4' } }}>
                             {job.estimatedEFinks} E-Finks
                           </Text>
                         </Stack>

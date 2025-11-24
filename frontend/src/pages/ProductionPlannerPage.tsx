@@ -4,9 +4,9 @@ import {
   Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType, Dropdown
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
-import { productionService } from '../services/d365Services';
+import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService } from '../services/millenniumServices';
-import type { Jig } from '../types/millennium';
+import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView } from '../components/ProductionPlanner/DayView';
@@ -28,6 +28,7 @@ interface Job {
   estimatedEFinks: number;
   plannedDateStr: string | null;
   jigId: string | null;
+  productionComplete: boolean;
 }
 
 export const ProductionPlannerPage = () => {
@@ -37,6 +38,7 @@ export const ProductionPlannerPage = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
+  const [unallocatedOrders, setUnallocatedOrders] = useState<Job[]>([]);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
@@ -49,16 +51,17 @@ export const ProductionPlannerPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [productions, jigs] = await Promise.all([
+      const [productions, jigs, orders] = await Promise.all([
         productionService.getAll(),
-        jigService.getAll()
+        jigService.getAll(),
+        d365OrderService.getAll()
       ]);
       
       console.log(`[PLANNER] ✓ Loaded ${productions.length} total productions`);
       console.log(`[PLANNER] ✓ Loaded ${jigs.length} jig teams`);
+      console.log(`[PLANNER] ✓ Loaded ${orders.length} sales orders`);
       
       const jobList: Job[] = productions
-        .filter((p: any) => p.productionComplete !== true)
         .map((p: any) => ({
           id: p.id,
           name: p.name || '',
@@ -66,17 +69,37 @@ export const ProductionPlannerPage = () => {
           customer: p.customerName || 'Unknown',
           estimatedEFinks: p.newEstimateDefinks || 0,
           plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
-          jigId: p.jigId || null
+          jigId: p.jigId || null,
+          productionComplete: p.productionComplete === true
         }));
       
-      console.log(`[PLANNER] ✓ Filtered to ${jobList.length} incomplete jobs`);
+      console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
+      
+      // Find sales orders that need production but don't have production records
+      const productionOrderIds = new Set(productions.map((p: any) => p.orderId).filter(Boolean));
+      const ordersNeedingProduction = orders
+        .filter((o: D365Order) => o.productionRequired === true && !productionOrderIds.has(o.id))
+        .map((o: D365Order) => ({
+          id: `order-${o.id}`, // Prefix to distinguish from production records
+          name: o.name || '',
+          orderNumber: o.orderNumber || o.name || 'N/A',
+          customer: o.customerName || 'Unknown',
+          estimatedEFinks: o.estimatedEFinks || 0,
+          plannedDateStr: null,
+          jigId: null,
+          productionComplete: false
+        }));
+      
+      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} sales orders needing production`);
+      
       setJobs(jobList);
+      setUnallocatedOrders(ordersNeedingProduction);
       setJigTeams(jigs);
       if (selectedJigIds.length === 0) {
         setSelectedJigIds(jigs.map(j => j.id));
       }
       setLoading(false);
-      console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}`);
+      console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
     } catch (err) {
       console.error('[PLANNER] ✗ Error loading:', err);
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
@@ -89,7 +112,15 @@ export const ProductionPlannerPage = () => {
     loadData();
   }, []);
 
-  const unallocated = useMemo(() => jobs.filter(j => !j.plannedDateStr), [jobs]);
+  // Merge unallocated orders into jobs array for display in all views
+  const allJobs = useMemo(() => {
+    return [...jobs, ...unallocatedOrders];
+  }, [jobs, unallocatedOrders]);
+
+  // Unallocated basket: production without planned date + orders needing production
+  const unallocated = useMemo(() => {
+    return allJobs.filter(j => !j.plannedDateStr);
+  }, [allJobs]);
 
   const getDaysInView = useMemo(() => {
     if (viewMode === 'day') {
@@ -110,32 +141,60 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   };
 
-  const handleDrop = async (dateStr: string, jigId?: string) => {
+  const handleDrop = async (dateStr: string, jigId?: string | null) => {
     if (!draggedJobId) return;
     
-    const job = jobs.find(j => j.id === draggedJobId);
+    const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
+
+    // Check if this is a sales order needing production (prefixed with 'order-')
+    const isSalesOrder = job.id.startsWith('order-');
+    const actualOrderId = isSalesOrder ? job.id.substring(6) : null; // Remove 'order-' prefix to get Guid
 
     // For month view, don't assign jig (keep existing or null)
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
 
-    setJobs(jobs.map(j => 
-      j.id === draggedJobId 
-        ? { ...j, plannedDateStr: dateStr, jigId: updatedJigId }
-        : j
-    ));
-
     try {
       const date = new Date(dateStr);
-      const updateData: any = {
-        productionPlannedDate: date.toISOString()
-      };
-      if (updatedJigId) {
-        updateData.jigId = updatedJigId;
+      
+      if (isSalesOrder && actualOrderId) {
+        // Create a new production record for this sales order
+        const createData: any = {
+          name: job.name || job.orderNumber || 'Production',
+          orderNo: actualOrderId, // This is a Guid string
+          productionPlannedDate: date.toISOString(),
+          newEstimateDefinks: job.estimatedEFinks || 0,
+          productionComplete: false,
+          jigId: updatedJigId
+        };
+        
+        console.log('[PLANNER] Creating production for sales order:', actualOrderId);
+        await productionService.create(createData);
+        console.log('[PLANNER] ✓ Production created, reloading data...');
+        
+        // Reload data to get the new production record and remove sales order from unallocated
+        await loadData();
+      } else {
+        // Update existing production record
+        const updateData: any = {
+          productionPlannedDate: date.toISOString()
+        };
+        if (updatedJigId !== undefined) {
+          updateData.jigId = updatedJigId;
+        }
+        
+        // Optimistically update UI
+        setJobs(jobs.map(j => 
+          j.id === draggedJobId 
+            ? { ...j, plannedDateStr: dateStr, jigId: updatedJigId }
+            : j
+        ));
+        
+        await productionService.update(job.id, updateData);
       }
-      await productionService.update(job.id, updateData);
     } catch (err) {
-      setError('Failed to update job schedule');
+      console.error('[PLANNER] ✗ Failed to schedule job:', err);
+      setError(`Failed to schedule job: ${err instanceof Error ? err.message : 'Unknown error'}`);
       await loadData();
     } finally {
       setDraggedJobId(null);
@@ -401,7 +460,7 @@ export const ProductionPlannerPage = () => {
           {viewMode === 'month' && (
             <MonthView
               daysInView={getDaysInView}
-              jobs={jobs}
+              jobs={allJobs}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={(dateStr) => handleDrop(dateStr)}
@@ -412,7 +471,7 @@ export const ProductionPlannerPage = () => {
           {viewMode === 'week' && (
             <WeekView
               daysInView={getDaysInView}
-              jobs={jobs}
+              jobs={allJobs}
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -424,7 +483,7 @@ export const ProductionPlannerPage = () => {
           {viewMode === 'day' && (
             <DayView
               dayStr={currentDateStr}
-              jobs={jobs}
+              jobs={allJobs}
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
