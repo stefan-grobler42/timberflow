@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType
+  Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType, Dropdown
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService } from '../services/d365Services';
+import { jigService } from '../services/millenniumServices';
+import type { Jig } from '../types/millennium';
 
 interface Job {
   id: string;
@@ -16,17 +18,13 @@ interface Job {
   jigId: string | null;
 }
 
-const JIG_TEAMS = [
-  { id: '4d0a7a6e-0b75-4354-ab7c-712306da38f8', name: 'Jig 1' },
-  { id: 'adb04b6a-bb72-4797-82f0-87e6c9df90da', name: 'Jig 2' },
-  { id: 'cf39bb79-edae-41cb-9176-a9fbea1ecd38', name: 'Jig 3' }
-];
-
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [jigTeams, setJigTeams] = useState<Jig[]>([]);
+  const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
   const [basketCollapsed, setBasketCollapsed] = useState(false);
@@ -37,8 +35,13 @@ export const ProductionPlannerPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const productions = await productionService.getAll();
+      const [productions, jigs] = await Promise.all([
+        productionService.getAll(),
+        jigService.getAll()
+      ]);
+      
       console.log(`[PLANNER] ✓ Loaded ${productions.length} total productions`);
+      console.log(`[PLANNER] ✓ Loaded ${jigs.length} jig teams`);
       
       const jobList: Job[] = productions
         .filter((p: any) => p.productionComplete !== true)
@@ -54,6 +57,10 @@ export const ProductionPlannerPage = () => {
       
       console.log(`[PLANNER] ✓ Filtered to ${jobList.length} incomplete jobs`);
       setJobs(jobList);
+      setJigTeams(jigs);
+      if (selectedJigIds.length === 0) {
+        setSelectedJigIds(jigs.map(j => j.id));
+      }
       setLoading(false);
       console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}`);
     } catch (err) {
@@ -164,6 +171,33 @@ export const ProductionPlannerPage = () => {
     setCurrentDateStr(newDate.toISOString().split('T')[0]);
   };
 
+  const filteredJigTeams = useMemo(() => {
+    return jigTeams.filter(jig => selectedJigIds.includes(jig.id));
+  }, [jigTeams, selectedJigIds]);
+
+  const jigFilterOptions: IDropdownOption[] = useMemo(() => {
+    return [
+      { key: 'all', text: 'All Jigs' },
+      ...jigTeams.map(jig => ({ key: jig.id, text: jig.name }))
+    ];
+  }, [jigTeams]);
+
+  const handleJigFilterChange = (event: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+    if (!option) return;
+    
+    if (option.key === 'all') {
+      setSelectedJigIds(jigTeams.map(j => j.id));
+    } else {
+      const jigId = option.key as string;
+      if (selectedJigIds.includes(jigId)) {
+        const newSelection = selectedJigIds.filter(id => id !== jigId);
+        setSelectedJigIds(newSelection.length > 0 ? newSelection : jigTeams.map(j => j.id));
+      } else {
+        setSelectedJigIds([...selectedJigIds, jigId]);
+      }
+    }
+  };
+
   const commandItems: ICommandBarItemProps[] = [
     {
       key: 'refresh',
@@ -225,9 +259,19 @@ export const ProductionPlannerPage = () => {
 
   return (
     <Stack styles={{ root: { height: '100%' } }}>
-      <Text variant="xxLarge" styles={{ root: { marginBottom: 20 } }}>
-        Production Planner ({jobs.length} jobs)
-      </Text>
+      <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
+        <Text variant="xxLarge">
+          Production Planner ({jobs.length} jobs)
+        </Text>
+        <Dropdown
+          placeholder="Filter by Jig"
+          multiSelect
+          options={jigFilterOptions}
+          selectedKeys={selectedJigIds.length === jigTeams.length ? ['all'] : selectedJigIds}
+          onChange={handleJigFilterChange}
+          styles={{ root: { minWidth: 200 } }}
+        />
+      </Stack>
 
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
@@ -343,8 +387,14 @@ export const ProductionPlannerPage = () => {
                     </Text>
                   </Stack>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, backgroundColor: '#ddd' }}>
-                    {JIG_TEAMS.map(jigInfo => {
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: `repeat(${filteredJigTeams.length}, 1fr)`, 
+                    gap: 1, 
+                    backgroundColor: '#ddd',
+                    padding: 1
+                  }}>
+                    {filteredJigTeams.map(jigInfo => {
                       const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
                       const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
 
@@ -356,8 +406,9 @@ export const ProductionPlannerPage = () => {
                           styles={{
                             root: {
                               backgroundColor: '#faf9f8',
-                              padding: 10,
-                              minHeight: 150
+                              padding: 8,
+                              minHeight: 150,
+                              overflow: 'hidden'
                             }
                           }}
                         >
@@ -373,18 +424,19 @@ export const ProductionPlannerPage = () => {
                                 onDoubleClick={() => handleJobDoubleClick(job.id)}
                                 styles={{
                                   root: {
-                                    padding: 8,
+                                    padding: 6,
                                     backgroundColor: 'white',
                                     borderRadius: 3,
                                     border: '1px solid #e1dfdd',
-                                    cursor: 'grab'
+                                    cursor: 'grab',
+                                    boxSizing: 'border-box'
                                   }
                                 }}
                               >
-                                <Text variant="tiny" block styles={{ root: { fontWeight: 600 } }}>
+                                <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word' } }}>
                                   {job.orderNumber}
                                 </Text>
-                                <Text variant="tiny" block>
+                                <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word' } }}>
                                   {job.customer}
                                 </Text>
                                 <Text variant="tiny" block styles={{ root: { color: '#0078d4' } }}>
