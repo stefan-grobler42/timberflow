@@ -101,5 +101,39 @@ namespace MillenniumERP.Domain.Entities
         public Guid? CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
         public Guid? ModifiedBy { get; set; }
+
+        // Navigation properties
+        [ForeignKey("Driver")]
+        public Employee? DriverEmployee { get; set; }
+
+        [ForeignKey("Helper1")]
+        public Employee? Helper1Employee { get; set; }
+
+        [ForeignKey("Helper2")]
+        public Employee? Helper2Employee { get; set; }
+
+        [ForeignKey("Helper3")]
+        public Employee? Helper3Employee { get; set; }
+
+        [ForeignKey("Helper4")]
+        public Employee? Helper4Employee { get; set; }
+
+        [ForeignKey("Helper5")]
+        public Employee? Helper5Employee { get; set; }
+
+        [ForeignKey("Loadmaster")]
+        public Employee? LoadmasterEmployee { get; set; }
+
+        [ForeignKey("Dispatchmanager")]
+        public Employee? DispatchManagerEmployee { get; set; }
+
+        [ForeignKey("Security")]
+        public Employee? SecurityEmployee { get; set; }
+
+        [ForeignKey("Vehicle")]
+        public Vehicles? VehicleInfo { get; set; }
+
+        [ForeignKey("Trailer")]
+        public Vehicles? TrailerInfo { get; set; }
     }
 }

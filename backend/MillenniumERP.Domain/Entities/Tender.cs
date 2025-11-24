@@ -109,5 +109,18 @@ namespace MillenniumERP.Domain.Entities
         public Guid? CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
         public Guid? ModifiedBy { get; set; }
+
+        // Navigation properties
+        [ForeignKey("Customer")]
+        public Account? CustomerAccount { get; set; }
+
+        [ForeignKey("Contact")]
+        public D365Contact? ContactPerson { get; set; }
+
+        [ForeignKey("Quoteno")]
+        public D365Quote? Quote { get; set; }
+
+        [ForeignKey("NewDesigner")]
+        public Designer? DesignerPerson { get; set; }
     }
 }

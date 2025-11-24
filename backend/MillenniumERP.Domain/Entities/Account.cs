@@ -591,4 +591,23 @@ public class Account
 
     [Column("shippingmethodcode")]
     public int? ShippingMethodCode { get; set; }
+
+    // Navigation properties
+    [ForeignKey("PrimaryContactIdValue")]
+    public D365Contact? PrimaryContact { get; set; }
+
+    [ForeignKey("ParentAccountIdValue")]
+    public Account? ParentAccount { get; set; }
+
+    [ForeignKey("Cr694SalesRepresentativeValue")]
+    public SaleRepresentative? SalesRep { get; set; }
+
+    // Reverse navigation properties
+    public ICollection<Production> Productions { get; set; } = new List<Production>();
+    public ICollection<Delivery> Deliveries { get; set; } = new List<Delivery>();
+    public ICollection<D365Order> Orders { get; set; } = new List<D365Order>();
+    public ICollection<D365Quote> Quotes { get; set; } = new List<D365Quote>();
+    public ICollection<Tender> Tenders { get; set; } = new List<Tender>();
+    public ICollection<D365Contact> Contacts { get; set; } = new List<D365Contact>();
+    public ICollection<Account> ChildAccounts { get; set; } = new List<Account>();
 }

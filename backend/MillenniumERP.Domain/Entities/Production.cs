@@ -145,5 +145,57 @@ namespace MillenniumERP.Domain.Entities
         public Guid? CreatedBy { get; set; }
         public DateTime? ModifiedOn { get; set; }
         public Guid? ModifiedBy { get; set; }
+
+        // Navigation properties
+        [ForeignKey("Orderno")]
+        public D365Order? Order { get; set; }
+
+        [ForeignKey("Customer")]
+        public Account? CustomerAccount { get; set; }
+
+        [ForeignKey("PickingTeamId")]
+        public PickingTeam? PickingTeam { get; set; }
+
+        [ForeignKey("SawId")]
+        public Saw? SawTeam { get; set; }
+
+        [ForeignKey("JigId")]
+        public Jig? JigTeam { get; set; }
+
+        [ForeignKey("Pickingmaster")]
+        public Employee? PickingMasterEmployee { get; set; }
+
+        [ForeignKey("Pickinghelper1")]
+        public Employee? PickingHelper1Employee { get; set; }
+
+        [ForeignKey("Pickinghelper2")]
+        public Employee? PickingHelper2Employee { get; set; }
+
+        [ForeignKey("Pickinghelper3")]
+        public Employee? PickingHelper3Employee { get; set; }
+
+        [ForeignKey("Sawoperator")]
+        public Employee? SawOperatorEmployee { get; set; }
+
+        [ForeignKey("Sawhelper1")]
+        public Employee? SawHelper1Employee { get; set; }
+
+        [ForeignKey("Sawhelper2")]
+        public Employee? SawHelper2Employee { get; set; }
+
+        [ForeignKey("Jigleader")]
+        public Employee? JigLeaderEmployee { get; set; }
+
+        [ForeignKey("Jighelper1")]
+        public Employee? JigHelper1Employee { get; set; }
+
+        [ForeignKey("Jighelper2")]
+        public Employee? JigHelper2Employee { get; set; }
+
+        [ForeignKey("Jighelper3")]
+        public Employee? JigHelper3Employee { get; set; }
+
+        [ForeignKey("Jighelper4")]
+        public Employee? JigHelper4Employee { get; set; }
     }
 }

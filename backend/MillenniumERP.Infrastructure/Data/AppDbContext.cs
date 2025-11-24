@@ -144,5 +144,306 @@ public class AppDbContext : DbContext
                   .HasForeignKey(e => e.CreatedByUserId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // Production relationships
+        modelBuilder.Entity<Production>(entity =>
+        {
+            entity.HasOne(p => p.Order)
+                  .WithMany(o => o.Productions)
+                  .HasForeignKey(p => p.Orderno)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.CustomerAccount)
+                  .WithMany(a => a.Productions)
+                  .HasForeignKey(p => p.Customer)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.PickingTeam)
+                  .WithMany()
+                  .HasForeignKey(p => p.PickingTeamId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.SawTeam)
+                  .WithMany()
+                  .HasForeignKey(p => p.SawId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigTeam)
+                  .WithMany()
+                  .HasForeignKey(p => p.JigId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Employee relationships with explicit navigation names
+            entity.HasOne(p => p.PickingMasterEmployee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Pickingmaster)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.PickingHelper1Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Pickinghelper1)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.PickingHelper2Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Pickinghelper2)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.PickingHelper3Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Pickinghelper3)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.SawOperatorEmployee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Sawoperator)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.SawHelper1Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Sawhelper1)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.SawHelper2Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Sawhelper2)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigLeaderEmployee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Jigleader)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigHelper1Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Jighelper1)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigHelper2Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Jighelper2)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigHelper3Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Jighelper3)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(p => p.JigHelper4Employee)
+                  .WithMany()
+                  .HasForeignKey(p => p.Jighelper4)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // D365Order relationships
+        modelBuilder.Entity<D365Order>(entity =>
+        {
+            entity.HasOne(o => o.Customer)
+                  .WithMany(a => a.Orders)
+                  .HasForeignKey(o => o.CustomerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(o => o.Quote)
+                  .WithMany(q => q.Orders)
+                  .HasForeignKey(o => o.QuoteId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Delivery relationships
+        modelBuilder.Entity<Delivery>(entity =>
+        {
+            entity.HasOne(d => d.OrderByOrderno)
+                  .WithMany()
+                  .HasForeignKey(d => d.Orderno)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.OrderBySalesorder)
+                  .WithMany(o => o.Deliveries)
+                  .HasForeignKey(d => d.Salesorder)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.CustomerAccount)
+                  .WithMany(a => a.Deliveries)
+                  .HasForeignKey(d => d.Customer)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Employee relationships
+            entity.HasOne(d => d.DriverEmployee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Driver)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Helper1Employee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Helper1)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Helper2Employee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Helper2)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Helper3Employee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Helper3)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Helper4Employee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Helper)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.Helper5Employee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Helper5)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.LoadmasterEmployee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Loadmaster)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.DispatchManagerEmployee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Dispatchmanager)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.SecurityEmployee)
+                  .WithMany()
+                  .HasForeignKey(d => d.Security)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            // Vehicle relationships
+            entity.HasOne(d => d.VehicleInfo)
+                  .WithMany()
+                  .HasForeignKey(d => d.Vehicle)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.TrailerInfo)
+                  .WithMany()
+                  .HasForeignKey(d => d.Trailer)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Logistics relationships
+        modelBuilder.Entity<Logistics>(entity =>
+        {
+            entity.HasOne(l => l.DriverEmployee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Driver)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.Helper1Employee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Helper1)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.Helper2Employee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Helper2)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.Helper3Employee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Helper3)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.Helper4Employee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Helper4)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.Helper5Employee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Helper5)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.LoadmasterEmployee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Loadmaster)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.DispatchManagerEmployee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Dispatchmanager)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.SecurityEmployee)
+                  .WithMany()
+                  .HasForeignKey(l => l.Security)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.VehicleInfo)
+                  .WithMany()
+                  .HasForeignKey(l => l.Vehicle)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(l => l.TrailerInfo)
+                  .WithMany()
+                  .HasForeignKey(l => l.Trailer)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Tender relationships
+        modelBuilder.Entity<Tender>(entity =>
+        {
+            entity.HasOne(t => t.CustomerAccount)
+                  .WithMany(a => a.Tenders)
+                  .HasForeignKey(t => t.Customer)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(t => t.ContactPerson)
+                  .WithMany()
+                  .HasForeignKey(t => t.Contact)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(t => t.Quote)
+                  .WithMany(q => q.Tenders)
+                  .HasForeignKey(t => t.Quoteno)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(t => t.DesignerPerson)
+                  .WithMany()
+                  .HasForeignKey(t => t.NewDesigner)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // Account relationships
+        modelBuilder.Entity<Account>(entity =>
+        {
+            // PrimaryContactIdValue links to D365Contact (not legacy Contact)
+            entity.HasOne(a => a.PrimaryContact)
+                  .WithMany()
+                  .HasForeignKey(a => a.PrimaryContactIdValue)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.ParentAccount)
+                  .WithMany(a => a.ChildAccounts)
+                  .HasForeignKey(a => a.ParentAccountIdValue)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(a => a.SalesRep)
+                  .WithMany()
+                  .HasForeignKey(a => a.Cr694SalesRepresentativeValue)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // D365Quote relationships
+        modelBuilder.Entity<D365Quote>(entity =>
+        {
+            entity.HasOne(q => q.Customer)
+                  .WithMany(a => a.Quotes)
+                  .HasForeignKey(q => q.CustomerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // D365Contact relationships
+        modelBuilder.Entity<D365Contact>(entity =>
+        {
+            entity.HasOne(c => c.ParentAccount)
+                  .WithMany(a => a.Contacts)
+                  .HasForeignKey(c => c.ParentCustomerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
     }
 }

@@ -178,5 +178,12 @@ public class D365Quote
     [MaxLength(100)]
     public string? ContactEmail { get; set; }
 
-    public ICollection<D365QuoteDetail>? QuoteDetails { get; set; }
+    // Navigation properties
+    [ForeignKey("CustomerId")]
+    public Account? Customer { get; set; }
+
+    // Reverse navigation properties
+    public ICollection<D365QuoteDetail> QuoteDetails { get; set; } = new List<D365QuoteDetail>();
+    public ICollection<D365Order> Orders { get; set; } = new List<D365Order>();
+    public ICollection<Tender> Tenders { get; set; } = new List<Tender>();
 }

@@ -71,4 +71,10 @@ public class D365Order
 
     [ForeignKey("QuoteId")]
     public D365Quote? Quote { get; set; }
+
+    // Reverse navigation: Productions linked to this order
+    public ICollection<Production> Productions { get; set; } = new List<Production>();
+
+    // Reverse navigation: Deliveries linked to this order
+    public ICollection<Delivery> Deliveries { get; set; } = new List<Delivery>();
 }
