@@ -5,6 +5,7 @@ public class ProductionDto
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public Guid? Customer { get; set; }
+    public string? CustomerName { get; set; }
     public Guid? OrderNo { get; set; }
     public string? OrderNumber { get; set; }
     public DateTime? JigStart { get; set; }

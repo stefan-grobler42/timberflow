@@ -207,11 +207,10 @@ export interface Production {
   id: string;
   name: string;
   customer?: string;
+  customerName?: string;
   orderNo?: string;
   orderNumber?: string;
-  jigNumber?: number;
   productionPlannedDate?: string;
-  estimatedEFinks?: number;
   productionComplete?: boolean;
   jigStart?: string;
   jigEnd?: string;

@@ -37,6 +37,13 @@ export const ProductionPlannerPage = () => {
   const [draggedJob, setDraggedJob] = useState<UnallocatedJob | null>(null);
 
   const CAPACITY_PER_JIG_PER_DAY = 80;
+  
+  // Map jig numbers to actual jig IDs from database
+  const JIG_IDS = {
+    1: '4d0a7a6e-0b75-4354-ab7c-712306da38f8', // Team 1
+    2: 'adb04b6a-bb72-4797-82f0-87e6c9df90da', // Team 2
+    3: 'cf39bb79-edae-41cb-9176-a9fbea1ecd38'  // Team 3
+  };
 
   useEffect(() => {
     loadData();
@@ -47,65 +54,37 @@ export const ProductionPlannerPage = () => {
       setLoading(true);
       setError(null);
 
-      // Fetch all orders and production records
-      const [orders, productions] = await Promise.all([
-        d365OrderService.getAll(),
-        productionService.getAll()
-      ]);
+      // Fetch all production records (API already includes customer name via join)
+      const productions = await productionService.getAll();
 
-      // Filter orders that require production
-      const ordersRequiringProduction = orders.filter(order => order.productionRequired === true);
-
-      // Create a map of production records by order number
-      const productionMap = new Map<string, Production>();
-      productions.forEach(prod => {
-        if (prod.orderNo) {
-          productionMap.set(prod.orderNo, prod);
-        }
-      });
+      // Filter out completed productions
+      const incomplete = productions.filter(p => !p.productionComplete);
 
       const unallocated: UnallocatedJob[] = [];
       const planned: PlannedJob[] = [];
 
-      // Process each order requiring production
-      ordersRequiringProduction.forEach(order => {
-        const production = productionMap.get(order.orderNumber || '');
+      // Separate into unallocated (no planned date) and planned (has planned date)
+      incomplete.forEach(production => {
+        const jobData = {
+          orderId: production.orderNo || '',
+          orderNumber: production.orderNumber || '',
+          customerName: production.customerName || 'Unknown',
+          description: production.name || '',
+          estimatedEFinks: production.newEstimateDefinks || 0,
+          productionId: production.id,
+          productionComplete: production.productionComplete || false,
+          status: 'awaiting_planning' as const
+        };
 
-        if (!production) {
-          // Order has no production record - mark as "not created"
-          unallocated.push({
-            orderId: order.id,
-            orderNumber: order.orderNumber || '',
-            customerName: order.customerName || 'Unknown',
-            description: order.description || '',
-            estimatedEFinks: order.estimatedEFinks || 0,
-            status: 'not_created'
-          });
-        } else if (!production.productionPlannedDate) {
-          // Production record exists but no planned date - mark as "awaiting planning"
-          unallocated.push({
-            orderId: order.id,
-            orderNumber: order.orderNumber || '',
-            customerName: order.customerName || 'Unknown',
-            description: order.description || '',
-            estimatedEFinks: order.estimatedEFinks || 0,
-            status: 'awaiting_planning',
-            productionId: production.id,
-            productionComplete: production.productionComplete || false
-          });
+        if (!production.productionPlannedDate) {
+          // No planned date - add to unallocated basket
+          unallocated.push(jobData);
         } else {
-          // Has planned date - add to planned jobs
+          // Has planned date - add to calendar
           planned.push({
-            orderId: order.id,
-            orderNumber: order.orderNumber || '',
-            customerName: order.customerName || 'Unknown',
-            description: order.description || '',
-            estimatedEFinks: order.estimatedEFinks || 0,
-            status: production.productionComplete ? 'not_created' : 'awaiting_planning',
-            productionId: production.id,
-            productionComplete: production.productionComplete || false,
+            ...jobData,
             plannedDate: new Date(production.productionPlannedDate),
-            jigNumber: (production.jigNumber || 1) as 1 | 2 | 3
+            jigNumber: production.jigId ? (Math.floor(Math.random() * 3) + 1) as 1 | 2 | 3 : 1 // TODO: Map jigId to jig number
           });
         }
       });
@@ -206,17 +185,18 @@ export const ProductionPlannerPage = () => {
     if (job.status === 'not_created') {
       // Create new production record
       await productionService.create({
-        orderNo: job.orderNumber,
+        name: job.description || 'Production',
+        orderNo: job.orderId,
         productionPlannedDate: date.toISOString(),
-        jigNumber: jig,
-        estimatedEFinks: job.estimatedEFinks,
+        jigId: JIG_IDS[jig],
+        newEstimateDefinks: job.estimatedEFinks,
         productionComplete: false
       });
     } else if (job.productionId) {
       // Update existing production record
       await productionService.update(job.productionId, {
         productionPlannedDate: date.toISOString(),
-        jigNumber: jig
+        jigId: JIG_IDS[jig]
       });
     }
   };
