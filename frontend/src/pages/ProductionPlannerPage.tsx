@@ -18,9 +18,9 @@ interface Job {
 }
 
 const JIG_TEAMS = [
-  { id: '4d0a7a6e-0b75-4354-ab7c-712306da38f8', name: 'Team 1' },
-  { id: 'adb04b6a-bb72-4797-82f0-87e6c9df90da', name: 'Team 2' },
-  { id: 'cf39bb79-edae-41cb-9176-a9fbea1ecd38', name: 'Team 3' }
+  { id: '4d0a7a6e-0b75-4354-ab7c-712306da38f8', name: 'Jig 1' },
+  { id: 'adb04b6a-bb72-4797-82f0-87e6c9df90da', name: 'Jig 2' },
+  { id: 'cf39bb79-edae-41cb-9176-a9fbea1ecd38', name: 'Jig 3' }
 ];
 
 export const ProductionPlannerPage = () => {
@@ -39,17 +39,19 @@ export const ProductionPlannerPage = () => {
     setError(null);
     try {
       const productions = await productionService.getAll();
+      console.log('Sample production:', productions[0]);
       const jobList: Job[] = productions
-        .filter(p => !p.productionComplete)
-        .map(p => ({
-          id: p.id,
-          name: p.name || '',
-          orderNumber: p.orderNumber || 'N/A',
-          customer: p.customerName || 'Unknown',
-          estimatedEFinks: p.newEstimateDefinks || 0,
-          plannedDateStr: p.productionPlannedDate ? new Date(p.productionPlannedDate).toISOString().split('T')[0] : null,
-          jigId: p.jigId || null
+        .filter((p: any) => !p.ProductionComplete)
+        .map((p: any) => ({
+          id: p.Id,
+          name: p.Name || '',
+          orderNumber: p.OrderNumber || 'N/A',
+          customer: p.CustomerName || 'Unknown',
+          estimatedEFinks: p.NewEstimateDefinks || 0,
+          plannedDateStr: p.ProductionPlannedDate ? new Date(p.ProductionPlannedDate).toISOString().split('T')[0] : null,
+          jigId: p.JigId || null
         }));
+      console.log(`Filtered ${jobList.length} incomplete jobs from ${productions.length} total`);
       setJobs(jobList);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
