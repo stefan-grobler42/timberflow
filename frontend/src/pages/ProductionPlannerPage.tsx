@@ -1,6 +1,6 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { 
-  Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType, PrimaryButton
+  Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType
 } from '@fluentui/react';
 import type { ICommandBarItemProps } from '@fluentui/react';
 import { productionService } from '../services/d365Services';
@@ -34,7 +34,7 @@ export const ProductionPlannerPage = () => {
   const [formVisible, setFormVisible] = useState(false);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -45,7 +45,7 @@ export const ProductionPlannerPage = () => {
         .map((p: any) => ({
           id: p.Id,
           name: p.Name || '',
-          orderNumber: p.OrderNumber || 'N/A',
+          orderNumber: p.OrderNumber || p.Name || 'N/A',
           customer: p.CustomerName || 'Unknown',
           estimatedEFinks: p.NewEstimateDefinks || 0,
           plannedDateStr: p.ProductionPlannedDate ? new Date(p.ProductionPlannedDate).toISOString().split('T')[0] : null,
@@ -58,7 +58,11 @@ export const ProductionPlannerPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const unallocated = useMemo(() => jobs.filter(j => !j.plannedDateStr), [jobs]);
   
@@ -216,26 +220,13 @@ export const ProductionPlannerPage = () => {
     }
   ];
 
-  if (jobs.length === 0 && !loading) {
-    return (
-      <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { height: '100vh', padding: 40 } }}>
-        <Stack tokens={{ childrenGap: 20 }} horizontalAlign="center">
-          <Text variant="xxLarge" styles={{ root: { marginBottom: 10 } }}>
-            Production Planner
-          </Text>
-          <Text variant="large" styles={{ root: { color: '#666', marginBottom: 20 } }}>
-            Click below to load active production jobs
-          </Text>
-          <PrimaryButton text="Load Production Jobs" iconProps={{ iconName: 'Download' }} onClick={loadData} />
-        </Stack>
-      </Stack>
-    );
-  }
-
-  if (loading) {
+  if (loading && jobs.length === 0) {
     return (
       <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { height: '100vh' } }}>
         <Spinner label="Loading production planner..." size={3} />
+        <Text variant="small" styles={{ root: { marginTop: 10, color: '#666' } }}>
+          Loading {jobs.length} jobs...
+        </Text>
       </Stack>
     );
   }
