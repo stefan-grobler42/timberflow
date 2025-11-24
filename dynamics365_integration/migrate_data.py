@@ -11,9 +11,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from dynamics365_integration.auth import DynamicsAuthenticator
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Optional
 import re
+from zoneinfo import ZoneInfo
 
 
 class D365ToERPMigrator:
@@ -910,14 +911,25 @@ class D365ToERPMigrator:
                 camel_case_key = self._convert_to_camel_case(d365_key)
                 print(f"  ⚠ Unmapped field: {d365_key} → {camel_case_key} (using fallback)")
             
-            # Convert datetime strings to ISO format
+            # Convert datetime strings to UTC ISO format for PostgreSQL
             if isinstance(value, str) and ('date' in d365_key.lower() or 'time' in d365_key.lower() or d365_key.lower().endswith('on')):
                 try:
-                    # Try to parse as datetime
-                    dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
-                    transformed[camel_case_key] = dt.isoformat()
-                except:
-                    # If parsing fails, keep original value
+                    # Parse datetime with timezone awareness
+                    if value.endswith('Z') or '+' in value or value.count('-') > 2:
+                        # Has timezone info (Z or offset) - parse as-is
+                        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                    else:
+                        # No timezone info - assume South Africa Standard Time (SAST = UTC+2)
+                        dt_naive = datetime.fromisoformat(value)
+                        sast_tz = ZoneInfo('Africa/Johannesburg')
+                        dt = dt_naive.replace(tzinfo=sast_tz)
+                    
+                    # Convert to UTC and format with 'Z' suffix for PostgreSQL
+                    dt_utc = dt.astimezone(timezone.utc)
+                    transformed[camel_case_key] = dt_utc.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+                except Exception as e:
+                    # If parsing fails, keep original value and log warning
+                    print(f"    ⚠ Failed to parse datetime '{value}' for field {d365_key}: {e}")
                     transformed[camel_case_key] = value
             # Convert numbers to strings for fields that might expect strings
             elif isinstance(value, (int, float)) and not isinstance(value, bool):

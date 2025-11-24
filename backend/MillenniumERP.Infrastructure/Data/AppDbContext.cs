@@ -1,10 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using MillenniumERP.Domain.Entities;
+using MillenniumERP.Infrastructure.Data.Converters;
 
 namespace MillenniumERP.Infrastructure.Data;
 
 public class AppDbContext : DbContext
 {
+    static AppDbContext()
+    {
+        AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+    }
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -448,5 +454,21 @@ public class AppDbContext : DbContext
                   .HasForeignKey(c => c.ParentCustomerId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
+
+        // Apply UTC DateTime converter to all DateTime and DateTime? properties
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(DateTime))
+                {
+                    property.SetValueConverter(new UtcDateTimeConverter());
+                }
+                else if (property.ClrType == typeof(DateTime?))
+                {
+                    property.SetValueConverter(new NullableUtcDateTimeConverter());
+                }
+            }
+        }
     }
 }
