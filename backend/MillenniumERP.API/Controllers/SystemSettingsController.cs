@@ -78,14 +78,36 @@ public class SystemSettingsController : ControllerBase
         var officeStaff = settings.FirstOrDefault(s => s.SettingKey == "WorkingHours.OfficeStaff");
         var factoryStaff = settings.FirstOrDefault(s => s.SettingKey == "WorkingHours.FactoryStaff");
 
+        var defaultOffice = new StaffWorkingHoursDto
+        {
+            Monday = "08:00-16:00",
+            Tuesday = "08:00-16:00",
+            Wednesday = "08:00-16:00",
+            Thursday = "08:00-16:00",
+            Friday = "08:00-16:00",
+            Saturday = null,
+            Sunday = null
+        };
+
+        var defaultFactory = new StaffWorkingHoursDto
+        {
+            Monday = "07:00-17:00",
+            Tuesday = "07:00-17:00",
+            Wednesday = "07:00-17:00",
+            Thursday = "07:00-17:00",
+            Friday = "07:00-16:00",
+            Saturday = null,
+            Sunday = null
+        };
+
         return new WorkingHoursSettingsDto
         {
             OfficeStaff = officeStaff != null ? 
-                JsonSerializer.Deserialize<StaffWorkingHoursDto>(officeStaff.SettingValue ?? "{}") : 
-                new StaffWorkingHoursDto(),
+                JsonSerializer.Deserialize<StaffWorkingHoursDto>(officeStaff.SettingValue ?? "{}") ?? defaultOffice : 
+                defaultOffice,
             FactoryStaff = factoryStaff != null ? 
-                JsonSerializer.Deserialize<StaffWorkingHoursDto>(factoryStaff.SettingValue ?? "{}") : 
-                new StaffWorkingHoursDto()
+                JsonSerializer.Deserialize<StaffWorkingHoursDto>(factoryStaff.SettingValue ?? "{}") ?? defaultFactory : 
+                defaultFactory
         };
     }
 

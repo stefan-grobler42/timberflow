@@ -18,34 +18,6 @@ export const SettingsPage: React.FC = () => {
     try {
       setLoading(true);
       const data = await systemSettingsService.getSettings();
-      
-      // Initialize with defaults if not set
-      if (!data.financialYear) {
-        data.financialYear = { startMonth: 3, startDay: 1 };
-      }
-      if (!data.workingHours) {
-        data.workingHours = {
-          officeStaff: {
-            monday: '08:00-16:00',
-            tuesday: '08:00-16:00',
-            wednesday: '08:00-16:00',
-            thursday: '08:00-16:00',
-            friday: '08:00-16:00',
-            saturday: '',
-            sunday: ''
-          },
-          factoryStaff: {
-            monday: '07:00-17:00',
-            tuesday: '07:00-17:00',
-            wednesday: '07:00-17:00',
-            thursday: '07:00-17:00',
-            friday: '07:00-16:00',
-            saturday: '',
-            sunday: ''
-          }
-        };
-      }
-      
       setSettings(data);
       setLoading(false);
     } catch (error) {
