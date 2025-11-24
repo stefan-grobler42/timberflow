@@ -4,6 +4,18 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution. The project aims to enhance market potential and operational ambitions for timber roofing contractors.
 
 ## Recent Changes
+**November 24, 2025 - Order Form Summary Tab with Reactive Timeline:**
+- **Feature**: Enhanced Order Form Summary Tab with responsive two-column layout and dynamic workflow timeline
+- **Layout**: Left column (400px fixed width) with form fields, right column (flexible width) with timeline visualization
+- **Responsive Design**: Uses Fluent UI `selectors` pattern with @media queries - collapses to single column below 960px screen width
+- **Timeline Features**: 
+  - 6-stage workflow visualization (Quote Created, Order Placed, Production Started, Dispatch Scheduled, Installation in Progress, Order Complete)
+  - Numbered circles (32px) with checkmarks for completed stages, vertical connecting lines, contextual status messages
+  - Reactive behavior: Reads from live `formData` so timeline updates immediately when user changes quote linkage or status code
+  - Stage-specific colors: Blue (#0078d4) for quote, Green (#107c10) for order, Orange (#d83b01) for production, Teal (#008272) for complete
+- **Form Sections**: Order Info, Dates (order/request/fulfill), Status dropdowns, Description textarea, Financial Summary (subtotal/tax/total)
+- **Backend Fix**: Added `cleanFormData` function to convert empty date/lookup strings to `undefined` before API submission for nullable fields
+
 **November 21, 2025 - PostgreSQL Migration Completed:**
 - **Achievement**: Successfully migrated entire system from SQLite to PostgreSQL for production deployment
 - **Data Migrated**: 13,566 D365 records across 28 tables with 100% data integrity
