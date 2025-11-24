@@ -11,7 +11,7 @@ import {
   Label,
 } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
-import { productionService } from '../services/millenniumServices';
+import { productionService, jigService } from '../services/millenniumServices';
 import { lookupService, accountService, d365OrderService } from '../services/d365Services';
 import { StandardLookupField, StandardFormHeader, type LookupOption } from './standards';
 import type { Production } from '../types/millennium';
@@ -64,11 +64,17 @@ export const D365ProductionForm = ({
     jigHelper2: '',
     jigHelper3: '',
     jigHelper4: '',
+    pickingTeamId: '',
+    sawId: '',
+    jigId: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   
   const [selectedOrderText, setSelectedOrderText] = useState<string>('');
+  const [selectedPickingTeamText, setSelectedPickingTeamText] = useState<string>('');
+  const [selectedSawTeamText, setSelectedSawTeamText] = useState<string>('');
+  const [selectedJigTeamText, setSelectedJigTeamText] = useState<string>('');
   const [selectedCustomerText, setSelectedCustomerText] = useState<string>('');
   const [selectedPickingMasterText, setSelectedPickingMasterText] = useState<string>('');
   const [selectedPickingHelper1Text, setSelectedPickingHelper1Text] = useState<string>('');
@@ -114,6 +120,9 @@ export const D365ProductionForm = ({
         jigHelper2: production.jigHelper2 || '',
         jigHelper3: production.jigHelper3 || '',
         jigHelper4: production.jigHelper4 || '',
+        pickingTeamId: production.pickingTeamId || '',
+        sawId: production.sawId || '',
+        jigId: production.jigId || '',
       });
       
       loadLookupTexts(production);
@@ -138,6 +147,20 @@ export const D365ProductionForm = ({
           setSelectedCustomerText(account.name || '');
         }
       }
+      
+      const loadJigTeam = async (id: string | undefined, setter: (text: string) => void) => {
+        if (id) {
+          const jigs = await jigService.getAll();
+          const jig = jigs.find(j => j.id === id);
+          if (jig) setter(jig.name || '');
+        }
+      };
+      
+      await Promise.all([
+        loadJigTeam(prod.pickingTeamId, setSelectedPickingTeamText),
+        loadJigTeam(prod.sawId, setSelectedSawTeamText),
+        loadJigTeam(prod.jigId, setSelectedJigTeamText),
+      ]);
       
       const loadEmployee = async (id: string | undefined, setter: (text: string) => void) => {
         if (id) {
@@ -195,6 +218,21 @@ export const D365ProductionForm = ({
       return [];
     }
   };
+  
+  const searchJigs = async (searchTerm: string): Promise<LookupOption[]> => {
+    try {
+      const jigs = await jigService.getAll();
+      return jigs
+        .filter(j => j.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+        .map(j => ({
+          id: j.id,
+          text: j.name || ''
+        }));
+    } catch (error) {
+      console.error('Error searching jigs:', error);
+      return [];
+    }
+  };
 
   const cleanFormData = (data: Partial<Production>): Partial<Production> => {
     const cleaned = { ...data };
@@ -213,7 +251,8 @@ export const D365ProductionForm = ({
     // Convert empty strings to undefined for lookup/ID fields
     const idFields: (keyof Production)[] = [
       'orderNo', 'customer', 'pickingMaster', 'pickingHelper1', 'pickingHelper2', 'pickingHelper3',
-      'sawOperator', 'sawHelper1', 'sawHelper2', 'jigLeader', 'jigHelper1', 'jigHelper2', 'jigHelper3', 'jigHelper4'
+      'sawOperator', 'sawHelper1', 'sawHelper2', 'jigLeader', 'jigHelper1', 'jigHelper2', 'jigHelper3', 'jigHelper4',
+      'pickingTeamId', 'sawId', 'jigId'
     ];
     
     idFields.forEach(field => {
@@ -611,6 +650,19 @@ export const D365ProductionForm = ({
                     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                       <Label styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>Picking Team</Label>
                       <StandardLookupField
+                        label="Picking Team"
+                        value={formData.pickingTeamId}
+                        selectedText={selectedPickingTeamText}
+                        entityName="Jig"
+                        onChange={(id) => {
+                          setFormData({ ...formData, pickingTeamId: id });
+                          if (!id) setSelectedPickingTeamText('');
+                        }}
+                        onTextChange={(text) => setSelectedPickingTeamText(text)}
+                        onSearch={searchJigs}
+                        disabled={saving}
+                      />
+                      <StandardLookupField
                         label="Picking - Master"
                         value={formData.pickingMaster}
                         selectedText={selectedPickingMasterText}
@@ -667,6 +719,19 @@ export const D365ProductionForm = ({
                     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                       <Label styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>Saw Team</Label>
                       <StandardLookupField
+                        label="Saw Team"
+                        value={formData.sawId}
+                        selectedText={selectedSawTeamText}
+                        entityName="Jig"
+                        onChange={(id) => {
+                          setFormData({ ...formData, sawId: id });
+                          if (!id) setSelectedSawTeamText('');
+                        }}
+                        onTextChange={(text) => setSelectedSawTeamText(text)}
+                        onSearch={searchJigs}
+                        disabled={saving}
+                      />
+                      <StandardLookupField
                         label="Saw - Operator"
                         value={formData.sawOperator}
                         selectedText={selectedSawOperatorText}
@@ -709,6 +774,19 @@ export const D365ProductionForm = ({
 
                     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { flex: 1 } }}>
                       <Label styles={{ root: { fontWeight: 600, marginBottom: 8 } }}>Jig Team</Label>
+                      <StandardLookupField
+                        label="Jig Team"
+                        value={formData.jigId}
+                        selectedText={selectedJigTeamText}
+                        entityName="Jig"
+                        onChange={(id) => {
+                          setFormData({ ...formData, jigId: id });
+                          if (!id) setSelectedJigTeamText('');
+                        }}
+                        onTextChange={(text) => setSelectedJigTeamText(text)}
+                        onSearch={searchJigs}
+                        disabled={saving}
+                      />
                       <StandardLookupField
                         label="Jig - Leader"
                         value={formData.jigLeader}

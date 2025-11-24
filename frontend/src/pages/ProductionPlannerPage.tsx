@@ -10,6 +10,15 @@ import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView } from '../components/ProductionPlanner/DayView';
+import { 
+  startOfMonthUtc, 
+  startOfWeekUtc, 
+  formatIsoDateLocal, 
+  addMonths, 
+  addDays, 
+  getDaysInMonth, 
+  getDaysInWeek 
+} from '../utils/dateUtils';
 
 interface Job {
   id: string;
@@ -29,7 +38,7 @@ export const ProductionPlannerPage = () => {
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
-  const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(false);
@@ -56,7 +65,7 @@ export const ProductionPlannerPage = () => {
           orderNumber: p.orderNumber || p.name || 'N/A',
           customer: p.customerName || 'Unknown',
           estimatedEFinks: p.newEstimateDefinks || 0,
-          plannedDateStr: p.productionPlannedDate ? new Date(p.productionPlannedDate).toISOString().split('T')[0] : null,
+          plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
           jigId: p.jigId || null
         }));
       
@@ -83,31 +92,14 @@ export const ProductionPlannerPage = () => {
   const unallocated = useMemo(() => jobs.filter(j => !j.plannedDateStr), [jobs]);
 
   const getDaysInView = useMemo(() => {
-    const days: string[] = [];
-    const start = new Date(currentDateStr);
-    start.setHours(0, 0, 0, 0);
-    
     if (viewMode === 'day') {
-      days.push(start.toISOString().split('T')[0]);
+      return [currentDateStr];
     } else if (viewMode === 'week') {
-      const dayOfWeek = start.getDay();
-      start.setDate(start.getDate() - dayOfWeek);
-      for (let i = 0; i < 7; i++) {
-        const day = new Date(start);
-        day.setDate(start.getDate() + i);
-        days.push(day.toISOString().split('T')[0]);
-      }
+      const weekStart = startOfWeekUtc(currentDateStr);
+      return getDaysInWeek(weekStart);
     } else {
-      const year = start.getFullYear();
-      const month = start.getMonth();
-      const daysInMonth = new Date(year, month + 1, 0).getDate();
-      for (let i = 1; i <= daysInMonth; i++) {
-        const day = new Date(year, month, i);
-        days.push(day.toISOString().split('T')[0]);
-      }
+      return getDaysInMonth(currentDateStr);
     }
-    
-    return days;
   }, [currentDateStr, viewMode]);
 
   const handleDragStart = (jobId: string) => {
@@ -161,15 +153,14 @@ export const ProductionPlannerPage = () => {
   };
 
   const navigateDate = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentDateStr);
+    const increment = direction === 'next' ? 1 : -1;
     if (viewMode === 'day') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
+      setCurrentDateStr(addDays(currentDateStr, increment));
     } else if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+      setCurrentDateStr(addDays(currentDateStr, increment * 7));
     } else {
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      setCurrentDateStr(addMonths(currentDateStr, increment));
     }
-    setCurrentDateStr(newDate.toISOString().split('T')[0]);
   };
 
   const handleWeekClick = (weekStartDate: string) => {

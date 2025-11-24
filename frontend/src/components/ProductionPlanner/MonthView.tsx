@@ -1,4 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
+import { startOfWeekUtc } from '../../utils/dateUtils';
 
 interface Job {
   id: string;
@@ -40,25 +41,21 @@ export const MonthView: React.FC<MonthViewProps> = ({
   };
 
   const formatDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
+    const date = new Date(dateStr + 'T00:00:00Z');
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    return `${days[date.getDay()]} ${date.getDate()}`;
+    return `${days[date.getUTCDay()]} ${date.getUTCDate()}`;
   };
 
   const getWeekNumber = (dateStr: string): number => {
-    const date = new Date(dateStr);
-    const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-    const dayOfMonth = date.getDate();
-    const dayOfWeek = firstDayOfMonth.getDay();
+    const date = new Date(dateStr + 'T00:00:00Z');
+    const firstDayOfMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    const dayOfMonth = date.getUTCDate();
+    const dayOfWeek = firstDayOfMonth.getUTCDay();
     return Math.ceil((dayOfMonth + dayOfWeek) / 7);
   };
 
   const getWeekStartDate = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    const dayOfWeek = date.getDay();
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - dayOfWeek);
-    return weekStart.toISOString().split('T')[0];
+    return startOfWeekUtc(dateStr);
   };
 
   const groupDaysByWeek = () => {
