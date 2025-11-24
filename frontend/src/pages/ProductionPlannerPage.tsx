@@ -1,11 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType
 } from '@fluentui/react';
 import type { ICommandBarItemProps } from '@fluentui/react';
 import { productionService } from '../services/d365Services';
-import { D365ProductionForm } from '../components/D365ProductionForm';
-import type { Production } from '../types/millennium';
 
 interface Job {
   id: string;
@@ -24,14 +23,13 @@ const JIG_TEAMS = [
 ];
 
 export const ProductionPlannerPage = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
   const [basketCollapsed, setBasketCollapsed] = useState(false);
-  const [selectedProduction, setSelectedProduction] = useState<Production | null>(null);
-  const [formVisible, setFormVisible] = useState(false);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
   const loadData = async () => {
@@ -144,20 +142,8 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleJobDoubleClick = async (jobId: string) => {
-    try {
-      const production = await productionService.getById(jobId);
-      setSelectedProduction(production);
-      setFormVisible(true);
-    } catch (err) {
-      setError('Failed to load production details');
-    }
-  };
-
-  const handleFormSave = async () => {
-    setFormVisible(false);
-    setSelectedProduction(null);
-    await loadData();
+  const handleJobDoubleClick = (jobId: string) => {
+    navigate(`/production-planner/${jobId}`);
   };
 
   const formatDate = (dateStr: string): string => {
@@ -417,17 +403,6 @@ export const ProductionPlannerPage = () => {
           </div>
         </Stack>
       </Stack>
-
-      {formVisible && selectedProduction && (
-        <D365ProductionForm
-          production={selectedProduction}
-          onSave={handleFormSave}
-          onDismiss={() => {
-            setFormVisible(false);
-            setSelectedProduction(null);
-          }}
-        />
-      )}
     </Stack>
   );
 };
