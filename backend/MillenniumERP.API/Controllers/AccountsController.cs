@@ -22,12 +22,28 @@ public class AccountsController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AccountDto>>> GetAll()
     {
-        var accounts = await _context.Accounts
-            .OrderBy(a => a.Name)
-            .ToListAsync();
+        try
+        {
+            _logger.LogInformation("Fetching all accounts...");
+            
+            var accounts = await _context.Accounts
+                .AsNoTracking()  // Reduce memory usage for large read-only queries
+                .OrderBy(a => a.Name)
+                .ToListAsync();
 
-        var accountDtos = accounts.Select(MapToDto).ToList();
-        return Ok(accountDtos);
+            _logger.LogInformation("Retrieved {Count} accounts from database", accounts.Count);
+
+            var accountDtos = accounts.Select(MapToDto).ToList();
+            
+            _logger.LogInformation("Mapped {Count} accounts to DTOs", accountDtos.Count);
+            
+            return Ok(accountDtos);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error fetching accounts");
+            return StatusCode(500, new { message = "An error occurred while fetching accounts", error = ex.Message });
+        }
     }
 
     [HttpGet("{id}")]

@@ -23,7 +23,18 @@ if (!string.IsNullOrEmpty(pgHost) && !string.IsNullOrEmpty(pgUser) && !string.Is
         Username = pgUser,
         Password = pgPassword,
         Database = pgDatabase ?? "neondb",
-        SslMode = SslMode.Require
+        SslMode = SslMode.Require,
+        // Connection pooling and resilience settings for large result sets
+        Pooling = true,
+        MinPoolSize = 1,
+        MaxPoolSize = 20,
+        ConnectionIdleLifetime = 300,
+        ConnectionPruningInterval = 10,
+        // Increase timeouts for large data transfers
+        Timeout = 60,
+        CommandTimeout = 60,
+        // Keep alive to prevent connection termination
+        KeepAlive = 30
     };
     connectionString = connBuilder.ConnectionString;
 }
@@ -34,7 +45,16 @@ else
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        // Enable retry on transient failures
+        npgsqlOptions.EnableRetryOnFailure(
+            maxRetryCount: 3,
+            maxRetryDelay: TimeSpan.FromSeconds(5),
+            errorCodesToAdd: null);
+        // Increase command timeout for large queries
+        npgsqlOptions.CommandTimeout(60);
+    }));
 
 // Add services to the container
 builder.Services.AddControllers()
