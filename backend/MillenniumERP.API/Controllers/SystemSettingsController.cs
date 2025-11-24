@@ -30,7 +30,8 @@ public class SystemSettingsController : ControllerBase
             var dto = new SystemSettingsDto
             {
                 FinancialYear = GetFinancialYearSettings(settings),
-                WorkingHours = GetWorkingHoursSettings(settings)
+                WorkingHours = GetWorkingHoursSettings(settings),
+                Timezone = GetTimezoneSettings(settings)
             };
 
             return Ok(dto);
@@ -49,6 +50,7 @@ public class SystemSettingsController : ControllerBase
         {
             await SaveFinancialYearSettings(dto.FinancialYear);
             await SaveWorkingHoursSettings(dto.WorkingHours);
+            await SaveTimezoneSettings(dto.Timezone);
             
             await _context.SaveChangesAsync();
 
@@ -134,6 +136,30 @@ public class SystemSettingsController : ControllerBase
             var json = JsonSerializer.Serialize(dto.FactoryStaff);
             await UpsertSetting("WorkingHours.FactoryStaff", json, "Working Hours", "Factory staff working hours");
         }
+    }
+
+    private TimezoneSettingsDto GetTimezoneSettings(List<SystemSetting> settings)
+    {
+        var timezone = settings.FirstOrDefault(s => s.SettingKey == "Timezone.Settings");
+
+        var defaultTimezone = new TimezoneSettingsDto
+        {
+            TimeZoneId = "South Africa Standard Time",
+            DisplayName = "South Africa (GMT+02:00)",
+            UtcOffset = "+02:00"
+        };
+
+        return timezone != null ? 
+            JsonSerializer.Deserialize<TimezoneSettingsDto>(timezone.SettingValue ?? "{}") ?? defaultTimezone : 
+            defaultTimezone;
+    }
+
+    private async Task SaveTimezoneSettings(TimezoneSettingsDto? dto)
+    {
+        if (dto == null) return;
+
+        var json = JsonSerializer.Serialize(dto);
+        await UpsertSetting("Timezone.Settings", json, "Timezone", "System timezone configuration");
     }
 
     private async Task UpsertSetting(string key, string value, string category, string description)

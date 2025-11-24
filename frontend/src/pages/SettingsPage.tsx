@@ -60,6 +60,19 @@ export const SettingsPage: React.FC = () => {
     text: (i + 1).toString()
   }));
 
+  const timezoneOptions: IDropdownOption[] = [
+    { key: 'South Africa Standard Time', text: 'South Africa (GMT+02:00)' },
+    { key: 'GMT Standard Time', text: 'United Kingdom (GMT+00:00)' },
+    { key: 'Central European Standard Time', text: 'Central Europe (GMT+01:00)' },
+    { key: 'Eastern Standard Time', text: 'US Eastern (GMT-05:00)' },
+    { key: 'Central Standard Time', text: 'US Central (GMT-06:00)' },
+    { key: 'Mountain Standard Time', text: 'US Mountain (GMT-07:00)' },
+    { key: 'Pacific Standard Time', text: 'US Pacific (GMT-08:00)' },
+    { key: 'China Standard Time', text: 'China (GMT+08:00)' },
+    { key: 'India Standard Time', text: 'India (GMT+05:30)' },
+    { key: 'AUS Eastern Standard Time', text: 'Australia Eastern (GMT+10:00)' }
+  ];
+
   const updateStaffHours = (staffType: 'officeStaff' | 'factoryStaff', day: keyof StaffWorkingHours, value: string) => {
     setSettings(prev => ({
       ...prev,
@@ -277,6 +290,44 @@ export const SettingsPage: React.FC = () => {
                 />
               </Stack>
             </Stack>
+          </Stack>
+        </PivotItem>
+
+        <PivotItem headerText="Timezone">
+          <Stack styles={{ root: { marginTop: 20, maxWidth: 600 } }} tokens={{ childrenGap: 20 }}>
+            <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+              System Timezone Configuration
+            </Text>
+            <Text variant="small" styles={{ root: { color: '#666' } }}>
+              Select the timezone for your organization. All dates and times in the system will be displayed in this timezone.
+            </Text>
+
+            <Dropdown
+              label="Timezone"
+              selectedKey={settings.timezone?.timeZoneId || 'South Africa Standard Time'}
+              options={timezoneOptions}
+              onChange={(_, option) => {
+                const selectedOption = timezoneOptions.find(tz => tz.key === option?.key);
+                setSettings(prev => ({
+                  ...prev,
+                  timezone: {
+                    timeZoneId: option?.key as string,
+                    displayName: selectedOption?.text || '',
+                    utcOffset: selectedOption?.text.match(/GMT([+-]\d{2}:\d{2})/)?.[1] || '+02:00'
+                  }
+                }));
+              }}
+              required
+            />
+
+            <MessageBar messageBarType={MessageBarType.info}>
+              Current Timezone: {settings.timezone?.displayName || 'South Africa (GMT+02:00)'}
+            </MessageBar>
+
+            <MessageBar messageBarType={MessageBarType.warning}>
+              Important: Changing the timezone will affect how all dates and times are displayed throughout the system. 
+              Existing data will not be modified, only the display format will change.
+            </MessageBar>
           </Stack>
         </PivotItem>
       </Pivot>

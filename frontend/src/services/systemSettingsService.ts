@@ -3,6 +3,7 @@ import { api } from './api';
 export interface SystemSettings {
   financialYear?: FinancialYearSettings;
   workingHours?: WorkingHoursSettings;
+  timezone?: TimezoneSettings;
 }
 
 export interface FinancialYearSettings {
@@ -23,6 +24,12 @@ export interface StaffWorkingHours {
   friday?: string;
   saturday?: string;
   sunday?: string;
+}
+
+export interface TimezoneSettings {
+  timeZoneId: string;
+  displayName: string;
+  utcOffset: string;
 }
 
 class SystemSettingsService {

@@ -55,19 +55,22 @@ Millennium Timber Roof ERP is a specialized, web-based ERP system designed for t
 - **Booking Logic**: Visual indicators for capacity utilization across all views (90 E-Finks max, 90% = fully booked, 75% = nearly full)
 
 **November 24, 2025 - System Settings Module:**
-- **Feature**: Added System Settings configuration page with Financial Year and Working Hours management
+- **Feature**: Added System Settings configuration page with Financial Year, Working Hours, and Timezone management
 - **Database**: Created `system_settings` table with key-value storage for configuration data
 - **Backend**: 
   - SystemSetting entity with category, description, and JSON value support
   - SystemSettingsController with GET/PUT endpoints
-  - Separate DTOs for FinancialYearSettings and WorkingHoursSettings
+  - Separate DTOs for FinancialYearSettings, WorkingHoursSettings, and TimezoneSettings
+  - TimezoneSettings includes timeZoneId, displayName, and utcOffset (default: South Africa GMT+2:00)
 - **Frontend**:
-  - SettingsPage with tabbed interface (Financial Year, Working Hours)
+  - SettingsPage with tabbed interface (Financial Year, Working Hours, Timezone)
   - Financial Year: Configurable start month/day (default: March 1)
   - Working Hours: Separate configuration for Office Staff and Factory Staff with day-by-day hour ranges
+  - Timezone: Dropdown selector with 10 common timezones (default: South Africa Standard Time GMT+2:00)
   - Form validation and default value initialization
 - **Navigation**: Added "System Settings" link to sidebar Settings section
 - **Data Persistence**: Settings stored in PostgreSQL with upsert logic for updates
+- **Timezone Options**: South Africa, UK, Central Europe, US (Eastern/Central/Mountain/Pacific), China, India, Australia Eastern
 
 **November 24, 2025 - Order Form Summary Tab with Reactive Timeline:**
 - **Feature**: Enhanced Order Form Summary Tab with responsive two-column layout and dynamic workflow timeline

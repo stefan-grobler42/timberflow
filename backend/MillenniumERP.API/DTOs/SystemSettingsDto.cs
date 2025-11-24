@@ -9,6 +9,9 @@ public class SystemSettingsDto
     
     [JsonPropertyName("workingHours")]
     public WorkingHoursSettingsDto? WorkingHours { get; set; }
+    
+    [JsonPropertyName("timezone")]
+    public TimezoneSettingsDto? Timezone { get; set; }
 }
 
 public class FinancialYearSettingsDto
@@ -51,4 +54,16 @@ public class StaffWorkingHoursDto
     
     [JsonPropertyName("sunday")]
     public string? Sunday { get; set; }
+}
+
+public class TimezoneSettingsDto
+{
+    [JsonPropertyName("timeZoneId")]
+    public string TimeZoneId { get; set; } = "South Africa Standard Time";
+    
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = "South Africa (GMT+02:00)";
+    
+    [JsonPropertyName("utcOffset")]
+    public string UtcOffset { get; set; } = "+02:00";
 }
