@@ -389,147 +389,425 @@ export const D365OrderForm = ({
 
         <Stack tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 20 } }}>
           {activeTab === 'summary' && (
-            <Stack tokens={{ childrenGap: 20 }}>
-              <Stack tokens={{ childrenGap: 12 }}>
-                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Order Information</Label>
-                
-                <TextField
-                  label="Order Number"
-                  value={formData.orderNumber || ''}
-                  onChange={(_, value) => setFormData({ ...formData, orderNumber: value })}
-                  disabled={saving}
-                />
-
-                <TextField
-                  label="Name"
-                  value={formData.name || ''}
-                  onChange={(_, value) => setFormData({ ...formData, name: value })}
-                  disabled={saving}
-                  required
-                />
-
-                <StandardLookupField
-                  label="Customer"
-                  value={formData.customerId || ''}
-                  selectedText={selectedCustomerText}
-                  entityName="Customer"
-                  onSearch={handleCustomerSearch}
-                  onChange={(id) => {
-                    setFormData({ ...formData, customerId: id });
-                    if (!id) setSelectedCustomerText('');
-                  }}
-                  onTextChange={(text) => setSelectedCustomerText(text)}
-                  disabled={saving}
-                />
-
-                <StandardLookupField
-                  label="Quote"
-                  value={formData.quoteId || ''}
-                  selectedText={selectedQuoteText}
-                  entityName="Quote"
-                  onSearch={handleQuoteSearch}
-                  onChange={(id) => {
-                    setFormData({ ...formData, quoteId: id });
-                    if (!id) setSelectedQuoteText('');
-                  }}
-                  onTextChange={(text) => setSelectedQuoteText(text)}
-                  disabled={saving}
-                />
-              </Stack>
-
-              <Stack tokens={{ childrenGap: 12 }}>
-                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Dates</Label>
-                
-                <DatePicker
-                  label="Date Fulfilled"
-                  value={parseDate(formData.dateFulfilled)}
-                  onSelectDate={(date) => 
-                    setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+            <Stack 
+              horizontal 
+              tokens={{ childrenGap: 20 }}
+              wrap
+              styles={{ 
+                root: { 
+                  selectors: {
+                    '@media (max-width: 960px)': {
+                      flexDirection: 'column'
+                    }
                   }
-                  disabled={saving}
-                />
-
-                <DatePicker
-                  label="Request Delivery By"
-                  value={parseDate(formData.requestDeliveryBy)}
-                  onSelectDate={(date) => 
-                    setFormData({ ...formData, requestDeliveryBy: formatDateForInput(date || undefined) })
-                  }
-                  disabled={saving}
-                />
-              </Stack>
-
-              <Stack tokens={{ childrenGap: 12 }}>
-                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Status</Label>
-                
-                <Dropdown
-                  label="State Code"
-                  selectedKey={formData.stateCode ?? 0}
-                  options={stateCodeOptions}
-                  onChange={(_, option) => 
-                    setFormData({ ...formData, stateCode: option?.key as number })
-                  }
-                  disabled={saving}
-                />
-
-                <Dropdown
-                  label="Status Code"
-                  selectedKey={formData.statusCode ?? 1}
-                  options={statusCodeOptions}
-                  onChange={(_, option) => 
-                    setFormData({ ...formData, statusCode: option?.key as number })
-                  }
-                  disabled={saving}
-                />
-              </Stack>
-
-              <Stack tokens={{ childrenGap: 12 }}>
-                <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Description</Label>
-                
-                <TextField
-                  multiline
-                  rows={4}
-                  value={formData.description || ''}
-                  onChange={(_, value) => setFormData({ ...formData, description: value })}
-                  disabled={saving}
-                />
-              </Stack>
-
+                } 
+              }}
+            >
+              {/* Left Column - Form Fields */}
               <Stack 
-                horizontal 
-                tokens={{ childrenGap: 20 }}
+                tokens={{ childrenGap: 20 }} 
                 styles={{ 
                   root: { 
-                    padding: 16, 
-                    backgroundColor: '#f3f2f1', 
-                    borderRadius: 4,
-                    border: '1px solid #edebe9'
+                    flex: '0 0 400px',
+                    minWidth: 320,
+                    selectors: {
+                      '@media (max-width: 960px)': {
+                        flex: '1 1 100%',
+                        minWidth: 'auto'
+                      }
+                    }
                   } 
                 }}
               >
-                <Stack styles={{ root: { flex: 1 } }}>
-                  <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
-                    Total Amount
+                <Stack tokens={{ childrenGap: 12 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Order Information</Label>
+                  
+                  <TextField
+                    label="Order Number"
+                    value={formData.orderNumber || ''}
+                    onChange={(_, value) => setFormData({ ...formData, orderNumber: value })}
+                    disabled={saving}
+                  />
+
+                  <TextField
+                    label="Name"
+                    value={formData.name || ''}
+                    onChange={(_, value) => setFormData({ ...formData, name: value })}
+                    disabled={saving}
+                    required
+                  />
+
+                  <StandardLookupField
+                    label="Customer"
+                    value={formData.customerId || ''}
+                    selectedText={selectedCustomerText}
+                    entityName="Customer"
+                    onSearch={handleCustomerSearch}
+                    onChange={(id) => {
+                      setFormData({ ...formData, customerId: id });
+                      if (!id) setSelectedCustomerText('');
+                    }}
+                    onTextChange={(text) => setSelectedCustomerText(text)}
+                    disabled={saving}
+                  />
+
+                  <StandardLookupField
+                    label="Quote"
+                    value={formData.quoteId || ''}
+                    selectedText={selectedQuoteText}
+                    entityName="Quote"
+                    onSearch={handleQuoteSearch}
+                    onChange={(id) => {
+                      setFormData({ ...formData, quoteId: id });
+                      if (!id) setSelectedQuoteText('');
+                    }}
+                    onTextChange={(text) => setSelectedQuoteText(text)}
+                    disabled={saving}
+                  />
+                </Stack>
+
+                <Stack tokens={{ childrenGap: 12 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Dates</Label>
+                  
+                  <DatePicker
+                    label="Date Fulfilled"
+                    value={parseDate(formData.dateFulfilled)}
+                    onSelectDate={(date) => 
+                      setFormData({ ...formData, dateFulfilled: formatDateForInput(date || undefined) })
+                    }
+                    disabled={saving}
+                  />
+
+                  <DatePicker
+                    label="Request Delivery By"
+                    value={parseDate(formData.requestDeliveryBy)}
+                    onSelectDate={(date) => 
+                      setFormData({ ...formData, requestDeliveryBy: formatDateForInput(date || undefined) })
+                    }
+                    disabled={saving}
+                  />
+                </Stack>
+
+                <Stack tokens={{ childrenGap: 12 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Status</Label>
+                  
+                  <Dropdown
+                    label="State Code"
+                    selectedKey={formData.stateCode ?? 0}
+                    options={stateCodeOptions}
+                    onChange={(_, option) => 
+                      setFormData({ ...formData, stateCode: option?.key as number })
+                    }
+                    disabled={saving}
+                  />
+
+                  <Dropdown
+                    label="Status Code"
+                    selectedKey={formData.statusCode ?? 1}
+                    options={statusCodeOptions}
+                    onChange={(_, option) => 
+                      setFormData({ ...formData, statusCode: option?.key as number })
+                    }
+                    disabled={saving}
+                  />
+                </Stack>
+
+                <Stack tokens={{ childrenGap: 12 }}>
+                  <Label styles={{ root: { fontWeight: 600, fontSize: 16 } }}>Description</Label>
+                  
+                  <TextField
+                    multiline
+                    rows={4}
+                    value={formData.description || ''}
+                    onChange={(_, value) => setFormData({ ...formData, description: value })}
+                    disabled={saving}
+                  />
+                </Stack>
+
+                <Stack 
+                  horizontal 
+                  tokens={{ childrenGap: 20 }}
+                  styles={{ 
+                    root: { 
+                      padding: 16, 
+                      backgroundColor: '#f3f2f1', 
+                      borderRadius: 4,
+                      border: '1px solid #edebe9'
+                    } 
+                  }}
+                >
+                  <Stack styles={{ root: { flex: 1 } }}>
+                    <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
+                      Total Amount
+                    </Text>
+                    <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                      {formatCurrency(formData.totalAmount)}
+                    </Text>
+                  </Stack>
+                  <Stack styles={{ root: { flex: 1 } }}>
+                    <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
+                      Discount
+                    </Text>
+                    <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                      {formatCurrency(formData.totalDiscountAmount)}
+                    </Text>
+                  </Stack>
+                  <Stack styles={{ root: { flex: 1 } }}>
+                    <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
+                      Line Item Total
+                    </Text>
+                    <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                      {formatCurrency(formData.totalLineItemAmount)}
+                    </Text>
+                  </Stack>
+                </Stack>
+              </Stack>
+
+              {/* Right Column - Timeline/Map Visualization */}
+              <Stack 
+                styles={{ 
+                  root: { 
+                    flex: 1, 
+                    minHeight: 600,
+                    minWidth: 400,
+                    border: '1px solid #edebe9',
+                    borderRadius: 4,
+                    backgroundColor: 'white',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    selectors: {
+                      '@media (max-width: 960px)': {
+                        minWidth: 'auto',
+                        minHeight: 400
+                      }
+                    }
+                  } 
+                }}
+              >
+                {/* Timeline Header */}
+                <Stack 
+                  horizontal 
+                  horizontalAlign="space-between"
+                  verticalAlign="center"
+                  styles={{ 
+                    root: { 
+                      padding: '16px 20px',
+                      borderBottom: '1px solid #edebe9',
+                      backgroundColor: '#faf9f8'
+                    } 
+                  }}
+                >
+                  <Text variant="large" styles={{ root: { fontWeight: 600, color: '#323130' } }}>
+                    Order Timeline
                   </Text>
-                  <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-                    {formatCurrency(formData.totalAmount)}
+                  <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                    {formData.quoteId || formData.statusCode ? 'Tracking progress' : 'Complete form to track'}
                   </Text>
                 </Stack>
-                <Stack styles={{ root: { flex: 1 } }}>
-                  <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
-                    Discount
-                  </Text>
-                  <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-                    {formatCurrency(formData.totalDiscountAmount)}
-                  </Text>
-                </Stack>
-                <Stack styles={{ root: { flex: 1 } }}>
-                  <Text variant="small" styles={{ root: { color: '#605e5c', marginBottom: 4 } }}>
-                    Line Item Total
-                  </Text>
-                  <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-                    {formatCurrency(formData.totalLineItemAmount)}
-                  </Text>
+
+                {/* Timeline Content */}
+                <Stack 
+                  tokens={{ childrenGap: 0 }}
+                  styles={{ root: { padding: 20 } }}
+                >
+                  {/* Quote Stage */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: formData.quoteId ? '#0078d4' : '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        {formData.quoteId ? '✓' : '1'}
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Quote Created</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        {formData.quoteId ? 'Quote linked to order' : 'No quote linked'}
+                      </Text>
+                    </Stack>
+                    <div style={{ 
+                      position: 'absolute',
+                      left: 15,
+                      top: 32,
+                      bottom: 0,
+                      width: 2,
+                      backgroundColor: '#edebe9'
+                    }} />
+                  </Stack>
+
+                  {/* Order Placed */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: order ? '#107c10' : '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        {order ? '✓' : '2'}
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Order Placed</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        {order ? `Order #${formData.orderNumber || 'Created'}` : 'Order not yet created'}
+                      </Text>
+                    </Stack>
+                    <div style={{ 
+                      position: 'absolute',
+                      left: 15,
+                      top: 32,
+                      bottom: 0,
+                      width: 2,
+                      backgroundColor: '#edebe9'
+                    }} />
+                  </Stack>
+
+                  {/* Production Started */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: (formData.statusCode !== undefined && formData.statusCode >= 3) ? '#d83b01' : '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: (formData.statusCode !== undefined && formData.statusCode >= 3) ? 'white' : '#605e5c',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        {(formData.statusCode !== undefined && formData.statusCode >= 3) ? '✓' : '3'}
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Production Started</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        {(formData.statusCode !== undefined && formData.statusCode >= 3) ? 'Production in progress' : 'Pending order placement'}
+                      </Text>
+                    </Stack>
+                    <div style={{ 
+                      position: 'absolute',
+                      left: 15,
+                      top: 32,
+                      bottom: 0,
+                      width: 2,
+                      backgroundColor: '#edebe9'
+                    }} />
+                  </Stack>
+
+                  {/* Dispatch Scheduled */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#605e5c',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        4
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Dispatch Scheduled</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        Pending production completion
+                      </Text>
+                    </Stack>
+                    <div style={{ 
+                      position: 'absolute',
+                      left: 15,
+                      top: 32,
+                      bottom: 0,
+                      width: 2,
+                      backgroundColor: '#edebe9'
+                    }} />
+                  </Stack>
+
+                  {/* Installation in Progress */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#605e5c',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        5
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Installation in Progress</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        Pending dispatch
+                      </Text>
+                    </Stack>
+                    <div style={{ 
+                      position: 'absolute',
+                      left: 15,
+                      top: 32,
+                      bottom: 0,
+                      width: 2,
+                      backgroundColor: '#edebe9'
+                    }} />
+                  </Stack>
+
+                  {/* Order Complete */}
+                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative' } }}>
+                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
+                      <div style={{ 
+                        width: 32, 
+                        height: 32, 
+                        borderRadius: '50%', 
+                        backgroundColor: (formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? '#008272' : '#edebe9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: (formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? 'white' : '#605e5c',
+                        fontWeight: 600,
+                        fontSize: 14
+                      }}>
+                        {(formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? '✓' : '6'}
+                      </div>
+                    </Stack>
+                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
+                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Order Complete</Text>
+                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+                        {(formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) 
+                          ? (formData.statusCode === 100000 ? 'Complete' : formData.statusCode === 100001 ? 'Partially complete' : 'Invoiced')
+                          : 'Final stage'
+                        }
+                      </Text>
+                    </Stack>
+                  </Stack>
                 </Stack>
               </Stack>
             </Stack>
