@@ -1,4 +1,4 @@
-import { millenniumAPI } from './millenniumServices';
+import { api } from './api';
 
 export interface SystemSettings {
   financialYear?: FinancialYearSettings;
@@ -27,12 +27,11 @@ export interface StaffWorkingHours {
 
 class SystemSettingsService {
   async getSettings(): Promise<SystemSettings> {
-    const response = await millenniumAPI.get('/SystemSettings');
-    return response.data;
+    return await api.get<SystemSettings>('/SystemSettings');
   }
 
   async updateSettings(settings: SystemSettings): Promise<void> {
-    await millenniumAPI.put('/SystemSettings', settings);
+    await api.put('/SystemSettings', settings);
   }
 }
 

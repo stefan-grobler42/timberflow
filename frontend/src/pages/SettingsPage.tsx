@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, IDropdownOption, Pivot, PivotItem } from '@fluentui/react';
-import { systemSettingsService, SystemSettings, StaffWorkingHours } from '../services/systemSettingsService';
+import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, Pivot, PivotItem } from '@fluentui/react';
+import type { IDropdownOption } from '@fluentui/react';
+import { systemSettingsService } from '../services/systemSettingsService';
+import type { SystemSettings, StaffWorkingHours } from '../services/systemSettingsService';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({});
