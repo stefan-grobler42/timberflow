@@ -563,251 +563,79 @@ export const D365OrderForm = ({
                 </Stack>
               </Stack>
 
-              {/* Right Column - Timeline/Map Visualization */}
+              {/* Right Column - Weather Widget */}
               <Stack 
                 styles={{ 
                   root: { 
                     flex: 1, 
-                    minHeight: 600,
+                    minHeight: 200,
                     minWidth: 400,
                     border: '1px solid #edebe9',
                     borderRadius: 4,
-                    backgroundColor: 'white',
+                    backgroundColor: '#87CEEB',
                     position: 'relative',
                     overflow: 'hidden',
+                    backgroundImage: 'linear-gradient(180deg, #87CEEB 0%, #B0D9F1 100%)',
                     selectors: {
                       '@media (max-width: 960px)': {
                         minWidth: 'auto',
-                        minHeight: 400
+                        minHeight: 150
                       }
                     }
                   } 
                 }}
               >
-                {/* Timeline Header */}
+                {/* Weather Forecast Display */}
                 <Stack 
                   horizontal 
-                  horizontalAlign="space-between"
+                  horizontalAlign="space-around"
                   verticalAlign="center"
-                  styles={{ 
-                    root: { 
-                      padding: '16px 20px',
-                      borderBottom: '1px solid #edebe9',
-                      backgroundColor: '#faf9f8'
-                    } 
-                  }}
+                  styles={{ root: { height: '100%', padding: '20px 16px' } }}
+                  tokens={{ childrenGap: 8 }}
                 >
-                  <Text variant="large" styles={{ root: { fontWeight: 600, color: '#323130' } }}>
-                    Order Timeline
-                  </Text>
-                  <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                    {formData.quoteId || formData.statusCode ? 'Tracking progress' : 'Complete form to track'}
-                  </Text>
-                </Stack>
-
-                {/* Timeline Content */}
-                <Stack 
-                  tokens={{ childrenGap: 0 }}
-                  styles={{ root: { padding: 20 } }}
-                >
-                  {/* Quote Stage */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: formData.quoteId ? '#0078d4' : '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        {formData.quoteId ? '✓' : '1'}
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Quote Created</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        {formData.quoteId ? 'Quote linked to order' : 'No quote linked'}
-                      </Text>
-                    </Stack>
-                    <div style={{ 
-                      position: 'absolute',
-                      left: 15,
-                      top: 32,
-                      bottom: 0,
-                      width: 2,
-                      backgroundColor: '#edebe9'
-                    }} />
-                  </Stack>
-
-                  {/* Order Placed */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: order ? '#107c10' : '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        {order ? '✓' : '2'}
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Order Placed</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        {order ? `Order #${formData.orderNumber || 'Created'}` : 'Order not yet created'}
-                      </Text>
-                    </Stack>
-                    <div style={{ 
-                      position: 'absolute',
-                      left: 15,
-                      top: 32,
-                      bottom: 0,
-                      width: 2,
-                      backgroundColor: '#edebe9'
-                    }} />
-                  </Stack>
-
-                  {/* Production Started */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: (formData.statusCode !== undefined && formData.statusCode >= 3) ? '#d83b01' : '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: (formData.statusCode !== undefined && formData.statusCode >= 3) ? 'white' : '#605e5c',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        {(formData.statusCode !== undefined && formData.statusCode >= 3) ? '✓' : '3'}
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Production Started</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        {(formData.statusCode !== undefined && formData.statusCode >= 3) ? 'Production in progress' : 'Pending order placement'}
-                      </Text>
-                    </Stack>
-                    <div style={{ 
-                      position: 'absolute',
-                      left: 15,
-                      top: 32,
-                      bottom: 0,
-                      width: 2,
-                      backgroundColor: '#edebe9'
-                    }} />
-                  </Stack>
-
-                  {/* Dispatch Scheduled */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#605e5c',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        4
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Dispatch Scheduled</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        Pending production completion
-                      </Text>
-                    </Stack>
-                    <div style={{ 
-                      position: 'absolute',
-                      left: 15,
-                      top: 32,
-                      bottom: 0,
-                      width: 2,
-                      backgroundColor: '#edebe9'
-                    }} />
-                  </Stack>
-
-                  {/* Installation in Progress */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative', paddingBottom: 24 } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#605e5c',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        5
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Installation in Progress</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        Pending dispatch
-                      </Text>
-                    </Stack>
-                    <div style={{ 
-                      position: 'absolute',
-                      left: 15,
-                      top: 32,
-                      bottom: 0,
-                      width: 2,
-                      backgroundColor: '#edebe9'
-                    }} />
-                  </Stack>
-
-                  {/* Order Complete */}
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { position: 'relative' } }}>
-                    <Stack verticalAlign="center" styles={{ root: { position: 'relative', zIndex: 1 } }}>
-                      <div style={{ 
-                        width: 32, 
-                        height: 32, 
-                        borderRadius: '50%', 
-                        backgroundColor: (formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? '#008272' : '#edebe9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: (formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? 'white' : '#605e5c',
-                        fontWeight: 600,
-                        fontSize: 14
-                      }}>
-                        {(formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) ? '✓' : '6'}
-                      </div>
-                    </Stack>
-                    <Stack tokens={{ childrenGap: 4 }} styles={{ root: { flex: 1, paddingTop: 4 } }}>
-                      <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>Order Complete</Text>
-                      <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-                        {(formData.statusCode === 100000 || formData.statusCode === 100001 || formData.statusCode === 100002) 
-                          ? (formData.statusCode === 100000 ? 'Complete' : formData.statusCode === 100001 ? 'Partially complete' : 'Invoiced')
-                          : 'Final stage'
-                        }
-                      </Text>
-                    </Stack>
-                  </Stack>
+                  {/* Weather for each day */}
+                  {[...Array(7)].map((_, index) => {
+                    const date = new Date();
+                    date.setDate(date.getDate() + index);
+                    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                    const dayNum = date.getDate();
+                    
+                    return (
+                      <Stack 
+                        key={index}
+                        horizontalAlign="center"
+                        tokens={{ childrenGap: 8 }}
+                        styles={{ root: { minWidth: 60 } }}
+                      >
+                        <Text 
+                          variant="small" 
+                          styles={{ root: { color: 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)' } }}
+                        >
+                          {dayName}
+                        </Text>
+                        <Text 
+                          variant="xSmall" 
+                          styles={{ root: { color: 'white', opacity: 0.9 } }}
+                        >
+                          {dayNum}
+                        </Text>
+                        {/* Cloud icon */}
+                        <div style={{
+                          fontSize: 32,
+                          lineHeight: 1,
+                          filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))'
+                        }}>
+                          ☁️
+                        </div>
+                        <Text 
+                          variant="small" 
+                          styles={{ root: { color: 'white', fontWeight: 600, textShadow: '0 1px 2px rgba(0,0,0,0.2)' } }}
+                        >
+                          {18 + Math.floor(Math.random() * 8)}°
+                        </Text>
+                      </Stack>
+                    );
+                  })}
                 </Stack>
               </Stack>
             </Stack>
