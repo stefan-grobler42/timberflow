@@ -48,6 +48,12 @@ public class D365Order
     [Column("description")]
     public string? Description { get; set; }
 
+    [Column("productionrequired")]
+    public bool? ProductionRequired { get; set; }
+
+    [Column("estimatedefinks")]
+    public decimal? EstimatedEFinks { get; set; }
+
     [Column("ownerid")]
     public Guid? OwnerId { get; set; }
 

@@ -209,6 +209,10 @@ export interface Production {
   customer?: string;
   orderNo?: string;
   orderNumber?: string;
+  jigNumber?: number;
+  productionPlannedDate?: string;
+  estimatedEFinks?: number;
+  productionComplete?: boolean;
   jigStart?: string;
   jigEnd?: string;
   jigLeader?: string;
@@ -227,8 +231,6 @@ export interface Production {
   sawOperator?: string;
   sawHelper1?: string;
   sawHelper2?: string;
-  productionComplete?: boolean;
-  productionPlannedDate?: string;
   totalCuts?: number;
   totalTimberCubes?: number;
   trussCost?: number;
@@ -713,6 +715,7 @@ export interface D365Order {
   orderNumber?: string;
   name?: string;
   customerId?: string;
+  customerName?: string;
   quoteId?: string;
   dateFulfilled?: string;
   requestDeliveryBy?: string;
@@ -722,6 +725,8 @@ export interface D365Order {
   stateCode?: number;
   statusCode?: number;
   description?: string;
+  productionRequired?: boolean;
+  estimatedEFinks?: number;
   ownerId?: string;
   createdOn?: string;
   modifiedOn?: string;

@@ -84,6 +84,10 @@ namespace MillenniumERP.Domain.Entities
         [Column("cr694_productionplanneddate")]
         public DateTime? Productionplanneddate { get; set; }
 
+        /// <summary>Jig Number</summary>
+        [Column("jig_number")]
+        public int? JigNumber { get; set; }
+
         /// <summary>Saw End</summary>
         [Column("cr694_sawend")]
         public DateTime? Sawend { get; set; }

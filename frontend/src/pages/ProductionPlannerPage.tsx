@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Stack, Text, Pivot, PivotItem, Spinner, MessageBar, MessageBarType, CommandBar, ICommandBarItemProps } from '@fluentui/react';
+import { Stack, Text, Pivot, PivotItem, Spinner, MessageBar, MessageBarType, CommandBar } from '@fluentui/react';
+import type { ICommandBarItemProps } from '@fluentui/react';
 import { d365OrderService, productionService } from '../services/d365Services';
-import type { D365Order, Production } from '../types/d365';
+import type { Production } from '../types/millennium';
 
 interface UnallocatedJob {
   orderId: string;
