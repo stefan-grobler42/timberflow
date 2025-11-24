@@ -21,7 +21,7 @@ interface WeekViewProps {
   jigTeams: Jig[];
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (dateStr: string, jigId: string) => void;
+  onDrop: (dateStr: string, jigId: string | null) => void;
   onJobDoubleClick: (jobId: string) => void;
   onDayClick: (dayStr: string) => void;
 }
@@ -38,6 +38,14 @@ export const WeekView: React.FC<WeekViewProps> = ({
 }) => {
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
+  };
+
+  const getUnallocatedJobsForDate = (dateStr: string) => {
+    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+  };
+
+  const hasUnallocatedJobs = (dateStr: string): boolean => {
+    return getUnallocatedJobsForDate(dateStr).length > 0;
   };
 
   const getTotalEFinksForDate = (dateStr: string): number => {
@@ -106,11 +114,63 @@ export const WeekView: React.FC<WeekViewProps> = ({
 
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: `repeat(${jigTeams.length}, 1fr)`, 
+              gridTemplateColumns: hasUnallocatedJobs(dateStr) 
+                ? `140px repeat(${jigTeams.length}, 1fr)` 
+                : `repeat(${jigTeams.length}, 1fr)`, 
               gap: 1, 
               backgroundColor: '#ddd',
               padding: 1
             }}>
+              {hasUnallocatedJobs(dateStr) && (
+                <Stack
+                  key="unallocated"
+                  onDragOver={onDragOver}
+                  onDrop={() => onDrop(dateStr, null)}
+                  styles={{
+                    root: {
+                      backgroundColor: '#fff0f0',
+                      padding: 8,
+                      minHeight: 150,
+                      overflow: 'hidden',
+                      borderLeft: '3px solid #d13438'
+                    }
+                  }}
+                >
+                  <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#d13438', marginBottom: 8 } }}>
+                    Unallocated ({getUnallocatedJobsForDate(dateStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)})
+                  </Text>
+                  <Stack tokens={{ childrenGap: 6 }}>
+                    {getUnallocatedJobsForDate(dateStr).map(job => (
+                      <Stack
+                        key={job.id}
+                        draggable
+                        onDragStart={() => onDragStart(job.id)}
+                        onDoubleClick={() => onJobDoubleClick(job.id)}
+                        styles={{
+                          root: {
+                            padding: 6,
+                            backgroundColor: 'white',
+                            borderRadius: 3,
+                            border: '1px solid #ffc7ce',
+                            cursor: 'grab',
+                            boxSizing: 'border-box'
+                          }
+                        }}
+                      >
+                        <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word' } }}>
+                          {job.orderNumber}
+                        </Text>
+                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word' } }}>
+                          {job.customer}
+                        </Text>
+                        <Text variant="tiny" block styles={{ root: { color: '#d13438' } }}>
+                          {job.estimatedEFinks} E-Finks
+                        </Text>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Stack>
+              )}
               {jigTeams.map(jigInfo => {
                 const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
                 const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);

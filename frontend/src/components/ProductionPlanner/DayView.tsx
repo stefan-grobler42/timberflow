@@ -23,7 +23,7 @@ interface DayViewProps {
   jigTeams: Jig[];
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (dateStr: string, jigId: string) => void;
+  onDrop: (dateStr: string, jigId: string | null) => void;
   onJobDoubleClick: (jobId: string) => void;
 }
 
@@ -73,6 +73,14 @@ export const DayView: React.FC<DayViewProps> = ({
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
+  };
+
+  const getUnallocatedJobsForDate = (dateStr: string) => {
+    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+  };
+
+  const hasUnallocatedJobs = (): boolean => {
+    return getUnallocatedJobsForDate(dayStr).length > 0;
   };
 
   const formatDate = (dateStr: string): string => {
@@ -126,6 +134,100 @@ export const DayView: React.FC<DayViewProps> = ({
             </Stack>
           ))}
         </Stack>
+
+        {/* Unallocated column (temporary - only shown when there are unallocated jobs) */}
+        {hasUnallocatedJobs() && (
+          <Stack styles={{ root: { minWidth: 200, borderRight: '1px solid #ddd' } }}>
+            {/* Unallocated header */}
+            <Stack
+              horizontal
+              horizontalAlign="space-between"
+              verticalAlign="center"
+              styles={{
+                root: {
+                  height: 40,
+                  padding: '0 15px',
+                  backgroundColor: '#d13438',
+                  color: 'white',
+                  borderBottom: '1px solid #ddd'
+                }
+              }}
+            >
+              <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                Unallocated
+              </Text>
+              <Text variant="small" styles={{ root: { color: 'white' } }}>
+                {getUnallocatedJobsForDate(dayStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)} E-Finks
+              </Text>
+            </Stack>
+
+            {/* Timeline slots */}
+            {timelineHours.map(hour => {
+              const isWorkingHour = hour >= workingHours.start && hour < workingHours.end;
+
+              return (
+                <Stack
+                  key={`unallocated-${hour}`}
+                  onDragOver={onDragOver}
+                  onDrop={() => onDrop(dayStr, null)}
+                  styles={{
+                    root: {
+                      height: 60,
+                      borderBottom: '1px solid #ddd',
+                      backgroundColor: isWorkingHour ? '#fff0f0' : '#e8d0d0',
+                      padding: 8,
+                      position: 'relative'
+                    }
+                  }}
+                >
+                  {!isWorkingHour && (
+                    <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
+                      Non-working
+                    </Text>
+                  )}
+                </Stack>
+              );
+            })}
+
+            {/* Overlay unallocated jobs on timeline */}
+            <div style={{ position: 'relative', marginTop: -12 * 60 }}>
+              {getUnallocatedJobsForDate(dayStr).map((job, index) => (
+                <Stack
+                  key={job.id}
+                  draggable
+                  onDragStart={() => onDragStart(job.id)}
+                  onDoubleClick={() => onJobDoubleClick(job.id)}
+                  styles={{
+                    root: {
+                      position: 'absolute',
+                      top: workingHours.start * 60 + index * 80,
+                      left: 8,
+                      right: 8,
+                      padding: 10,
+                      backgroundColor: 'rgba(209, 52, 56, 0.9)',
+                      color: 'white',
+                      borderRadius: 4,
+                      border: '2px solid #d13438',
+                      cursor: 'grab',
+                      zIndex: 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                    }
+                  }}
+                >
+                  <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                    {job.orderNumber}
+                  </Text>
+                  <Text variant="tiny" styles={{ root: { color: 'white' } }}>
+                    {job.customer}
+                  </Text>
+                  <Text variant="tiny" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                    {job.estimatedEFinks} E-Finks
+                  </Text>
+                </Stack>
+              ))}
+            </div>
+          </Stack>
+        )}
 
         {/* Jig team columns */}
         {jigTeams.map(jig => {
