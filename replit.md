@@ -4,6 +4,28 @@
 Millennium Timber Roof ERP is a specialized, web-based ERP system designed for timber roofing contractors. Its core purpose is to manage complex projects comprehensively, from initial quotation through to stock management, integrating with Mitek Pamir design software. The system supports hierarchical project structures, dynamic quotation generation, and sophisticated stock handling to streamline business operations, improve material calculation efficiency, and provide an all-encompassing project workflow management solution. The project aims to enhance market potential and operational ambitions for timber roofing contractors.
 
 ## Recent Changes
+**November 24, 2025 - Three-Level Production Planner with Hierarchical Drill-Down:**
+- **Feature**: Created staged/stepped Production Planner with Month → Week → Day navigation hierarchy
+- **Month View (Default)**: 
+  - Shows date cards organized by weeks with total E-Finks per week and per day
+  - Vertically stacked jobs (no team columns) for simplified overview
+  - Click on week header to drill down to Week View
+  - Color-coded booking status: Blue (available), Orange (nearly full 75%+), Red (fully booked 90%+)
+- **Week View**:
+  - Team-based calendar (3 jig teams) with jobs assigned to specific teams and dates
+  - Shows E-Finks capacity per team (90 max per day)
+  - Click on day header to drill down to Day View
+  - Drag-and-drop job allocation to specific team and date
+- **Day View**:
+  - 12-hour timeline visualization (07:00-19:00) with side header
+  - Working hours integration from System Settings (Factory Staff schedule)
+  - Working hours shown in white, non-working hours greyed out
+  - Team columns with capacity indicators
+  - Jobs displayed as overlay cards on timeline
+- **Navigation**: Breadcrumb navigation (Month View / Week View / Day View) with clickable links to navigate back
+- **Architecture**: Three separate view components (MonthView, WeekView, DayView) with centralized state management
+- **Booking Logic**: Visual indicators for capacity utilization across all views (90 E-Finks max, 90% = fully booked, 75% = nearly full)
+
 **November 24, 2025 - System Settings Module:**
 - **Feature**: Added System Settings configuration page with Financial Year and Working Hours management
 - **Database**: Created `system_settings` table with key-value storage for configuration data

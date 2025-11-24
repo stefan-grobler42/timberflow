@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType, Dropdown
@@ -7,6 +7,9 @@ import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService } from '../services/d365Services';
 import { jigService } from '../services/millenniumServices';
 import type { Jig } from '../types/millennium';
+import { MonthView } from '../components/ProductionPlanner/MonthView';
+import { WeekView } from '../components/ProductionPlanner/WeekView';
+import { DayView } from '../components/ProductionPlanner/DayView';
 
 interface Job {
   id: string;
@@ -25,8 +28,10 @@ export const ProductionPlannerPage = () => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const [currentDateStr, setCurrentDateStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
+  const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(false);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
@@ -76,10 +81,6 @@ export const ProductionPlannerPage = () => {
   }, []);
 
   const unallocated = useMemo(() => jobs.filter(j => !j.plannedDateStr), [jobs]);
-  
-  const getJobsForDateAndJig = useCallback((dateStr: string, jigId: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
-  }, [jobs]);
 
   const getDaysInView = useMemo(() => {
     const days: string[] = [];
@@ -109,12 +110,6 @@ export const ProductionPlannerPage = () => {
     return days;
   }, [currentDateStr, viewMode]);
 
-  const getTotalEFinksForDate = useCallback((dateStr: string): number => {
-    return jobs
-      .filter(j => j.plannedDateStr === dateStr)
-      .reduce((sum, j) => sum + j.estimatedEFinks, 0);
-  }, [jobs]);
-
   const handleDragStart = (jobId: string) => {
     setDraggedJobId(jobId);
   };
@@ -123,24 +118,30 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   };
 
-  const handleDrop = async (dateStr: string, jigId: string) => {
+  const handleDrop = async (dateStr: string, jigId?: string) => {
     if (!draggedJobId) return;
     
     const job = jobs.find(j => j.id === draggedJobId);
     if (!job) return;
 
+    // For month view, don't assign jig (keep existing or null)
+    const updatedJigId = jigId !== undefined ? jigId : job.jigId;
+
     setJobs(jobs.map(j => 
       j.id === draggedJobId 
-        ? { ...j, plannedDateStr: dateStr, jigId }
+        ? { ...j, plannedDateStr: dateStr, jigId: updatedJigId }
         : j
     ));
 
     try {
       const date = new Date(dateStr);
-      await productionService.update(job.id, {
-        productionPlannedDate: date.toISOString(),
-        jigId: jigId
-      });
+      const updateData: any = {
+        productionPlannedDate: date.toISOString()
+      };
+      if (updatedJigId) {
+        updateData.jigId = updatedJigId;
+      }
+      await productionService.update(job.id, updateData);
     } catch (err) {
       setError('Failed to update job schedule');
       await loadData();
@@ -169,6 +170,45 @@ export const ProductionPlannerPage = () => {
       newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
     }
     setCurrentDateStr(newDate.toISOString().split('T')[0]);
+  };
+
+  const handleWeekClick = (weekStartDate: string) => {
+    setSelectedWeekStart(weekStartDate);
+    setCurrentDateStr(weekStartDate);
+    setViewMode('week');
+  };
+
+  const handleDayClick = (dayStr: string) => {
+    _setSelectedDayStr(dayStr);
+    setCurrentDateStr(dayStr);
+    setViewMode('day');
+  };
+
+  const navigateToMonthView = () => {
+    setViewMode('month');
+    setSelectedWeekStart(null);
+    _setSelectedDayStr(null);
+  };
+
+  const navigateToWeekView = () => {
+    setViewMode('week');
+    _setSelectedDayStr(null);
+  };
+
+  const getCurrentViewTitle = (): string => {
+    const date = new Date(currentDateStr);
+    if (viewMode === 'month') {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                     'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${months[date.getMonth()]} ${date.getFullYear()}`;
+    } else if (viewMode === 'week') {
+      const weekStart = new Date(selectedWeekStart || currentDateStr);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      return `Week of ${weekStart.getDate()}/${weekStart.getMonth() + 1} - ${weekEnd.getDate()}/${weekEnd.getMonth() + 1}`;
+    } else {
+      return formatDate(currentDateStr);
+    }
   };
 
   const filteredJigTeams = useMemo(() => {
@@ -222,27 +262,6 @@ export const ProductionPlannerPage = () => {
       text: 'Next',
       iconProps: { iconName: 'ChevronRight' },
       onClick: () => navigateDate('next')
-    },
-    {
-      key: 'day',
-      text: 'Day',
-      iconProps: { iconName: 'CalendarDay' },
-      onClick: () => setViewMode('day'),
-      checked: viewMode === 'day'
-    },
-    {
-      key: 'week',
-      text: 'Week',
-      iconProps: { iconName: 'CalendarWeek' },
-      onClick: () => setViewMode('week'),
-      checked: viewMode === 'week'
-    },
-    {
-      key: 'month',
-      text: 'Month',
-      iconProps: { iconName: 'Calendar' },
-      onClick: () => setViewMode('month'),
-      checked: viewMode === 'month'
     }
   ];
 
@@ -278,6 +297,39 @@ export const ProductionPlannerPage = () => {
           {error}
         </MessageBar>
       )}
+
+      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 10 }} styles={{ root: { marginTop: 10 } }}>
+        <Text 
+          variant="medium" 
+          styles={{ root: { cursor: 'pointer', color: viewMode === 'month' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'month' ? 600 : 400 } }}
+          onClick={navigateToMonthView}
+        >
+          Month View
+        </Text>
+        {viewMode !== 'month' && (
+          <>
+            <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>/</Text>
+            <Text 
+              variant="medium" 
+              styles={{ root: { cursor: 'pointer', color: viewMode === 'week' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'week' ? 600 : 400 } }}
+              onClick={navigateToWeekView}
+            >
+              Week View
+            </Text>
+          </>
+        )}
+        {viewMode === 'day' && (
+          <>
+            <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>/</Text>
+            <Text variant="medium" styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
+              Day View
+            </Text>
+          </>
+        )}
+        <Text variant="medium" styles={{ root: { marginLeft: 20, color: '#323130', fontWeight: 600 } }}>
+          {getCurrentViewTitle()}
+        </Text>
+      </Stack>
 
       <CommandBar items={commandItems} />
 
@@ -349,112 +401,40 @@ export const ProductionPlannerPage = () => {
         </Stack>
 
         <Stack styles={{ root: { flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0 } }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: viewMode === 'month' ? 'repeat(auto-fill, minmax(250px, 1fr))' : `repeat(${viewMode === 'week' ? '7' : '1'}, minmax(250px, 1fr))`,
-              gap: 15
-            }}
-          >
-            {getDaysInView.map((dateStr) => {
-              const totalEFinks = getTotalEFinksForDate(dateStr);
-              return (
-                <Stack
-                  key={`day-${dateStr}`}
-                  styles={{
-                    root: {
-                      border: '1px solid #ddd',
-                      borderRadius: 4,
-                      backgroundColor: 'white',
-                      overflow: 'hidden'
-                    }
-                  }}
-                >
-                  <Stack
-                    horizontal
-                    horizontalAlign="space-between"
-                    styles={{
-                      root: {
-                        padding: '10px 15px',
-                        backgroundColor: '#0078d4',
-                        color: 'white'
-                      }
-                    }}
-                  >
-                    <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                      {formatDate(dateStr)}
-                    </Text>
-                    <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                      {totalEFinks} E-Finks
-                    </Text>
-                  </Stack>
-
-                  <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: `repeat(${filteredJigTeams.length}, 1fr)`, 
-                    gap: 1, 
-                    backgroundColor: '#ddd',
-                    padding: 1
-                  }}>
-                    {filteredJigTeams.map(jigInfo => {
-                      const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
-                      const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
-
-                      return (
-                        <Stack
-                          key={jigInfo.id}
-                          onDragOver={handleDragOver}
-                          onDrop={() => handleDrop(dateStr, jigInfo.id)}
-                          styles={{
-                            root: {
-                              backgroundColor: '#faf9f8',
-                              padding: 8,
-                              minHeight: 150,
-                              overflow: 'hidden'
-                            }
-                          }}
-                        >
-                          <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8 } }}>
-                            {jigInfo.name} ({jigEFinks})
-                          </Text>
-                          <Stack tokens={{ childrenGap: 6 }}>
-                            {jigJobs.map(job => (
-                              <Stack
-                                key={job.id}
-                                draggable
-                                onDragStart={() => handleDragStart(job.id)}
-                                onDoubleClick={() => handleJobDoubleClick(job.id)}
-                                styles={{
-                                  root: {
-                                    padding: 6,
-                                    backgroundColor: 'white',
-                                    borderRadius: 3,
-                                    border: '1px solid #e1dfdd',
-                                    cursor: 'grab',
-                                    boxSizing: 'border-box'
-                                  }
-                                }}
-                              >
-                                <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word' } }}>
-                                  {job.orderNumber}
-                                </Text>
-                                <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word' } }}>
-                                  {job.customer}
-                                </Text>
-                                <Text variant="tiny" block styles={{ root: { color: '#0078d4' } }}>
-                                  {job.estimatedEFinks} E-Finks
-                                </Text>
-                              </Stack>
-                            ))}
-                          </Stack>
-                        </Stack>
-                      );
-                    })}
-                  </div>
-                </Stack>
-              );
-            })}
-          </div>
+          {viewMode === 'month' && (
+            <MonthView
+              daysInView={getDaysInView}
+              jobs={jobs}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={(dateStr) => handleDrop(dateStr)}
+              onJobDoubleClick={handleJobDoubleClick}
+              onWeekClick={handleWeekClick}
+            />
+          )}
+          {viewMode === 'week' && (
+            <WeekView
+              daysInView={getDaysInView}
+              jobs={jobs}
+              jigTeams={filteredJigTeams}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
+              onJobDoubleClick={handleJobDoubleClick}
+              onDayClick={handleDayClick}
+            />
+          )}
+          {viewMode === 'day' && (
+            <DayView
+              dayStr={currentDateStr}
+              jobs={jobs}
+              jigTeams={filteredJigTeams}
+              onDragStart={handleDragStart}
+              onDragOver={handleDragOver}
+              onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
+              onJobDoubleClick={handleJobDoubleClick}
+            />
+          )}
         </Stack>
       </Stack>
     </Stack>
