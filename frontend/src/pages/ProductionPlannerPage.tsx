@@ -265,7 +265,11 @@ export const ProductionPlannerPage = () => {
     }
   ];
 
+  console.log('[PLANNER] RENDER - loading:', loading, 'jobs.length:', jobs.length, 'viewMode:', viewMode);
+  console.log('[PLANNER] RENDER - loading check will be:', loading && jobs.length === 0);
+
   if (loading && jobs.length === 0) {
+    console.log('[PLANNER] Showing loading screen');
     return (
       <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { height: '100vh' } }}>
         <Spinner label="Loading production planner..." size={3} />
@@ -276,6 +280,8 @@ export const ProductionPlannerPage = () => {
     );
   }
 
+  console.log('[PLANNER] ✓✓✓ RENDERING MAIN CONTENT - ViewMode:', viewMode, 'Jobs:', jobs.length);
+  
   return (
     <Stack styles={{ root: { height: '100%', overflow: 'hidden' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
