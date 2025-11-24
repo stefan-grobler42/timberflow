@@ -75,6 +75,11 @@ export const WeekView: React.FC<WeekViewProps> = ({
         const utilizationPercent = (totalEFinks / capacity) * 100;
         const isFullyBooked = utilizationPercent >= 90;
         const isNearlyFull = utilizationPercent >= 75;
+        
+        // Check if weekend (Saturday = 6, Sunday = 0)
+        const date = new Date(dateStr);
+        const dayOfWeek = date.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
         return (
           <Stack
@@ -83,8 +88,9 @@ export const WeekView: React.FC<WeekViewProps> = ({
               root: {
                 border: '2px solid #ddd',
                 borderRadius: 4,
-                backgroundColor: 'white',
-                overflow: 'hidden'
+                backgroundColor: isWeekend ? '#e8e8e8' : 'white',
+                overflow: 'hidden',
+                opacity: isWeekend ? 0.7 : 1
               }
             }}
           >
@@ -95,7 +101,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
               styles={{
                 root: {
                   padding: '10px 15px',
-                  backgroundColor: isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4',
+                  backgroundColor: isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4'),
                   color: 'white',
                   cursor: 'pointer',
                   ':hover': {

@@ -124,6 +124,11 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 const utilizationPercent = (totalEFinks / capacity) * 100;
                 const isFullyBooked = utilizationPercent >= 90;
                 const isNearlyFull = utilizationPercent >= 75;
+                
+                // Check if weekend (Saturday = 6, Sunday = 0)
+                const date = new Date(dateStr + 'T00:00:00Z');
+                const dayOfWeek = date.getUTCDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
 
                 return (
                   <Stack
@@ -134,9 +139,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       root: {
                         border: '2px solid #ddd',
                         borderRadius: 4,
-                        backgroundColor: isFullyBooked ? '#fff4ce' : isNearlyFull ? '#fff9e6' : 'white',
+                        backgroundColor: isWeekend ? '#e8e8e8' : (isFullyBooked ? '#fff4ce' : isNearlyFull ? '#fff9e6' : 'white'),
                         overflow: 'hidden',
-                        minHeight: 150
+                        minHeight: 150,
+                        opacity: isWeekend ? 0.7 : 1
                       }
                     }}
                   >
@@ -144,7 +150,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       styles={{
                         root: {
                           padding: '8px 10px',
-                          backgroundColor: isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4',
+                          backgroundColor: isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4'),
                           color: 'white'
                         }
                       }}
