@@ -9,6 +9,8 @@ import {
   Dropdown,
   DatePicker,
   Label,
+  Panel,
+  PanelType,
 } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { d365ContactService, lookupService, accountService } from '../services/d365Services';
@@ -19,6 +21,7 @@ import {
   StandardFormHeader,
   type LookupOption 
 } from './standards';
+import { AccountFormWrapper } from './AccountFormWrapper';
 
 declare global {
   interface Window {
@@ -87,6 +90,8 @@ export const D365ContactForm = ({
   const [companyNameText, setCompanyNameText] = useState<string>('');
   const [map, setMap] = useState<any>(null);
   const [marker, setMarker] = useState<any>(null);
+  const [accountPanelOpen, setAccountPanelOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | undefined>();
 
   // Normalize phone number to E.164 format: +27XXXXXXXXX
   const normalizePhoneNumber = (phone: string | undefined): string | undefined => {
@@ -661,6 +666,10 @@ export const D365ContactForm = ({
                       }
                     }}
                     onSearch={searchAccounts}
+                    onNavigate={(accountId) => {
+                      setSelectedAccountId(accountId);
+                      setAccountPanelOpen(true);
+                    }}
                   />
 
                   <TextField
@@ -848,6 +857,38 @@ export const D365ContactForm = ({
           </Stack>
         </Stack>
       </Stack>
+
+      {/* Nested panel for navigating to linked Account */}
+      <Panel
+        isOpen={accountPanelOpen}
+        onDismiss={() => {
+          setAccountPanelOpen(false);
+          setSelectedAccountId(undefined);
+        }}
+        type={PanelType.large}
+        headerText={selectedAccountId ? "Account Details" : ""}
+        closeButtonAriaLabel="Close"
+        isBlocking={false}
+      >
+        {selectedAccountId && (
+          <AccountFormWrapper
+            entityId={selectedAccountId}
+            onDismiss={() => {
+              setAccountPanelOpen(false);
+              setSelectedAccountId(undefined);
+            }}
+            onSaved={() => {
+              setAccountPanelOpen(false);
+              setSelectedAccountId(undefined);
+              if (formData.parentCustomerId) {
+                accountService.getById(formData.parentCustomerId).then(account => {
+                  setCompanyNameText(account.name || '');
+                }).catch(() => {});
+              }
+            }}
+          />
+        )}
+      </Panel>
     </Stack>
   );
 };

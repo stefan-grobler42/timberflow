@@ -28,6 +28,7 @@ interface StandardLookupFieldProps {
   entityName: string;
   onChange: (id: string | undefined) => void;
   onSearch?: (searchTerm: string) => Promise<LookupOption[]>;
+  onNavigate?: (id: string) => void;
   disabled?: boolean;
   required?: boolean;
   error?: string;
@@ -108,11 +109,20 @@ const styles = mergeStyleSets({
     color: '#323130',
     maxWidth: '100%',
   },
+  chipClickable: {
+    cursor: 'pointer',
+    selectors: {
+      '&:hover': {
+        backgroundColor: '#d2d0ce',
+      },
+    },
+  },
   chipText: {
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     marginRight: '4px',
+    flex: 1,
   },
   chipRemoveButton: {
     minWidth: '16px',
@@ -215,6 +225,7 @@ export const StandardLookupField: React.FC<StandardLookupFieldProps> = ({
   entityName,
   onChange,
   onSearch,
+  onNavigate,
   disabled = false,
   required = false,
   error,
@@ -436,13 +447,21 @@ export const StandardLookupField: React.FC<StandardLookupFieldProps> = ({
               style={{ paddingRight: value && selectedText ? '8px' : '36px' }}
             >
               {value && selectedText ? (
-                <div className={styles.chip}>
-                  <span className={styles.chipText} title={selectedText}>
+                <div className={`${styles.chip} ${onNavigate ? styles.chipClickable : ''}`}>
+                  <span 
+                    className={styles.chipText} 
+                    title={selectedText}
+                    onClick={() => onNavigate && value && onNavigate(value)}
+                    style={{ cursor: onNavigate ? 'pointer' : 'default' }}
+                  >
                     {selectedText}
                   </span>
                   <button
                     className={styles.chipRemoveButton}
-                    onClick={handleClear}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleClear();
+                    }}
                     disabled={disabled}
                     title="Remove"
                     aria-label="Remove selection"
