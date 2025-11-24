@@ -115,6 +115,12 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/production',
           icon: 'Manufacturing',
         },
+        {
+          key: 'production-planner',
+          name: 'Production Planner',
+          url: '/production-planner',
+          icon: 'Calendar',
+        },
       ],
     },
     {

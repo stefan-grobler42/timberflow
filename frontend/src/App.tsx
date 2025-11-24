@@ -13,6 +13,7 @@ import { TendersPage } from './pages/TendersPage';
 import { PricingCalculationsPage } from './pages/PricingCalculationsPage';
 import { InstallationProgressPage } from './pages/InstallationProgressPage';
 import { ProductionPage } from './pages/ProductionPage';
+import { ProductionPlannerPage } from './pages/ProductionPlannerPage';
 import { LogisticsPage } from './pages/LogisticsPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
 import { AccountsPage } from './pages/AccountsPage';
@@ -67,6 +68,7 @@ function App() {
           <Route path="/procurement" element={<ProcurementPage />} />
           <Route path="/pricing" element={<PricingCalculationsPage />} />
           <Route path="/production" element={<ProductionPage />} />
+          <Route path="/production-planner" element={<ProductionPlannerPage />} />
           
           <Route path="/trips" element={<TripsPage />} />
           <Route path="/loads" element={<LoadsPage />} />
