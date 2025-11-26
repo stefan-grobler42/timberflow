@@ -113,7 +113,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
           styles={{
             root: {
               padding: '10px 15px',
-              backgroundColor: isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4'),
+              backgroundColor: isWeekend ? '#999' : '#0078d4',
               color: 'white',
               cursor: 'pointer',
               flexShrink: 0,
@@ -123,9 +123,25 @@ export const WeekView: React.FC<WeekViewProps> = ({
             }
           }}
         >
-          <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-            {formatDate(dateStr)}
-          </Text>
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
+            <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+              {formatDate(dateStr)}
+            </Text>
+            {(isFullyBooked || isNearlyFull) && (
+              <Text 
+                variant="medium" 
+                styles={{ 
+                  root: { 
+                    color: 'rgba(255,255,255,0.8)', 
+                    fontWeight: 600
+                  } 
+                }}
+                title={isFullyBooked ? 'Fully booked (≥90%)' : 'Nearly full (≥75%)'}
+              >
+                !
+              </Text>
+            )}
+          </Stack>
           <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
             {totalEFinks} E-Finks
           </Text>
@@ -209,7 +225,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                 onDrop={(e) => { e.stopPropagation(); onDrop(dateStr, jigInfo.id); }}
                 styles={{
                   root: {
-                    backgroundColor: jigFullyBooked ? '#fff4ce' : jigNearlyFull ? '#fff9e6' : '#faf9f8',
+                    backgroundColor: '#faf9f8',
                     padding: 8,
                     flex: 1,
                     minWidth: 0,
@@ -217,14 +233,31 @@ export const WeekView: React.FC<WeekViewProps> = ({
                   }
                 }}
               >
-                <Text 
-                  variant="small" 
-                  block 
-                  onDoubleClick={() => onTeamDoubleClick(jigInfo.id)}
-                  styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8, cursor: 'pointer' } }}
-                >
-                  {jigInfo.name} ({jigEFinks})
-                </Text>
+                <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }}>
+                  <Text 
+                    variant="small" 
+                    block 
+                    onDoubleClick={() => onTeamDoubleClick(jigInfo.id)}
+                    styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8, cursor: 'pointer' } }}
+                  >
+                    {jigInfo.name} ({jigEFinks})
+                  </Text>
+                  {(jigFullyBooked || jigNearlyFull) && (
+                    <Text 
+                      variant="small" 
+                      styles={{ 
+                        root: { 
+                          color: '#666', 
+                          fontWeight: 600,
+                          marginBottom: 8
+                        } 
+                      }}
+                      title={jigFullyBooked ? 'Fully booked (≥90%)' : 'Nearly full (≥75%)'}
+                    >
+                      !
+                    </Text>
+                  )}
+                </Stack>
                 <Stack tokens={{ childrenGap: 6 }}>
                   {jigJobs.map(job => (
                     <Stack
