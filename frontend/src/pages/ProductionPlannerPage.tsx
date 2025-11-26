@@ -457,7 +457,7 @@ export const ProductionPlannerPage = () => {
             width: basketCollapsed ? 40 : 280,
             minWidth: basketCollapsed ? 40 : 280,
             flexShrink: 0,
-            backgroundColor: draggedJobId ? '#e1f5fe' : (basketCollapsed ? '#d13438' : '#f3f2f1'),
+            backgroundColor: draggedJobId ? '#e1f5fe' : (basketCollapsed ? '#666' : '#f3f2f1'),
             borderRadius: basketCollapsed ? '0 4px 4px 0' : 4,
             padding: basketCollapsed ? '10px 5px' : 15,
             transition: 'all 0.2s ease',
