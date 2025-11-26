@@ -4,6 +4,7 @@ export interface SystemSettings {
   financialYear?: FinancialYearSettings;
   workingHours?: WorkingHoursSettings;
   timezone?: TimezoneSettings;
+  breakTimes?: BreakTimesSettings;
 }
 
 export interface FinancialYearSettings {
@@ -30,6 +31,31 @@ export interface TimezoneSettings {
   timeZoneId: string;
   displayName: string;
   utcOffset: string;
+}
+
+export interface BreakTimesSettings {
+  weekday?: WeekdayBreaks;
+  weekdayOvertime?: OvertimeBreaks;
+  weekendOvertime?: WeekendOvertime;
+}
+
+export interface WeekdayBreaks {
+  teaStart: string;
+  teaEnd: string;
+  lunchStart: string;
+  lunchEnd: string;
+}
+
+export interface OvertimeBreaks {
+  dinnerStart: string;
+  dinnerEnd: string;
+}
+
+export interface WeekendOvertime {
+  workingHoursStart: string;
+  workingHoursEnd: string;
+  lunchStart: string;
+  lunchEnd: string;
 }
 
 class SystemSettingsService {

@@ -31,7 +31,8 @@ public class SystemSettingsController : ControllerBase
             {
                 FinancialYear = GetFinancialYearSettings(settings),
                 WorkingHours = GetWorkingHoursSettings(settings),
-                Timezone = GetTimezoneSettings(settings)
+                Timezone = GetTimezoneSettings(settings),
+                BreakTimes = GetBreakTimesSettings(settings)
             };
 
             return Ok(dto);
@@ -51,6 +52,7 @@ public class SystemSettingsController : ControllerBase
             await SaveFinancialYearSettings(dto.FinancialYear);
             await SaveWorkingHoursSettings(dto.WorkingHours);
             await SaveTimezoneSettings(dto.Timezone);
+            await SaveBreakTimesSettings(dto.BreakTimes);
             
             await _context.SaveChangesAsync();
 
@@ -160,6 +162,46 @@ public class SystemSettingsController : ControllerBase
 
         var json = JsonSerializer.Serialize(dto);
         await UpsertSetting("Timezone.Settings", json, "Timezone", "System timezone configuration");
+    }
+
+    private BreakTimesSettingsDto GetBreakTimesSettings(List<SystemSetting> settings)
+    {
+        var breakTimes = settings.FirstOrDefault(s => s.SettingKey == "BreakTimes.Settings");
+
+        var defaultBreakTimes = new BreakTimesSettingsDto
+        {
+            Weekday = new WeekdayBreaksDto
+            {
+                TeaStart = "09:00",
+                TeaEnd = "09:30",
+                LunchStart = "12:00",
+                LunchEnd = "12:45"
+            },
+            WeekdayOvertime = new OvertimeBreaksDto
+            {
+                DinnerStart = "18:00",
+                DinnerEnd = "18:30"
+            },
+            WeekendOvertime = new WeekendOvertimeDto
+            {
+                WorkingHoursStart = "07:00",
+                WorkingHoursEnd = "15:00",
+                LunchStart = "10:00",
+                LunchEnd = "11:00"
+            }
+        };
+
+        return breakTimes != null ? 
+            JsonSerializer.Deserialize<BreakTimesSettingsDto>(breakTimes.SettingValue ?? "{}") ?? defaultBreakTimes : 
+            defaultBreakTimes;
+    }
+
+    private async Task SaveBreakTimesSettings(BreakTimesSettingsDto? dto)
+    {
+        if (dto == null) return;
+
+        var json = JsonSerializer.Serialize(dto);
+        await UpsertSetting("BreakTimes.Settings", json, "Break Times", "Tea, lunch, and overtime break schedules");
     }
 
     private async Task UpsertSetting(string key, string value, string category, string description)

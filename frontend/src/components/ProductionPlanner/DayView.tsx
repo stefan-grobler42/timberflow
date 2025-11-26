@@ -18,6 +18,15 @@ interface Jig {
   name: string;
 }
 
+interface BreakSlot {
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+  label: string;
+  color: string;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -38,17 +47,26 @@ export const DayView: React.FC<DayViewProps> = ({
   onJobDoubleClick
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
+  const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadWorkingHours();
-  }, []);
+    loadSettings();
+  }, [dayStr]);
 
-  const loadWorkingHours = async () => {
+  const parseTime = (timeStr: string): { hour: number; minute: number } => {
+    const [hour, minute] = timeStr.split(':').map(Number);
+    return { hour, minute: minute || 0 };
+  };
+
+  const loadSettings = async () => {
     try {
       const settings: SystemSettings = await systemSettingsService.getSettings();
       const date = new Date(dayStr);
-      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getDay()] as 
+      const dayOfWeek = date.getDay();
+      const weekend = dayOfWeek === 0 || dayOfWeek === 6;
+      
+      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek] as 
         'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
       
       // Use factory staff working hours as default
@@ -59,17 +77,92 @@ export const DayView: React.FC<DayViewProps> = ({
         const startHour = parseInt(start.split(':')[0]);
         const endHour = parseInt(end.split(':')[0]);
         setWorkingHours({ start: startHour, end: endHour });
+      } else if (weekend && settings.breakTimes?.weekendOvertime) {
+        // Weekend overtime hours
+        const startTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursStart);
+        const endTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursEnd);
+        setWorkingHours({ start: startTime.hour, end: endTime.hour });
       } else {
         // Default to 07:00-17:00 if not set
         setWorkingHours({ start: 7, end: 17 });
       }
+
+      // Build break slots based on day type
+      const breaks: BreakSlot[] = [];
+      const breakTimes = settings.breakTimes;
+
+      if (weekend && breakTimes?.weekendOvertime) {
+        // Weekend overtime: single lunch break
+        const lunchStart = parseTime(breakTimes.weekendOvertime.lunchStart);
+        const lunchEnd = parseTime(breakTimes.weekendOvertime.lunchEnd);
+        breaks.push({
+          startHour: lunchStart.hour,
+          startMinute: lunchStart.minute,
+          endHour: lunchEnd.hour,
+          endMinute: lunchEnd.minute,
+          label: 'Lunch',
+          color: '#fff3cd'
+        });
+      } else if (breakTimes?.weekday) {
+        // Weekday: tea and lunch breaks
+        const teaStart = parseTime(breakTimes.weekday.teaStart);
+        const teaEnd = parseTime(breakTimes.weekday.teaEnd);
+        breaks.push({
+          startHour: teaStart.hour,
+          startMinute: teaStart.minute,
+          endHour: teaEnd.hour,
+          endMinute: teaEnd.minute,
+          label: 'Tea',
+          color: '#d4edda'
+        });
+
+        const lunchStart = parseTime(breakTimes.weekday.lunchStart);
+        const lunchEnd = parseTime(breakTimes.weekday.lunchEnd);
+        breaks.push({
+          startHour: lunchStart.hour,
+          startMinute: lunchStart.minute,
+          endHour: lunchEnd.hour,
+          endMinute: lunchEnd.minute,
+          label: 'Lunch',
+          color: '#fff3cd'
+        });
+
+        // Add dinner break for overtime (after 17:00)
+        if (breakTimes.weekdayOvertime) {
+          const dinnerStart = parseTime(breakTimes.weekdayOvertime.dinnerStart);
+          const dinnerEnd = parseTime(breakTimes.weekdayOvertime.dinnerEnd);
+          breaks.push({
+            startHour: dinnerStart.hour,
+            startMinute: dinnerStart.minute,
+            endHour: dinnerEnd.hour,
+            endMinute: dinnerEnd.minute,
+            label: 'Dinner (OT)',
+            color: '#f8d7da'
+          });
+        }
+      }
+
+      setBreakSlots(breaks);
       setLoading(false);
     } catch (err) {
-      console.error('Error loading working hours:', err);
-      // Default to 07:00-17:00 on error
+      console.error('Error loading settings:', err);
       setWorkingHours({ start: 7, end: 17 });
+      setBreakSlots([]);
       setLoading(false);
     }
+  };
+
+  const isBreakTime = (hour: number): BreakSlot | null => {
+    for (const breakSlot of breakSlots) {
+      if (hour >= breakSlot.startHour && hour < breakSlot.endHour) {
+        return breakSlot;
+      }
+      // Handle partial hour (e.g., break starts at 9:00 and hour is 9)
+      if (hour === breakSlot.startHour) {
+        return breakSlot;
+      }
+    }
+    return null;
   };
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
@@ -115,25 +208,33 @@ export const DayView: React.FC<DayViewProps> = ({
 
       <div style={{ display: 'flex', overflowX: 'auto' }}>
         {/* Time header column */}
-        <Stack styles={{ root: { width: 80, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
+        <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
           <div style={{ height: 40, borderBottom: '1px solid #ddd' }}></div>
-          {timelineHours.map(hour => (
-            <Stack
-              key={`time-${hour}`}
-              styles={{
-                root: {
-                  height: 60,
-                  borderBottom: '1px solid #ddd',
-                  padding: '8px 10px',
-                  backgroundColor: '#faf9f8'
-                }
-              }}
-            >
-              <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
-                {hour.toString().padStart(2, '0')}:00
-              </Text>
-            </Stack>
-          ))}
+          {timelineHours.map(hour => {
+            const breakSlot = isBreakTime(hour);
+            return (
+              <Stack
+                key={`time-${hour}`}
+                styles={{
+                  root: {
+                    height: 60,
+                    borderBottom: '1px solid #ddd',
+                    padding: '8px 10px',
+                    backgroundColor: breakSlot ? breakSlot.color : '#faf9f8'
+                  }
+                }}
+              >
+                <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
+                  {hour.toString().padStart(2, '0')}:00
+                </Text>
+                {breakSlot && (
+                  <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
+                    {breakSlot.label}
+                  </Text>
+                )}
+              </Stack>
+            );
+          })}
         </Stack>
 
         {/* Unallocated column (temporary - only shown when there are unallocated jobs) */}
@@ -165,6 +266,7 @@ export const DayView: React.FC<DayViewProps> = ({
             {/* Timeline slots */}
             {timelineHours.map(hour => {
               const isWorkingHour = hour >= workingHours.start && hour < workingHours.end;
+              const breakSlot = isBreakTime(hour);
 
               return (
                 <Stack
@@ -175,13 +277,18 @@ export const DayView: React.FC<DayViewProps> = ({
                     root: {
                       height: 60,
                       borderBottom: '1px solid #ddd',
-                      backgroundColor: isWorkingHour ? '#fff0f0' : '#e8d0d0',
+                      backgroundColor: breakSlot ? breakSlot.color : (isWorkingHour ? '#fff0f0' : '#e8d0d0'),
                       padding: 8,
                       position: 'relative'
                     }
                   }}
                 >
-                  {!isWorkingHour && (
+                  {breakSlot && (
+                    <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
+                      {breakSlot.label}
+                    </Text>
+                  )}
+                  {!isWorkingHour && !breakSlot && (
                     <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
                       Non-working
                     </Text>
@@ -267,6 +374,7 @@ export const DayView: React.FC<DayViewProps> = ({
               {/* Timeline slots */}
               {timelineHours.map(hour => {
                 const isWorkingHour = hour >= workingHours.start && hour < workingHours.end;
+                const breakSlot = isBreakTime(hour);
 
                 return (
                   <Stack
@@ -277,13 +385,18 @@ export const DayView: React.FC<DayViewProps> = ({
                       root: {
                         height: 60,
                         borderBottom: '1px solid #ddd',
-                        backgroundColor: isWorkingHour ? 'white' : '#e0e0e0',
+                        backgroundColor: breakSlot ? breakSlot.color : (isWorkingHour ? 'white' : '#e0e0e0'),
                         padding: 8,
                         position: 'relative'
                       }
                     }}
                   >
-                    {!isWorkingHour && (
+                    {breakSlot && (
+                      <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
+                        {breakSlot.label}
+                      </Text>
+                    )}
+                    {!isWorkingHour && !breakSlot && (
                       <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
                         Non-working
                       </Text>
