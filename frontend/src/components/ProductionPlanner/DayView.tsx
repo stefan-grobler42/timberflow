@@ -358,6 +358,20 @@ export const DayView: React.FC<DayViewProps> = ({
     return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
   };
 
+  const isLastInChain = useCallback((job: Job): boolean => {
+    const rootId = job.parentProductionId || job.id;
+    const chainJobs = allJobs.filter(j => 
+      j.id === rootId || j.parentProductionId === rootId
+    );
+    
+    if (chainJobs.length <= 1) return true;
+    
+    const maxSequence = Math.max(...chainJobs.map(j => j.rolloverSequence || 0));
+    const jobSequence = job.rolloverSequence || 0;
+    
+    return jobSequence === maxSequence;
+  }, [allJobs]);
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -880,32 +894,34 @@ export const DayView: React.FC<DayViewProps> = ({
                         ({formatDuration(getBaseDurationMinutes(job))})
                       </Text>
                     </Stack>
-                    {/* Resize handle */}
-                    <div
-                      onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
-                      style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 10,
-                        cursor: 'ns-resize',
-                        backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
-                        borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
-                      }}
-                      title="Drag to resize"
-                    >
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 2,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 30,
-                        height: 3,
-                        backgroundColor: 'rgba(255,255,255,0.4)',
-                        borderRadius: 2
-                      }} />
-                    </div>
+                    {/* Resize handle - only show if job is last in chain or not part of a chain */}
+                    {isLastInChain(job) && (
+                      <div
+                        onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                        style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 10,
+                          cursor: 'ns-resize',
+                          backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
+                          borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
+                        }}
+                        title="Drag to resize"
+                      >
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 2,
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: 30,
+                          height: 3,
+                          backgroundColor: 'rgba(255,255,255,0.4)',
+                          borderRadius: 2
+                        }} />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1083,32 +1099,34 @@ export const DayView: React.FC<DayViewProps> = ({
                             </Text>
                           )}
                         </Stack>
-                        {/* Resize handle */}
-                        <div
-                          onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
-                          style={{
-                            position: 'absolute',
-                            bottom: 0,
-                            left: 0,
-                            right: 0,
-                            height: 10,
-                            cursor: 'ns-resize',
-                            backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
-                            borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
-                          }}
-                          title="Drag to resize"
-                        >
-                          <div style={{
-                            position: 'absolute',
-                            bottom: 2,
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            width: 30,
-                            height: 3,
-                            backgroundColor: 'rgba(255,255,255,0.4)',
-                            borderRadius: 2
-                          }} />
-                        </div>
+                        {/* Resize handle - only show if job is last in chain or not part of a chain */}
+                        {isLastInChain(job) && (
+                          <div
+                            onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                            style={{
+                              position: 'absolute',
+                              bottom: 0,
+                              left: 0,
+                              right: 0,
+                              height: 10,
+                              cursor: 'ns-resize',
+                              backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
+                              borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
+                            }}
+                            title="Drag to resize"
+                          >
+                            <div style={{
+                              position: 'absolute',
+                              bottom: 2,
+                              left: '50%',
+                              transform: 'translateX(-50%)',
+                              width: 30,
+                              height: 3,
+                              backgroundColor: 'rgba(255,255,255,0.4)',
+                              borderRadius: 2
+                            }} />
+                          </div>
+                        )}
                       </div>
                     );
                   });
