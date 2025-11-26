@@ -28,6 +28,20 @@ interface BreakSlot {
   color: string;
 }
 
+interface BreakAddition {
+  label: string;
+  minutes: number;
+}
+
+interface JobPositionInfo {
+  job: Job;
+  top: number;
+  height: number;
+  baseHeight: number;
+  breakAdditions: BreakAddition[];
+  totalBreakMinutes: number;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -171,6 +185,50 @@ export const DayView: React.FC<DayViewProps> = ({
     return null;
   };
 
+  const getBreakDurationMinutes = (breakSlot: BreakSlot): number => {
+    const startMinutes = breakSlot.startHour * 60 + breakSlot.startMinute;
+    const endMinutes = breakSlot.endHour * 60 + breakSlot.endMinute;
+    return endMinutes - startMinutes;
+  };
+
+  const getBreakStartMinutes = (breakSlot: BreakSlot): number => {
+    return breakSlot.startHour * 60 + breakSlot.startMinute;
+  };
+
+  const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number): BreakAddition[] => {
+    const additions: BreakAddition[] = [];
+    let currentTime = jobStartMinutes;
+    let remainingWork = baseDurationMinutes;
+
+    while (remainingWork > 0) {
+      let nextBreak: BreakSlot | null = null;
+      let nextBreakStart = Infinity;
+
+      for (const breakSlot of breakSlots) {
+        const breakStart = getBreakStartMinutes(breakSlot);
+        if (breakStart > currentTime && breakStart < nextBreakStart) {
+          nextBreak = breakSlot;
+          nextBreakStart = breakStart;
+        }
+      }
+
+      if (nextBreak && nextBreakStart < currentTime + remainingWork) {
+        const workBeforeBreak = nextBreakStart - currentTime;
+        remainingWork -= workBeforeBreak;
+        const breakDuration = getBreakDurationMinutes(nextBreak);
+        additions.push({
+          label: nextBreak.label.replace(' (OT)', ''),
+          minutes: breakDuration
+        });
+        currentTime = nextBreakStart + breakDuration;
+      } else {
+        remainingWork = 0;
+      }
+    }
+
+    return additions;
+  };
+
   const getJobDurationMinutes = useCallback((job: Job): number => {
     if (customDurations[job.id]) {
       return customDurations[job.id];
@@ -180,11 +238,6 @@ export const DayView: React.FC<DayViewProps> = ({
     }
     return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
   }, [customDurations]);
-
-  const getJobBlockHeight = useCallback((job: Job): number => {
-    const durationMinutes = getJobDurationMinutes(job);
-    return Math.max(MIN_BLOCK_HEIGHT, durationMinutes * PIXELS_PER_MINUTE);
-  }, [getJobDurationMinutes]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
@@ -250,18 +303,61 @@ export const DayView: React.FC<DayViewProps> = ({
     return workingHours.start * 60;
   };
 
-  const calculateJobPositions = (jigJobs: Job[]): { job: Job; top: number; height: number }[] => {
-    const positions: { job: Job; top: number; height: number }[] = [];
+  const getBaseDurationMinutes = (job: Job): number => {
+    if (customDurations[job.id]) {
+      return customDurations[job.id];
+    }
+    if (job.customDurationMinutes) {
+      return job.customDurationMinutes;
+    }
+    return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
+  };
+
+  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
+    const positions: JobPositionInfo[] = [];
     const workingHoursOffset = getWorkingHoursOffset();
     let currentTop = workingHoursOffset;
 
     for (const job of jigJobs) {
-      const height = getJobBlockHeight(job);
-      positions.push({ job, top: currentTop, height });
-      currentTop += height + 4;
+      const baseDuration = getBaseDurationMinutes(job);
+      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, baseDuration * PIXELS_PER_MINUTE);
+      
+      let breakAdditions: BreakAddition[] = [];
+      let totalBreakMinutes = 0;
+      
+      if (includeBreaks) {
+        breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+        totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+      }
+      
+      const totalHeight = baseHeight + (totalBreakMinutes * PIXELS_PER_MINUTE);
+      
+      positions.push({ 
+        job, 
+        top: currentTop, 
+        height: totalHeight,
+        baseHeight,
+        breakAdditions,
+        totalBreakMinutes
+      });
+      
+      currentTop += totalHeight + 4;
     }
 
     return positions;
+  };
+
+  const formatBreakAdditions = (breakAdditions: BreakAddition[]): string => {
+    if (breakAdditions.length === 0) return '';
+    
+    const totalMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+    const labels = breakAdditions.map(b => b.label);
+    
+    if (labels.length === 1) {
+      return `+${totalMinutes}m (${labels[0]})`;
+    } else {
+      return `+${totalMinutes}m (${labels.join(' + ')})`;
+    }
   };
 
   if (loading) {
@@ -377,7 +473,7 @@ export const DayView: React.FC<DayViewProps> = ({
                 overflowY: 'auto'
               }}
             >
-              {calculateJobPositions(getUnallocatedJobsForDate(dayStr)).map(({ job, top, height }) => (
+              {calculateJobPositions(getUnallocatedJobsForDate(dayStr), false).map(({ job, top, baseHeight }) => (
                 <div
                   key={job.id}
                   draggable
@@ -388,7 +484,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     top: top,
                     left: 4,
                     right: 4,
-                    height: height,
+                    height: baseHeight,
                     padding: 8,
                     backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : '#d13438',
                     color: 'white',
@@ -410,11 +506,11 @@ export const DayView: React.FC<DayViewProps> = ({
                     {job.customer}
                   </Text>
                   <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
-                    {job.estimatedEFinks} E-Finks ({formatDuration(getJobDurationMinutes(job))})
+                    {job.estimatedEFinks} E-Finks ({formatDuration(getBaseDurationMinutes(job))})
                   </Text>
                   {/* Resize handle */}
                   <div
-                    onMouseDown={(e) => handleResizeStart(e, job.id, height)}
+                    onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                     style={{
                       position: 'absolute',
                       bottom: 0,
@@ -494,7 +590,7 @@ export const DayView: React.FC<DayViewProps> = ({
                 })}
 
                 {/* Job blocks */}
-                {calculateJobPositions(jigJobs).map(({ job, top, height }) => (
+                {calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => (
                   <div
                     key={job.id}
                     draggable={!resizingJob}
@@ -526,17 +622,22 @@ export const DayView: React.FC<DayViewProps> = ({
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                       {job.customer}
                     </Text>
-                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
                       <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
                         {job.estimatedEFinks} E-Finks
                       </Text>
                       <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
-                        ({formatDuration(getJobDurationMinutes(job))})
+                        ({formatDuration(getBaseDurationMinutes(job))})
                       </Text>
+                      {breakAdditions.length > 0 && (
+                        <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
+                          {formatBreakAdditions(breakAdditions)}
+                        </Text>
+                      )}
                     </Stack>
                     {/* Resize handle */}
                     <div
-                      onMouseDown={(e) => handleResizeStart(e, job.id, height)}
+                      onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                       style={{
                         position: 'absolute',
                         bottom: 0,
