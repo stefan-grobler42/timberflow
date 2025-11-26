@@ -1,5 +1,4 @@
 import { Stack, Text } from '@fluentui/react';
-import { useState, useEffect, useRef } from 'react';
 
 interface Job {
   id: string;
@@ -38,43 +37,14 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onJobDoubleClick,
   onDayClick
 }) => {
-  const [unallocatedOpen, setUnallocatedOpen] = useState(false);
-  const unallocatedPanelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (unallocatedOpen && unallocatedPanelRef.current && !unallocatedPanelRef.current.contains(event.target as Node)) {
-        const toggleButton = document.querySelector('[data-unallocated-toggle]');
-        if (toggleButton && toggleButton.contains(event.target as Node)) {
-          return;
-        }
-        setUnallocatedOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [unallocatedOpen]);
-
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
-  };
-
-  const getUnallocatedJobsForDate = (dateStr: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
   };
 
   const getTotalEFinksForDate = (dateStr: string): number => {
     return jobs
       .filter(j => j.plannedDateStr === dateStr)
       .reduce((sum, j) => sum + j.estimatedEFinks, 0);
-  };
-
-  const hasAnyUnallocatedJobs = (): boolean => {
-    return daysInView.some(dateStr => getUnallocatedJobsForDate(dateStr).length > 0);
-  };
-
-  const getTotalUnallocatedCount = (): number => {
-    return daysInView.reduce((sum, dateStr) => sum + getUnallocatedJobsForDate(dateStr).length, 0);
   };
 
   const formatDate = (dateStr: string): string => {
@@ -105,7 +75,6 @@ export const WeekView: React.FC<WeekViewProps> = ({
     const utilizationPercent = (totalEFinks / capacity) * 100;
     const isFullyBooked = utilizationPercent >= 90;
     const isNearlyFull = utilizationPercent >= 75;
-    const hasUnallocated = getUnallocatedJobsForDate(dateStr).length > 0;
     
     const date = new Date(dateStr);
     const dayOfWeek = date.getDay();
@@ -152,67 +121,19 @@ export const WeekView: React.FC<WeekViewProps> = ({
           </Text>
         </Stack>
 
-        <div style={{ 
-          display: 'flex', 
-          gap: 1, 
-          backgroundColor: '#ddd',
-          padding: 1,
-          flex: 1,
-          minHeight: 0,
-          overflowY: 'auto'
-        }}>
-          {hasUnallocated && unallocatedOpen && (
-            <Stack
-              key="unallocated"
-              onDragOver={onDragOver}
-              onDrop={() => onDrop(dateStr, null)}
-              styles={{
-                root: {
-                  backgroundColor: '#fff0f0',
-                  padding: 8,
-                  flex: 1,
-                  minWidth: 0,
-                  overflow: 'hidden',
-                  borderLeft: '3px solid #d13438'
-                }
-              }}
-            >
-              <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#d13438', marginBottom: 8 } }}>
-                Unallocated ({getUnallocatedJobsForDate(dateStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)})
-              </Text>
-              <Stack tokens={{ childrenGap: 6 }}>
-                {getUnallocatedJobsForDate(dateStr).map(job => (
-                  <Stack
-                    key={job.id}
-                    draggable
-                    onDragStart={() => onDragStart(job.id)}
-                    onDoubleClick={() => onJobDoubleClick(job.id)}
-                    styles={{
-                      root: {
-                        padding: 6,
-                        backgroundColor: job.productionComplete ? '#e0e0e0' : 'white',
-                        borderRadius: 3,
-                        border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #ffc7ce',
-                        cursor: 'grab',
-                        boxSizing: 'border-box',
-                        opacity: job.productionComplete ? 0.6 : 1
-                      }
-                    }}
-                  >
-                    <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : '#000' } }}>
-                      {job.orderNumber}
-                    </Text>
-                    <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: '#666' } }}>
-                      {job.customer}
-                    </Text>
-                    <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#d13438' } }}>
-                      {job.estimatedEFinks} E-Finks
-                    </Text>
-                  </Stack>
-                ))}
-              </Stack>
-            </Stack>
-          )}
+        <div 
+          onDragOver={onDragOver}
+          onDrop={() => onDrop(dateStr, null)}
+          style={{ 
+            display: 'flex', 
+            gap: 1, 
+            backgroundColor: '#ddd',
+            padding: 1,
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto'
+          }}
+        >
           {jigTeams.map(jigInfo => {
             const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
             const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
@@ -224,7 +145,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
               <Stack
                 key={jigInfo.id}
                 onDragOver={onDragOver}
-                onDrop={() => onDrop(dateStr, jigInfo.id)}
+                onDrop={(e) => { e.stopPropagation(); onDrop(dateStr, jigInfo.id); }}
                 styles={{
                   root: {
                     backgroundColor: jigFullyBooked ? '#fff4ce' : jigNearlyFull ? '#fff9e6' : '#faf9f8',
@@ -278,82 +199,53 @@ export const WeekView: React.FC<WeekViewProps> = ({
   };
 
   return (
-    <div style={{ display: 'flex', height: 'calc(100vh - 180px)' }}>
-      {hasAnyUnallocatedJobs() && (
-        <div
-          data-unallocated-toggle
-          onClick={() => setUnallocatedOpen(!unallocatedOpen)}
-          style={{
-            width: 30,
-            backgroundColor: '#d13438',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            borderRight: '1px solid #a4262c',
-            flexShrink: 0
-          }}
-          title={unallocatedOpen ? 'Close unallocated' : 'Open unallocated'}
-        >
-          <Text styles={{ root: { color: 'white', fontSize: 16, fontWeight: 'bold' } }}>
-            {unallocatedOpen ? '«' : '»'}
-          </Text>
-          <Text styles={{ root: { color: 'white', fontSize: 10, writingMode: 'vertical-rl', textOrientation: 'mixed', marginTop: 8 } }}>
-            Unallocated ({getTotalUnallocatedCount()})
-          </Text>
-        </div>
-      )}
-
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 180px)',
+        overflowY: 'auto',
+        gap: 12,
+        padding: '0 12px 12px 12px'
+      }}
+    >
       <div
-        ref={unallocatedPanelRef}
         style={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          overflowY: 'auto',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 12,
-          padding: '0 12px 12px 12px'
+          minHeight: 'calc(50% - 6px)',
+          flex: '0 0 auto'
         }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 12,
-            minHeight: 'calc(50% - 6px)',
-            flex: '0 0 auto'
-          }}
-        >
-          {row1Days.map(dateStr => renderDayCard(dateStr))}
-        </div>
-        
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 12,
-            minHeight: 'calc(50% - 6px)',
-            flex: '0 0 auto'
-          }}
-        >
-          {row2Days.map(dateStr => renderDayCard(dateStr))}
-        </div>
-
-        {row3Days.length > 0 && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, 1fr)',
-              gap: 12,
-              minHeight: 200,
-              flex: '0 0 auto'
-            }}
-          >
-            {row3Days.map(dateStr => renderDayCard(dateStr))}
-          </div>
-        )}
+        {row1Days.map(dateStr => renderDayCard(dateStr))}
       </div>
+      
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 12,
+          minHeight: 'calc(50% - 6px)',
+          flex: '0 0 auto'
+        }}
+      >
+        {row2Days.map(dateStr => renderDayCard(dateStr))}
+      </div>
+
+      {row3Days.length > 0 && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 12,
+            minHeight: 200,
+            flex: '0 0 auto'
+          }}
+        >
+          {row3Days.map(dateStr => renderDayCard(dateStr))}
+        </div>
+      )}
     </div>
   );
 };

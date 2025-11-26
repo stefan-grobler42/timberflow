@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Stack, Text, CommandBar, IconButton, Spinner, MessageBar, MessageBarType, Dropdown
+  Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
@@ -44,7 +44,7 @@ export const ProductionPlannerPage = () => {
   const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
-  const [basketCollapsed, setBasketCollapsed] = useState(false);
+  const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
   const loadData = async () => {
@@ -447,75 +447,89 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 10, overflow: 'hidden' } }}>
-        <Stack
+      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 0, overflow: 'hidden' } }}>
+        <div
+          onMouseEnter={() => setBasketCollapsed(false)}
+          onMouseLeave={() => setBasketCollapsed(true)}
           onDragOver={handleDragOver}
           onDrop={handleDropToUnallocated}
-          styles={{
-            root: {
-              width: basketCollapsed ? 50 : 300,
-              minWidth: basketCollapsed ? 50 : 300,
-              flexShrink: 0,
-              backgroundColor: draggedJobId ? '#e1f5fe' : '#f3f2f1',
-              borderRadius: 4,
-              padding: basketCollapsed ? 10 : 15,
-              transition: 'all 0.3s ease',
-              border: draggedJobId ? '2px dashed #0078d4' : '2px solid transparent'
-            }
+          style={{
+            width: basketCollapsed ? 40 : 280,
+            minWidth: basketCollapsed ? 40 : 280,
+            flexShrink: 0,
+            backgroundColor: draggedJobId ? '#e1f5fe' : (basketCollapsed ? '#d13438' : '#f3f2f1'),
+            borderRadius: basketCollapsed ? '0 4px 4px 0' : 4,
+            padding: basketCollapsed ? '10px 5px' : 15,
+            transition: 'all 0.2s ease',
+            border: draggedJobId ? '2px dashed #0078d4' : '2px solid transparent',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
           }}
         >
-          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-            {!basketCollapsed && (
-              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+          {basketCollapsed ? (
+            <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { height: '100%' } }}>
+              <Text styles={{ root: { color: 'white', fontSize: 16, fontWeight: 'bold' } }}>
+                »
+              </Text>
+              <Text styles={{ root: { color: 'white', fontSize: 11, writingMode: 'vertical-rl', textOrientation: 'mixed', marginTop: 10 } }}>
                 Unallocated ({unallocated.length})
               </Text>
-            )}
-            <IconButton
-              iconProps={{ iconName: basketCollapsed ? 'DoubleChevronRight' : 'DoubleChevronLeft' }}
-              onClick={() => setBasketCollapsed(!basketCollapsed)}
-            />
-          </Stack>
-
-          {!basketCollapsed && (
-            <Stack styles={{ root: { marginTop: 15, gap: 8, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' } }}>
-              {unallocated.map(job => (
-                <Stack
-                  key={job.id}
-                  draggable
-                  onDragStart={() => handleDragStart(job.id)}
-                  onDoubleClick={() => handleJobDoubleClick(job.id)}
-                  styles={{
-                    root: {
-                      padding: 10,
-                      backgroundColor: 'white',
-                      borderRadius: 4,
-                      cursor: 'grab',
-                      border: '1px solid #ddd'
-                    }
-                  }}
-                >
-                  <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
-                    {job.orderNumber}
-                  </Text>
-                  <Text variant="small" block>
-                    {job.customer}
-                  </Text>
-                  <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
-                    {job.name}
-                  </Text>
-                  <Text variant="tiny" block styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
-                    {job.estimatedEFinks} E-Finks
-                  </Text>
-                </Stack>
-              ))}
-              {unallocated.length === 0 && (
-                <Text variant="small" styles={{ root: { color: '#666', textAlign: 'center', marginTop: 20 } }}>
-                  No unallocated jobs
-                </Text>
-              )}
             </Stack>
+          ) : (
+            <>
+              <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+                <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                  Unallocated ({unallocated.length})
+                </Text>
+                <Text styles={{ root: { color: '#666', fontSize: 12 } }}>
+                  «
+                </Text>
+              </Stack>
+
+              <Stack styles={{ root: { marginTop: 15, gap: 8, overflowY: 'auto', flex: 1 } }}>
+                {unallocated.map(job => (
+                  <Stack
+                    key={job.id}
+                    draggable
+                    onDragStart={() => handleDragStart(job.id)}
+                    onDoubleClick={() => handleJobDoubleClick(job.id)}
+                    styles={{
+                      root: {
+                        padding: 10,
+                        backgroundColor: 'white',
+                        borderRadius: 4,
+                        cursor: 'grab',
+                        border: '1px solid #ddd',
+                        ':hover': {
+                          backgroundColor: '#f8f8f8'
+                        }
+                      }
+                    }}
+                  >
+                    <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
+                      {job.orderNumber}
+                    </Text>
+                    <Text variant="small" block>
+                      {job.customer}
+                    </Text>
+                    <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
+                      {job.name}
+                    </Text>
+                    <Text variant="tiny" block styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
+                      {job.estimatedEFinks} E-Finks
+                    </Text>
+                  </Stack>
+                ))}
+                {unallocated.length === 0 && (
+                  <Text variant="small" styles={{ root: { color: '#666', textAlign: 'center', marginTop: 20 } }}>
+                    No unallocated jobs
+                  </Text>
+                )}
+              </Stack>
+            </>
           )}
-        </Stack>
+        </div>
 
         <Stack styles={{ root: { flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0 } }}>
           {viewMode === 'month' && (
