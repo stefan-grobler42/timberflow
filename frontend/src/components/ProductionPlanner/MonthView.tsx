@@ -161,7 +161,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                           {formatDate(dateStr)}
                         </Text>
                         <Text variant="tiny" styles={{ root: { color: 'white' } }}>
-                          {totalEFinks} E-Finks · Click to view day
+                          {totalEFinks} E-Finks
                         </Text>
                       </Stack>
                       {isFullyBooked && (
