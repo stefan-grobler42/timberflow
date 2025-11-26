@@ -412,6 +412,33 @@ export const DayView: React.FC<DayViewProps> = ({
       const finalDuration = currentResizeDuration.current;
       if (finalDuration > 0 && onJobDurationChange) {
         onJobDurationChange(jobId, finalDuration);
+        
+        const job = jobs.find(j => j.id === jobId);
+        if (job && isLastInChain(job)) {
+          const jigJobs = job.jigId 
+            ? getJobsForDateAndJig(dayStr, job.jigId)
+            : getUnallocatedJobsForDate(dayStr);
+          
+          const jobsWithUpdatedDuration = jigJobs.map(j => 
+            j.id === jobId ? { ...j, customDurationMinutes: finalDuration } : j
+          );
+          
+          const { overflowing, overflowMinutes } = checkJobOverflow(jobsWithUpdatedDuration, job.jigId);
+          
+          if (overflowing.has(jobId) && overflowMinutes.get(jobId)) {
+            const overflowAmount = overflowMinutes.get(jobId) || 0;
+            const jigName = job.jigId ? (jigTeams.find(j => j.id === job.jigId)?.name || 'Unknown Team') : 'Unallocated';
+            setCurrentOverflow({
+              jobId: job.id,
+              jobName: job.name,
+              orderNumber: job.orderNumber,
+              overflowMinutes: overflowAmount,
+              jigId: job.jigId,
+              jigName
+            });
+            setOverflowDialogOpen(true);
+          }
+        }
       }
     };
 
