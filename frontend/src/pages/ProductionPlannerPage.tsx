@@ -303,6 +303,10 @@ export const ProductionPlannerPage = () => {
     _setSelectedDayStr(null);
   };
 
+  const handleTeamDoubleClick = (teamId: string) => {
+    navigate(`/jigs/${teamId}`);
+  };
+
   const getCurrentViewTitle = (): string => {
     const date = new Date(currentDateStr);
     if (viewMode === 'month') {
@@ -555,6 +559,7 @@ export const ProductionPlannerPage = () => {
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
               onJobDoubleClick={handleJobDoubleClick}
               onDayClick={handleDayClick}
+              onTeamDoubleClick={handleTeamDoubleClick}
             />
           )}
           {viewMode === 'day' && (
@@ -567,6 +572,7 @@ export const ProductionPlannerPage = () => {
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
               onJobDoubleClick={handleJobDoubleClick}
               onJobDurationChange={handleJobDurationChange}
+              onTeamDoubleClick={handleTeamDoubleClick}
             />
           )}
         </Stack>

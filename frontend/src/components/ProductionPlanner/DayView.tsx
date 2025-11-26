@@ -51,6 +51,7 @@ interface DayViewProps {
   onDrop: (dateStr: string, jigId: string | null) => void;
   onJobDoubleClick: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
+  onTeamDoubleClick: (teamId: string) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -66,7 +67,8 @@ export const DayView: React.FC<DayViewProps> = ({
   onDragOver,
   onDrop,
   onJobDoubleClick,
-  onJobDurationChange
+  onJobDurationChange,
+  onTeamDoubleClick
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
@@ -638,13 +640,15 @@ export const DayView: React.FC<DayViewProps> = ({
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
               {/* Jig header */}
               <Stack
+                onDoubleClick={() => onTeamDoubleClick(jig.id)}
                 styles={{
                   root: {
                     height: 50,
                     padding: '8px 15px',
                     backgroundColor: '#0078d4',
                     color: 'white',
-                    borderBottom: '1px solid #ddd'
+                    borderBottom: '1px solid #ddd',
+                    cursor: 'pointer'
                   }
                 }}
               >

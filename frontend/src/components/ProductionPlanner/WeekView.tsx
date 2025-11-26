@@ -25,6 +25,7 @@ interface WeekViewProps {
   onDrop: (dateStr: string, jigId: string | null) => void;
   onJobDoubleClick: (jobId: string) => void;
   onDayClick: (dayStr: string) => void;
+  onTeamDoubleClick: (teamId: string) => void;
 }
 
 export const WeekView: React.FC<WeekViewProps> = ({
@@ -35,7 +36,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onDragOver,
   onDrop,
   onJobDoubleClick,
-  onDayClick
+  onDayClick,
+  onTeamDoubleClick
 }) => {
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
@@ -215,7 +217,12 @@ export const WeekView: React.FC<WeekViewProps> = ({
                   }
                 }}
               >
-                <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8 } }}>
+                <Text 
+                  variant="small" 
+                  block 
+                  onDoubleClick={() => onTeamDoubleClick(jigInfo.id)}
+                  styles={{ root: { fontWeight: 600, color: '#323130', marginBottom: 8, cursor: 'pointer' } }}
+                >
                   {jigInfo.name} ({jigEFinks})
                 </Text>
                 <Stack tokens={{ childrenGap: 6 }}>

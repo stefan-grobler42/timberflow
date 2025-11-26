@@ -33,7 +33,7 @@ export const JigForm = ({
     reliabilityScore: undefined,
     strengths: '',
   });
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [_employees, setEmployees] = useState<Employee[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<IDropdownOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

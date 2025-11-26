@@ -35,6 +35,7 @@ import { SuppliersPage } from './pages/SuppliersPage';
 import { SubContractorsPage } from './pages/SubContractorsPage';
 import { SubContractorDeductionsPage } from './pages/SubContractorDeductionsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { JigFormPage } from './pages/JigFormPage';
 
 initializeIcons();
 
@@ -72,6 +73,7 @@ function App() {
           <Route path="/production" element={<ProductionPage />} />
           <Route path="/production-planner" element={<ProductionPlannerPage />} />
           <Route path="/production-planner/:id" element={<ProductionFormPage />} />
+          <Route path="/jigs/:id" element={<JigFormPage />} />
           
           <Route path="/trips" element={<TripsPage />} />
           <Route path="/loads" element={<LoadsPage />} />
