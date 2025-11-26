@@ -190,7 +190,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       )}
                     </Stack>
 
-                    <Stack styles={{ root: { padding: 8, gap: 6 } }}>
+                    <Stack styles={{ root: { padding: 8, gap: 6, maxHeight: 330, overflowY: dayJobs.length > 6 ? 'auto' : 'hidden' } }}>
                       {dayJobs.map(job => (
                         <div
                           key={job.id}
