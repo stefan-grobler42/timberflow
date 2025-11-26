@@ -41,7 +41,8 @@ interface DayViewProps {
 
 const MINUTES_PER_EFINK = 6.5625;
 const PIXELS_PER_MINUTE = 1;
-const WORK_START_HOUR = 7;
+const TIMELINE_START_HOUR = 0;
+const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
 
 export const DayView: React.FC<DayViewProps> = ({
@@ -244,9 +245,15 @@ export const DayView: React.FC<DayViewProps> = ({
     document.addEventListener('mouseup', handleMouseUp);
   };
 
+  const getWorkingHoursOffset = (): number => {
+    if (!workingHours) return 7 * 60;
+    return workingHours.start * 60;
+  };
+
   const calculateJobPositions = (jigJobs: Job[]): { job: Job; top: number; height: number }[] => {
     const positions: { job: Job; top: number; height: number }[] = [];
-    let currentTop = 0;
+    const workingHoursOffset = getWorkingHoursOffset();
+    let currentTop = workingHoursOffset;
 
     for (const job of jigJobs) {
       const height = getJobBlockHeight(job);
@@ -269,7 +276,19 @@ export const DayView: React.FC<DayViewProps> = ({
     return <Text>Error loading working hours</Text>;
   }
 
-  const timelineHours = Array.from({ length: 12 }, (_, i) => i + 7);
+  const timelineHours = Array.from({ length: HOURS_IN_DAY }, (_, i) => i);
+  
+  const isWorkingHour = (hour: number): boolean => {
+    if (!workingHours) return false;
+    return hour >= workingHours.start && hour < workingHours.end;
+  };
+
+  const getHourBackground = (hour: number): string => {
+    const breakSlot = isBreakTime(hour);
+    if (breakSlot) return breakSlot.color;
+    if (isWorkingHour(hour)) return 'white';
+    return 'rgba(0, 0, 0, 0.06)';
+  };
 
   return (
     <Stack styles={{ root: { padding: 20 } }}>
@@ -288,6 +307,8 @@ export const DayView: React.FC<DayViewProps> = ({
           <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
           {timelineHours.map(hour => {
             const breakSlot = isBreakTime(hour);
+            const working = isWorkingHour(hour);
+            const bgColor = getHourBackground(hour);
             return (
               <Stack
                 key={`time-${hour}`}
@@ -296,16 +317,22 @@ export const DayView: React.FC<DayViewProps> = ({
                     height: 60,
                     borderBottom: '1px solid #ddd',
                     padding: '8px 10px',
-                    backgroundColor: breakSlot ? breakSlot.color : '#faf9f8'
+                    backgroundColor: bgColor,
+                    opacity: working || breakSlot ? 1 : 0.7
                   }
                 }}
               >
-                <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
+                <Text variant="small" styles={{ root: { fontWeight: 600, color: working || breakSlot ? '#333' : '#888' } }}>
                   {hour.toString().padStart(2, '0')}:00
                 </Text>
                 {breakSlot && (
                   <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
                     {breakSlot.label}
+                  </Text>
+                )}
+                {!working && !breakSlot && (
+                  <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
+                    Non-working
                   </Text>
                 )}
               </Stack>
@@ -342,7 +369,7 @@ export const DayView: React.FC<DayViewProps> = ({
               onDragOver={onDragOver}
               onDrop={() => onDrop(dayStr, null)}
               style={{
-                height: 12 * 60,
+                height: HOURS_IN_DAY * 60,
                 backgroundColor: '#fff0f0',
                 borderBottom: '1px solid #ddd',
                 padding: 8,
@@ -439,15 +466,16 @@ export const DayView: React.FC<DayViewProps> = ({
                 onDrop={() => onDrop(dayStr, jig.id)}
                 style={{
                   position: 'relative',
-                  height: 12 * 60,
+                  height: HOURS_IN_DAY * 60,
                   borderBottom: '1px solid #ddd'
                 }}
               >
                 {/* Hour slots background */}
                 {timelineHours.map(hour => {
-                  const isWorkingHour = hour >= workingHours.start && hour < workingHours.end;
+                  const working = isWorkingHour(hour);
                   const breakSlot = isBreakTime(hour);
-                  const topPosition = (hour - WORK_START_HOUR) * 60;
+                  const topPosition = (hour - TIMELINE_START_HOUR) * 60;
+                  const bgColor = getHourBackground(hour);
 
                   return (
                     <div
@@ -458,8 +486,8 @@ export const DayView: React.FC<DayViewProps> = ({
                         left: 0,
                         right: 0,
                         height: 60,
-                        borderBottom: '1px solid #eee',
-                        backgroundColor: breakSlot ? breakSlot.color : (isWorkingHour ? 'white' : '#f0f0f0')
+                        borderBottom: working || breakSlot ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
+                        backgroundColor: bgColor
                       }}
                     />
                   );
