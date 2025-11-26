@@ -37,7 +37,7 @@ public class ProductionsController : ControllerBase
             query = query.Where(p => p.Orderno == orderNo.Value);
         }
 
-        var productions = await query.OrderBy(p => p.Name).ToListAsync();
+        var productions = await query.ToListAsync();
 
         var productionDtos = productions.Select(p => MapToDto(p, p.Order?.OrderNumber, p.CustomerAccount?.Name)).ToList();
         return Ok(productionDtos);

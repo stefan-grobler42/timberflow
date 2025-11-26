@@ -347,8 +347,8 @@ export const DayView: React.FC<DayViewProps> = ({
       });
       
       if (includeBreaks) {
-        const jobEndTime = currentTop + totalHeight;
-        currentTop = roundUpToNextHour(jobEndTime);
+        const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
+        currentTop = roundUpToNextHour(jobEndMinutes);
       } else {
         currentTop += baseHeight + 4;
       }
