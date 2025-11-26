@@ -13,6 +13,8 @@ interface Job {
   jigId: string | null;
   productionComplete: boolean;
   customDurationMinutes?: number;
+  parentProductionId?: string | null;
+  rolloverSequence?: number;
 }
 
 interface Jig {
@@ -55,6 +57,7 @@ interface OverflowInfo {
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
+  allJobs: Job[];
   jigTeams: Jig[];
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -64,6 +67,7 @@ interface DayViewProps {
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
+  onLinkedJobsResize?: (updates: { jobId: string; durationMinutes: number }[]) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -74,6 +78,7 @@ const MIN_BLOCK_HEIGHT = 20;
 export const DayView: React.FC<DayViewProps> = ({
   dayStr,
   jobs,
+  allJobs,
   jigTeams,
   onDragStart,
   onDragOver,
@@ -82,7 +87,8 @@ export const DayView: React.FC<DayViewProps> = ({
   onJobDurationChange,
   onJobDurationReset,
   onTeamDoubleClick,
-  onJobRollover
+  onJobRollover,
+  onLinkedJobsResize
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -116,6 +122,86 @@ export const DayView: React.FC<DayViewProps> = ({
       setWorkingHours(baseWorkingHours);
     }
   }, [overtimeEnabled, overtimeCloseTime, baseWorkingHours]);
+
+  const calculateAvailableWorkingMinutes = useCallback((hours: { start: number; end: number }) => {
+    const totalMinutes = (hours.end - hours.start) * 60;
+    const breakMinutes = breakSlots.reduce((sum, b) => {
+      const breakStart = b.startHour * 60 + b.startMinute;
+      const breakEnd = b.endHour * 60 + b.endMinute;
+      const dayStart = hours.start * 60;
+      const dayEnd = hours.end * 60;
+      if (breakEnd > dayStart && breakStart < dayEnd) {
+        const effectiveStart = Math.max(breakStart, dayStart);
+        const effectiveEnd = Math.min(breakEnd, dayEnd);
+        return sum + (effectiveEnd - effectiveStart);
+      }
+      return sum;
+    }, 0);
+    return totalMinutes - breakMinutes;
+  }, [breakSlots]);
+
+  useEffect(() => {
+    if (!workingHours || !baseWorkingHours || !onLinkedJobsResize) return;
+    
+    const baseAvailable = calculateAvailableWorkingMinutes(baseWorkingHours);
+    const currentAvailable = calculateAvailableWorkingMinutes(workingHours);
+    
+    if (baseAvailable === currentAvailable) return;
+    
+    const additionalMinutes = currentAvailable - baseAvailable;
+    
+    const jobsOnThisDay = jobs.filter(j => j.plannedDateStr === dayStr);
+    
+    const updates: { jobId: string; durationMinutes: number }[] = [];
+    
+    jobsOnThisDay.forEach(job => {
+      const rootId = job.parentProductionId || job.id;
+      
+      const chainJobs = allJobs.filter(j => 
+        j.id === rootId || j.parentProductionId === rootId
+      );
+      
+      if (chainJobs.length <= 1) return;
+      
+      const isThisJobRoot = job.id === rootId || !job.parentProductionId;
+      if (!isThisJobRoot) return;
+      
+      const rolloverJobs = chainJobs
+        .filter(j => j.id !== job.id && j.plannedDateStr !== dayStr)
+        .sort((a, b) => (a.rolloverSequence || 0) - (b.rolloverSequence || 0));
+      
+      if (rolloverJobs.length === 0) return;
+      
+      const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
+      const totalChainDuration = chainJobs.reduce((sum, j) => 
+        sum + (j.customDurationMinutes || Math.round(j.estimatedEFinks * MINUTES_PER_EFINK)), 0
+      );
+      
+      const newCurrentDuration = Math.min(
+        currentDuration + additionalMinutes,
+        totalChainDuration - (rolloverJobs.length * MIN_BLOCK_HEIGHT)
+      );
+      const increase = newCurrentDuration - currentDuration;
+      
+      if (increase > 0) {
+        updates.push({ jobId: job.id, durationMinutes: newCurrentDuration });
+        
+        let remainingDecrease = increase;
+        rolloverJobs.forEach(rollover => {
+          const rolloverDuration = rollover.customDurationMinutes || Math.round(rollover.estimatedEFinks * MINUTES_PER_EFINK);
+          const decrease = Math.min(remainingDecrease, rolloverDuration - MIN_BLOCK_HEIGHT);
+          if (decrease > 0) {
+            updates.push({ jobId: rollover.id, durationMinutes: rolloverDuration - decrease });
+            remainingDecrease -= decrease;
+          }
+        });
+      }
+    });
+    
+    if (updates.length > 0) {
+      onLinkedJobsResize(updates);
+    }
+  }, [workingHours, baseWorkingHours, jobs, allJobs, dayStr, calculateAvailableWorkingMinutes, onLinkedJobsResize]);
 
   const parseTime = (timeStr: string): { hour: number; minute: number } => {
     const [hour, minute] = timeStr.split(':').map(Number);

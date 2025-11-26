@@ -286,6 +286,32 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleLinkedJobsResize = async (updates: { jobId: string; durationMinutes: number }[]) => {
+    try {
+      console.log('[PLANNER] Resizing linked jobs due to overtime change:', updates);
+      
+      await Promise.all(updates.map(update => 
+        productionService.update(update.jobId, {
+          customDurationMinutes: update.durationMinutes
+        })
+      ));
+      
+      setJobs(prevJobs => 
+        prevJobs.map(job => {
+          const update = updates.find(u => u.jobId === job.id);
+          if (update) {
+            return { ...job, customDurationMinutes: update.durationMinutes };
+          }
+          return job;
+        })
+      );
+      
+      console.log('[PLANNER] ✓ Linked jobs resized successfully');
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to resize linked jobs:', err);
+    }
+  };
+
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
     try {
       const job = allJobs.find(j => j.id === jobId);
@@ -634,6 +660,7 @@ export const ProductionPlannerPage = () => {
             <DayView
               dayStr={currentDateStr}
               jobs={allJobs}
+              allJobs={allJobs}
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
@@ -643,6 +670,7 @@ export const ProductionPlannerPage = () => {
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
+              onLinkedJobsResize={handleLinkedJobsResize}
             />
           )}
         </Stack>
