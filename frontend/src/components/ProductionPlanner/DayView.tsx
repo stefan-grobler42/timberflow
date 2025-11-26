@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, TextField } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 
@@ -71,10 +71,13 @@ export const DayView: React.FC<DayViewProps> = ({
   onTeamDoubleClick
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
+  const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
+  const [overtimeEnabled, setOvertimeEnabled] = useState(false);
+  const [overtimeCloseTime, setOvertimeCloseTime] = useState('21:00');
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
@@ -82,6 +85,17 @@ export const DayView: React.FC<DayViewProps> = ({
   useEffect(() => {
     loadSettings();
   }, [dayStr]);
+
+  useEffect(() => {
+    if (!baseWorkingHours) return;
+    
+    if (overtimeEnabled) {
+      const overtimeEndHour = parseInt(overtimeCloseTime.split(':')[0]) || baseWorkingHours.end;
+      setWorkingHours({ start: baseWorkingHours.start, end: overtimeEndHour });
+    } else {
+      setWorkingHours(baseWorkingHours);
+    }
+  }, [overtimeEnabled, overtimeCloseTime, baseWorkingHours]);
 
   const parseTime = (timeStr: string): { hour: number; minute: number } => {
     const [hour, minute] = timeStr.split(':').map(Number);
@@ -100,18 +114,20 @@ export const DayView: React.FC<DayViewProps> = ({
       
       const factoryHours = settings.workingHours?.factoryStaff?.[dayName];
       
+      let hours = { start: 7, end: 17 };
       if (factoryHours) {
         const [start, end] = factoryHours.split('-');
         const startHour = parseInt(start.split(':')[0]);
         const endHour = parseInt(end.split(':')[0]);
-        setWorkingHours({ start: startHour, end: endHour });
+        hours = { start: startHour, end: endHour };
       } else if (weekend && settings.breakTimes?.weekendOvertime) {
         const startTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursStart);
         const endTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursEnd);
-        setWorkingHours({ start: startTime.hour, end: endTime.hour });
-      } else {
-        setWorkingHours({ start: 7, end: 17 });
+        hours = { start: startTime.hour, end: endTime.hour };
       }
+      setBaseWorkingHours(hours);
+      setWorkingHours(hours);
+      setOvertimeEnabled(false);
 
       const breaks: BreakSlot[] = [];
       const breakTimes = settings.breakTimes;
@@ -465,13 +481,40 @@ export const DayView: React.FC<DayViewProps> = ({
 
   return (
     <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
-      <Stack horizontal verticalAlign="center" styles={{ root: { marginBottom: 20 } }}>
-        <Text variant="xLarge" styles={{ root: { fontWeight: 600, marginRight: 20 } }}>
+      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 20 }} styles={{ root: { marginBottom: 20 } }}>
+        <Text variant="xLarge" styles={{ root: { fontWeight: 600 } }}>
           {formatDate(dayStr)}
         </Text>
         <Text variant="small" styles={{ root: { color: '#666', backgroundColor: '#f3f2f1', padding: '4px 8px', borderRadius: 4 } }}>
           80 E-Finks = 8h 45m (standard day) | Drag bottom edge to resize blocks
         </Text>
+        
+        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }} styles={{ root: { marginLeft: 'auto' } }}>
+          <Toggle
+            label="Plan for overtime"
+            inlineLabel
+            checked={overtimeEnabled}
+            onChange={(_, checked) => setOvertimeEnabled(!!checked)}
+            styles={{ 
+              root: { marginBottom: 0 },
+              label: { fontWeight: 600, color: '#333' }
+            }}
+          />
+          {overtimeEnabled && (
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+              <Text variant="small" styles={{ root: { fontWeight: 500 } }}>Close time:</Text>
+              <TextField
+                value={overtimeCloseTime}
+                onChange={(_, val) => setOvertimeCloseTime(val || '21:00')}
+                styles={{ 
+                  root: { width: 80 },
+                  fieldGroup: { height: 32 }
+                }}
+                placeholder="HH:MM"
+              />
+            </Stack>
+          )}
+        </Stack>
       </Stack>
 
       <div style={{ display: 'flex' }}>
