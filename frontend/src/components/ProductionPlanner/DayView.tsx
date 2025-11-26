@@ -1,4 +1,5 @@
-import { Stack, Text, Spinner, Toggle, TextField } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown } from '@fluentui/react';
+import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 
@@ -500,17 +501,21 @@ export const DayView: React.FC<DayViewProps> = ({
               label: { fontWeight: 600, color: '#333' }
             }}
           />
-          {overtimeEnabled && (
+          {overtimeEnabled && baseWorkingHours && (
             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
               <Text variant="small" styles={{ root: { fontWeight: 500 } }}>Close time:</Text>
-              <TextField
-                value={overtimeCloseTime}
-                onChange={(_, val) => setOvertimeCloseTime(val || '21:00')}
+              <Dropdown
+                selectedKey={overtimeCloseTime}
+                onChange={(_, option) => option && setOvertimeCloseTime(option.key as string)}
+                options={Array.from({ length: 24 - baseWorkingHours.end }, (_, i) => {
+                  const hour = baseWorkingHours.end + i + 1;
+                  const timeStr = `${hour.toString().padStart(2, '0')}:00`;
+                  return { key: timeStr, text: timeStr } as IDropdownOption;
+                })}
                 styles={{ 
-                  root: { width: 80 },
-                  fieldGroup: { height: 32 }
+                  root: { width: 90 },
+                  dropdown: { minWidth: 90 }
                 }}
-                placeholder="HH:MM"
               />
             </Stack>
           )}
