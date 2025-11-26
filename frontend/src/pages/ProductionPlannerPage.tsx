@@ -117,9 +117,10 @@ export const ProductionPlannerPage = () => {
     return [...jobs, ...unallocatedOrders];
   }, [jobs, unallocatedOrders]);
 
-  // Unallocated basket: production without planned date + orders needing production
+  // Unallocated basket: incomplete production without planned date + orders needing production
+  // Exclude completed jobs - they don't need to be allocated even if they have no planned date
   const unallocated = useMemo(() => {
-    return allJobs.filter(j => !j.plannedDateStr);
+    return allJobs.filter(j => !j.plannedDateStr && !j.productionComplete);
   }, [allJobs]);
 
   const getDaysInView = useMemo(() => {
