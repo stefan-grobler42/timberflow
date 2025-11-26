@@ -462,7 +462,7 @@ export const DayView: React.FC<DayViewProps> = ({
   const totalTimelineHeight = HOURS_IN_DAY * 60 * PIXELS_PER_MINUTE;
 
   return (
-    <Stack styles={{ root: { padding: 20 } }}>
+    <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
       <Stack horizontal verticalAlign="center" styles={{ root: { marginBottom: 20 } }}>
         <Text variant="xLarge" styles={{ root: { fontWeight: 600, marginRight: 20 } }}>
           {formatDate(dayStr)}

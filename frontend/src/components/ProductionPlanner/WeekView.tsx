@@ -265,7 +265,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
         height: 'calc(100vh - 180px)',
         overflowY: 'auto',
         gap: 12,
-        padding: '0 12px 12px 12px'
+        padding: '0 12px 12px 0'
       }}
     >
       <div
