@@ -20,6 +20,7 @@ interface MonthViewProps {
   onDrop: (dateStr: string) => void;
   onJobDoubleClick: (jobId: string) => void;
   onWeekClick: (weekStartDate: string) => void;
+  onDayClick: (dateStr: string) => void;
 }
 
 export const MonthView: React.FC<MonthViewProps> = ({
@@ -30,7 +31,8 @@ export const MonthView: React.FC<MonthViewProps> = ({
   onDragOver,
   onDrop,
   onJobDoubleClick,
-  onWeekClick
+  onWeekClick,
+  onDayClick
 }) => {
   const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
   const currentMonthNum = currentMonthDate.getUTCMonth();
@@ -141,11 +143,16 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       horizontal
                       horizontalAlign="space-between"
                       verticalAlign="center"
+                      onClick={() => onDayClick(dateStr)}
                       styles={{
                         root: {
                           padding: '8px 10px',
                           backgroundColor: isOtherMonth ? '#bbb' : (isWeekend ? '#999' : '#0078d4'),
-                          color: 'white'
+                          color: 'white',
+                          cursor: 'pointer',
+                          ':hover': {
+                            backgroundColor: isOtherMonth ? '#999' : (isWeekend ? '#777' : '#106ebe')
+                          }
                         }
                       }}
                     >
@@ -154,7 +161,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                           {formatDate(dateStr)}
                         </Text>
                         <Text variant="tiny" styles={{ root: { color: 'white' } }}>
-                          {totalEFinks} E-Finks
+                          {totalEFinks} E-Finks · Click to view day
                         </Text>
                       </Stack>
                       {isFullyBooked && (

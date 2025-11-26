@@ -528,6 +528,7 @@ export const ProductionPlannerPage = () => {
               onDrop={(dateStr) => handleDrop(dateStr)}
               onJobDoubleClick={handleJobDoubleClick}
               onWeekClick={handleWeekClick}
+              onDayClick={handleDayClick}
             />
           )}
           {viewMode === 'week' && (
