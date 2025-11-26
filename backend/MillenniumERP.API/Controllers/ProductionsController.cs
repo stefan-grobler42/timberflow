@@ -94,6 +94,7 @@ public class ProductionsController : ControllerBase
             Trussselling = createDto.TrussSelling,
             Workunitsefinks = createDto.WorkUnitsEfinks,
             NewEstimatedefinks = createDto.NewEstimateDefinks,
+            CustomDurationMinutes = createDto.CustomDurationMinutes,
             // Treat zero GUIDs as null for lookup fields
             PickingTeamId = createDto.PickingTeamId == Guid.Empty ? null : createDto.PickingTeamId,
             SawId = createDto.SawId == Guid.Empty ? null : createDto.SawId,
@@ -155,6 +156,7 @@ public class ProductionsController : ControllerBase
         if (updateDto.TrussSelling.HasValue) production.Trussselling = updateDto.TrussSelling;
         if (updateDto.WorkUnitsEfinks.HasValue) production.Workunitsefinks = updateDto.WorkUnitsEfinks;
         if (updateDto.NewEstimateDefinks.HasValue) production.NewEstimatedefinks = updateDto.NewEstimateDefinks;
+        if (updateDto.CustomDurationMinutes.HasValue) production.CustomDurationMinutes = updateDto.CustomDurationMinutes;
         
         // Always assign lookup fields to allow clearing (treat zero GUIDs as null)
         production.PickingTeamId = updateDto.PickingTeamId == Guid.Empty || updateDto.PickingTeamId == null 
@@ -237,6 +239,7 @@ public class ProductionsController : ControllerBase
             TrussSelling = production.Trussselling,
             WorkUnitsEfinks = production.Workunitsefinks,
             NewEstimateDefinks = production.NewEstimatedefinks,
+            CustomDurationMinutes = production.CustomDurationMinutes,
             PickingTeamId = production.PickingTeamId,
             SawId = production.SawId,
             JigId = production.JigId,

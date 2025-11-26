@@ -128,6 +128,10 @@ namespace MillenniumERP.Domain.Entities
         [Column("new_estimatedefinks")]
         public decimal? NewEstimatedefinks { get; set; }
 
+        /// <summary>Custom Duration Override (in minutes) for production planner</summary>
+        [Column("custom_duration_minutes")]
+        public int? CustomDurationMinutes { get; set; }
+
         /// <summary>Picking Team Lookup</summary>
         [Column("picking_team_id")]
         public Guid? PickingTeamId { get; set; }

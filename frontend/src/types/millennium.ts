@@ -236,6 +236,7 @@ export interface Production {
   trussSelling?: number;
   workUnitsEfinks?: number;
   newEstimateDefinks?: number;
+  customDurationMinutes?: number;
   pickingTeamId?: string;
   sawId?: string;
   jigId?: string;

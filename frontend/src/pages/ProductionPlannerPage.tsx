@@ -26,6 +26,7 @@ interface Job {
   orderNumber: string;
   customer: string;
   estimatedEFinks: number;
+  customDurationMinutes?: number;
   plannedDateStr: string | null;
   jigId: string | null;
   productionComplete: boolean;
@@ -68,6 +69,7 @@ export const ProductionPlannerPage = () => {
           orderNumber: p.orderNumber || p.name || 'N/A',
           customer: p.customerName || 'Unknown',
           estimatedEFinks: p.newEstimateDefinks || 0,
+          customDurationMinutes: p.customDurationMinutes || undefined,
           plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
           jigId: p.jigId || null,
           productionComplete: p.productionComplete === true
@@ -240,6 +242,25 @@ export const ProductionPlannerPage = () => {
 
   const handleJobDoubleClick = (jobId: string) => {
     navigate(`/production-planner/${jobId}`);
+  };
+
+  const handleJobDurationChange = async (jobId: string, durationMinutes: number) => {
+    try {
+      await productionService.update(jobId, {
+        customDurationMinutes: durationMinutes
+      });
+      console.log('[PLANNER] ✓ Job duration updated:', durationMinutes, 'minutes');
+      
+      setJobs(prevJobs => 
+        prevJobs.map(j => 
+          j.id === jobId 
+            ? { ...j, customDurationMinutes: durationMinutes }
+            : j
+        )
+      );
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to update job duration:', err);
+    }
   };
 
   const formatDate = (dateStr: string): string => {
@@ -530,6 +551,7 @@ export const ProductionPlannerPage = () => {
               onDragOver={handleDragOver}
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
               onJobDoubleClick={handleJobDoubleClick}
+              onJobDurationChange={handleJobDurationChange}
             />
           )}
         </Stack>
