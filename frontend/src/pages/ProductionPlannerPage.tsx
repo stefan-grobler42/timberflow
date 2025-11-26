@@ -267,6 +267,25 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleJobDurationReset = async (jobId: string) => {
+    try {
+      await productionService.update(jobId, {
+        customDurationMinutes: null
+      });
+      console.log('[PLANNER] ✓ Job duration reset to calculated value');
+      
+      setJobs(prevJobs => 
+        prevJobs.map(j => 
+          j.id === jobId 
+            ? { ...j, customDurationMinutes: undefined }
+            : j
+        )
+      );
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to reset job duration:', err);
+    }
+  };
+
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
     try {
       const job = allJobs.find(j => j.id === jobId);
@@ -621,6 +640,7 @@ export const ProductionPlannerPage = () => {
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
               onJobDoubleClick={handleJobDoubleClick}
               onJobDurationChange={handleJobDurationChange}
+              onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
             />

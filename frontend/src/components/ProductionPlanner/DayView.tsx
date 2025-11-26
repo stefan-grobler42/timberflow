@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton, IconButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
@@ -61,6 +61,7 @@ interface DayViewProps {
   onDrop: (dateStr: string, jigId: string | null) => void;
   onJobDoubleClick: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
+  onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
 }
@@ -79,6 +80,7 @@ export const DayView: React.FC<DayViewProps> = ({
   onDrop,
   onJobDoubleClick,
   onJobDurationChange,
+  onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover
 }) => {
@@ -752,6 +754,32 @@ export const DayView: React.FC<DayViewProps> = ({
                       backdropFilter: 'blur(4px)'
                     }}
                   >
+                    {/* Refresh button - only show when customDurationMinutes is set */}
+                    {job.customDurationMinutes && onJobDurationReset && (
+                      <IconButton
+                        iconProps={{ iconName: 'Refresh' }}
+                        title="Reset to calculated size"
+                        ariaLabel="Reset to calculated size"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onJobDurationReset(job.id);
+                        }}
+                        styles={{
+                          root: {
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            width: 20,
+                            height: 20,
+                            minWidth: 20,
+                            backgroundColor: 'rgba(255,255,255,0.2)',
+                            borderRadius: 4
+                          },
+                          icon: { fontSize: 10, color: 'white' },
+                          rootHovered: { backgroundColor: 'rgba(255,255,255,0.4)' }
+                        }}
+                      />
+                    )}
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
                       {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                     </Text>
@@ -912,6 +940,32 @@ export const DayView: React.FC<DayViewProps> = ({
                           backdropFilter: 'blur(4px)'
                         }}
                       >
+                        {/* Refresh button - only show when customDurationMinutes is set */}
+                        {job.customDurationMinutes && onJobDurationReset && (
+                          <IconButton
+                            iconProps={{ iconName: 'Refresh' }}
+                            title="Reset to calculated size"
+                            ariaLabel="Reset to calculated size"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onJobDurationReset(job.id);
+                            }}
+                            styles={{
+                              root: {
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                width: 20,
+                                height: 20,
+                                minWidth: 20,
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                borderRadius: 4
+                              },
+                              icon: { fontSize: 10, color: 'white' },
+                              rootHovered: { backgroundColor: 'rgba(255,255,255,0.4)' }
+                            }}
+                          />
+                        )}
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
                             <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
