@@ -115,7 +115,6 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 const capacity = 90 * 3; // 3 teams
                 const utilizationPercent = (totalEFinks / capacity) * 100;
                 const isFullyBooked = utilizationPercent >= 90;
-                const isNearlyFull = utilizationPercent >= 75;
                 
                 const date = new Date(dateStr + 'T00:00:00Z');
                 const dayOfWeek = date.getUTCDay();
@@ -131,7 +130,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       root: {
                         border: '2px solid #ddd',
                         borderRadius: 4,
-                        backgroundColor: isOtherMonth ? '#f5f5f5' : (isWeekend ? '#e8e8e8' : (isFullyBooked ? '#fff4ce' : isNearlyFull ? '#fff9e6' : 'white')),
+                        backgroundColor: isOtherMonth ? '#f5f5f5' : (isWeekend ? '#e8e8e8' : 'white'),
                         overflow: 'hidden',
                         minHeight: 150,
                         opacity: isOtherMonth ? 0.5 : (isWeekend ? 0.7 : 1)
@@ -139,20 +138,28 @@ export const MonthView: React.FC<MonthViewProps> = ({
                     }}
                   >
                     <Stack
+                      horizontal
+                      horizontalAlign="space-between"
+                      verticalAlign="center"
                       styles={{
                         root: {
                           padding: '8px 10px',
-                          backgroundColor: isOtherMonth ? '#bbb' : (isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4')),
+                          backgroundColor: isOtherMonth ? '#bbb' : (isWeekend ? '#999' : '#0078d4'),
                           color: 'white'
                         }
                       }}
                     >
-                      <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                        {formatDate(dateStr)}
-                      </Text>
-                      <Text variant="tiny" styles={{ root: { color: 'white' } }}>
-                        {totalEFinks} E-Finks
-                      </Text>
+                      <Stack>
+                        <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                          {formatDate(dateStr)}
+                        </Text>
+                        <Text variant="tiny" styles={{ root: { color: 'white' } }}>
+                          {totalEFinks} E-Finks
+                        </Text>
+                      </Stack>
+                      {isFullyBooked && (
+                        <Text styles={{ root: { color: '#ff4444', fontWeight: 700, fontSize: 16 } }}>!</Text>
+                      )}
                     </Stack>
 
                     <Stack styles={{ root: { padding: 8, gap: 6, overflowY: 'auto', maxHeight: 200 } }}>
