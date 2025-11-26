@@ -57,6 +57,16 @@ export const MonthView: React.FC<MonthViewProps> = ({
     return date.getUTCMonth() === currentMonthNum;
   };
 
+  const getISOWeekNumber = (dateStr: string): number => {
+    const date = new Date(dateStr + 'T00:00:00Z');
+    const tempDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+    const dayNum = tempDate.getUTCDay() || 7;
+    tempDate.setUTCDate(tempDate.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(tempDate.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil((((tempDate.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return weekNum;
+  };
+
   const groupDaysByWeek = () => {
     const weeks: string[][] = [];
     for (let i = 0; i < daysInView.length; i += 7) {
@@ -71,6 +81,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
     <Stack styles={{ root: { overflowY: 'auto', overflowX: 'hidden' } }}>
       {weeks.map((weekDays, weekIndex) => {
         const firstDayInWeek = weekDays[0];
+        const weekNumber = getISOWeekNumber(firstDayInWeek);
         const weekTotalEFinks = weekDays.reduce((sum, dateStr) => sum + getTotalEFinksForDate(dateStr), 0);
 
         return (
@@ -94,7 +105,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
               onClick={() => onWeekClick(firstDayInWeek)}
             >
               <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                Week {weekIndex + 1}
+                Week {weekNumber}
               </Text>
               <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
                 {weekTotalEFinks} E-Finks
