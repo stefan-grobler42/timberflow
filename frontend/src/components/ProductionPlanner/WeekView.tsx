@@ -133,7 +133,6 @@ export const WeekView: React.FC<WeekViewProps> = ({
           padding: 1,
           flex: 1,
           minHeight: 0,
-          overflowX: 'auto',
           overflowY: 'auto'
         }}>
           {hasUnallocated && (
@@ -145,8 +144,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
                 root: {
                   backgroundColor: '#fff0f0',
                   padding: 8,
-                  minWidth: 140,
                   flex: 1,
+                  minWidth: 0,
                   overflow: 'hidden',
                   borderLeft: '3px solid #d13438'
                 }
@@ -204,8 +203,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
                   root: {
                     backgroundColor: jigFullyBooked ? '#fff4ce' : jigNearlyFull ? '#fff9e6' : '#faf9f8',
                     padding: 8,
-                    minWidth: 140,
                     flex: 1,
+                    minWidth: 0,
                     overflow: 'hidden'
                   }
                 }}
