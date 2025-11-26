@@ -91,7 +91,10 @@ export const DayView: React.FC<DayViewProps> = ({
     if (!baseWorkingHours) return;
     
     if (overtimeEnabled) {
-      const overtimeEndHour = parseInt(overtimeCloseTime.split(':')[0]) || baseWorkingHours.end;
+      const [hourStr, minStr] = overtimeCloseTime.split(':');
+      const hour = parseInt(hourStr) || baseWorkingHours.end;
+      const minutes = parseInt(minStr) || 0;
+      const overtimeEndHour = minutes > 0 ? hour + 1 : hour;
       setWorkingHours({ start: baseWorkingHours.start, end: overtimeEndHour });
     } else {
       setWorkingHours(baseWorkingHours);
@@ -507,14 +510,22 @@ export const DayView: React.FC<DayViewProps> = ({
               <Dropdown
                 selectedKey={overtimeCloseTime}
                 onChange={(_, option) => option && setOvertimeCloseTime(option.key as string)}
-                options={Array.from({ length: 24 - baseWorkingHours.end }, (_, i) => {
-                  const hour = baseWorkingHours.end + i + 1;
-                  const timeStr = `${hour.toString().padStart(2, '0')}:00`;
-                  return { key: timeStr, text: timeStr } as IDropdownOption;
-                })}
+                options={(() => {
+                  const options: IDropdownOption[] = [];
+                  for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
+                    if (hour === baseWorkingHours.end) {
+                      options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                    } else {
+                      options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                      options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                    }
+                  }
+                  options.push({ key: '00:00', text: '00:00 (midnight)' });
+                  return options;
+                })()}
                 styles={{ 
-                  root: { width: 90 },
-                  dropdown: { minWidth: 90 }
+                  root: { width: 120 },
+                  dropdown: { minWidth: 120 }
                 }}
               />
             </Stack>
