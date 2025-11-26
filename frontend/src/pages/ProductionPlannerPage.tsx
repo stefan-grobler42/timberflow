@@ -324,11 +324,12 @@ export const ProductionPlannerPage = () => {
       const rootParentId = job.parentProductionId || jobId;
       const currentSequence = job.rolloverSequence || 0;
 
-      // Update original job with reduced duration
+      // Update original job with reduced duration - preserve jigId
       await productionService.update(jobId, {
         customDurationMinutes: Math.max(20, remainingDuration),
         parentProductionId: job.parentProductionId || undefined, // Keep existing parent
-        rolloverSequence: currentSequence
+        rolloverSequence: currentSequence,
+        jigId: job.jigId // Preserve the jig assignment
       });
 
       // Create rollover with same name but "(Rollover)" after order number
