@@ -230,6 +230,10 @@ export const DayView: React.FC<DayViewProps> = ({
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
   };
 
+  const getUnallocatedJobsForDate = (dateStr: string) => {
+    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+  };
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -508,6 +512,121 @@ export const DayView: React.FC<DayViewProps> = ({
             ))}
           </div>
         </Stack>
+
+        {/* Unallocated column - only shown if there are unallocated jobs for this day */}
+        {(() => {
+          const unallocatedJobs = getUnallocatedJobsForDate(dayStr);
+          if (unallocatedJobs.length === 0) return null;
+          
+          const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
+          const unallocatedMinutes = unallocatedJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
+
+          return (
+            <Stack styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
+              {/* Unallocated header */}
+              <Stack
+                styles={{
+                  root: {
+                    height: 50,
+                    padding: '8px 15px',
+                    backgroundColor: '#c62828',
+                    color: 'white',
+                    borderBottom: '1px solid #ddd'
+                  }
+                }}
+              >
+                <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                  Unallocated
+                </Text>
+                <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                  {unallocatedEFinks} E-Finks | {formatDuration(unallocatedMinutes)}
+                </Text>
+              </Stack>
+
+              {/* Unallocated timeline */}
+              <div
+                onDragOver={onDragOver}
+                onDrop={() => onDrop(dayStr, null)}
+                style={{
+                  position: 'relative',
+                  height: totalTimelineHeight,
+                  borderBottom: '1px solid #ddd',
+                  backgroundColor: '#ffebee'
+                }}
+              >
+                {/* Job blocks */}
+                {calculateJobPositions(unallocatedJobs, false).map(({ job, top, height, baseHeight, breakAdditions }) => (
+                  <div
+                    key={job.id}
+                    draggable={!resizingJob}
+                    onDragStart={() => !resizingJob && onDragStart(job.id)}
+                    onDoubleClick={() => onJobDoubleClick(job.id)}
+                    style={{
+                      position: 'absolute',
+                      top: top + 4,
+                      left: 4,
+                      right: 4,
+                      height: height,
+                      padding: 8,
+                      backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : 'rgba(198, 40, 40, 0.9)',
+                      color: job.productionComplete ? '#666' : 'white',
+                      borderRadius: 4,
+                      border: job.productionComplete ? '2px solid #c0c0c0' : '2px solid #c62828',
+                      cursor: resizingJob ? 'ns-resize' : 'grab',
+                      zIndex: resizingJob === job.id ? 100 : 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      opacity: job.productionComplete ? 0.6 : 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
+                      {job.orderNumber}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
+                      {job.customer}
+                    </Text>
+                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
+                        {job.estimatedEFinks} E-Finks
+                      </Text>
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
+                        ({formatDuration(getBaseDurationMinutes(job))})
+                      </Text>
+                    </Stack>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 10,
+                        cursor: 'ns-resize',
+                        backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
+                        borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
+                      }}
+                      title="Drag to resize"
+                    >
+                      <div style={{
+                        position: 'absolute',
+                        bottom: 2,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        width: 30,
+                        height: 3,
+                        backgroundColor: 'rgba(255,255,255,0.4)',
+                        borderRadius: 2
+                      }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Stack>
+          );
+        })()}
 
         {/* Jig team columns */}
         {jigTeams.map(jig => {
