@@ -73,9 +73,21 @@ export const DayView: React.FC<DayViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
+  const [unallocatedOpen, setUnallocatedOpen] = useState(false);
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
+  const unallocatedPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (unallocatedOpen && unallocatedPanelRef.current && !unallocatedPanelRef.current.contains(event.target as Node)) {
+        setUnallocatedOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [unallocatedOpen]);
 
   useEffect(() => {
     loadSettings();
@@ -517,96 +529,124 @@ export const DayView: React.FC<DayViewProps> = ({
           </div>
         </Stack>
 
-        {/* Unallocated column */}
+        {/* Unallocated toggle button */}
         {hasUnallocatedJobs() && (
-          <Stack styles={{ root: { minWidth: 200, borderRight: '1px solid #ddd' } }}>
-            <Stack
-              horizontal
-              horizontalAlign="space-between"
-              verticalAlign="center"
-              styles={{
-                root: {
-                  height: 50,
-                  padding: '0 15px',
-                  backgroundColor: '#d13438',
-                  color: 'white',
-                  borderBottom: '1px solid #ddd'
-                }
-              }}
-            >
-              <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                Unallocated
-              </Text>
-              <Text variant="small" styles={{ root: { color: 'white' } }}>
-                {getUnallocatedJobsForDate(dayStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)} E-Finks
-              </Text>
-            </Stack>
+          <div
+            onClick={() => setUnallocatedOpen(!unallocatedOpen)}
+            style={{
+              width: 30,
+              backgroundColor: '#d13438',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              borderRight: '1px solid #a4262c',
+              position: 'relative'
+            }}
+            title={unallocatedOpen ? 'Close unallocated' : 'Open unallocated'}
+          >
+            <Text styles={{ root: { color: 'white', fontSize: 16, fontWeight: 'bold' } }}>
+              {unallocatedOpen ? '«' : '»'}
+            </Text>
+            <Text styles={{ root: { color: 'white', fontSize: 10, writingMode: 'vertical-rl', textOrientation: 'mixed', marginTop: 8 } }}>
+              Unallocated ({getUnallocatedJobsForDate(dayStr).length})
+            </Text>
+          </div>
+        )}
 
-            <div
-              onDragOver={onDragOver}
-              onDrop={() => onDrop(dayStr, null)}
-              style={{
-                height: totalTimelineHeight,
-                backgroundColor: '#fff0f0',
-                borderBottom: '1px solid #ddd',
-                padding: 8,
-                position: 'relative',
-                overflowY: 'auto'
-              }}
-            >
-              {calculateJobPositions(getUnallocatedJobsForDate(dayStr), false).map(({ job, top, baseHeight }) => (
-                <div
-                  key={job.id}
-                  draggable
-                  onDragStart={() => onDragStart(job.id)}
-                  onDoubleClick={() => onJobDoubleClick(job.id)}
-                  style={{
-                    position: 'absolute',
-                    top: top,
-                    left: 4,
-                    right: 4,
-                    height: baseHeight,
-                    padding: 8,
-                    backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : '#d13438',
+        {/* Unallocated panel (collapsible) */}
+        {hasUnallocatedJobs() && unallocatedOpen && (
+          <div ref={unallocatedPanelRef}>
+            <Stack styles={{ root: { minWidth: 200, borderRight: '1px solid #ddd' } }}>
+              <Stack
+                horizontal
+                horizontalAlign="space-between"
+                verticalAlign="center"
+                styles={{
+                  root: {
+                    height: 50,
+                    padding: '0 15px',
+                    backgroundColor: '#d13438',
                     color: 'white',
-                    borderRadius: 4,
-                    border: '2px solid #a4262c',
-                    cursor: 'grab',
-                    zIndex: resizingJob === job.id ? 100 : 10,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                    opacity: job.productionComplete ? 0.6 : 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    overflow: 'hidden'
-                  }}
-                >
-                  <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                    {job.orderNumber}
-                  </Text>
-                  <Text variant="tiny" styles={{ root: { color: 'white' } }}>
-                    {job.customer}
-                  </Text>
-                  <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
-                    {job.estimatedEFinks} E-Finks ({formatDuration(getBaseDurationMinutes(job))})
-                  </Text>
-                  {/* Resize handle */}
+                    borderBottom: '1px solid #ddd'
+                  }
+                }}
+              >
+                <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                  Unallocated
+                </Text>
+                <Text variant="small" styles={{ root: { color: 'white' } }}>
+                  {getUnallocatedJobsForDate(dayStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)} E-Finks
+                </Text>
+              </Stack>
+
+              <div
+                onDragOver={onDragOver}
+                onDrop={() => onDrop(dayStr, null)}
+                style={{
+                  height: totalTimelineHeight,
+                  backgroundColor: '#fff0f0',
+                  borderBottom: '1px solid #ddd',
+                  padding: 8,
+                  position: 'relative',
+                  overflowY: 'auto'
+                }}
+              >
+                {calculateJobPositions(getUnallocatedJobsForDate(dayStr), false).map(({ job, top, baseHeight }) => (
                   <div
-                    onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                    key={job.id}
+                    draggable
+                    onDragStart={() => onDragStart(job.id)}
+                    onDoubleClick={() => onJobDoubleClick(job.id)}
                     style={{
                       position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 8,
-                      cursor: 'ns-resize',
-                      backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.5)' : 'transparent'
+                      top: top,
+                      left: 4,
+                      right: 4,
+                      height: baseHeight,
+                      padding: 8,
+                      backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : '#d13438',
+                      color: 'white',
+                      borderRadius: 4,
+                      border: '2px solid #a4262c',
+                      cursor: 'grab',
+                      zIndex: resizingJob === job.id ? 100 : 10,
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      opacity: job.productionComplete ? 0.6 : 1,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
                     }}
-                    title="Drag to resize"
-                  />
-                </div>
-              ))}
-            </div>
-          </Stack>
+                  >
+                    <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                      {job.orderNumber}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: 'white' } }}>
+                      {job.customer}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
+                      {job.estimatedEFinks} E-Finks ({formatDuration(getBaseDurationMinutes(job))})
+                    </Text>
+                    {/* Resize handle */}
+                    <div
+                      onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                      style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 8,
+                        cursor: 'ns-resize',
+                        backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.5)' : 'transparent'
+                      }}
+                      title="Drag to resize"
+                    />
+                  </div>
+                ))}
+              </div>
+            </Stack>
+          </div>
         )}
 
         {/* Jig team columns */}

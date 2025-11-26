@@ -1,4 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
+import { useState, useEffect, useRef } from 'react';
 
 interface Job {
   id: string;
@@ -37,6 +38,23 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onJobDoubleClick,
   onDayClick
 }) => {
+  const [unallocatedOpen, setUnallocatedOpen] = useState(false);
+  const unallocatedPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (unallocatedOpen && unallocatedPanelRef.current && !unallocatedPanelRef.current.contains(event.target as Node)) {
+        const toggleButton = document.querySelector('[data-unallocated-toggle]');
+        if (toggleButton && toggleButton.contains(event.target as Node)) {
+          return;
+        }
+        setUnallocatedOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [unallocatedOpen]);
+
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
   };
@@ -49,6 +67,14 @@ export const WeekView: React.FC<WeekViewProps> = ({
     return jobs
       .filter(j => j.plannedDateStr === dateStr)
       .reduce((sum, j) => sum + j.estimatedEFinks, 0);
+  };
+
+  const hasAnyUnallocatedJobs = (): boolean => {
+    return daysInView.some(dateStr => getUnallocatedJobsForDate(dateStr).length > 0);
+  };
+
+  const getTotalUnallocatedCount = (): number => {
+    return daysInView.reduce((sum, dateStr) => sum + getUnallocatedJobsForDate(dateStr).length, 0);
   };
 
   const formatDate = (dateStr: string): string => {
@@ -135,7 +161,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
           minHeight: 0,
           overflowY: 'auto'
         }}>
-          {hasUnallocated && (
+          {hasUnallocated && unallocatedOpen && (
             <Stack
               key="unallocated"
               onDragOver={onDragOver}
@@ -252,52 +278,82 @@ export const WeekView: React.FC<WeekViewProps> = ({
   };
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: 'calc(100vh - 180px)',
-        overflowY: 'auto',
-        gap: 12
-      }}
-    >
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
-          minHeight: 'calc(50% - 6px)',
-          flex: '0 0 auto'
-        }}
-      >
-        {row1Days.map(dateStr => renderDayCard(dateStr))}
-      </div>
-      
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
-          minHeight: 'calc(50% - 6px)',
-          flex: '0 0 auto'
-        }}
-      >
-        {row2Days.map(dateStr => renderDayCard(dateStr))}
-      </div>
+    <div style={{ display: 'flex', height: 'calc(100vh - 180px)' }}>
+      {hasAnyUnallocatedJobs() && (
+        <div
+          data-unallocated-toggle
+          onClick={() => setUnallocatedOpen(!unallocatedOpen)}
+          style={{
+            width: 30,
+            backgroundColor: '#d13438',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            borderRight: '1px solid #a4262c',
+            flexShrink: 0
+          }}
+          title={unallocatedOpen ? 'Close unallocated' : 'Open unallocated'}
+        >
+          <Text styles={{ root: { color: 'white', fontSize: 16, fontWeight: 'bold' } }}>
+            {unallocatedOpen ? '«' : '»'}
+          </Text>
+          <Text styles={{ root: { color: 'white', fontSize: 10, writingMode: 'vertical-rl', textOrientation: 'mixed', marginTop: 8 } }}>
+            Unallocated ({getTotalUnallocatedCount()})
+          </Text>
+        </div>
+      )}
 
-      {row3Days.length > 0 && (
+      <div
+        ref={unallocatedPanelRef}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          overflowY: 'auto',
+          gap: 12,
+          padding: '0 12px 12px 12px'
+        }}
+      >
         <div
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: 12,
-            minHeight: 200,
+            minHeight: 'calc(50% - 6px)',
             flex: '0 0 auto'
           }}
         >
-          {row3Days.map(dateStr => renderDayCard(dateStr))}
+          {row1Days.map(dateStr => renderDayCard(dateStr))}
         </div>
-      )}
+        
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 12,
+            minHeight: 'calc(50% - 6px)',
+            flex: '0 0 auto'
+          }}
+        >
+          {row2Days.map(dateStr => renderDayCard(dateStr))}
+        </div>
+
+        {row3Days.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: 12,
+              minHeight: 200,
+              flex: '0 0 auto'
+            }}
+          >
+            {row3Days.map(dateStr => renderDayCard(dateStr))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
