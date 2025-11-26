@@ -32,6 +32,7 @@ interface Job {
   productionComplete: boolean;
   parentProductionId?: string;
   rolloverSequence?: number;
+  createdOn?: string;
 }
 
 interface OvertimeSettings {
@@ -82,7 +83,8 @@ export const ProductionPlannerPage = () => {
           jigId: p.jigId || null,
           productionComplete: p.productionComplete === true,
           parentProductionId: p.parentProductionId || undefined,
-          rolloverSequence: p.rolloverSequence || undefined
+          rolloverSequence: p.rolloverSequence || undefined,
+          createdOn: p.createdOn || undefined
         }));
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);

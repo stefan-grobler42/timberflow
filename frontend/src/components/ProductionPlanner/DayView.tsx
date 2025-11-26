@@ -15,6 +15,7 @@ interface Job {
   customDurationMinutes?: number;
   parentProductionId?: string | null;
   rolloverSequence?: number;
+  createdOn?: string;
 }
 
 interface Jig {
@@ -368,11 +369,29 @@ export const DayView: React.FC<DayViewProps> = ({
   }, [customDurations]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
+    return jobs
+      .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId)
+      .sort((a, b) => {
+        if (a.createdOn && b.createdOn) {
+          return new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime();
+        }
+        if (a.createdOn) return -1;
+        if (b.createdOn) return 1;
+        return 0;
+      });
   };
 
   const getUnallocatedJobsForDate = (dateStr: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+    return jobs
+      .filter(j => j.plannedDateStr === dateStr && !j.jigId)
+      .sort((a, b) => {
+        if (a.createdOn && b.createdOn) {
+          return new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime();
+        }
+        if (a.createdOn) return -1;
+        if (b.createdOn) return 1;
+        return 0;
+      });
   };
 
   const isLastInChain = useCallback((job: Job): boolean => {
