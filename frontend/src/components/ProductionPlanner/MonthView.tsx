@@ -67,6 +67,15 @@ export const MonthView: React.FC<MonthViewProps> = ({
     return weekNum;
   };
 
+  const getMondayOfWeek = (dateStr: string): string => {
+    const date = new Date(dateStr + 'T00:00:00Z');
+    const dayOfWeek = date.getUTCDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() + daysToMonday);
+    return monday.toISOString().split('T')[0];
+  };
+
   const groupDaysByWeek = () => {
     const weeks: string[][] = [];
     for (let i = 0; i < daysInView.length; i += 7) {
@@ -80,8 +89,9 @@ export const MonthView: React.FC<MonthViewProps> = ({
   return (
     <Stack styles={{ root: { overflowY: 'auto', overflowX: 'hidden' } }}>
       {weeks.map((weekDays, weekIndex) => {
-        const firstDayInWeek = weekDays[0];
-        const weekNumber = getISOWeekNumber(firstDayInWeek);
+        const midWeekDay = weekDays[3] || weekDays[0];
+        const weekNumber = getISOWeekNumber(midWeekDay);
+        const weekMonday = getMondayOfWeek(midWeekDay);
         const weekTotalEFinks = weekDays.reduce((sum, dateStr) => sum + getTotalEFinksForDate(dateStr), 0);
 
         return (
@@ -102,7 +112,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                   }
                 }
               }}
-              onClick={() => onWeekClick(firstDayInWeek)}
+              onClick={() => onWeekClick(weekMonday)}
             >
               <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
                 Week {weekNumber}
