@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner, Toggle, Dropdown } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
@@ -43,6 +43,15 @@ interface JobPositionInfo {
   totalBreakMinutes: number;
 }
 
+interface OverflowInfo {
+  jobId: string;
+  jobName: string;
+  orderNumber: string;
+  overflowMinutes: number;
+  jigId: string | null;
+  jigName: string;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -53,6 +62,7 @@ interface DayViewProps {
   onJobDoubleClick: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
   onTeamDoubleClick: (teamId: string) => void;
+  onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -69,7 +79,8 @@ export const DayView: React.FC<DayViewProps> = ({
   onDrop,
   onJobDoubleClick,
   onJobDurationChange,
-  onTeamDoubleClick
+  onTeamDoubleClick,
+  onJobRollover
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -79,6 +90,9 @@ export const DayView: React.FC<DayViewProps> = ({
   const [resizingJob, setResizingJob] = useState<string | null>(null);
   const [overtimeEnabled, setOvertimeEnabled] = useState(false);
   const [overtimeCloseTime, setOvertimeCloseTime] = useState('21:00');
+  const [overflowDialogOpen, setOverflowDialogOpen] = useState(false);
+  const [currentOverflow, setCurrentOverflow] = useState<OverflowInfo | null>(null);
+  const [overflowingJobs, setOverflowingJobs] = useState<Set<string>>(new Set());
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
@@ -388,6 +402,97 @@ export const DayView: React.FC<DayViewProps> = ({
     } else {
       return `+${totalMinutes}m (${labels.join(' + ')})`;
     }
+  };
+
+  const getNextDateStr = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    date.setDate(date.getDate() + 1);
+    return date.toISOString().split('T')[0];
+  };
+
+  const getWorkingEndMinutes = (): number => {
+    if (!workingHours) return 17 * 60;
+    return workingHours.end * 60;
+  };
+
+  const checkJobOverflow = useCallback((jigJobs: Job[], jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
+    const overflowing = new Set<string>();
+    const overflowDetails = new Map<string, number>();
+    const workingEnd = getWorkingEndMinutes();
+    const workingHoursOffset = getWorkingHoursOffset();
+    let currentTop = workingHoursOffset;
+
+    for (let i = 0; i < jigJobs.length; i++) {
+      const job = jigJobs[i];
+      const baseDuration = getBaseDurationMinutes(job);
+      const breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+      const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+      
+      const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
+      
+      if (jobEndMinutes > workingEnd) {
+        overflowing.add(job.id);
+        const overflowAmount = jobEndMinutes - workingEnd;
+        overflowDetails.set(job.id, overflowAmount);
+      }
+      
+      currentTop = getNextAvailableStartTime(jobEndMinutes);
+    }
+
+    return { overflowing, overflowDetails };
+  }, [workingHours, breakSlots, customDurations]);
+
+  useEffect(() => {
+    if (!workingHours) return;
+    
+    const allOverflowing = new Set<string>();
+    
+    jigTeams.forEach(jig => {
+      const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
+      const { overflowing } = checkJobOverflow(jigJobs, jig.id);
+      overflowing.forEach(id => allOverflowing.add(id));
+    });
+    
+    const unallocatedJobs = getUnallocatedJobsForDate(dayStr);
+    const { overflowing: unallocOverflow } = checkJobOverflow(unallocatedJobs, null);
+    unallocOverflow.forEach(id => allOverflowing.add(id));
+    
+    setOverflowingJobs(allOverflowing);
+  }, [jobs, workingHours, breakSlots, customDurations, dayStr, jigTeams, checkJobOverflow]);
+
+  const handleOverflowClick = (job: Job, jigId: string | null, overflowMinutes: number) => {
+    const jigName = jigId ? (jigTeams.find(j => j.id === jigId)?.name || 'Unknown Team') : 'Unallocated';
+    setCurrentOverflow({
+      jobId: job.id,
+      jobName: job.name,
+      orderNumber: job.orderNumber,
+      overflowMinutes,
+      jigId,
+      jigName
+    });
+    setOverflowDialogOpen(true);
+  };
+
+  const handleRollover = () => {
+    if (currentOverflow && onJobRollover) {
+      const nextDateStr = getNextDateStr(dayStr);
+      onJobRollover(currentOverflow.jobId, currentOverflow.overflowMinutes, nextDateStr, currentOverflow.jigId);
+    }
+    setOverflowDialogOpen(false);
+    setCurrentOverflow(null);
+  };
+
+  const handleReduceTime = () => {
+    if (currentOverflow) {
+      const job = jobs.find(j => j.id === currentOverflow.jobId);
+      if (job && onJobDurationChange) {
+        const currentDuration = getBaseDurationMinutes(job);
+        const reducedDuration = Math.max(MIN_BLOCK_HEIGHT, currentDuration - currentOverflow.overflowMinutes);
+        onJobDurationChange(currentOverflow.jobId, reducedDuration);
+      }
+    }
+    setOverflowDialogOpen(false);
+    setCurrentOverflow(null);
   };
 
   interface TimelineSegment {
@@ -751,89 +856,148 @@ export const DayView: React.FC<DayViewProps> = ({
                 ))}
 
                 {/* Job blocks */}
-                {calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => (
-                  <div
-                    key={job.id}
-                    draggable={!resizingJob}
-                    onDragStart={() => !resizingJob && onDragStart(job.id)}
-                    onDoubleClick={() => onJobDoubleClick(job.id)}
-                    style={{
-                      position: 'absolute',
-                      top: top + 4,
-                      left: 4,
-                      right: 4,
-                      height: height,
-                      padding: 8,
-                      background: job.productionComplete 
-                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
-                        : 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))',
-                      color: job.productionComplete ? '#555' : 'white',
-                      borderRadius: 6,
-                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
-                      cursor: resizingJob ? 'ns-resize' : 'grab',
-                      zIndex: resizingJob === job.id ? 100 : 10,
-                      boxShadow: job.productionComplete 
-                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
-                        : '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
-                      opacity: job.productionComplete ? 0.7 : 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(4px)'
-                    }}
-                  >
-                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                      {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
-                    </Text>
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
-                      {job.customer}
-                    </Text>
-                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
-                        {job.estimatedEFinks} E-Finks
-                      </Text>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
-                        ({formatDuration(getBaseDurationMinutes(job))})
-                      </Text>
-                      {breakAdditions.length > 0 && (
-                        <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
-                          {formatBreakAdditions(breakAdditions)}
-                        </Text>
-                      )}
-                    </Stack>
-                    {/* Resize handle */}
-                    <div
-                      onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
-                      style={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: 10,
-                        cursor: 'ns-resize',
-                        backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
-                        borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
-                      }}
-                      title="Drag to resize"
-                    >
-                      <div style={{
-                        position: 'absolute',
-                        bottom: 2,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
-                        width: 30,
-                        height: 3,
-                        backgroundColor: 'rgba(255,255,255,0.4)',
-                        borderRadius: 2
-                      }} />
-                    </div>
-                  </div>
-                ))}
+                {(() => {
+                  const { overflowDetails } = checkJobOverflow(jigJobs, jig.id);
+                  const workingEnd = getWorkingEndMinutes();
+                  
+                  return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
+                    const isOverflowing = overflowingJobs.has(job.id);
+                    const overflowMinutes = overflowDetails.get(job.id) || 0;
+                    const maxHeight = Math.max(0, workingEnd * PIXELS_PER_MINUTE - top - 4);
+                    const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
+                    
+                    const getBackground = () => {
+                      if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
+                      if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
+                      return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
+                    };
+                    
+                    const getBorder = () => {
+                      if (isOverflowing) return '2px solid #ff4444';
+                      if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
+                      return '1px solid rgba(255, 255, 255, 0.3)';
+                    };
+                    
+                    const getBoxShadow = () => {
+                      if (isOverflowing) return '0 4px 12px rgba(198, 40, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
+                      if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
+                      return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
+                    };
+                    
+                    return (
+                      <div
+                        key={job.id}
+                        draggable={!resizingJob}
+                        onDragStart={() => !resizingJob && onDragStart(job.id)}
+                        onDoubleClick={() => onJobDoubleClick(job.id)}
+                        onClick={() => isOverflowing && handleOverflowClick(job, jig.id, overflowMinutes)}
+                        style={{
+                          position: 'absolute',
+                          top: top + 4,
+                          left: 4,
+                          right: 4,
+                          height: clampedHeight,
+                          padding: 8,
+                          background: getBackground(),
+                          color: job.productionComplete ? '#555' : 'white',
+                          borderRadius: 6,
+                          border: getBorder(),
+                          cursor: isOverflowing ? 'pointer' : (resizingJob ? 'ns-resize' : 'grab'),
+                          zIndex: resizingJob === job.id ? 100 : 10,
+                          boxShadow: getBoxShadow(),
+                          opacity: job.productionComplete ? 0.7 : 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          overflow: 'hidden',
+                          backdropFilter: 'blur(4px)'
+                        }}
+                      >
+                        <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                          <Stack>
+                            <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
+                              {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                            </Text>
+                            <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
+                              {job.customer}
+                            </Text>
+                          </Stack>
+                          {isOverflowing && (
+                            <Text styles={{ root: { color: '#ffff00', fontWeight: 700, fontSize: 18, lineHeight: 1 } }}>!</Text>
+                          )}
+                        </Stack>
+                        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
+                          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
+                            {job.estimatedEFinks} E-Finks
+                          </Text>
+                          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
+                            ({formatDuration(getBaseDurationMinutes(job))})
+                          </Text>
+                          {breakAdditions.length > 0 && (
+                            <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
+                              {formatBreakAdditions(breakAdditions)}
+                            </Text>
+                          )}
+                          {isOverflowing && (
+                            <Text variant="tiny" styles={{ root: { color: '#ffff00', fontWeight: 600 } }}>
+                              Overflow: {formatDuration(overflowMinutes)}
+                            </Text>
+                          )}
+                        </Stack>
+                        {/* Resize handle */}
+                        <div
+                          onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                          style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 10,
+                            cursor: 'ns-resize',
+                            backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
+                            borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
+                          }}
+                          title="Drag to resize"
+                        >
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 2,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            width: 30,
+                            height: 3,
+                            backgroundColor: 'rgba(255,255,255,0.4)',
+                            borderRadius: 2
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </Stack>
           );
         })}
       </div>
+
+      {/* Overflow Dialog */}
+      <Dialog
+        hidden={!overflowDialogOpen}
+        onDismiss={() => setOverflowDialogOpen(false)}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: 'Job Exceeds Available Time',
+          subText: currentOverflow 
+            ? `Order "${currentOverflow.orderNumber}" on ${currentOverflow.jigName} exceeds the available time by ${formatDuration(currentOverflow.overflowMinutes)}. How would you like to handle this?`
+            : ''
+        }}
+        modalProps={{ isBlocking: true }}
+      >
+        <DialogFooter>
+          <PrimaryButton onClick={handleRollover} text="Roll Over to Next Day" />
+          <DefaultButton onClick={handleReduceTime} text="Reduce Time to Fit" />
+          <DefaultButton onClick={() => setOverflowDialogOpen(false)} text="Cancel" />
+        </DialogFooter>
+      </Dialog>
     </Stack>
   );
 };

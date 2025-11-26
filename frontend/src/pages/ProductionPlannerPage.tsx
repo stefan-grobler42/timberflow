@@ -263,6 +263,38 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
+    try {
+      const job = allJobs.find(j => j.id === jobId);
+      if (!job) return;
+
+      const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * 6.5625);
+      const remainingDuration = currentDuration - overflowMinutes;
+
+      await productionService.update(jobId, {
+        customDurationMinutes: Math.max(20, remainingDuration)
+      });
+
+      const rolloverData: any = {
+        name: `${job.name} (Roll Over)`,
+        orderNo: job.id.startsWith('order-') ? job.id.substring(6) : null,
+        productionPlannedDate: new Date(nextDateStr).toISOString(),
+        newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
+        customDurationMinutes: overflowMinutes,
+        productionComplete: false,
+        jigId: jigId
+      };
+
+      await productionService.create(rolloverData);
+      console.log('[PLANNER] ✓ Job rolled over to next day');
+
+      await loadData();
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to roll over job:', err);
+      setError(`Failed to roll over job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -572,6 +604,7 @@ export const ProductionPlannerPage = () => {
               onJobDoubleClick={handleJobDoubleClick}
               onJobDurationChange={handleJobDurationChange}
               onTeamDoubleClick={handleTeamDoubleClick}
+              onJobRollover={handleJobRollover}
             />
           )}
         </Stack>

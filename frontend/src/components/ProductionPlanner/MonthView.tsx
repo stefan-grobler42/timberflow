@@ -212,7 +212,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                           }}
                         >
                           <Text variant="tiny" block styles={{ root: { fontWeight: 600, color: 'white' } }}>
-                            {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                            {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}{job.name?.includes('(Roll Over)') ? ' (Roll Over)' : ''}
                           </Text>
                           <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
                             {job.customer}
