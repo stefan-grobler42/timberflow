@@ -34,6 +34,11 @@ interface Job {
   rolloverSequence?: number;
 }
 
+interface OvertimeSettings {
+  enabled: boolean;
+  closeTime: string;
+}
+
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -48,6 +53,7 @@ export const ProductionPlannerPage = () => {
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const [overtimeByDay, setOvertimeByDay] = useState<Record<string, OvertimeSettings>>({});
 
   const loadData = async () => {
     console.log('[PLANNER] Starting to load data...');
@@ -270,7 +276,7 @@ export const ProductionPlannerPage = () => {
   const handleJobDurationReset = async (jobId: string) => {
     try {
       await productionService.update(jobId, {
-        customDurationMinutes: null
+        customDurationMinutes: undefined
       });
       console.log('[PLANNER] ✓ Job duration reset to calculated value');
       
@@ -312,10 +318,24 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleOvertimeChange = (dayStr: string, enabled: boolean, closeTime: string) => {
+    setOvertimeByDay(prev => ({
+      ...prev,
+      [dayStr]: { enabled, closeTime }
+    }));
+  };
+
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
     try {
       const job = allJobs.find(j => j.id === jobId);
       if (!job) return;
+
+      // Fetch the full production record to get all fields for cloning
+      const fullProduction = await productionService.getById(jobId);
+      if (!fullProduction) {
+        console.error('[PLANNER] Could not fetch full production data for rollover');
+        return;
+      }
 
       const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * 6.5625);
       const remainingDuration = currentDuration - overflowMinutes;
@@ -324,33 +344,68 @@ export const ProductionPlannerPage = () => {
       const rootParentId = job.parentProductionId || jobId;
       const currentSequence = job.rolloverSequence || 0;
 
-      // Update original job with reduced duration - preserve jigId
+      // Update original job with reduced duration - preserve all existing fields
       await productionService.update(jobId, {
         customDurationMinutes: Math.max(20, remainingDuration),
-        parentProductionId: job.parentProductionId || undefined, // Keep existing parent
+        parentProductionId: job.parentProductionId || undefined,
         rolloverSequence: currentSequence,
-        jigId: job.jigId // Preserve the jig assignment
+        jigId: job.jigId || undefined
       });
 
       // Create rollover with same name but "(Rollover)" after order number
-      // Format: "OrderNumber (Rollover), CustomerName" - keeps same structure
       const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
       const rolloverName = `${baseName} (Rollover)`;
 
+      // Clone all fields from original production, adjusting only what's needed for rollover
       const rolloverData: any = {
+        // Core identification - cloned from original
         name: rolloverName,
-        orderNo: job.id.startsWith('order-') ? job.id.substring(6) : null,
+        orderNo: fullProduction.orderNo,
+        customer: fullProduction.customer,
+        
+        // Scheduling - adjusted for rollover
         productionPlannedDate: new Date(nextDateStr).toISOString(),
         newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
         customDurationMinutes: overflowMinutes,
         productionComplete: false,
+        
+        // Team assignments - clone from original
         jigId: jigId,
+        pickingTeamId: fullProduction.pickingTeamId,
+        sawId: fullProduction.sawId,
+        
+        // Jig team staff - clone from original
+        jigLeader: fullProduction.jigLeader,
+        jigHelper1: fullProduction.jigHelper1,
+        jigHelper2: fullProduction.jigHelper2,
+        jigHelper3: fullProduction.jigHelper3,
+        jigHelper4: fullProduction.jigHelper4,
+        
+        // Picking team staff - clone from original
+        pickingMaster: fullProduction.pickingMaster,
+        pickingHelper1: fullProduction.pickingHelper1,
+        pickingHelper2: fullProduction.pickingHelper2,
+        pickingHelper3: fullProduction.pickingHelper3,
+        
+        // Saw team staff - clone from original
+        sawOperator: fullProduction.sawOperator,
+        sawHelper1: fullProduction.sawHelper1,
+        sawHelper2: fullProduction.sawHelper2,
+        
+        // Production metrics - clone from original
+        totalCuts: fullProduction.totalCuts,
+        totalTimberCubes: fullProduction.totalTimberCubes,
+        trussCost: fullProduction.trussCost,
+        trussSelling: fullProduction.trussSelling,
+        workUnitsEfinks: fullProduction.workUnitsEfinks,
+        
+        // Chain tracking
         parentProductionId: rootParentId,
         rolloverSequence: currentSequence + 1
       };
 
       await productionService.create(rolloverData);
-      console.log('[PLANNER] ✓ Job rolled over to next day with linked parent:', rootParentId);
+      console.log('[PLANNER] ✓ Job rolled over to next day with all fields cloned, linked parent:', rootParentId);
 
       await loadData();
     } catch (err) {
@@ -672,6 +727,8 @@ export const ProductionPlannerPage = () => {
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
               onLinkedJobsResize={handleLinkedJobsResize}
+              overtimeSettings={overtimeByDay[currentDateStr]}
+              onOvertimeChange={handleOvertimeChange}
             />
           )}
         </Stack>

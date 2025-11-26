@@ -68,6 +68,8 @@ interface DayViewProps {
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   onLinkedJobsResize?: (updates: { jobId: string; durationMinutes: number }[]) => void;
+  overtimeSettings?: { enabled: boolean; closeTime: string };
+  onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -88,7 +90,9 @@ export const DayView: React.FC<DayViewProps> = ({
   onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover,
-  onLinkedJobsResize
+  onLinkedJobsResize,
+  overtimeSettings,
+  onOvertimeChange
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -96,14 +100,28 @@ export const DayView: React.FC<DayViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
-  const [overtimeEnabled, setOvertimeEnabled] = useState(false);
-  const [overtimeCloseTime, setOvertimeCloseTime] = useState('21:00');
   const [overflowDialogOpen, setOverflowDialogOpen] = useState(false);
   const [currentOverflow, setCurrentOverflow] = useState<OverflowInfo | null>(null);
   const [overflowingJobs, setOverflowingJobs] = useState<Set<string>>(new Set());
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
+
+  // Use parent-provided overtime settings if available, otherwise default
+  const overtimeEnabled = overtimeSettings?.enabled ?? false;
+  const overtimeCloseTime = overtimeSettings?.closeTime ?? '21:00';
+
+  const handleOvertimeToggle = (checked: boolean) => {
+    if (onOvertimeChange) {
+      onOvertimeChange(dayStr, checked, overtimeCloseTime);
+    }
+  };
+
+  const handleOvertimeCloseTimeChange = (newTime: string) => {
+    if (onOvertimeChange) {
+      onOvertimeChange(dayStr, overtimeEnabled, newTime);
+    }
+  };
 
   useEffect(() => {
     loadSettings();
@@ -233,7 +251,6 @@ export const DayView: React.FC<DayViewProps> = ({
       }
       setBaseWorkingHours(hours);
       setWorkingHours(hours);
-      setOvertimeEnabled(false);
 
       const breaks: BreakSlot[] = [];
       const breakTimes = settings.breakTimes;
@@ -732,7 +749,7 @@ export const DayView: React.FC<DayViewProps> = ({
             label="Plan for overtime"
             inlineLabel
             checked={overtimeEnabled}
-            onChange={(_, checked) => setOvertimeEnabled(!!checked)}
+            onChange={(_, checked) => handleOvertimeToggle(!!checked)}
             styles={{ 
               root: { marginBottom: 0 },
               label: { fontWeight: 600, color: '#333' }
@@ -743,7 +760,7 @@ export const DayView: React.FC<DayViewProps> = ({
               <Text variant="small" styles={{ root: { fontWeight: 500 } }}>Close time:</Text>
               <Dropdown
                 selectedKey={overtimeCloseTime}
-                onChange={(_, option) => option && setOvertimeCloseTime(option.key as string)}
+                onChange={(_, option) => option && handleOvertimeCloseTimeChange(option.key as string)}
                 options={(() => {
                   const options: IDropdownOption[] = [];
                   for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
