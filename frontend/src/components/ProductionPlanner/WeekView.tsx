@@ -59,8 +59,11 @@ export const WeekView: React.FC<WeekViewProps> = ({
 
   const columnWidth = 160;
   const columnGap = 1;
-  const numColumns = jigTeams.length + 1;
-  const dayCardWidth = (numColumns * columnWidth) + ((numColumns - 1) * columnGap) + 2;
+
+  const getDayCardWidth = (hasUnallocated: boolean): number => {
+    const numColumns = hasUnallocated ? jigTeams.length + 1 : jigTeams.length;
+    return (numColumns * columnWidth) + ((numColumns - 1) * columnGap) + 2;
+  };
 
   return (
     <div
@@ -77,6 +80,8 @@ export const WeekView: React.FC<WeekViewProps> = ({
         const utilizationPercent = (totalEFinks / capacity) * 100;
         const isFullyBooked = utilizationPercent >= 90;
         const isNearlyFull = utilizationPercent >= 75;
+        const hasUnallocated = getUnallocatedJobsForDate(dateStr).length > 0;
+        const dayCardWidth = getDayCardWidth(hasUnallocated);
         
         // Check if weekend (Saturday = 6, Sunday = 0)
         const date = new Date(dateStr);
@@ -128,58 +133,60 @@ export const WeekView: React.FC<WeekViewProps> = ({
               backgroundColor: '#ddd',
               padding: 1
             }}>
-              <Stack
-                key="unallocated"
-                onDragOver={onDragOver}
-                onDrop={() => onDrop(dateStr, null)}
-                styles={{
-                  root: {
-                    backgroundColor: '#fff0f0',
-                    padding: 8,
-                    minHeight: 150,
-                    width: 160,
-                    minWidth: 160,
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                    borderLeft: '3px solid #d13438'
-                  }
-                }}
-              >
-                <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#d13438', marginBottom: 8 } }}>
-                  Unallocated ({getUnallocatedJobsForDate(dateStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)})
-                </Text>
-                <Stack tokens={{ childrenGap: 6 }}>
-                  {getUnallocatedJobsForDate(dateStr).map(job => (
-                    <Stack
-                      key={job.id}
-                      draggable
-                      onDragStart={() => onDragStart(job.id)}
-                      onDoubleClick={() => onJobDoubleClick(job.id)}
-                      styles={{
-                        root: {
-                          padding: 6,
-                          backgroundColor: job.productionComplete ? '#e0e0e0' : 'white',
-                          borderRadius: 3,
-                          border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #ffc7ce',
-                          cursor: 'grab',
-                          boxSizing: 'border-box',
-                          opacity: job.productionComplete ? 0.6 : 1
-                        }
-                      }}
-                    >
-                      <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : '#000' } }}>
-                        {job.orderNumber}
-                      </Text>
-                      <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: '#666' } }}>
-                        {job.customer}
-                      </Text>
-                      <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#d13438' } }}>
-                        {job.estimatedEFinks} E-Finks
-                      </Text>
-                    </Stack>
-                  ))}
+              {hasUnallocated && (
+                <Stack
+                  key="unallocated"
+                  onDragOver={onDragOver}
+                  onDrop={() => onDrop(dateStr, null)}
+                  styles={{
+                    root: {
+                      backgroundColor: '#fff0f0',
+                      padding: 8,
+                      minHeight: 150,
+                      width: 160,
+                      minWidth: 160,
+                      flexShrink: 0,
+                      overflow: 'hidden',
+                      borderLeft: '3px solid #d13438'
+                    }
+                  }}
+                >
+                  <Text variant="small" block styles={{ root: { fontWeight: 600, color: '#d13438', marginBottom: 8 } }}>
+                    Unallocated ({getUnallocatedJobsForDate(dateStr).reduce((sum, j) => sum + j.estimatedEFinks, 0)})
+                  </Text>
+                  <Stack tokens={{ childrenGap: 6 }}>
+                    {getUnallocatedJobsForDate(dateStr).map(job => (
+                      <Stack
+                        key={job.id}
+                        draggable
+                        onDragStart={() => onDragStart(job.id)}
+                        onDoubleClick={() => onJobDoubleClick(job.id)}
+                        styles={{
+                          root: {
+                            padding: 6,
+                            backgroundColor: job.productionComplete ? '#e0e0e0' : 'white',
+                            borderRadius: 3,
+                            border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #ffc7ce',
+                            cursor: 'grab',
+                            boxSizing: 'border-box',
+                            opacity: job.productionComplete ? 0.6 : 1
+                          }
+                        }}
+                      >
+                        <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : '#000' } }}>
+                          {job.orderNumber}
+                        </Text>
+                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: '#666' } }}>
+                          {job.customer}
+                        </Text>
+                        <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#d13438' } }}>
+                          {job.estimatedEFinks} E-Finks
+                        </Text>
+                      </Stack>
+                    ))}
+                  </Stack>
                 </Stack>
-              </Stack>
+              )}
               {jigTeams.map(jigInfo => {
                 const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
                 const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
