@@ -71,11 +71,25 @@ export const getDaysInMonth = (dateStr: string): string[] => {
   const date = new Date(dateStr + 'T00:00:00Z');
   const year = date.getUTCFullYear();
   const month = date.getUTCMonth();
-  const firstDay = new Date(Date.UTC(year, month, 1));
-  const lastDay = new Date(Date.UTC(year, month + 1, 0));
+  const firstDayOfMonth = new Date(Date.UTC(year, month, 1));
+  const lastDayOfMonth = new Date(Date.UTC(year, month + 1, 0));
+  
+  // Get day of week for first day (0 = Sunday)
+  const firstDayOfWeek = firstDayOfMonth.getUTCDay();
+  
+  // Calculate the start of the first complete week (go back to Sunday)
+  const calendarStart = new Date(firstDayOfMonth);
+  calendarStart.setUTCDate(calendarStart.getUTCDate() - firstDayOfWeek);
+  
+  // Get day of week for last day
+  const lastDayOfWeek = lastDayOfMonth.getUTCDay();
+  
+  // Calculate the end of the last complete week (go forward to Saturday)
+  const calendarEnd = new Date(lastDayOfMonth);
+  calendarEnd.setUTCDate(calendarEnd.getUTCDate() + (6 - lastDayOfWeek));
   
   const days: string[] = [];
-  for (let d = new Date(firstDay); d <= lastDay; d.setUTCDate(d.getUTCDate() + 1)) {
+  for (let d = new Date(calendarStart); d <= calendarEnd; d.setUTCDate(d.getUTCDate() + 1)) {
     days.push(d.toISOString().split('T')[0]);
   }
   return days;

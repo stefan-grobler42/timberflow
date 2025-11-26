@@ -1,5 +1,4 @@
 import { Stack, Text } from '@fluentui/react';
-import { startOfWeekUtc } from '../../utils/dateUtils';
 
 interface Job {
   id: string;
@@ -15,6 +14,7 @@ interface Job {
 interface MonthViewProps {
   daysInView: string[];
   jobs: Job[];
+  currentMonth: string;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string) => void;
@@ -25,12 +25,15 @@ interface MonthViewProps {
 export const MonthView: React.FC<MonthViewProps> = ({
   daysInView,
   jobs,
+  currentMonth,
   onDragStart,
   onDragOver,
   onDrop,
   onJobDoubleClick,
   onWeekClick
 }) => {
+  const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
+  const currentMonthNum = currentMonthDate.getUTCMonth();
   const getJobsForDate = (dateStr: string) => {
     return jobs.filter(j => j.plannedDateStr === dateStr);
   };
@@ -47,27 +50,16 @@ export const MonthView: React.FC<MonthViewProps> = ({
     return `${days[date.getUTCDay()]} ${date.getUTCDate()}`;
   };
 
-  const getWeekNumber = (dateStr: string): number => {
+  const isCurrentMonth = (dateStr: string): boolean => {
     const date = new Date(dateStr + 'T00:00:00Z');
-    const firstDayOfMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-    const dayOfMonth = date.getUTCDate();
-    const dayOfWeek = firstDayOfMonth.getUTCDay();
-    return Math.ceil((dayOfMonth + dayOfWeek) / 7);
-  };
-
-  const getWeekStartDate = (dateStr: string): string => {
-    return startOfWeekUtc(dateStr);
+    return date.getUTCMonth() === currentMonthNum;
   };
 
   const groupDaysByWeek = () => {
-    const weeks: { [key: number]: string[] } = {};
-    daysInView.forEach(dateStr => {
-      const weekNum = getWeekNumber(dateStr);
-      if (!weeks[weekNum]) {
-        weeks[weekNum] = [];
-      }
-      weeks[weekNum].push(dateStr);
-    });
+    const weeks: string[][] = [];
+    for (let i = 0; i < daysInView.length; i += 7) {
+      weeks.push(daysInView.slice(i, i + 7));
+    }
     return weeks;
   };
 
@@ -75,15 +67,12 @@ export const MonthView: React.FC<MonthViewProps> = ({
 
   return (
     <Stack styles={{ root: { overflowY: 'auto', overflowX: 'hidden' } }}>
-      {Object.keys(weeks).map(weekNum => {
-        const weekDays = weeks[parseInt(weekNum)];
-        // Use the first day shown in this week group for navigation
-        // Don't use startOfWeekUtc as it can go back to previous month
+      {weeks.map((weekDays, weekIndex) => {
         const firstDayInWeek = weekDays[0];
         const weekTotalEFinks = weekDays.reduce((sum, dateStr) => sum + getTotalEFinksForDate(dateStr), 0);
 
         return (
-          <Stack key={`week-${weekNum}`} styles={{ root: { marginBottom: 20 } }}>
+          <Stack key={`week-${weekIndex}`} styles={{ root: { marginBottom: 20 } }}>
             <Stack
               horizontal
               horizontalAlign="space-between"
@@ -103,7 +92,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
               onClick={() => onWeekClick(firstDayInWeek)}
             >
               <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                Week {weekNum}
+                Week {weekIndex + 1}
               </Text>
               <Text variant="small" styles={{ root: { color: 'white', fontWeight: 600 } }}>
                 {weekTotalEFinks} E-Finks
@@ -128,10 +117,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
                 const isFullyBooked = utilizationPercent >= 90;
                 const isNearlyFull = utilizationPercent >= 75;
                 
-                // Check if weekend (Saturday = 6, Sunday = 0)
                 const date = new Date(dateStr + 'T00:00:00Z');
                 const dayOfWeek = date.getUTCDay();
                 const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isOtherMonth = !isCurrentMonth(dateStr);
 
                 return (
                   <Stack
@@ -142,10 +131,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       root: {
                         border: '2px solid #ddd',
                         borderRadius: 4,
-                        backgroundColor: isWeekend ? '#e8e8e8' : (isFullyBooked ? '#fff4ce' : isNearlyFull ? '#fff9e6' : 'white'),
+                        backgroundColor: isOtherMonth ? '#f5f5f5' : (isWeekend ? '#e8e8e8' : (isFullyBooked ? '#fff4ce' : isNearlyFull ? '#fff9e6' : 'white')),
                         overflow: 'hidden',
                         minHeight: 150,
-                        opacity: isWeekend ? 0.7 : 1
+                        opacity: isOtherMonth ? 0.5 : (isWeekend ? 0.7 : 1)
                       }
                     }}
                   >
@@ -153,7 +142,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       styles={{
                         root: {
                           padding: '8px 10px',
-                          backgroundColor: isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4'),
+                          backgroundColor: isOtherMonth ? '#bbb' : (isWeekend ? '#999' : (isFullyBooked ? '#f3a32a' : isNearlyFull ? '#ffaa44' : '#0078d4')),
                           color: 'white'
                         }
                       }}

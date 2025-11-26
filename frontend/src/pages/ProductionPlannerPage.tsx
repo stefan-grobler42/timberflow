@@ -201,6 +201,43 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleDropToUnallocated = async () => {
+    if (!draggedJobId) return;
+    
+    const job = allJobs.find(j => j.id === draggedJobId);
+    if (!job) return;
+
+    // Can't unallocate a sales order that doesn't have a production record yet
+    const isSalesOrder = job.id.startsWith('order-');
+    if (isSalesOrder) {
+      setDraggedJobId(null);
+      return;
+    }
+
+    try {
+      // Clear the planned date
+      const updateData: any = {
+        productionPlannedDate: null
+      };
+      
+      // Optimistically update UI
+      setJobs(jobs.map(j => 
+        j.id === draggedJobId 
+          ? { ...j, plannedDateStr: null }
+          : j
+      ));
+      
+      await productionService.update(job.id, updateData);
+      console.log('[PLANNER] ✓ Job moved to unallocated');
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to unallocate job:', err);
+      setError(`Failed to unallocate job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      await loadData();
+    } finally {
+      setDraggedJobId(null);
+    }
+  };
+
   const handleJobDoubleClick = (jobId: string) => {
     navigate(`/production-planner/${jobId}`);
   };
@@ -391,15 +428,18 @@ export const ProductionPlannerPage = () => {
 
       <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 10, overflow: 'hidden' } }}>
         <Stack
+          onDragOver={handleDragOver}
+          onDrop={handleDropToUnallocated}
           styles={{
             root: {
               width: basketCollapsed ? 50 : 300,
               minWidth: basketCollapsed ? 50 : 300,
               flexShrink: 0,
-              backgroundColor: '#f3f2f1',
+              backgroundColor: draggedJobId ? '#e1f5fe' : '#f3f2f1',
               borderRadius: 4,
               padding: basketCollapsed ? 10 : 15,
-              transition: 'all 0.3s ease'
+              transition: 'all 0.3s ease',
+              border: draggedJobId ? '2px dashed #0078d4' : '2px solid transparent'
             }
           }}
         >
@@ -461,6 +501,7 @@ export const ProductionPlannerPage = () => {
             <MonthView
               daysInView={getDaysInView}
               jobs={allJobs}
+              currentMonth={currentDateStr}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={(dateStr) => handleDrop(dateStr)}
