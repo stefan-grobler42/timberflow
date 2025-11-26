@@ -753,7 +753,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     }}
                   >
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                      {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                     </Text>
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                       {job.customer}
@@ -915,7 +915,7 @@ export const DayView: React.FC<DayViewProps> = ({
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
                             <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                              {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                              {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                             </Text>
                             <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                               {job.customer}

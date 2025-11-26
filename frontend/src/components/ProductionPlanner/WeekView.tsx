@@ -197,7 +197,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                     }}
                   >
                     <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
-                      {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}{job.name?.includes('(Roll Over)') ? ' (Roll Over)' : ''}
+                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                     </Text>
                     <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
                       {job.customer}
@@ -280,7 +280,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
                       }}
                     >
                       <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
-                        {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}{job.name?.includes('(Roll Over)') ? ' (Roll Over)' : ''}
+                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                       </Text>
                       <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
                         {job.customer}
