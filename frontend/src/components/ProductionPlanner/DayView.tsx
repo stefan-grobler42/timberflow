@@ -55,7 +55,6 @@ interface DayViewProps {
 
 const MINUTES_PER_EFINK = 6.5625;
 const PIXELS_PER_MINUTE = 1;
-const TIMELINE_START_HOUR = 0;
 const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
 
@@ -171,18 +170,6 @@ export const DayView: React.FC<DayViewProps> = ({
       setBreakSlots([]);
       setLoading(false);
     }
-  };
-
-  const isBreakTime = (hour: number): BreakSlot | null => {
-    for (const breakSlot of breakSlots) {
-      if (hour >= breakSlot.startHour && hour < breakSlot.endHour) {
-        return breakSlot;
-      }
-      if (hour === breakSlot.startHour) {
-        return breakSlot;
-      }
-    }
-    return null;
   };
 
   const getBreakDurationMinutes = (breakSlot: BreakSlot): number => {
@@ -317,6 +304,21 @@ export const DayView: React.FC<DayViewProps> = ({
     return Math.ceil(minutes / 60) * 60;
   };
 
+  const getNextAvailableStartTime = (jobEndMinutes: number): number => {
+    let nextStart = roundUpToNextHour(jobEndMinutes);
+    
+    for (const breakSlot of breakSlots) {
+      const breakStart = getBreakStartMinutes(breakSlot);
+      const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
+      
+      if (nextStart >= breakStart && nextStart < breakEnd) {
+        nextStart = roundUpToNextHour(breakEnd);
+      }
+    }
+    
+    return nextStart;
+  };
+
   const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
@@ -348,7 +350,7 @@ export const DayView: React.FC<DayViewProps> = ({
       
       if (includeBreaks) {
         const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
-        currentTop = roundUpToNextHour(jobEndMinutes);
+        currentTop = getNextAvailableStartTime(jobEndMinutes);
       } else {
         currentTop += baseHeight + 4;
       }
@@ -370,6 +372,84 @@ export const DayView: React.FC<DayViewProps> = ({
     }
   };
 
+  interface TimelineSegment {
+    startMinutes: number;
+    durationMinutes: number;
+    label: string;
+    isBreak: boolean;
+    isWorking: boolean;
+    backgroundColor: string;
+    breakSlot?: BreakSlot;
+  }
+
+  const generateTimelineSegments = (): TimelineSegment[] => {
+    const segments: TimelineSegment[] = [];
+    const sortedBreaks = [...breakSlots].sort((a, b) => 
+      (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
+    );
+    
+    const totalMinutes = HOURS_IN_DAY * 60;
+    let currentMinute = 0;
+    
+    while (currentMinute < totalMinutes) {
+      const breakAtThisPoint = sortedBreaks.find(b => {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        return currentMinute === breakStart;
+      });
+      
+      if (breakAtThisPoint) {
+        const breakDuration = getBreakDurationMinutes(breakAtThisPoint);
+        const hour = Math.floor(currentMinute / 60);
+        const minute = currentMinute % 60;
+        
+        segments.push({
+          startMinutes: currentMinute,
+          durationMinutes: breakDuration,
+          label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${breakAtThisPoint.label}`,
+          isBreak: true,
+          isWorking: true,
+          backgroundColor: breakAtThisPoint.color,
+          breakSlot: breakAtThisPoint
+        });
+        
+        currentMinute += breakDuration;
+        continue;
+      }
+      
+      let segmentEnd = totalMinutes;
+      
+      for (const b of sortedBreaks) {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        if (breakStart > currentMinute && breakStart < segmentEnd) {
+          segmentEnd = breakStart;
+        }
+      }
+      
+      const nextHourBoundary = (Math.floor(currentMinute / 60) + 1) * 60;
+      if (nextHourBoundary < segmentEnd) {
+        segmentEnd = nextHourBoundary;
+      }
+      
+      const segmentDuration = segmentEnd - currentMinute;
+      const hour = Math.floor(currentMinute / 60);
+      const minute = currentMinute % 60;
+      const isWorking = workingHours ? (hour >= workingHours.start && hour < workingHours.end) : false;
+      
+      segments.push({
+        startMinutes: currentMinute,
+        durationMinutes: segmentDuration,
+        label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+        isBreak: false,
+        isWorking,
+        backgroundColor: isWorking ? 'white' : 'rgba(0, 0, 0, 0.06)'
+      });
+      
+      currentMinute = segmentEnd;
+    }
+    
+    return segments;
+  };
+
   if (loading) {
     return (
       <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { padding: 50 } }}>
@@ -382,19 +462,8 @@ export const DayView: React.FC<DayViewProps> = ({
     return <Text>Error loading working hours</Text>;
   }
 
-  const timelineHours = Array.from({ length: HOURS_IN_DAY }, (_, i) => i);
-  
-  const isWorkingHour = (hour: number): boolean => {
-    if (!workingHours) return false;
-    return hour >= workingHours.start && hour < workingHours.end;
-  };
-
-  const getHourBackground = (hour: number): string => {
-    const breakSlot = isBreakTime(hour);
-    if (breakSlot) return breakSlot.color;
-    if (isWorkingHour(hour)) return 'white';
-    return 'rgba(0, 0, 0, 0.06)';
-  };
+  const timelineSegments = generateTimelineSegments();
+  const totalTimelineHeight = HOURS_IN_DAY * 60 * PIXELS_PER_MINUTE;
 
   return (
     <Stack styles={{ root: { padding: 20 } }}>
@@ -411,39 +480,41 @@ export const DayView: React.FC<DayViewProps> = ({
         {/* Time header column */}
         <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
           <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
-          {timelineHours.map(hour => {
-            const breakSlot = isBreakTime(hour);
-            const working = isWorkingHour(hour);
-            const bgColor = getHourBackground(hour);
-            return (
+          <div style={{ position: 'relative', height: totalTimelineHeight }}>
+            {timelineSegments.map((segment, idx) => (
               <Stack
-                key={`time-${hour}`}
+                key={`time-${idx}-${segment.startMinutes}`}
                 styles={{
                   root: {
-                    height: 60,
+                    position: 'absolute',
+                    top: segment.startMinutes * PIXELS_PER_MINUTE,
+                    left: 0,
+                    right: 0,
+                    height: segment.durationMinutes * PIXELS_PER_MINUTE,
                     borderBottom: '1px solid #ddd',
-                    padding: '8px 10px',
-                    backgroundColor: bgColor,
-                    opacity: working || breakSlot ? 1 : 0.7
+                    padding: '4px 10px',
+                    backgroundColor: segment.backgroundColor,
+                    opacity: segment.isWorking || segment.isBreak ? 1 : 0.7,
+                    boxSizing: 'border-box'
                   }
                 }}
               >
-                <Text variant="small" styles={{ root: { fontWeight: 600, color: working || breakSlot ? '#333' : '#888' } }}>
-                  {hour.toString().padStart(2, '0')}:00
+                <Text variant="small" styles={{ root: { fontWeight: 600, color: segment.isWorking || segment.isBreak ? '#333' : '#888' } }}>
+                  {segment.label}
                 </Text>
-                {breakSlot && (
+                {segment.isBreak && segment.breakSlot && (
                   <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
-                    {breakSlot.label}
+                    {segment.breakSlot.label} ({segment.durationMinutes}m)
                   </Text>
                 )}
-                {!working && !breakSlot && (
+                {!segment.isWorking && !segment.isBreak && (
                   <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
                     Non-working
                   </Text>
                 )}
               </Stack>
-            );
-          })}
+            ))}
+          </div>
         </Stack>
 
         {/* Unallocated column */}
@@ -475,7 +546,7 @@ export const DayView: React.FC<DayViewProps> = ({
               onDragOver={onDragOver}
               onDrop={() => onDrop(dayStr, null)}
               style={{
-                height: HOURS_IN_DAY * 60,
+                height: totalTimelineHeight,
                 backgroundColor: '#fff0f0',
                 borderBottom: '1px solid #ddd',
                 padding: 8,
@@ -572,32 +643,25 @@ export const DayView: React.FC<DayViewProps> = ({
                 onDrop={() => onDrop(dayStr, jig.id)}
                 style={{
                   position: 'relative',
-                  height: HOURS_IN_DAY * 60,
+                  height: totalTimelineHeight,
                   borderBottom: '1px solid #ddd'
                 }}
               >
-                {/* Hour slots background */}
-                {timelineHours.map(hour => {
-                  const working = isWorkingHour(hour);
-                  const breakSlot = isBreakTime(hour);
-                  const topPosition = (hour - TIMELINE_START_HOUR) * 60;
-                  const bgColor = getHourBackground(hour);
-
-                  return (
-                    <div
-                      key={`${jig.id}-bg-${hour}`}
-                      style={{
-                        position: 'absolute',
-                        top: topPosition,
-                        left: 0,
-                        right: 0,
-                        height: 60,
-                        borderBottom: working || breakSlot ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
-                        backgroundColor: bgColor
-                      }}
-                    />
-                  );
-                })}
+                {/* Timeline segments background */}
+                {timelineSegments.map((segment, idx) => (
+                  <div
+                    key={`${jig.id}-bg-${idx}-${segment.startMinutes}`}
+                    style={{
+                      position: 'absolute',
+                      top: segment.startMinutes * PIXELS_PER_MINUTE,
+                      left: 0,
+                      right: 0,
+                      height: segment.durationMinutes * PIXELS_PER_MINUTE,
+                      borderBottom: segment.isWorking || segment.isBreak ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
+                      backgroundColor: segment.backgroundColor
+                    }}
+                  />
+                ))}
 
                 {/* Job blocks */}
                 {calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => (
