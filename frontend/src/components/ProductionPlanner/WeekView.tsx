@@ -57,13 +57,18 @@ export const WeekView: React.FC<WeekViewProps> = ({
     return `${days[date.getDay()]} ${date.getDate()}/${date.getMonth() + 1}`;
   };
 
+  const columnWidth = 160;
+  const columnGap = 1;
+  const numColumns = jigTeams.length + 1;
+  const dayCardWidth = (numColumns * columnWidth) + ((numColumns - 1) * columnGap) + 2;
+
   return (
     <div
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(7, minmax(250px, 1fr))',
+        display: 'flex',
         gap: 15,
-        overflowX: 'auto'
+        overflowX: 'auto',
+        paddingBottom: 10
       }}
     >
       {daysInView.map((dateStr) => {
@@ -86,7 +91,9 @@ export const WeekView: React.FC<WeekViewProps> = ({
                 border: '2px solid #ddd',
                 borderRadius: 4,
                 backgroundColor: isWeekend ? '#e8e8e8' : 'white',
-                overflow: 'hidden',
+                width: dayCardWidth,
+                minWidth: dayCardWidth,
+                flexShrink: 0,
                 opacity: isWeekend ? 0.7 : 1
               }
             }}
@@ -119,8 +126,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
               display: 'flex', 
               gap: 1, 
               backgroundColor: '#ddd',
-              padding: 1,
-              overflowX: 'auto'
+              padding: 1
             }}>
               <Stack
                 key="unallocated"
