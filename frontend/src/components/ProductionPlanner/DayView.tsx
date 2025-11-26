@@ -313,12 +313,17 @@ export const DayView: React.FC<DayViewProps> = ({
     return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
   };
 
+  const roundUpToNextHour = (minutes: number): number => {
+    return Math.ceil(minutes / 60) * 60;
+  };
+
   const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
-    const workingHoursOffset = getWorkingHoursOffset();
+    const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
 
-    for (const job of jigJobs) {
+    for (let i = 0; i < jigJobs.length; i++) {
+      const job = jigJobs[i];
       const baseDuration = getBaseDurationMinutes(job);
       const baseHeight = Math.max(MIN_BLOCK_HEIGHT, baseDuration * PIXELS_PER_MINUTE);
       
@@ -341,7 +346,12 @@ export const DayView: React.FC<DayViewProps> = ({
         totalBreakMinutes
       });
       
-      currentTop += totalHeight + 4;
+      if (includeBreaks) {
+        const jobEndTime = currentTop + totalHeight;
+        currentTop = roundUpToNextHour(jobEndTime);
+      } else {
+        currentTop += baseHeight + 4;
+      }
     }
 
     return positions;
