@@ -570,17 +570,22 @@ export const DayView: React.FC<DayViewProps> = ({
                       right: 4,
                       height: height,
                       padding: 8,
-                      backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : 'rgba(198, 40, 40, 0.9)',
-                      color: job.productionComplete ? '#666' : 'white',
-                      borderRadius: 4,
-                      border: job.productionComplete ? '2px solid #c0c0c0' : '2px solid #c62828',
+                      background: job.productionComplete 
+                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
+                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))',
+                      color: job.productionComplete ? '#555' : 'white',
+                      borderRadius: 6,
+                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
                       cursor: resizingJob ? 'ns-resize' : 'grab',
                       zIndex: resizingJob === job.id ? 100 : 10,
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      opacity: job.productionComplete ? 0.6 : 1,
+                      boxShadow: job.productionComplete 
+                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
+                        : '0 4px 12px rgba(198, 40, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+                      opacity: job.productionComplete ? 0.7 : 1,
                       display: 'flex',
                       flexDirection: 'column',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(4px)'
                     }}
                   >
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
@@ -700,17 +705,22 @@ export const DayView: React.FC<DayViewProps> = ({
                       right: 4,
                       height: height,
                       padding: 8,
-                      backgroundColor: job.productionComplete ? 'rgba(224, 224, 224, 0.9)' : 'rgba(0, 120, 212, 0.95)',
-                      color: job.productionComplete ? '#666' : 'white',
-                      borderRadius: 4,
-                      border: job.productionComplete ? '2px solid #c0c0c0' : '2px solid #0078d4',
+                      background: job.productionComplete 
+                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
+                        : 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))',
+                      color: job.productionComplete ? '#555' : 'white',
+                      borderRadius: 6,
+                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
                       cursor: resizingJob ? 'ns-resize' : 'grab',
                       zIndex: resizingJob === job.id ? 100 : 10,
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      opacity: job.productionComplete ? 0.6 : 1,
+                      boxShadow: job.productionComplete 
+                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
+                        : '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+                      opacity: job.productionComplete ? 0.7 : 1,
                       display: 'flex',
                       flexDirection: 'column',
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      backdropFilter: 'blur(4px)'
                     }}
                   >
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
