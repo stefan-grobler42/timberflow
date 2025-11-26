@@ -87,7 +87,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
   const weeks = groupDaysByWeek();
 
   return (
-    <Stack styles={{ root: { overflowY: 'auto', overflowX: 'hidden' } }}>
+    <Stack>
       {weeks.map((weekDays, weekIndex) => {
         const midWeekDay = weekDays[3] || weekDays[0];
         const weekNumber = getISOWeekNumber(midWeekDay);
@@ -190,7 +190,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
                       )}
                     </Stack>
 
-                    <Stack styles={{ root: { padding: 8, gap: 6, overflowY: 'auto', maxHeight: 200 } }}>
+                    <Stack styles={{ root: { padding: 8, gap: 6 } }}>
                       {dayJobs.map(job => (
                         <Stack
                           key={job.id}

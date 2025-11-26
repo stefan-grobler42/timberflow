@@ -474,7 +474,7 @@ export const DayView: React.FC<DayViewProps> = ({
         </Text>
       </Stack>
 
-      <div style={{ display: 'flex', overflowX: 'auto' }}>
+      <div style={{ display: 'flex' }}>
         {/* Time header column */}
         <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
           <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>

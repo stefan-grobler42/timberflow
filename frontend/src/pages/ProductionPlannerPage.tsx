@@ -395,7 +395,7 @@ export const ProductionPlannerPage = () => {
   console.log('[PLANNER] ✓✓✓ RENDERING MAIN CONTENT - ViewMode:', viewMode, 'Jobs:', jobs.length);
   
   return (
-    <Stack styles={{ root: { height: '100%', overflow: 'hidden' } }}>
+    <Stack styles={{ root: { minHeight: '100%' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
         <Text variant="xxLarge">
           Production Planner ({jobs.length} jobs)
@@ -451,7 +451,7 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15, overflow: 'hidden' } }}>
+      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15 } }}>
         <div
           onMouseEnter={() => setBasketCollapsed(false)}
           onMouseLeave={() => setBasketCollapsed(true)}
@@ -467,8 +467,7 @@ export const ProductionPlannerPage = () => {
             transition: 'all 0.2s ease',
             border: draggedJobId ? '2px dashed #0078d4' : '2px solid transparent',
             display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
+            flexDirection: 'column'
           }}
         >
           {basketCollapsed ? (
@@ -491,7 +490,7 @@ export const ProductionPlannerPage = () => {
                 </Text>
               </Stack>
 
-              <Stack styles={{ root: { marginTop: 15, gap: 8, overflowY: 'auto', flex: 1 } }}>
+              <Stack styles={{ root: { marginTop: 15, gap: 8 } }}>
                 {unallocated.map(job => (
                   <Stack
                     key={job.id}
@@ -535,7 +534,7 @@ export const ProductionPlannerPage = () => {
           )}
         </div>
 
-        <Stack styles={{ root: { flex: 1, overflowY: 'auto', overflowX: 'auto', minWidth: 0 } }}>
+        <Stack styles={{ root: { flex: 1, minWidth: 0 } }}>
           {viewMode === 'month' && (
             <MonthView
               daysInView={getDaysInView}

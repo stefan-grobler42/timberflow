@@ -155,9 +155,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
             gap: 1, 
             backgroundColor: '#ddd',
             padding: 1,
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto'
+            flex: 1
           }}
         >
           {hasUnallocated && (
@@ -302,8 +300,6 @@ export const WeekView: React.FC<WeekViewProps> = ({
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: 'calc(100vh - 180px)',
-        overflowY: 'auto',
         gap: 12,
         padding: '0 12px 12px 0'
       }}
@@ -312,9 +308,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
-          minHeight: 'calc(50% - 6px)',
-          flex: '0 0 auto'
+          gap: 12
         }}
       >
         {row1Days.map(dateStr => renderDayCard(dateStr))}
@@ -324,9 +318,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 12,
-          minHeight: 'calc(50% - 6px)',
-          flex: '0 0 auto'
+          gap: 12
         }}
       >
         {row2Days.map(dateStr => renderDayCard(dateStr))}
@@ -337,9 +329,7 @@ export const WeekView: React.FC<WeekViewProps> = ({
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 12,
-            minHeight: 200,
-            flex: '0 0 auto'
+            gap: 12
           }}
         >
           {row3Days.map(dateStr => renderDayCard(dateStr))}
