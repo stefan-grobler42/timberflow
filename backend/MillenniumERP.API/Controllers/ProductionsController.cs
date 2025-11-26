@@ -95,6 +95,8 @@ public class ProductionsController : ControllerBase
             Workunitsefinks = createDto.WorkUnitsEfinks,
             NewEstimatedefinks = createDto.NewEstimateDefinks,
             CustomDurationMinutes = createDto.CustomDurationMinutes,
+            ParentProductionId = createDto.ParentProductionId == Guid.Empty ? null : createDto.ParentProductionId,
+            RolloverSequence = createDto.RolloverSequence,
             // Treat zero GUIDs as null for lookup fields
             PickingTeamId = createDto.PickingTeamId == Guid.Empty ? null : createDto.PickingTeamId,
             SawId = createDto.SawId == Guid.Empty ? null : createDto.SawId,
@@ -157,6 +159,8 @@ public class ProductionsController : ControllerBase
         if (updateDto.WorkUnitsEfinks.HasValue) production.Workunitsefinks = updateDto.WorkUnitsEfinks;
         if (updateDto.NewEstimateDefinks.HasValue) production.NewEstimatedefinks = updateDto.NewEstimateDefinks;
         if (updateDto.CustomDurationMinutes.HasValue) production.CustomDurationMinutes = updateDto.CustomDurationMinutes;
+        if (updateDto.ParentProductionId.HasValue) production.ParentProductionId = updateDto.ParentProductionId == Guid.Empty ? null : updateDto.ParentProductionId;
+        if (updateDto.RolloverSequence.HasValue) production.RolloverSequence = updateDto.RolloverSequence;
         
         // Always assign lookup fields to allow clearing (treat zero GUIDs as null)
         production.PickingTeamId = updateDto.PickingTeamId == Guid.Empty || updateDto.PickingTeamId == null 
@@ -240,6 +244,8 @@ public class ProductionsController : ControllerBase
             WorkUnitsEfinks = production.Workunitsefinks,
             NewEstimateDefinks = production.NewEstimatedefinks,
             CustomDurationMinutes = production.CustomDurationMinutes,
+            ParentProductionId = production.ParentProductionId,
+            RolloverSequence = production.RolloverSequence,
             PickingTeamId = production.PickingTeamId,
             SawId = production.SawId,
             JigId = production.JigId,

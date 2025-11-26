@@ -237,6 +237,8 @@ export interface Production {
   workUnitsEfinks?: number;
   newEstimateDefinks?: number;
   customDurationMinutes?: number;
+  parentProductionId?: string;
+  rolloverSequence?: number;
   pickingTeamId?: string;
   sawId?: string;
   jigId?: string;

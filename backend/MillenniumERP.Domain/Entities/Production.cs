@@ -132,6 +132,14 @@ namespace MillenniumERP.Domain.Entities
         [Column("custom_duration_minutes")]
         public int? CustomDurationMinutes { get; set; }
 
+        /// <summary>Parent Production ID - links rollover jobs to original</summary>
+        [Column("parent_production_id")]
+        public Guid? ParentProductionId { get; set; }
+
+        /// <summary>Rollover Sequence - position in the job chain (0 = original, 1+ = rollovers)</summary>
+        [Column("rollover_sequence")]
+        public int? RolloverSequence { get; set; }
+
         /// <summary>Picking Team Lookup</summary>
         [Column("picking_team_id")]
         public Guid? PickingTeamId { get; set; }

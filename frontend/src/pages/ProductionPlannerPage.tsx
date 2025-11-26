@@ -30,6 +30,8 @@ interface Job {
   plannedDateStr: string | null;
   jigId: string | null;
   productionComplete: boolean;
+  parentProductionId?: string;
+  rolloverSequence?: number;
 }
 
 export const ProductionPlannerPage = () => {
@@ -72,7 +74,9 @@ export const ProductionPlannerPage = () => {
           customDurationMinutes: p.customDurationMinutes || undefined,
           plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
           jigId: p.jigId || null,
-          productionComplete: p.productionComplete === true
+          productionComplete: p.productionComplete === true,
+          parentProductionId: p.parentProductionId || undefined,
+          rolloverSequence: p.rolloverSequence || undefined
         }));
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
@@ -271,22 +275,36 @@ export const ProductionPlannerPage = () => {
       const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * 6.5625);
       const remainingDuration = currentDuration - overflowMinutes;
 
+      // Determine the root parent ID for this job chain
+      const rootParentId = job.parentProductionId || jobId;
+      const currentSequence = job.rolloverSequence || 0;
+
+      // Update original job with reduced duration
       await productionService.update(jobId, {
-        customDurationMinutes: Math.max(20, remainingDuration)
+        customDurationMinutes: Math.max(20, remainingDuration),
+        parentProductionId: job.parentProductionId || undefined, // Keep existing parent
+        rolloverSequence: currentSequence
       });
 
+      // Create rollover with same name but "(Rollover)" after order number
+      // Format: "OrderNumber (Rollover), CustomerName" - keeps same structure
+      const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
+      const rolloverName = `${baseName} (Rollover)`;
+
       const rolloverData: any = {
-        name: `${job.name} (Roll Over)`,
+        name: rolloverName,
         orderNo: job.id.startsWith('order-') ? job.id.substring(6) : null,
         productionPlannedDate: new Date(nextDateStr).toISOString(),
         newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
         customDurationMinutes: overflowMinutes,
         productionComplete: false,
-        jigId: jigId
+        jigId: jigId,
+        parentProductionId: rootParentId,
+        rolloverSequence: currentSequence + 1
       };
 
       await productionService.create(rolloverData);
-      console.log('[PLANNER] ✓ Job rolled over to next day');
+      console.log('[PLANNER] ✓ Job rolled over to next day with linked parent:', rootParentId);
 
       await loadData();
     } catch (err) {
