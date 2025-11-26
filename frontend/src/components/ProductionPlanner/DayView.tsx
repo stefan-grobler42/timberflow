@@ -589,7 +589,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     }}
                   >
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                      {job.orderNumber}
+                      {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
                     </Text>
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                       {job.customer}
@@ -724,7 +724,7 @@ export const DayView: React.FC<DayViewProps> = ({
                     }}
                   >
                     <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                      {job.orderNumber}
+                      {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
                     </Text>
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                       {job.customer}

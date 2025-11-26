@@ -192,35 +192,35 @@ export const MonthView: React.FC<MonthViewProps> = ({
 
                     <Stack styles={{ root: { padding: 8, gap: 6 } }}>
                       {dayJobs.map(job => (
-                        <Stack
+                        <div
                           key={job.id}
                           draggable
                           onDragStart={() => onDragStart(job.id)}
                           onDoubleClick={() => onJobDoubleClick(job.id)}
-                          styles={{
-                            root: {
-                              padding: 6,
-                              backgroundColor: job.productionComplete ? '#e0e0e0' : '#f8f8f8',
-                              borderRadius: 3,
-                              border: job.productionComplete ? '1px solid #c0c0c0' : '1px solid #e1dfdd',
-                              cursor: 'grab',
-                              opacity: job.productionComplete ? 0.6 : 1,
-                              ':hover': {
-                                backgroundColor: job.productionComplete ? '#d0d0d0' : '#f0f0f0'
-                              }
-                            }
+                          style={{
+                            padding: 6,
+                            background: job.productionComplete 
+                              ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
+                              : 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))',
+                            borderRadius: 6,
+                            border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
+                            cursor: 'grab',
+                            boxShadow: job.productionComplete 
+                              ? '0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)' 
+                              : '0 2px 8px rgba(0, 120, 212, 0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
+                            opacity: job.productionComplete ? 0.8 : 1
                           }}
                         >
-                          <Text variant="tiny" block styles={{ root: { fontWeight: 600, color: job.productionComplete ? '#666' : '#000' } }}>
-                            {job.orderNumber}
+                          <Text variant="tiny" block styles={{ root: { fontWeight: 600, color: 'white' } }}>
+                            {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
                           </Text>
-                          <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
+                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
                             {job.customer}
                           </Text>
-                          <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : '#0078d4' } }}>
+                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
                             {job.estimatedEFinks} E-Finks
                           </Text>
-                        </Stack>
+                        </div>
                       ))}
                     </Stack>
                   </Stack>
