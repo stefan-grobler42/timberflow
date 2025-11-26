@@ -447,7 +447,7 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 0, overflow: 'hidden' } }}>
+      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15, overflow: 'hidden' } }}>
         <div
           onMouseEnter={() => setBasketCollapsed(false)}
           onMouseLeave={() => setBasketCollapsed(true)}
