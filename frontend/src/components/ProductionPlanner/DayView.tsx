@@ -364,10 +364,8 @@ export const DayView: React.FC<DayViewProps> = ({
 
   const hasManualResize = useCallback((job: Job): boolean => {
     const calculatedDuration = getCalculatedDuration(job);
-    if (customDurations[job.id] && customDurations[job.id] !== calculatedDuration) {
-      return true;
-    }
-    if (job.customDurationMinutes && job.customDurationMinutes !== calculatedDuration) {
+    const currentDuration = customDurations[job.id] || job.customDurationMinutes;
+    if (currentDuration && currentDuration !== calculatedDuration) {
       return true;
     }
     return false;
