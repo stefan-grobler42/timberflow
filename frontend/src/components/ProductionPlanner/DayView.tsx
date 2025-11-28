@@ -358,6 +358,21 @@ export const DayView: React.FC<DayViewProps> = ({
     return additions;
   };
 
+  const getCalculatedDuration = useCallback((job: Job): number => {
+    return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
+  }, []);
+
+  const hasManualResize = useCallback((job: Job): boolean => {
+    const calculatedDuration = getCalculatedDuration(job);
+    if (customDurations[job.id] && customDurations[job.id] !== calculatedDuration) {
+      return true;
+    }
+    if (job.customDurationMinutes && job.customDurationMinutes !== calculatedDuration) {
+      return true;
+    }
+    return false;
+  }, [customDurations, getCalculatedDuration]);
+
   const getJobDurationMinutes = useCallback((job: Job): number => {
     if (customDurations[job.id]) {
       return customDurations[job.id];
@@ -917,8 +932,8 @@ export const DayView: React.FC<DayViewProps> = ({
                       backdropFilter: 'blur(4px)'
                     }}
                   >
-                    {/* Refresh button - only show when customDurationMinutes is set */}
-                    {job.customDurationMinutes && onJobDurationReset && (
+                    {/* Refresh button - only show when manually resized */}
+                    {hasManualResize(job) && onJobDurationReset && (
                       <IconButton
                         iconProps={{ iconName: 'Refresh' }}
                         title="Reset to calculated size"
@@ -1105,8 +1120,8 @@ export const DayView: React.FC<DayViewProps> = ({
                           backdropFilter: 'blur(4px)'
                         }}
                       >
-                        {/* Refresh button - only show when customDurationMinutes is set */}
-                        {job.customDurationMinutes && onJobDurationReset && (
+                        {/* Refresh button - only show when manually resized */}
+                        {hasManualResize(job) && onJobDurationReset && (
                           <IconButton
                             iconProps={{ iconName: 'Refresh' }}
                             title="Reset to calculated size"
@@ -1131,6 +1146,20 @@ export const DayView: React.FC<DayViewProps> = ({
                             }}
                           />
                         )}
+                        {/* Overflow indicator - positioned to avoid reset button overlap */}
+                        {isOverflowing && (
+                          <Text styles={{ 
+                            root: { 
+                              position: 'absolute',
+                              top: 2,
+                              right: hasManualResize(job) && onJobDurationReset ? 26 : 4,
+                              color: '#ffff00', 
+                              fontWeight: 700, 
+                              fontSize: 18, 
+                              lineHeight: 1 
+                            } 
+                          }}>!</Text>
+                        )}
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
                             <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
@@ -1140,9 +1169,6 @@ export const DayView: React.FC<DayViewProps> = ({
                               {job.customer}
                             </Text>
                           </Stack>
-                          {isOverflowing && (
-                            <Text styles={{ root: { color: '#ffff00', fontWeight: 700, fontSize: 18, lineHeight: 1 } }}>!</Text>
-                          )}
                         </Stack>
                         <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
                           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
