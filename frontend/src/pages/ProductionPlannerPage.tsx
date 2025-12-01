@@ -349,68 +349,101 @@ export const ProductionPlannerPage = () => {
       const rootParentId = job.parentProductionId || jobId;
       const currentSequence = job.rolloverSequence || 0;
 
-      // Update original job with reduced duration - preserve all existing fields
-      await productionService.update(jobId, {
+      // BUG FIX 1: Preserve jigId - use nullish coalescing to handle edge cases
+      // jigId parameter from overflow detection takes priority, fallback to job's existing jigId
+      // Using ?? instead of || to correctly handle falsy-but-valid values
+      const preservedJigId = jigId ?? job.jigId;
+
+      // BUG FIX 2: Check if a rollover child already exists for this job
+      // Look for jobs where parentProductionId matches rootParentId and rolloverSequence > currentSequence
+      const existingRollover = allJobs.find(j => 
+        j.parentProductionId === rootParentId && 
+        (j.rolloverSequence || 0) === currentSequence + 1
+      );
+
+      // Update original job with reduced duration - always explicitly include jigId
+      const updateData: any = {
         customDurationMinutes: Math.max(20, remainingDuration),
-        parentProductionId: job.parentProductionId || undefined,
         rolloverSequence: currentSequence,
-        jigId: job.jigId || undefined
-      });
-
-      // Create rollover with same name but "(Rollover)" after order number
-      const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
-      const rolloverName = `${baseName} (Rollover)`;
-
-      // Clone all fields from original production, adjusting only what's needed for rollover
-      const rolloverData: any = {
-        // Core identification - cloned from original
-        name: rolloverName,
-        orderNo: fullProduction.orderNo,
-        customer: fullProduction.customer,
-        
-        // Scheduling - adjusted for rollover
-        productionPlannedDate: new Date(nextDateStr).toISOString(),
-        newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
-        customDurationMinutes: overflowMinutes,
-        productionComplete: false,
-        
-        // Team assignments - clone from original
-        jigId: jigId,
-        pickingTeamId: fullProduction.pickingTeamId,
-        sawId: fullProduction.sawId,
-        
-        // Jig team staff - clone from original
-        jigLeader: fullProduction.jigLeader,
-        jigHelper1: fullProduction.jigHelper1,
-        jigHelper2: fullProduction.jigHelper2,
-        jigHelper3: fullProduction.jigHelper3,
-        jigHelper4: fullProduction.jigHelper4,
-        
-        // Picking team staff - clone from original
-        pickingMaster: fullProduction.pickingMaster,
-        pickingHelper1: fullProduction.pickingHelper1,
-        pickingHelper2: fullProduction.pickingHelper2,
-        pickingHelper3: fullProduction.pickingHelper3,
-        
-        // Saw team staff - clone from original
-        sawOperator: fullProduction.sawOperator,
-        sawHelper1: fullProduction.sawHelper1,
-        sawHelper2: fullProduction.sawHelper2,
-        
-        // Production metrics - clone from original
-        totalCuts: fullProduction.totalCuts,
-        totalTimberCubes: fullProduction.totalTimberCubes,
-        trussCost: fullProduction.trussCost,
-        trussSelling: fullProduction.trussSelling,
-        workUnitsEfinks: fullProduction.workUnitsEfinks,
-        
-        // Chain tracking
-        parentProductionId: rootParentId,
-        rolloverSequence: currentSequence + 1
+        // Always send jigId to maintain team assignment - send null explicitly if clearing
+        jigId: preservedJigId ?? null
       };
+      if (job.parentProductionId) {
+        updateData.parentProductionId = job.parentProductionId;
+      }
+      
+      await productionService.update(jobId, updateData);
 
-      await productionService.create(rolloverData);
-      console.log('[PLANNER] ✓ Job rolled over to next day with all fields cloned, linked parent:', rootParentId);
+      if (existingRollover) {
+        // BUG FIX 2: Update existing rollover instead of creating duplicate
+        console.log('[PLANNER] Found existing rollover, updating instead of creating duplicate:', existingRollover.id);
+        
+        const rolloverUpdateData: any = {
+          productionPlannedDate: new Date(nextDateStr).toISOString(),
+          newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
+          customDurationMinutes: overflowMinutes,
+          // Always send jigId to maintain team assignment
+          jigId: preservedJigId ?? null
+        };
+        
+        await productionService.update(existingRollover.id, rolloverUpdateData);
+        console.log('[PLANNER] ✓ Existing rollover updated with new duration:', overflowMinutes);
+      } else {
+        // Create rollover with same name but "(Rollover)" after order number
+        const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
+        const rolloverName = `${baseName} (Rollover)`;
+
+        // Clone all fields from original production, adjusting only what's needed for rollover
+        const rolloverData: any = {
+          // Core identification - cloned from original
+          name: rolloverName,
+          orderNo: fullProduction.orderNo,
+          customer: fullProduction.customer,
+          
+          // Scheduling - adjusted for rollover
+          productionPlannedDate: new Date(nextDateStr).toISOString(),
+          newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
+          customDurationMinutes: overflowMinutes,
+          productionComplete: false,
+          
+          // Team assignments - use preserved jigId to maintain team allocation
+          jigId: preservedJigId,
+          pickingTeamId: fullProduction.pickingTeamId,
+          sawId: fullProduction.sawId,
+          
+          // Jig team staff - clone from original
+          jigLeader: fullProduction.jigLeader,
+          jigHelper1: fullProduction.jigHelper1,
+          jigHelper2: fullProduction.jigHelper2,
+          jigHelper3: fullProduction.jigHelper3,
+          jigHelper4: fullProduction.jigHelper4,
+          
+          // Picking team staff - clone from original
+          pickingMaster: fullProduction.pickingMaster,
+          pickingHelper1: fullProduction.pickingHelper1,
+          pickingHelper2: fullProduction.pickingHelper2,
+          pickingHelper3: fullProduction.pickingHelper3,
+          
+          // Saw team staff - clone from original
+          sawOperator: fullProduction.sawOperator,
+          sawHelper1: fullProduction.sawHelper1,
+          sawHelper2: fullProduction.sawHelper2,
+          
+          // Production metrics - clone from original
+          totalCuts: fullProduction.totalCuts,
+          totalTimberCubes: fullProduction.totalTimberCubes,
+          trussCost: fullProduction.trussCost,
+          trussSelling: fullProduction.trussSelling,
+          workUnitsEfinks: fullProduction.workUnitsEfinks,
+          
+          // Chain tracking
+          parentProductionId: rootParentId,
+          rolloverSequence: currentSequence + 1
+        };
+
+        await productionService.create(rolloverData);
+        console.log('[PLANNER] ✓ Job rolled over to next day with all fields cloned, linked parent:', rootParentId);
+      }
 
       await loadData();
     } catch (err) {
