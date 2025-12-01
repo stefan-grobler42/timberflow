@@ -73,6 +73,9 @@ interface DayViewProps {
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeSettings?: { enabled: boolean; closeTime: string };
   onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
+  hasPendingChanges?: boolean;
+  onConfirmChanges?: () => void;
+  onDiscardChanges?: () => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -94,7 +97,10 @@ export const DayView: React.FC<DayViewProps> = ({
   onTeamDoubleClick,
   onJobRollover,
   overtimeSettings,
-  onOvertimeChange
+  onOvertimeChange,
+  hasPendingChanges,
+  onConfirmChanges,
+  onDiscardChanges
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -412,7 +418,9 @@ export const DayView: React.FC<DayViewProps> = ({
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const delta = moveEvent.clientY - resizeStartY.current;
       const newHeight = Math.max(MIN_BLOCK_HEIGHT, resizeStartHeight.current + delta);
-      const newDuration = Math.round(newHeight / PIXELS_PER_MINUTE);
+      const rawDuration = newHeight / PIXELS_PER_MINUTE;
+      // Snap to 15-minute increments (round up)
+      const newDuration = Math.max(15, Math.ceil(rawDuration / 15) * 15);
       currentResizeDuration.current = newDuration;
       setCustomDurations(prev => ({ ...prev, [jobId]: newDuration }));
     };
@@ -858,6 +866,71 @@ export const DayView: React.FC<DayViewProps> = ({
           )}
         </Stack>
       </Stack>
+
+      {/* Confirmation Bar - shown when there are pending changes */}
+      {hasPendingChanges && (
+        <Stack 
+          horizontal 
+          verticalAlign="center" 
+          tokens={{ childrenGap: 12 }}
+          styles={{
+            root: {
+              backgroundColor: '#dff6dd',
+              padding: '12px 16px',
+              borderRadius: 4,
+              marginBottom: 16,
+              border: '1px solid #107c10',
+              boxShadow: '0 2px 8px rgba(16, 124, 16, 0.15)'
+            }
+          }}
+        >
+          <IconButton
+            iconProps={{ iconName: 'CheckMark' }}
+            title="Confirm and save changes"
+            onClick={onConfirmChanges}
+            styles={{
+              root: {
+                backgroundColor: '#107c10',
+                borderRadius: '50%',
+                width: 36,
+                height: 36
+              },
+              rootHovered: {
+                backgroundColor: '#0b5a0b'
+              },
+              icon: {
+                color: 'white',
+                fontSize: 18,
+                fontWeight: 'bold'
+              }
+            }}
+          />
+          <Text styles={{ root: { fontWeight: 600, color: '#107c10' } }}>
+            You have unsaved changes. Click the green tick to confirm and save.
+          </Text>
+          <IconButton
+            iconProps={{ iconName: 'Cancel' }}
+            title="Discard changes"
+            onClick={onDiscardChanges}
+            styles={{
+              root: {
+                backgroundColor: '#a80000',
+                borderRadius: '50%',
+                width: 28,
+                height: 28,
+                marginLeft: 'auto'
+              },
+              rootHovered: {
+                backgroundColor: '#750000'
+              },
+              icon: {
+                color: 'white',
+                fontSize: 12
+              }
+            }}
+          />
+        </Stack>
+      )}
 
       <div style={{ display: 'flex' }}>
         {/* Time header column */}

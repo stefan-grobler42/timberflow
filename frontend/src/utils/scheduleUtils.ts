@@ -12,6 +12,47 @@ interface ShiftConfig {
 }
 
 const MINUTES_PER_EFINK = 6.5625;
+const GAP_MINUTES = 30; // Standard gap between jobs
+const BREAK_PROXIMITY_MINUTES = 15; // If gap ends within this of a break, snap to break end
+
+/**
+ * Round up to nearest 15-minute increment
+ * e.g., 7 -> 15, 16 -> 30, 45 -> 45, 46 -> 60
+ */
+export function roundUpToQuarterHour(minutes: number): number {
+  return Math.ceil(minutes / 15) * 15;
+}
+
+/**
+ * Calculate the next job start time considering:
+ * 1. 30-minute gap after previous job
+ * 2. If gap end falls within 15 min of a break start, snap to break end
+ */
+export function calculateGapAdjustedStartTime(
+  previousEndTime: number,
+  shift: ShiftConfig
+): number {
+  const gapEndTime = previousEndTime + GAP_MINUTES;
+  
+  // Check if gap end falls within 15 min of any break start
+  for (const brk of shift.breaks) {
+    // If gapEndTime is within BREAK_PROXIMITY_MINUTES of break start
+    // OR if gapEndTime falls inside the break
+    if (gapEndTime >= brk.start - BREAK_PROXIMITY_MINUTES && gapEndTime < brk.end) {
+      // Snap to break end
+      return brk.end;
+    }
+  }
+  
+  // If we're inside a break, skip to break end
+  for (const brk of shift.breaks) {
+    if (gapEndTime >= brk.start && gapEndTime < brk.end) {
+      return brk.end;
+    }
+  }
+  
+  return gapEndTime;
+}
 
 const DEFAULT_SHIFT: ShiftConfig = {
   startTime: 7 * 60,
@@ -131,8 +172,7 @@ export function calculateNextAvailableStartTime(
     return shift.startTime;
   }
   
-  // Build a unified timeline with strictly monotonic progression
-  // Sort jobs by plannedStartTime (if available), placing legacy jobs at the end
+  // Sort jobs by plannedStartTime, placing legacy jobs at the end
   const sortedJobs = [...jobsOnTeamDay].sort((a, b) => {
     if (a.plannedStartTime != null && b.plannedStartTime != null) {
       return a.plannedStartTime - b.plannedStartTime;
@@ -142,44 +182,40 @@ export function calculateNextAvailableStartTime(
     return 0;
   });
   
-  // Walk through jobs, maintaining monotonic currentTime
-  let currentTime = shift.startTime;
+  // Walk through jobs to find the last end time
+  let lastEndTime = shift.startTime;
   
   for (const job of sortedJobs) {
     const duration = getJobDurationMinutes(job);
     
     if (job.plannedStartTime != null && job.plannedEndTime != null) {
-      // Job has persisted times - ensure monotonic progress
-      // Start from the later of currentTime or job's start
-      currentTime = Math.max(currentTime, job.plannedStartTime);
-      // Advance to the job's end time
-      currentTime = Math.max(currentTime, job.plannedEndTime);
+      // Job has persisted times
+      lastEndTime = Math.max(lastEndTime, job.plannedEndTime);
     } else {
-      // Legacy job without planned times - compute its end time sequentially
-      // It starts after all previously scheduled work
-      const timing = calculatePlannedTimes(currentTime, duration, shift);
-      currentTime = timing.plannedEndTime;
+      // Legacy job without planned times - compute its end time
+      const timing = calculatePlannedTimes(lastEndTime, duration, shift);
+      lastEndTime = timing.plannedEndTime;
     }
   }
   
-  // Advance past any break if we're inside one
-  let nextStart = currentTime;
-  for (const brk of shift.breaks) {
-    if (nextStart >= brk.start && nextStart < brk.end) {
-      nextStart = brk.end;
-      break;
-    }
+  // Apply 30-minute gap with break proximity logic
+  // If no jobs exist yet, start at shift start (no gap needed)
+  if (lastEndTime === shift.startTime) {
+    return shift.startTime;
   }
   
-  return nextStart;
+  return calculateGapAdjustedStartTime(lastEndTime, shift);
 }
 
 export function getJobDurationMinutes(job: { customDurationMinutes?: number; estimatedEFinks?: number }): number {
   if (job.customDurationMinutes && job.customDurationMinutes > 0) {
-    return job.customDurationMinutes;
+    // Custom duration should already be rounded, but ensure it
+    return roundUpToQuarterHour(job.customDurationMinutes);
   }
   const efinks = job.estimatedEFinks || 0;
-  return Math.max(15, Math.round(efinks * MINUTES_PER_EFINK));
+  const rawMinutes = efinks * MINUTES_PER_EFINK;
+  // Round UP to nearest 15 minutes, minimum 15 minutes
+  return Math.max(15, roundUpToQuarterHour(rawMinutes));
 }
 
 export function getShiftTotalMinutes(shift: ShiftConfig): number {
