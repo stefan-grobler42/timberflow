@@ -939,6 +939,13 @@ export const DayView: React.FC<DayViewProps> = ({
                         ariaLabel="Reset to calculated size"
                         onClick={(e) => {
                           e.stopPropagation();
+                          // Clear local custom duration state first
+                          setCustomDurations(prev => {
+                            const next = { ...prev };
+                            delete next[job.id];
+                            return next;
+                          });
+                          // Then call parent handler to persist the reset
                           onJobDurationReset(job.id);
                         }}
                         styles={{
@@ -1127,6 +1134,13 @@ export const DayView: React.FC<DayViewProps> = ({
                             ariaLabel="Reset to calculated size"
                             onClick={(e) => {
                               e.stopPropagation();
+                              // Clear local custom duration state first
+                              setCustomDurations(prev => {
+                                const next = { ...prev };
+                                delete next[job.id];
+                                return next;
+                              });
+                              // Then call parent handler to persist the reset
                               onJobDurationReset(job.id);
                             }}
                             styles={{
