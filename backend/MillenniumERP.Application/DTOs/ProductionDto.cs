@@ -40,6 +40,13 @@ public class ProductionDto
     public Guid? PickingTeamId { get; set; }
     public Guid? SawId { get; set; }
     public Guid? JigId { get; set; }
+    
+    // Planned timing fields - calculated by planner when job is allocated
+    public DateTime? PlannedStartDate { get; set; }
+    public int? PlannedStartTime { get; set; }  // Minutes from midnight (e.g., 480 = 8:00 AM)
+    public int? PlannedEndTime { get; set; }    // Minutes from midnight (e.g., 1020 = 5:00 PM)
+    public int? PlannedDurationMinutes { get; set; }
+    
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -83,6 +90,12 @@ public class CreateProductionDto
     public Guid? PickingTeamId { get; set; }
     public Guid? SawId { get; set; }
     public Guid? JigId { get; set; }
+    
+    // Planned timing fields
+    public DateTime? PlannedStartDate { get; set; }
+    public int? PlannedStartTime { get; set; }
+    public int? PlannedEndTime { get; set; }
+    public int? PlannedDurationMinutes { get; set; }
 }
 
 public class UpdateProductionDto
@@ -122,4 +135,10 @@ public class UpdateProductionDto
     public Guid? PickingTeamId { get; set; }
     public Guid? SawId { get; set; }
     public Guid? JigId { get; set; }
+    
+    // Planned timing fields
+    public DateTime? PlannedStartDate { get; set; }
+    public int? PlannedStartTime { get; set; }
+    public int? PlannedEndTime { get; set; }
+    public int? PlannedDurationMinutes { get; set; }
 }

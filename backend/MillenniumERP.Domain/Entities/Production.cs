@@ -152,6 +152,23 @@ namespace MillenniumERP.Domain.Entities
         [Column("jig_id")]
         public Guid? JigId { get; set; }
 
+        // Planned timing fields - calculated by planner when job is allocated
+        /// <summary>Planned Start Date for this production</summary>
+        [Column("planned_start_date")]
+        public DateTime? PlannedStartDate { get; set; }
+
+        /// <summary>Planned Start Time (minutes from midnight, e.g., 480 = 8:00 AM)</summary>
+        [Column("planned_start_time")]
+        public int? PlannedStartTime { get; set; }
+
+        /// <summary>Planned End Time (minutes from midnight, e.g., 1020 = 5:00 PM)</summary>
+        [Column("planned_end_time")]
+        public int? PlannedEndTime { get; set; }
+
+        /// <summary>Planned Duration in minutes (break-adjusted)</summary>
+        [Column("planned_duration_minutes")]
+        public int? PlannedDurationMinutes { get; set; }
+
         // Audit fields
         public DateTime? CreatedOn { get; set; }
         public Guid? CreatedBy { get; set; }

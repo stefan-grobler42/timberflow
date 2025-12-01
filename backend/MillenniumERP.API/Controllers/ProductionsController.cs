@@ -173,6 +173,12 @@ public class ProductionsController : ControllerBase
             ? null 
             : updateDto.JigId;
         
+        // Planned timing fields - allow explicit null to clear values
+        if (updateDto.PlannedStartDate.HasValue) production.PlannedStartDate = updateDto.PlannedStartDate;
+        if (updateDto.PlannedStartTime.HasValue) production.PlannedStartTime = updateDto.PlannedStartTime;
+        if (updateDto.PlannedEndTime.HasValue) production.PlannedEndTime = updateDto.PlannedEndTime;
+        if (updateDto.PlannedDurationMinutes.HasValue) production.PlannedDurationMinutes = updateDto.PlannedDurationMinutes;
+        
         production.ModifiedOn = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
@@ -249,6 +255,10 @@ public class ProductionsController : ControllerBase
             PickingTeamId = production.PickingTeamId,
             SawId = production.SawId,
             JigId = production.JigId,
+            PlannedStartDate = production.PlannedStartDate,
+            PlannedStartTime = production.PlannedStartTime,
+            PlannedEndTime = production.PlannedEndTime,
+            PlannedDurationMinutes = production.PlannedDurationMinutes,
             CreatedOn = production.CreatedOn,
             CreatedBy = production.CreatedBy,
             ModifiedOn = production.ModifiedOn,
