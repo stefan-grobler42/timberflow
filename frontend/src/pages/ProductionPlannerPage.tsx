@@ -6,6 +6,7 @@ import {
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService } from '../services/millenniumServices';
+import { teamDayService, teamDayAllocationService, type TeamDayDto } from '../services/teamDayService';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -55,6 +56,7 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByDay, setOvertimeByDay] = useState<Record<string, OvertimeSettings>>({});
+  const [teamDaysByDateAndTeam, setTeamDaysByDateAndTeam] = useState<Record<string, TeamDayDto>>({});
 
   const loadData = async () => {
     console.log('[PLANNER] Starting to load data...');
@@ -208,6 +210,44 @@ export const ProductionPlannerPage = () => {
         });
         
         await productionService.update(job.id, updateData);
+        
+        // Also create/update allocation record for stable placement
+        if (updatedJigId) {
+          try {
+            const MINUTES_PER_EFINK = 6.5625;
+            const jobDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
+            
+            // Get all jobs for this team and date to calculate sequence
+            const existingJobs = allJobs.filter(j => 
+              j.plannedDateStr === dateStr && 
+              j.jigId === updatedJigId && 
+              j.id !== job.id
+            );
+            const sequence = existingJobs.length; // New job goes at end
+            
+            // Ensure TeamDay exists and create allocation
+            const teamDay = await teamDayService.ensure({
+              teamId: updatedJigId,
+              workDate: dateStr,
+              baseMinutes: 480
+            });
+            
+            // Create allocation for this job
+            await teamDayAllocationService.create({
+              teamDayId: teamDay.id,
+              productionId: job.id,
+              sequence: sequence,
+              allocatedMinutes: jobDuration,
+              startMinutes: 0, // Will be calculated based on sequence
+              status: 'planned'
+            });
+            
+            console.log(`[PLANNER] ✓ Created allocation for job ${job.id} on TeamDay ${teamDay.id}`);
+          } catch (allocErr) {
+            console.warn('[PLANNER] Failed to create allocation (non-critical):', allocErr);
+            // Non-critical - job is still scheduled even if allocation record fails
+          }
+        }
       }
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
@@ -298,98 +338,56 @@ export const ProductionPlannerPage = () => {
   };
 
   const handleOvertimeChange = async (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => {
-    // Update overtime settings first
+    // Update local overtime state first for immediate UI feedback
     setOvertimeByDay(prev => ({
       ...prev,
       [dayStr]: { enabled, closeTime }
     }));
     
-    // If overtime is being enabled and we have additional minutes info, redistribute linked jobs
-    // This ONLY runs when user explicitly toggles overtime, not on every render
-    if (enabled && additionalMinutes && additionalMinutes > 0) {
-      const MINUTES_PER_EFINK = 6.5625;
-      const MIN_BLOCK_HEIGHT = 20;
+    // Persist overtime settings to TeamDay table for each team on this day
+    // This ensures overtime settings are stable and don't cause recalculation
+    try {
+      const jobsOnThisDay = allJobs.filter(j => j.plannedDateStr === dayStr && j.jigId);
+      const teamIds = [...new Set(jobsOnThisDay.map(j => j.jigId).filter((id): id is string => id !== null))];
       
-      const jobsOnThisDay = allJobs.filter(j => j.plannedDateStr === dayStr);
-      const updates: { jobId: string; durationMinutes: number }[] = [];
-      
-      jobsOnThisDay.forEach(job => {
-        const rootId = job.parentProductionId || job.id;
+      for (const teamId of teamIds) {
+        const key = `${dayStr}-${teamId}`;
+        const existingTeamDay = teamDaysByDateAndTeam[key];
         
-        const chainJobs = allJobs.filter(j => 
-          j.id === rootId || j.parentProductionId === rootId
-        );
-        
-        if (chainJobs.length <= 1) return;
-        
-        const isThisJobRoot = job.id === rootId || !job.parentProductionId;
-        if (!isThisJobRoot) return;
-        
-        const rolloverJobs = chainJobs
-          .filter(j => j.id !== job.id && j.plannedDateStr !== dayStr)
-          .sort((a, b) => (a.rolloverSequence || 0) - (b.rolloverSequence || 0));
-        
-        if (rolloverJobs.length === 0) return;
-        
-        const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
-        const totalChainDuration = chainJobs.reduce((sum, j) => 
-          sum + (j.customDurationMinutes || Math.round(j.estimatedEFinks * MINUTES_PER_EFINK)), 0
-        );
-        
-        const newCurrentDuration = Math.min(
-          currentDuration + additionalMinutes,
-          totalChainDuration - (rolloverJobs.length * MIN_BLOCK_HEIGHT)
-        );
-        const increase = newCurrentDuration - currentDuration;
-        
-        if (increase > 0) {
-          const firstRollover = rolloverJobs[0];
-          const rolloverDuration = firstRollover.customDurationMinutes || Math.round(firstRollover.estimatedEFinks * MINUTES_PER_EFINK);
-          
-          if (rolloverDuration <= MIN_BLOCK_HEIGHT) {
-            console.log('[PLANNER] Skipping redistribution - rollover already at minimum');
-            return;
-          }
-          
-          updates.push({ jobId: job.id, durationMinutes: newCurrentDuration });
-          
-          let remainingDecrease = increase;
-          rolloverJobs.forEach(rollover => {
-            const rolloverDur = rollover.customDurationMinutes || Math.round(rollover.estimatedEFinks * MINUTES_PER_EFINK);
-            const decrease = Math.min(remainingDecrease, rolloverDur - MIN_BLOCK_HEIGHT);
-            if (decrease > 0) {
-              updates.push({ jobId: rollover.id, durationMinutes: rolloverDur - decrease });
-              remainingDecrease -= decrease;
-            }
+        if (existingTeamDay) {
+          // Update existing TeamDay record - ONLY update overtime settings, not recalculate allocations
+          await teamDayService.updateOvertime(existingTeamDay.id, {
+            overtimeEnabled: enabled,
+            overtimeMinutes: additionalMinutes || 0,
+            overtimeCloseTime: closeTime
           });
-        }
-      });
-      
-      if (updates.length > 0) {
-        console.log('[PLANNER] Redistributing linked jobs on overtime toggle:', updates);
-        try {
-          await Promise.all(updates.map(update => 
-            productionService.update(update.jobId, {
-              customDurationMinutes: update.durationMinutes
-            })
-          ));
+          console.log(`[PLANNER] ✓ Updated TeamDay overtime for ${teamId} on ${dayStr}: enabled=${enabled}, minutes=${additionalMinutes || 0}`);
+        } else {
+          // Create new TeamDay record
+          const newTeamDay = await teamDayService.ensure({
+            teamId,
+            workDate: dayStr,
+            baseMinutes: 480, // 8 hours default
+            overtimeMinutes: enabled ? (additionalMinutes || 0) : 0,
+            overtimeEnabled: enabled,
+            overtimeCloseTime: closeTime
+          });
           
-          setJobs(prevJobs => 
-            prevJobs.map(job => {
-              const update = updates.find(u => u.jobId === job.id);
-              if (update) {
-                return { ...job, customDurationMinutes: update.durationMinutes };
-              }
-              return job;
-            })
-          );
-          
-          console.log('[PLANNER] ✓ Linked jobs redistributed on overtime toggle');
-        } catch (err) {
-          console.error('[PLANNER] ✗ Failed to redistribute linked jobs:', err);
+          setTeamDaysByDateAndTeam(prev => ({
+            ...prev,
+            [key]: newTeamDay
+          }));
+          console.log(`[PLANNER] ✓ Created TeamDay for ${teamId} on ${dayStr} with overtime=${enabled}`);
         }
       }
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
     }
+    
+    // NOTE: Removing the automatic redistribution logic
+    // With the new allocation architecture, overtime toggle ONLY affects capacity
+    // Existing allocations remain stable - user must manually adjust if needed
+    console.log('[PLANNER] Overtime changed - allocations remain stable (no automatic redistribution)');
   };
 
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
