@@ -73,9 +73,9 @@ interface DayViewProps {
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeSettings?: { enabled: boolean; closeTime: string };
   onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
-  hasPendingChanges?: boolean;
-  onConfirmChanges?: () => void;
-  onDiscardChanges?: () => void;
+  activeJobId?: string | null;
+  onConfirmJobChange?: (jobId: string) => void;
+  onDiscardJobChange?: (jobId: string) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -98,9 +98,9 @@ export const DayView: React.FC<DayViewProps> = ({
   onJobRollover,
   overtimeSettings,
   onOvertimeChange,
-  hasPendingChanges,
-  onConfirmChanges,
-  onDiscardChanges
+  activeJobId,
+  onConfirmJobChange,
+  onDiscardJobChange
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -120,6 +120,10 @@ export const DayView: React.FC<DayViewProps> = ({
   // Use parent-provided overtime settings if available, otherwise default
   const overtimeEnabled = overtimeSettings?.enabled ?? false;
   const overtimeCloseTime = overtimeSettings?.closeTime ?? '21:00';
+
+  const isJobPending = (jobId: string) => activeJobId === jobId;
+  const isJobLocked = (jobId: string) => activeJobId !== null && activeJobId !== jobId;
+  const hasAnyPendingChange = activeJobId !== null;
 
   // Calculate additional working minutes for overtime
   const calculateOvertimeDelta = useCallback((newCloseTime: string) => {
@@ -867,70 +871,6 @@ export const DayView: React.FC<DayViewProps> = ({
         </Stack>
       </Stack>
 
-      {/* Confirmation Bar - shown when there are pending changes */}
-      {hasPendingChanges && (
-        <Stack 
-          horizontal 
-          verticalAlign="center" 
-          tokens={{ childrenGap: 12 }}
-          styles={{
-            root: {
-              backgroundColor: '#dff6dd',
-              padding: '12px 16px',
-              borderRadius: 4,
-              marginBottom: 16,
-              border: '1px solid #107c10',
-              boxShadow: '0 2px 8px rgba(16, 124, 16, 0.15)'
-            }
-          }}
-        >
-          <IconButton
-            iconProps={{ iconName: 'CheckMark' }}
-            title="Confirm and save changes"
-            onClick={onConfirmChanges}
-            styles={{
-              root: {
-                backgroundColor: '#107c10',
-                borderRadius: '50%',
-                width: 36,
-                height: 36
-              },
-              rootHovered: {
-                backgroundColor: '#0b5a0b'
-              },
-              icon: {
-                color: 'white',
-                fontSize: 18,
-                fontWeight: 'bold'
-              }
-            }}
-          />
-          <Text styles={{ root: { fontWeight: 600, color: '#107c10' } }}>
-            You have unsaved changes. Click the green tick to confirm and save.
-          </Text>
-          <IconButton
-            iconProps={{ iconName: 'Cancel' }}
-            title="Discard changes"
-            onClick={onDiscardChanges}
-            styles={{
-              root: {
-                backgroundColor: '#a80000',
-                borderRadius: '50%',
-                width: 28,
-                height: 28,
-                marginLeft: 'auto'
-              },
-              rootHovered: {
-                backgroundColor: '#750000'
-              },
-              icon: {
-                color: 'white',
-                fontSize: 12
-              }
-            }}
-          />
-        </Stack>
-      )}
 
       <div style={{ display: 'flex' }}>
         {/* Time header column */}
@@ -1194,32 +1134,39 @@ export const DayView: React.FC<DayViewProps> = ({
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
                     const maxHeight = Math.max(0, workingEnd * PIXELS_PER_MINUTE - top - 4);
                     const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
+                    const jobIsPending = isJobPending(job.id);
+                    const jobIsLocked = isJobLocked(job.id);
                     
                     const getBackground = () => {
+                      if (jobIsPending) return 'linear-gradient(135deg, rgba(16, 124, 16, 0.95), rgba(10, 90, 10, 0.85))';
                       if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                     };
                     
                     const getBorder = () => {
+                      if (jobIsPending) return '2px solid #107c10';
                       if (isOverflowing) return '2px solid #ff4444';
                       if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
                       return '1px solid rgba(255, 255, 255, 0.3)';
                     };
                     
                     const getBoxShadow = () => {
+                      if (jobIsPending) return '0 4px 16px rgba(16, 124, 16, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
                       if (isOverflowing) return '0 4px 12px rgba(198, 40, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
                     };
                     
+                    const canInteract = !jobIsLocked && !resizingJob;
+                    
                     return (
                       <div
                         key={job.id}
-                        draggable={!resizingJob}
-                        onDragStart={() => !resizingJob && onDragStart(job.id)}
-                        onDoubleClick={() => onJobDoubleClick(job.id)}
-                        onClick={() => isOverflowing && handleOverflowClick(job, jig.id, overflowMinutes)}
+                        draggable={canInteract && !jobIsPending}
+                        onDragStart={() => canInteract && !jobIsPending && onDragStart(job.id)}
+                        onDoubleClick={() => !jobIsLocked && onJobDoubleClick(job.id)}
+                        onClick={() => isOverflowing && !jobIsLocked && handleOverflowClick(job, jig.id, overflowMinutes)}
                         style={{
                           position: 'absolute',
                           top: top + 4,
@@ -1231,31 +1178,95 @@ export const DayView: React.FC<DayViewProps> = ({
                           color: job.productionComplete ? '#555' : 'white',
                           borderRadius: 6,
                           border: getBorder(),
-                          cursor: isOverflowing ? 'pointer' : (resizingJob ? 'ns-resize' : 'grab'),
-                          zIndex: resizingJob === job.id ? 100 : 10,
+                          cursor: jobIsLocked ? 'not-allowed' : (isOverflowing ? 'pointer' : (resizingJob ? 'ns-resize' : 'grab')),
+                          zIndex: jobIsPending ? 200 : (resizingJob === job.id ? 100 : 10),
                           boxShadow: getBoxShadow(),
-                          opacity: job.productionComplete ? 0.7 : 1,
+                          opacity: jobIsLocked ? 0.5 : (job.productionComplete ? 0.7 : 1),
                           display: 'flex',
                           flexDirection: 'column',
                           overflow: 'hidden',
-                          backdropFilter: 'blur(4px)'
+                          backdropFilter: 'blur(4px)',
+                          pointerEvents: jobIsLocked ? 'none' : 'auto'
                         }}
                       >
-                        {/* Refresh button - only show when manually resized */}
-                        {hasManualResize(job) && onJobDurationReset && (
+                        {/* Confirmation buttons - shown when job has pending changes */}
+                        {jobIsPending && onConfirmJobChange && onDiscardJobChange && (
+                          <Stack 
+                            horizontal 
+                            tokens={{ childrenGap: 4 }} 
+                            styles={{ 
+                              root: { 
+                                position: 'absolute', 
+                                top: 2, 
+                                right: 2, 
+                                zIndex: 300 
+                              } 
+                            }}
+                          >
+                            <IconButton
+                              iconProps={{ iconName: 'CheckMark' }}
+                              title="Confirm and save"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onConfirmJobChange(job.id);
+                              }}
+                              styles={{
+                                root: {
+                                  backgroundColor: '#107c10',
+                                  borderRadius: '50%',
+                                  width: 24,
+                                  height: 24,
+                                  minWidth: 24
+                                },
+                                rootHovered: {
+                                  backgroundColor: '#0b5a0b'
+                                },
+                                icon: {
+                                  color: 'white',
+                                  fontSize: 12,
+                                  fontWeight: 'bold'
+                                }
+                              }}
+                            />
+                            <IconButton
+                              iconProps={{ iconName: 'Cancel' }}
+                              title="Discard changes"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDiscardJobChange(job.id);
+                              }}
+                              styles={{
+                                root: {
+                                  backgroundColor: '#666',
+                                  borderRadius: '50%',
+                                  width: 24,
+                                  height: 24,
+                                  minWidth: 24
+                                },
+                                rootHovered: {
+                                  backgroundColor: '#444'
+                                },
+                                icon: {
+                                  color: 'white',
+                                  fontSize: 10
+                                }
+                              }}
+                            />
+                          </Stack>
+                        )}
+                        {/* Refresh button - only show when manually resized and NOT pending */}
+                        {!jobIsPending && hasManualResize(job) && onJobDurationReset && !jobIsLocked && (
                           <IconButton
                             iconProps={{ iconName: 'Refresh' }}
                             title="Reset to calculated size"
                             ariaLabel="Reset to calculated size"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Clear local custom duration state first
                               setCustomDurations(prev => {
                                 const next = { ...prev };
                                 delete next[job.id];
                                 return next;
                               });
-                              // Then call parent handler to persist the reset
                               onJobDurationReset(job.id);
                             }}
                             styles={{
@@ -1274,8 +1285,8 @@ export const DayView: React.FC<DayViewProps> = ({
                             }}
                           />
                         )}
-                        {/* Overflow indicator - positioned to avoid reset button overlap */}
-                        {isOverflowing && (
+                        {/* Overflow indicator - positioned to avoid button overlap */}
+                        {isOverflowing && !jobIsPending && (
                           <Text styles={{ 
                             root: { 
                               position: 'absolute',
@@ -1316,21 +1327,21 @@ export const DayView: React.FC<DayViewProps> = ({
                             </Text>
                           )}
                         </Stack>
-                        {/* Resize handle - only show if job is last in chain or not part of a chain */}
-                        {isLastInChain(job) && (
+                        {/* Resize handle - only show if job is last in chain and not locked */}
+                        {isLastInChain(job) && !jobIsLocked && (
                           <div
-                            onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                            onMouseDown={(e) => !jobIsPending && handleResizeStart(e, job.id, baseHeight)}
                             style={{
                               position: 'absolute',
                               bottom: 0,
                               left: 0,
                               right: 0,
                               height: 10,
-                              cursor: 'ns-resize',
+                              cursor: jobIsPending ? 'default' : 'ns-resize',
                               backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
                               borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
                             }}
-                            title="Drag to resize"
+                            title={jobIsPending ? 'Confirm changes first' : 'Drag to resize'}
                           >
                             <div style={{
                               position: 'absolute',

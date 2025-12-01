@@ -23,12 +23,14 @@ export interface PendingChangesState {
   changes: Map<string, PendingJobChange>;
   affectedDays: Set<string>;
   rolloverTargetDay?: string;
+  activeJobId: string | null;
 }
 
 export function createEmptyPendingState(): PendingChangesState {
   return {
     changes: new Map(),
-    affectedDays: new Set()
+    affectedDays: new Set(),
+    activeJobId: null
   };
 }
 
@@ -79,8 +81,21 @@ export function addPendingChange(
     affectedDays: newAffectedDays,
     rolloverTargetDay: change.changeType === 'rollover' 
       ? change.pendingData.plannedDateStr || state.rolloverTargetDay
-      : state.rolloverTargetDay
+      : state.rolloverTargetDay,
+    activeJobId: change.id
   };
+}
+
+export function getActiveJobId(state: PendingChangesState): string | null {
+  return state.activeJobId;
+}
+
+export function isJobLocked(state: PendingChangesState, jobId: string): boolean {
+  return state.activeJobId !== null && state.activeJobId !== jobId;
+}
+
+export function getPendingChangeForJob(state: PendingChangesState, jobId: string): PendingJobChange | undefined {
+  return state.changes.get(jobId);
 }
 
 export function clearPendingChanges(): PendingChangesState {

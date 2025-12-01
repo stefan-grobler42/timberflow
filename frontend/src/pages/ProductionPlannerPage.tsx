@@ -31,7 +31,6 @@ import {
   type PendingJobChange,
   type PendingChangesState,
   createEmptyPendingState,
-  hasPendingChanges as checkHasPendingChanges,
   addPendingChange,
   buildUpdatePayload
 } from '../utils/pendingChangesUtils';
@@ -161,12 +160,6 @@ export const ProductionPlannerPage = () => {
     return merged;
   }, [jobs, unallocatedOrders, stagedJobs]);
   
-  // Check if current day view has pending changes
-  const currentDayHasPendingChanges = useMemo(() => {
-    if (viewMode !== 'day') return false;
-    return pendingChanges.affectedDays.has(currentDateStr);
-  }, [viewMode, currentDateStr, pendingChanges]);
-
   // Stage a job change locally (does not persist to DB until confirmed)
   const stageJobChange = (jobId: string, changes: Partial<Job>, changeType: PendingJobChange['changeType']) => {
     const job = allJobs.find(j => j.id === jobId);
@@ -205,27 +198,25 @@ export const ProductionPlannerPage = () => {
     console.log('[PLANNER] Staged change:', changeType, 'for job:', jobId, changes);
   };
 
-  // Confirm and persist all pending changes
-  const confirmPendingChanges = async () => {
-    if (pendingChanges.changes.size === 0) return;
+  // Confirm and persist a single job's pending changes
+  const confirmJobChange = async (jobId: string) => {
+    const change = pendingChanges.changes.get(jobId);
+    if (!change) return;
     
-    console.log('[PLANNER] Confirming', pendingChanges.changes.size, 'pending changes...');
+    console.log('[PLANNER] Confirming change for job:', jobId);
     
     try {
-      // Persist all pending changes to database
-      const updates = Array.from(pendingChanges.changes.values()).map(change => {
-        const payload = buildUpdatePayload(change);
-        return productionService.update(change.id, payload);
-      });
+      const payload = buildUpdatePayload(change);
+      await productionService.update(jobId, payload);
+      console.log('[PLANNER] ✓ Job change persisted to database');
       
-      await Promise.all(updates);
-      console.log('[PLANNER] ✓ All changes persisted to database');
-      
-      // Merge staged changes into jobs state
+      // Merge staged change into jobs state
       setJobs(prevJobs => prevJobs.map(job => {
-        const staged = stagedJobs.get(job.id);
-        if (staged) {
-          return { ...job, ...staged };
+        if (job.id === jobId) {
+          const staged = stagedJobs.get(jobId);
+          if (staged) {
+            return { ...job, ...staged };
+          }
         }
         return job;
       }));
@@ -234,14 +225,14 @@ export const ProductionPlannerPage = () => {
       setPendingChanges(createEmptyPendingState());
       setStagedJobs(new Map());
     } catch (err) {
-      console.error('[PLANNER] ✗ Failed to persist changes:', err);
+      console.error('[PLANNER] ✗ Failed to persist job change:', err);
       setError('Failed to save changes. Please try again.');
     }
   };
 
-  // Discard all pending changes
-  const discardPendingChanges = () => {
-    console.log('[PLANNER] Discarding', pendingChanges.changes.size, 'pending changes');
+  // Discard a single job's pending changes  
+  const discardJobChange = (jobId: string) => {
+    console.log('[PLANNER] Discarding change for job:', jobId);
     setPendingChanges(createEmptyPendingState());
     setStagedJobs(new Map());
   };
@@ -272,6 +263,14 @@ export const ProductionPlannerPage = () => {
 
   const handleDrop = async (dateStr: string, jigId?: string | null) => {
     if (!draggedJobId) return;
+    
+    // Block drops for OTHER jobs when there's a pending change that needs confirmation
+    // The active job itself can still be repositioned before confirmation
+    if (pendingChanges.activeJobId !== null && pendingChanges.activeJobId !== draggedJobId) {
+      console.log('[PLANNER] Drop blocked - confirm pending changes for active job first');
+      setDraggedJobId(null);
+      return;
+    }
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
@@ -362,6 +361,13 @@ export const ProductionPlannerPage = () => {
 
   const handleDropToUnallocated = () => {
     if (!draggedJobId) return;
+    
+    // Block unallocate for OTHER jobs when there's a pending change that needs confirmation
+    if (pendingChanges.activeJobId !== null && pendingChanges.activeJobId !== draggedJobId) {
+      console.log('[PLANNER] Unallocate blocked - confirm pending changes for active job first');
+      setDraggedJobId(null);
+      return;
+    }
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
@@ -1001,9 +1007,9 @@ export const ProductionPlannerPage = () => {
               onJobRollover={handleJobRollover}
               overtimeSettings={overtimeByDay[currentDateStr]}
               onOvertimeChange={handleOvertimeChange}
-              hasPendingChanges={currentDayHasPendingChanges || checkHasPendingChanges(pendingChanges)}
-              onConfirmChanges={confirmPendingChanges}
-              onDiscardChanges={discardPendingChanges}
+              activeJobId={pendingChanges.activeJobId}
+              onConfirmJobChange={confirmJobChange}
+              onDiscardJobChange={discardJobChange}
             />
           )}
         </Stack>
