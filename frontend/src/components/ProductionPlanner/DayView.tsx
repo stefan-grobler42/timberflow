@@ -360,13 +360,14 @@ export const DayView: React.FC<DayViewProps> = ({
 
   const hasManualResize = useCallback((job: Job): boolean => {
     // Reset icon should only show when:
-    // 1. User is actively resizing this job (customDurations has entry), OR
-    // 2. Job has customDurationMinutes set (meaning it was previously manually resized and saved)
+    // 1. User is actively resizing this job (customDurations has entry with a positive value), OR
+    // 2. Job has customDurationMinutes set with a positive value (meaning it was previously manually resized and saved)
     // It should NOT show just because plannedDurationMinutes differs from EFinks calculation
-    if (customDurations[job.id]) {
+    const customDuration = customDurations[job.id];
+    if (customDuration != null && customDuration > 0) {
       return true;
     }
-    if (job.customDurationMinutes) {
+    if (job.customDurationMinutes != null && job.customDurationMinutes > 0) {
       return true;
     }
     return false;
@@ -465,6 +466,12 @@ export const DayView: React.FC<DayViewProps> = ({
       
       const finalDuration = currentResizeDuration.current;
       if (finalDuration > 0 && onJobDurationChange) {
+        // Clear the local customDurations entry - the parent will stage the change
+        setCustomDurations(prev => {
+          const next = { ...prev };
+          delete next[jobId];
+          return next;
+        });
         onJobDurationChange(jobId, finalDuration);
         
         const job = jobs.find(j => j.id === jobId);
