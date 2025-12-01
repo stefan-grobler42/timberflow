@@ -514,25 +514,52 @@ export const DayView: React.FC<DayViewProps> = ({
     return Math.ceil(minutes / 60) * 60;
   };
 
-  const getNextAvailableStartTime = (jobEndMinutes: number): number => {
+  const getNextAvailableStartTime = (jobEndMinutes: number, debugInfo?: string): number => {
     let nextStart = roundUpToNextHour(jobEndMinutes);
+    const originalNextStart = nextStart;
     
-    for (const breakSlot of breakSlots) {
+    // Sort breaks chronologically to ensure consistent processing
+    const sortedBreaks = [...breakSlots].sort((a, b) => {
+      const aStart = a.startHour * 60 + a.startMinute;
+      const bStart = b.startHour * 60 + b.startMinute;
+      return aStart - bStart;
+    });
+    
+    // Check each break and adjust if needed
+    for (const breakSlot of sortedBreaks) {
       const breakStart = getBreakStartMinutes(breakSlot);
       const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
       
+      // If the rounded start time falls within or at the start of a break,
+      // push to the next hour after the break
       if (nextStart >= breakStart && nextStart < breakEnd) {
         nextStart = roundUpToNextHour(breakEnd);
       }
+      
+      // Also check: if job ends within the hour before a break starts,
+      // and rounding would land exactly at break start, push past break
+      // This handles the case where job ends at 8:30, rounds to 9:00 (break start)
+      if (nextStart === breakStart) {
+        nextStart = roundUpToNextHour(breakEnd);
+      }
+    }
+    
+    if (debugInfo && originalNextStart !== nextStart) {
+      console.log(`[BREAK ADJUST] ${debugInfo}: jobEnd=${jobEndMinutes} rounded=${originalNextStart} adjusted=${nextStart}`);
     }
     
     return nextStart;
   };
 
-  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
+  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true, teamName?: string): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
+
+    // Debug: log team calculation start
+    if (teamName && jigJobs.length > 0) {
+      console.log(`[CALC POS] ${teamName}: ${jigJobs.length} jobs, starting at ${currentTop} mins (${Math.floor(currentTop/60)}:${String(currentTop%60).padStart(2,'0')})`);
+    }
 
     for (let i = 0; i < jigJobs.length; i++) {
       const job = jigJobs[i];
@@ -560,7 +587,16 @@ export const DayView: React.FC<DayViewProps> = ({
       
       if (includeBreaks) {
         const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
-        currentTop = getNextAvailableStartTime(jobEndMinutes);
+        const prevTop = currentTop;
+        currentTop = getNextAvailableStartTime(jobEndMinutes, teamName);
+        
+        // Debug: log each job's positioning
+        if (teamName && i < 5) { // Only log first 5 jobs per team
+          const startTime = `${Math.floor(prevTop/60)}:${String(prevTop%60).padStart(2,'0')}`;
+          const endTime = `${Math.floor(jobEndMinutes/60)}:${String(jobEndMinutes%60).padStart(2,'0')}`;
+          const nextTime = `${Math.floor(currentTop/60)}:${String(currentTop%60).padStart(2,'0')}`;
+          console.log(`[CALC POS] ${teamName} Job ${i+1}: ${job.orderNumber} starts=${startTime} ends=${endTime} nextStart=${nextTime} breaks=${totalBreakMinutes}m`);
+        }
       } else {
         currentTop += baseHeight + 4;
       }
@@ -1066,7 +1102,7 @@ export const DayView: React.FC<DayViewProps> = ({
                   const { overflowDetails } = checkJobOverflow(jigJobs, jig.id);
                   const workingEnd = getWorkingEndMinutes();
                   
-                  return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
+                  return calculateJobPositions(jigJobs, true, jig.name).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isOverflowing = overflowingJobs.has(job.id);
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
                     const maxHeight = Math.max(0, workingEnd * PIXELS_PER_MINUTE - top - 4);
