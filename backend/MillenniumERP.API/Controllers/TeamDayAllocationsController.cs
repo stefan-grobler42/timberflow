@@ -122,6 +122,10 @@ public class TeamDayAllocationsController : ControllerBase
         teamDay.TotalAllocatedMinutes += allocation.AllocatedMinutes;
         teamDay.ModifiedOn = DateTime.UtcNow;
 
+        production.JigId = teamDay.TeamId;
+        production.Productionplanneddate = teamDay.WorkDate;
+        production.ModifiedOn = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Created allocation {Id} for production {ProductionId} on TeamDay {TeamDayId}", 
@@ -142,81 +146,100 @@ public class TeamDayAllocationsController : ControllerBase
     {
         var normalizedDate = bulkDto.WorkDate.Date;
 
-        var teamDay = await _context.TeamDays
-            .Include(td => td.Allocations)
-            .FirstOrDefaultAsync(td => td.TeamId == bulkDto.TeamId && td.WorkDate.Date == normalizedDate);
-
-        if (teamDay == null)
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            teamDay = new TeamDay
+            var teamDay = await _context.TeamDays
+                .Include(td => td.Allocations)
+                .FirstOrDefaultAsync(td => td.TeamId == bulkDto.TeamId && td.WorkDate.Date == normalizedDate);
+
+            if (teamDay == null)
             {
-                Id = Guid.NewGuid(),
-                TeamId = bulkDto.TeamId,
-                WorkDate = normalizedDate,
-                BaseMinutes = 480,
-                OvertimeMinutes = 0,
-                TotalAllocatedMinutes = 0,
-                IsLocked = false,
-                OvertimeEnabled = bulkDto.OvertimeEnabled,
-                OvertimeCloseTime = bulkDto.OvertimeCloseTime,
-                CreatedOn = DateTime.UtcNow
-            };
-            _context.TeamDays.Add(teamDay);
-        }
-        else if (teamDay.IsLocked)
-        {
-            return BadRequest(new { message = "Cannot modify allocations for a locked TeamDay." });
-        }
-
-        if (teamDay.Allocations != null && teamDay.Allocations.Any())
-        {
-            _context.TeamDayAllocations.RemoveRange(teamDay.Allocations);
-        }
-
-        var newAllocations = new List<TeamDayAllocation>();
-        int totalAllocated = 0;
-
-        foreach (var item in bulkDto.Allocations)
-        {
-            var allocation = new TeamDayAllocation
+                teamDay = new TeamDay
+                {
+                    Id = Guid.NewGuid(),
+                    TeamId = bulkDto.TeamId,
+                    WorkDate = normalizedDate,
+                    BaseMinutes = 480,
+                    OvertimeMinutes = 0,
+                    TotalAllocatedMinutes = 0,
+                    IsLocked = false,
+                    OvertimeEnabled = bulkDto.OvertimeEnabled,
+                    OvertimeCloseTime = bulkDto.OvertimeCloseTime,
+                    CreatedOn = DateTime.UtcNow
+                };
+                _context.TeamDays.Add(teamDay);
+            }
+            else if (teamDay.IsLocked)
             {
-                Id = Guid.NewGuid(),
-                TeamDayId = teamDay.Id,
-                ProductionId = item.ProductionId,
-                Sequence = item.Sequence,
-                AllocatedMinutes = item.AllocatedMinutes,
-                StartMinutes = item.StartMinutes,
-                Status = item.Status,
-                IsRollover = item.IsRollover,
-                CreatedOn = DateTime.UtcNow
-            };
-            newAllocations.Add(allocation);
-            totalAllocated += item.AllocatedMinutes;
+                return BadRequest(new { message = "Cannot modify allocations for a locked TeamDay." });
+            }
+
+            if (teamDay.Allocations != null && teamDay.Allocations.Any())
+            {
+                _context.TeamDayAllocations.RemoveRange(teamDay.Allocations);
+            }
+
+            var newAllocations = new List<TeamDayAllocation>();
+            int totalAllocated = 0;
+
+            foreach (var item in bulkDto.Allocations)
+            {
+                var allocation = new TeamDayAllocation
+                {
+                    Id = Guid.NewGuid(),
+                    TeamDayId = teamDay.Id,
+                    ProductionId = item.ProductionId,
+                    Sequence = item.Sequence,
+                    AllocatedMinutes = item.AllocatedMinutes,
+                    StartMinutes = item.StartMinutes,
+                    Status = item.Status,
+                    IsRollover = item.IsRollover,
+                    CreatedOn = DateTime.UtcNow
+                };
+                newAllocations.Add(allocation);
+                totalAllocated += item.AllocatedMinutes;
+
+                var production = await _context.Productions.FindAsync(item.ProductionId);
+                if (production != null)
+                {
+                    production.JigId = bulkDto.TeamId;
+                    production.Productionplanneddate = normalizedDate;
+                    production.ModifiedOn = DateTime.UtcNow;
+                }
+            }
+
+            _context.TeamDayAllocations.AddRange(newAllocations);
+            
+            teamDay.TotalAllocatedMinutes = totalAllocated;
+            teamDay.OvertimeEnabled = bulkDto.OvertimeEnabled;
+            teamDay.OvertimeCloseTime = bulkDto.OvertimeCloseTime;
+            teamDay.ModifiedOn = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            _logger.LogInformation("Bulk allocated {Count} jobs for team {TeamId} on {Date}", 
+                newAllocations.Count, bulkDto.TeamId, bulkDto.WorkDate);
+
+            var result = await _context.TeamDays
+                .Include(td => td.Team)
+                .Include(td => td.Allocations!)
+                    .ThenInclude(a => a.Production)
+                        .ThenInclude(p => p!.Order)
+                .Include(td => td.Allocations!)
+                    .ThenInclude(a => a.Production)
+                        .ThenInclude(p => p!.CustomerAccount)
+                .FirstAsync(td => td.Id == teamDay.Id);
+
+            return Ok(MapTeamDayToDto(result));
         }
-
-        _context.TeamDayAllocations.AddRange(newAllocations);
-        
-        teamDay.TotalAllocatedMinutes = totalAllocated;
-        teamDay.OvertimeEnabled = bulkDto.OvertimeEnabled;
-        teamDay.OvertimeCloseTime = bulkDto.OvertimeCloseTime;
-        teamDay.ModifiedOn = DateTime.UtcNow;
-
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Bulk allocated {Count} jobs for team {TeamId} on {Date}", 
-            newAllocations.Count, bulkDto.TeamId, bulkDto.WorkDate);
-
-        var result = await _context.TeamDays
-            .Include(td => td.Team)
-            .Include(td => td.Allocations!)
-                .ThenInclude(a => a.Production)
-                    .ThenInclude(p => p!.Order)
-            .Include(td => td.Allocations!)
-                .ThenInclude(a => a.Production)
-                    .ThenInclude(p => p!.CustomerAccount)
-            .FirstAsync(td => td.Id == teamDay.Id);
-
-        return Ok(MapTeamDayToDto(result));
+        catch (Exception ex)
+        {
+            await transaction.RollbackAsync();
+            _logger.LogError(ex, "Failed to bulk allocate jobs for team {TeamId} on {Date}", bulkDto.TeamId, bulkDto.WorkDate);
+            throw;
+        }
     }
 
     [HttpPut("{id}")]
