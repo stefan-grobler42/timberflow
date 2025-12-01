@@ -371,6 +371,36 @@ public class TeamDayAllocationsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("production/{productionId}")]
+    public async Task<IActionResult> DeleteByProduction(Guid productionId)
+    {
+        var allocations = await _context.TeamDayAllocations
+            .Include(a => a.TeamDay)
+            .Where(a => a.ProductionId == productionId)
+            .ToListAsync();
+
+        if (!allocations.Any())
+        {
+            return NoContent();
+        }
+
+        foreach (var allocation in allocations)
+        {
+            if (allocation.TeamDay != null && !allocation.TeamDay.IsLocked)
+            {
+                allocation.TeamDay.TotalAllocatedMinutes -= allocation.AllocatedMinutes;
+                allocation.TeamDay.ModifiedOn = DateTime.UtcNow;
+            }
+        }
+
+        _context.TeamDayAllocations.RemoveRange(allocations);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Deleted {Count} allocations for production {ProductionId}", allocations.Count, productionId);
+
+        return NoContent();
+    }
+
     private TeamDayAllocationDto MapToDto(TeamDayAllocation allocation)
     {
         return new TeamDayAllocationDto

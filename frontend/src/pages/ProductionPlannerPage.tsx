@@ -236,7 +236,7 @@ export const ProductionPlannerPage = () => {
 
     // Check if this is a sales order needing production (prefixed with 'order-')
     const isSalesOrder = job.id.startsWith('order-');
-    const actualOrderId = isSalesOrder ? job.id.substring(6) : null; // Remove 'order-' prefix to get Guid
+    const actualOrderId = isSalesOrder ? job.id.substring(6) : null;
 
     // For month view, don't assign jig (keep existing or null)
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
@@ -248,7 +248,7 @@ export const ProductionPlannerPage = () => {
         // Create a new production record for this sales order
         const createData: any = {
           name: job.name || job.orderNumber || 'Production',
-          orderNo: actualOrderId, // This is a Guid string
+          orderNo: actualOrderId,
           productionPlannedDate: date.toISOString(),
           newEstimateDefinks: job.estimatedEFinks || 0,
           productionComplete: false,
@@ -259,7 +259,6 @@ export const ProductionPlannerPage = () => {
         await productionService.create(createData);
         console.log('[PLANNER] ✓ Production created, reloading data...');
         
-        // Reload data to get the new production record and remove sales order from unallocated
         await loadData();
       } else {
         // Update existing production record
@@ -270,21 +269,25 @@ export const ProductionPlannerPage = () => {
           updateData.jigId = updatedJigId;
         }
         
-        // Optimistically update UI - move job to END of array to maintain user-driven order
-        // First job dragged in stays first, second stays second, etc.
+        // Optimistically update UI
         setJobs(prevJobs => {
-          // Remove the job from its current position
           const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
-          // Update the job and add it to the end
           const updatedJob = { ...job, plannedDateStr: dateStr, jigId: updatedJigId };
           return [...otherJobs, updatedJob];
         });
         
+        // Update production record (this sets jigId and plannedDate on Production table)
         await productionService.update(job.id, updateData);
         
-        // Also create/update allocation record for stable placement
+        // CRITICAL: Manage allocation record for stable placement persistence
+        // 1. First delete any existing allocation for this production (from old team/date)
+        // 2. Then create new allocation on target team/date
         if (updatedJigId) {
           try {
+            // Delete existing allocation for this production (if any)
+            await teamDayAllocationService.deleteByProduction(job.id);
+            console.log(`[PLANNER] ✓ Cleared old allocation for job ${job.id}`);
+            
             const MINUTES_PER_EFINK = 6.5625;
             const jobDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
             
@@ -294,29 +297,36 @@ export const ProductionPlannerPage = () => {
               j.jigId === updatedJigId && 
               j.id !== job.id
             );
-            const sequence = existingJobs.length; // New job goes at end
+            const sequence = existingJobs.length;
             
-            // Ensure TeamDay exists and create allocation
+            // Ensure TeamDay exists
             const teamDay = await teamDayService.ensure({
               teamId: updatedJigId,
               workDate: dateStr,
               baseMinutes: 480
             });
             
-            // Create allocation for this job
+            // Create new allocation for this job
             await teamDayAllocationService.create({
               teamDayId: teamDay.id,
               productionId: job.id,
               sequence: sequence,
               allocatedMinutes: jobDuration,
-              startMinutes: 0, // Will be calculated based on sequence
+              startMinutes: 0,
               status: 'planned'
             });
             
-            console.log(`[PLANNER] ✓ Created allocation for job ${job.id} on TeamDay ${teamDay.id}`);
+            console.log(`[PLANNER] ✓ Created allocation for job ${job.id} on TeamDay ${teamDay.id} with sequence ${sequence}`);
           } catch (allocErr) {
-            console.warn('[PLANNER] Failed to create allocation (non-critical):', allocErr);
-            // Non-critical - job is still scheduled even if allocation record fails
+            console.error('[PLANNER] ✗ Failed to manage allocation:', allocErr);
+          }
+        } else {
+          // Job moved to unallocated or no team specified - just delete old allocation
+          try {
+            await teamDayAllocationService.deleteByProduction(job.id);
+            console.log(`[PLANNER] ✓ Cleared allocation for unallocated job ${job.id}`);
+          } catch (allocErr) {
+            console.warn('[PLANNER] Failed to clear allocation:', allocErr);
           }
         }
       }
@@ -343,19 +353,27 @@ export const ProductionPlannerPage = () => {
     }
 
     try {
-      // Clear the planned date
-      const updateData: any = {
-        productionPlannedDate: null
-      };
-      
-      // Optimistically update UI - move job to END of array to maintain user-driven order
+      // Optimistically update UI
       setJobs(prevJobs => {
         const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
         const updatedJob = { ...job, plannedDateStr: null, jigId: null };
         return [...otherJobs, updatedJob];
       });
       
-      await productionService.update(job.id, updateData);
+      // Clear the planned date and jig on Production record
+      await productionService.update(job.id, {
+        productionPlannedDate: null,
+        jigId: null
+      });
+      
+      // CRITICAL: Delete allocation record to persist this change
+      try {
+        await teamDayAllocationService.deleteByProduction(job.id);
+        console.log(`[PLANNER] ✓ Cleared allocation for job ${job.id}`);
+      } catch (allocErr) {
+        console.warn('[PLANNER] Failed to clear allocation:', allocErr);
+      }
+      
       console.log('[PLANNER] ✓ Job moved to unallocated');
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to unallocate job:', err);

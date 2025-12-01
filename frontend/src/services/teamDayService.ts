@@ -156,4 +156,7 @@ export const teamDayAllocationService = {
 
   deleteByTeamDay: (teamDayId: string) => 
     api.delete(`/teamdayallocations/team-day/${teamDayId}`),
+
+  deleteByProduction: (productionId: string) => 
+    api.delete(`/teamdayallocations/production/${productionId}`),
 };
