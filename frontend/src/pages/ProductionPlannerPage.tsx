@@ -394,8 +394,18 @@ export const ProductionPlannerPage = () => {
 
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
     try {
+      console.log('[ROLLOVER] ========== Starting rollover ==========');
+      console.log('[ROLLOVER] Job ID:', jobId);
+      console.log('[ROLLOVER] Overflow minutes:', overflowMinutes);
+      console.log('[ROLLOVER] Next date:', nextDateStr);
+      console.log('[ROLLOVER] Passed jigId:', jigId);
+      
       const job = allJobs.find(j => j.id === jobId);
-      if (!job) return;
+      if (!job) {
+        console.log('[ROLLOVER] ✗ Job not found in allJobs');
+        return;
+      }
+      console.log('[ROLLOVER] Found job:', job.orderNumber, 'jigId:', job.jigId);
 
       // Fetch the full production record to get all fields for cloning
       const fullProduction = await productionService.getById(jobId);
@@ -403,6 +413,7 @@ export const ProductionPlannerPage = () => {
         console.error('[PLANNER] Could not fetch full production data for rollover');
         return;
       }
+      console.log('[ROLLOVER] Full production jigId:', fullProduction.jigId);
 
       const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * 6.5625);
       const remainingDuration = currentDuration - overflowMinutes;
@@ -410,11 +421,14 @@ export const ProductionPlannerPage = () => {
       // Determine the root parent ID for this job chain
       const rootParentId = job.parentProductionId || jobId;
       const currentSequence = job.rolloverSequence || 0;
+      console.log('[ROLLOVER] Root parent ID:', rootParentId);
+      console.log('[ROLLOVER] Current sequence:', currentSequence);
 
       // BUG FIX 1: Preserve jigId - use nullish coalescing to handle edge cases
       // jigId parameter from overflow detection takes priority, fallback to job's existing jigId
       // Using ?? instead of || to correctly handle falsy-but-valid values
       const preservedJigId = jigId ?? job.jigId;
+      console.log('[ROLLOVER] Preserved jigId:', preservedJigId);
 
       // BUG FIX 2: Check if a rollover child already exists for this job
       // Look for jobs where parentProductionId matches rootParentId and rolloverSequence > currentSequence
@@ -422,6 +436,7 @@ export const ProductionPlannerPage = () => {
         j.parentProductionId === rootParentId && 
         (j.rolloverSequence || 0) === currentSequence + 1
       );
+      console.log('[ROLLOVER] Existing rollover found:', existingRollover?.id, existingRollover?.orderNumber);
 
       // Update original job with reduced duration - always explicitly include jigId
       const updateData: any = {
@@ -434,13 +449,16 @@ export const ProductionPlannerPage = () => {
         updateData.parentProductionId = job.parentProductionId;
       }
       
+      console.log('[ROLLOVER] Updating parent job with:', JSON.stringify(updateData));
       await productionService.update(jobId, updateData);
+      console.log('[ROLLOVER] ✓ Parent job updated');
 
       // If existing rollover child exists, DELETE it first - then create fresh one
       // This ensures the rollover always has the correct duration after overtime changes
       if (existingRollover) {
-        console.log('[PLANNER] Deleting existing rollover to recreate with correct duration:', existingRollover.id);
+        console.log('[ROLLOVER] Deleting existing rollover:', existingRollover.id, existingRollover.orderNumber);
         await productionService.delete(existingRollover.id);
+        console.log('[ROLLOVER] ✓ Existing rollover deleted');
       }
 
       // Create rollover with same name but "(Rollover)" after order number
@@ -495,10 +513,13 @@ export const ProductionPlannerPage = () => {
         rolloverSequence: currentSequence + 1
       };
 
+      console.log('[ROLLOVER] Creating rollover with jigId:', rolloverData.jigId);
       await productionService.create(rolloverData);
-      console.log('[PLANNER] ✓ Job rolled over to next day with all fields cloned, linked parent:', rootParentId);
+      console.log('[ROLLOVER] ✓ Rollover created, linked to parent:', rootParentId);
+      console.log('[ROLLOVER] ========== Reloading data ==========');
 
       await loadData();
+      console.log('[ROLLOVER] ========== Rollover complete ==========');
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to roll over job:', err);
       setError(`Failed to roll over job: ${err instanceof Error ? err.message : 'Unknown error'}`);
