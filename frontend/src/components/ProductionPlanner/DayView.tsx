@@ -352,20 +352,33 @@ export const DayView: React.FC<DayViewProps> = ({
   }, []);
 
   const hasManualResize = useCallback((job: Job): boolean => {
-    const calculatedDuration = getCalculatedDuration(job);
-    const currentDuration = customDurations[job.id] || job.customDurationMinutes;
-    if (currentDuration && currentDuration !== calculatedDuration) {
+    // Reset icon should only show when:
+    // 1. User is actively resizing this job (customDurations has entry), OR
+    // 2. Job has customDurationMinutes set (meaning it was previously manually resized and saved)
+    // It should NOT show just because plannedDurationMinutes differs from EFinks calculation
+    if (customDurations[job.id]) {
+      return true;
+    }
+    if (job.customDurationMinutes) {
       return true;
     }
     return false;
-  }, [customDurations, getCalculatedDuration]);
+  }, [customDurations]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {
+    // Priority order for determining job duration:
+    // 1. Active resize state (user is currently resizing)
+    // 2. Stored custom duration (user previously manually resized)
+    // 3. Stored planned duration from database (includes break adjustments)
+    // 4. EFinks calculation as fallback (for new/unscheduled jobs)
     if (customDurations[job.id]) {
       return customDurations[job.id];
     }
     if (job.customDurationMinutes) {
       return job.customDurationMinutes;
+    }
+    if (job.plannedDurationMinutes) {
+      return job.plannedDurationMinutes;
     }
     return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
   }, [customDurations]);
@@ -477,11 +490,15 @@ export const DayView: React.FC<DayViewProps> = ({
   };
 
   const getBaseDurationMinutes = (job: Job): number => {
+    // Same priority as getJobDurationMinutes - display what's stored in database
     if (customDurations[job.id]) {
       return customDurations[job.id];
     }
     if (job.customDurationMinutes) {
       return job.customDurationMinutes;
+    }
+    if (job.plannedDurationMinutes) {
+      return job.plannedDurationMinutes;
     }
     return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
   };
