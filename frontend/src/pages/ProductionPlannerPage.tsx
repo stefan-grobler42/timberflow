@@ -63,31 +63,100 @@ export const ProductionPlannerPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const [productions, jigs, orders] = await Promise.all([
+      const [productions, jigs, orders, teamDays] = await Promise.all([
         productionService.getAll(),
         jigService.getAll(),
-        d365OrderService.getAll()
+        d365OrderService.getAll(),
+        teamDayService.getAll()
       ]);
       
       console.log(`[PLANNER] ✓ Loaded ${productions.length} total productions`);
       console.log(`[PLANNER] ✓ Loaded ${jigs.length} jig teams`);
       console.log(`[PLANNER] ✓ Loaded ${orders.length} sales orders`);
+      console.log(`[PLANNER] ✓ Loaded ${teamDays.length} team days with allocations`);
       
+      // Build allocation lookup: productionId -> { teamId, date, sequence }
+      const allocationMap = new Map<string, { teamId: string; dateStr: string; sequence: number }>();
+      const overtimeMap: Record<string, OvertimeSettings> = {};
+      const teamDayMap: Record<string, TeamDayDto> = {};
+      
+      for (const td of teamDays) {
+        const dateStr = td.workDate.split('T')[0];
+        const key = `${dateStr}-${td.teamId}`;
+        teamDayMap[key] = td;
+        
+        // Hydrate overtime settings from persisted TeamDay data
+        if (td.overtimeEnabled) {
+          overtimeMap[dateStr] = {
+            enabled: td.overtimeEnabled,
+            closeTime: td.overtimeCloseTime || '17:00'
+          };
+        }
+        
+        // Build allocation sequence map
+        if (td.allocations) {
+          for (const alloc of td.allocations) {
+            allocationMap.set(alloc.productionId, {
+              teamId: td.teamId,
+              dateStr: dateStr,
+              sequence: alloc.sequence
+            });
+          }
+        }
+      }
+      
+      console.log(`[PLANNER] ✓ Built allocation map with ${allocationMap.size} entries`);
+      console.log(`[PLANNER] ✓ Found ${Object.keys(overtimeMap).length} days with overtime settings`);
+      
+      // Map productions to jobs, applying allocation data for sequence ordering
       const jobList: Job[] = productions
-        .map((p: any) => ({
-          id: p.id,
-          name: p.name || '',
-          orderNumber: p.orderNumber || p.name || 'N/A',
-          customer: p.customerName || 'Unknown',
-          estimatedEFinks: p.newEstimateDefinks || 0,
-          customDurationMinutes: p.customDurationMinutes || undefined,
-          plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
-          jigId: p.jigId || null,
-          productionComplete: p.productionComplete === true,
-          parentProductionId: p.parentProductionId || undefined,
-          rolloverSequence: p.rolloverSequence || undefined,
-          createdOn: p.createdOn || undefined
-        }));
+        .map((p: any) => {
+          const allocation = allocationMap.get(p.id);
+          return {
+            id: p.id,
+            name: p.name || '',
+            orderNumber: p.orderNumber || p.name || 'N/A',
+            customer: p.customerName || 'Unknown',
+            estimatedEFinks: p.newEstimateDefinks || 0,
+            customDurationMinutes: p.customDurationMinutes || undefined,
+            // Use allocation data if available, otherwise fall back to production data
+            plannedDateStr: allocation?.dateStr || formatIsoDateLocal(p.productionPlannedDate),
+            jigId: allocation?.teamId || p.jigId || null,
+            productionComplete: p.productionComplete === true,
+            parentProductionId: p.parentProductionId || undefined,
+            rolloverSequence: p.rolloverSequence || undefined,
+            createdOn: p.createdOn || undefined,
+            // Store allocation sequence for ordering
+            _allocationSequence: allocation?.sequence
+          };
+        });
+      
+      // Sort jobs by allocation sequence within each team/date group
+      // Jobs with allocations come first (sorted by sequence), then jobs without
+      jobList.sort((a, b) => {
+        // Group by date and team
+        const aKey = `${a.plannedDateStr}-${a.jigId}`;
+        const bKey = `${b.plannedDateStr}-${b.jigId}`;
+        
+        if (aKey !== bKey) {
+          // Different group, sort by date then team
+          if (a.plannedDateStr !== b.plannedDateStr) {
+            return (a.plannedDateStr || '').localeCompare(b.plannedDateStr || '');
+          }
+          return (a.jigId || '').localeCompare(b.jigId || '');
+        }
+        
+        // Same group, sort by allocation sequence
+        const aSeq = (a as any)._allocationSequence;
+        const bSeq = (b as any)._allocationSequence;
+        
+        if (aSeq !== undefined && bSeq !== undefined) {
+          return aSeq - bSeq;
+        }
+        if (aSeq !== undefined) return -1; // Has allocation comes first
+        if (bSeq !== undefined) return 1;
+        return 0;
+      });
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
       
@@ -96,7 +165,7 @@ export const ProductionPlannerPage = () => {
       const ordersNeedingProduction = orders
         .filter((o: D365Order) => o.productionRequired === true && !productionOrderIds.has(o.id))
         .map((o: D365Order) => ({
-          id: `order-${o.id}`, // Prefix to distinguish from production records
+          id: `order-${o.id}`,
           name: o.name || '',
           orderNumber: o.orderNumber || o.name || 'N/A',
           customer: o.customerName || 'Unknown',
@@ -111,6 +180,8 @@ export const ProductionPlannerPage = () => {
       setJobs(jobList);
       setUnallocatedOrders(ordersNeedingProduction);
       setJigTeams(jigs);
+      setOvertimeByDay(overtimeMap);
+      setTeamDaysByDateAndTeam(teamDayMap);
       if (selectedJigIds.length === 0) {
         setSelectedJigIds(jigs.map(j => j.id));
       }
