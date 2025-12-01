@@ -197,12 +197,15 @@ export const ProductionPlannerPage = () => {
           updateData.jigId = updatedJigId;
         }
         
-        // Optimistically update UI
-        setJobs(jobs.map(j => 
-          j.id === draggedJobId 
-            ? { ...j, plannedDateStr: dateStr, jigId: updatedJigId }
-            : j
-        ));
+        // Optimistically update UI - move job to END of array to maintain user-driven order
+        // First job dragged in stays first, second stays second, etc.
+        setJobs(prevJobs => {
+          // Remove the job from its current position
+          const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
+          // Update the job and add it to the end
+          const updatedJob = { ...job, plannedDateStr: dateStr, jigId: updatedJigId };
+          return [...otherJobs, updatedJob];
+        });
         
         await productionService.update(job.id, updateData);
       }
@@ -234,12 +237,12 @@ export const ProductionPlannerPage = () => {
         productionPlannedDate: null
       };
       
-      // Optimistically update UI
-      setJobs(jobs.map(j => 
-        j.id === draggedJobId 
-          ? { ...j, plannedDateStr: null }
-          : j
-      ));
+      // Optimistically update UI - move job to END of array to maintain user-driven order
+      setJobs(prevJobs => {
+        const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
+        const updatedJob = { ...job, plannedDateStr: null, jigId: null };
+        return [...otherJobs, updatedJob];
+      });
       
       await productionService.update(job.id, updateData);
       console.log('[PLANNER] ✓ Job moved to unallocated');
