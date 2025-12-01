@@ -43,6 +43,10 @@ public class AppDbContext : DbContext
     // System configuration
     public DbSet<SystemSetting> SystemSettings { get; set; }
     
+    // Production Planner allocation tables
+    public DbSet<TeamDay> TeamDays { get; set; }
+    public DbSet<TeamDayAllocation> TeamDayAllocations { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
@@ -452,6 +456,51 @@ public class AppDbContext : DbContext
             entity.HasOne(c => c.ParentAccount)
                   .WithMany(a => a.Contacts)
                   .HasForeignKey(c => c.ParentCustomerId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // TeamDay configuration
+        modelBuilder.Entity<TeamDay>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.TeamId, e.WorkDate }).IsUnique();
+            
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.Allocations)
+                  .WithOne(a => a.TeamDay)
+                  .HasForeignKey(a => a.TeamDayId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // TeamDayAllocation configuration
+        modelBuilder.Entity<TeamDayAllocation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.TeamDayId, e.Sequence });
+            entity.HasIndex(e => e.ProductionId);
+
+            entity.HasOne(e => e.TeamDay)
+                  .WithMany(td => td.Allocations)
+                  .HasForeignKey(e => e.TeamDayId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Production)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProductionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.OverflowToAllocation)
+                  .WithMany()
+                  .HasForeignKey(e => e.OverflowToAllocationId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.OverflowFromAllocation)
+                  .WithMany()
+                  .HasForeignKey(e => e.OverflowFromAllocationId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
