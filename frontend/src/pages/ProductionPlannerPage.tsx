@@ -300,7 +300,8 @@ export const ProductionPlannerPage = () => {
         const jobDuration = getJobDurationMinutes(job);
         
         // Find next available start time on this team/day
-        const otherJobsOnTeamDay = jobs.filter(
+        // Use allJobs to include staged changes so multiple pending drops don't collide
+        const otherJobsOnTeamDay = allJobs.filter(
           j => j.id !== job.id && j.plannedDateStr === dateStr && j.jigId === updatedJigId
         );
         
