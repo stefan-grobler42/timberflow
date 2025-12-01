@@ -100,16 +100,73 @@ export function getBreakMinutesBetween(startMinutes: number, endMinutes: number,
   return breakTime;
 }
 
+/**
+ * Calculate break adjustments - how many minutes of breaks are spanned by a job
+ */
+export function calculateBreakAdjustment(
+  startTimeMinutes: number,
+  baseDurationMinutes: number,
+  shift: ShiftConfig
+): number {
+  let currentTime = startTimeMinutes;
+  let remainingWork = baseDurationMinutes;
+  let breakAdjustment = 0;
+  
+  while (remainingWork > 0) {
+    // Check if we're inside a break
+    let inBreak = false;
+    for (const brk of shift.breaks) {
+      if (currentTime >= brk.start && currentTime < brk.end) {
+        breakAdjustment += (brk.end - currentTime);
+        currentTime = brk.end;
+        inBreak = true;
+        break;
+      }
+    }
+    
+    if (inBreak) continue;
+    
+    // Find next break start
+    let nextBreakStart = shift.endTime;
+    for (const brk of shift.breaks) {
+      if (brk.start > currentTime && brk.start < nextBreakStart) {
+        nextBreakStart = brk.start;
+      }
+    }
+    
+    const workableTime = nextBreakStart - currentTime;
+    const workDone = Math.min(workableTime, remainingWork);
+    currentTime += workDone;
+    remainingWork -= workDone;
+    
+    // If we hit a break after working, add the break duration
+    if (remainingWork > 0 && currentTime === nextBreakStart) {
+      for (const brk of shift.breaks) {
+        if (brk.start === nextBreakStart) {
+          breakAdjustment += brk.duration;
+          currentTime = brk.end;
+          break;
+        }
+      }
+    }
+  }
+  
+  return breakAdjustment;
+}
+
 export function calculatePlannedTimes(
   startTimeMinutes: number,
   durationMinutes: number,
   shift: ShiftConfig
-): { plannedStartTime: number; plannedEndTime: number; plannedDurationMinutes: number; overflowMinutes: number } {
+): { plannedStartTime: number; plannedEndTime: number; plannedDurationMinutes: number; breakAdjustmentMinutes: number; overflowMinutes: number } {
   let currentTime = startTimeMinutes;
   let remainingDuration = durationMinutes;
   
   // Use the actual end time (including overtime if enabled)
   const effectiveEndTime = shift.endTime;
+  
+  // Calculate break adjustment for this job
+  const breakAdjustmentMinutes = calculateBreakAdjustment(startTimeMinutes, durationMinutes, shift);
   
   while (remainingDuration > 0) {
     let inBreak = false;
@@ -147,6 +204,7 @@ export function calculatePlannedTimes(
     plannedStartTime: startTimeMinutes,
     plannedEndTime: currentTime,
     plannedDurationMinutes: durationMinutes,
+    breakAdjustmentMinutes,
     overflowMinutes
   };
 }

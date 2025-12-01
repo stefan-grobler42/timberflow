@@ -176,7 +176,8 @@ export const ProductionPlannerPage = () => {
         plannedStartTime: job.plannedStartTime ?? null,
         plannedEndTime: job.plannedEndTime ?? null,
         plannedDurationMinutes: job.plannedDurationMinutes ?? null,
-        customDurationMinutes: job.customDurationMinutes
+        customDurationMinutes: job.customDurationMinutes,
+        breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null
       },
       pendingData: {
         jigId: changes.jigId,
@@ -184,7 +185,8 @@ export const ProductionPlannerPage = () => {
         plannedStartTime: changes.plannedStartTime,
         plannedEndTime: changes.plannedEndTime,
         plannedDurationMinutes: changes.plannedDurationMinutes,
-        customDurationMinutes: changes.customDurationMinutes
+        customDurationMinutes: changes.customDurationMinutes,
+        breakAdjustmentMinutes: changes.breakAdjustmentMinutes
       },
       changeType
     };
@@ -291,13 +293,14 @@ export const ProductionPlannerPage = () => {
       let plannedStartTime: number | null = null;
       let plannedEndTime: number | null = null;
       let plannedDurationMinutes: number | null = null;
+      let breakAdjustmentMinutes: number | null = null;
       
       if (updatedJigId) {
         const dayKey = dateStr;
         const overtime = overtimeByDay[dayKey];
         const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
         
-        // Get duration for this job
+        // Get BASE duration for this job (without breaks)
         const jobDuration = getJobDurationMinutes(job);
         
         // Find next available start time on this team/day
@@ -308,12 +311,13 @@ export const ProductionPlannerPage = () => {
         
         plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
         
-        // Calculate end time accounting for breaks
+        // Calculate end time accounting for breaks and get break adjustment
         const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
         plannedEndTime = timing.plannedEndTime;
         plannedDurationMinutes = jobDuration;
+        breakAdjustmentMinutes = timing.breakAdjustmentMinutes;
         
-        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min`);
+        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min, breakAdjust=${breakAdjustmentMinutes}min`);
       }
       
       if (isSalesOrder && actualOrderId) {
@@ -328,7 +332,8 @@ export const ProductionPlannerPage = () => {
           jigId: updatedJigId,
           plannedStartTime,
           plannedEndTime,
-          plannedDurationMinutes
+          plannedDurationMinutes,
+          breakAdjustmentMinutes
         };
         
         console.log('[PLANNER] Creating production for sales order:', actualOrderId);
@@ -343,7 +348,8 @@ export const ProductionPlannerPage = () => {
           jigId: updatedJigId,
           plannedStartTime,
           plannedEndTime,
-          plannedDurationMinutes
+          plannedDurationMinutes,
+          breakAdjustmentMinutes
         }, 'allocate');
         
         // Switch to day view to show the confirmation bar
@@ -392,7 +398,8 @@ export const ProductionPlannerPage = () => {
         plannedStartTime: undefined,
         plannedEndTime: undefined,
         plannedDurationMinutes: undefined,
-        customDurationMinutes: undefined
+        customDurationMinutes: undefined,
+        breakAdjustmentMinutes: undefined
       });
       
       console.log('[PLANNER] ✓ Job unallocated successfully');
@@ -428,15 +435,17 @@ export const ProductionPlannerPage = () => {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
-      // Calculate new end time using the rounded duration
+      // Calculate new end time and break adjustments using the rounded duration
       const timing = calculatePlannedTimes(job.plannedStartTime, roundedDuration, shift);
       plannedEndTime = timing.plannedEndTime;
+      const breakAdjustmentMinutes = timing.breakAdjustmentMinutes;
       
-      // Stage the resize change
+      // Stage the resize change - customDurationMinutes is the base work time
       stageJobChange(jobId, {
         customDurationMinutes: roundedDuration,
         plannedDurationMinutes: roundedDuration,
-        plannedEndTime
+        plannedEndTime,
+        breakAdjustmentMinutes
       }, 'resize');
       
       // Check for overlaps with downstream jobs and cascade if needed
@@ -464,7 +473,8 @@ export const ProductionPlannerPage = () => {
             stageJobChange(downstreamJob.id, {
               plannedStartTime: downstreamTiming.plannedStartTime,
               plannedEndTime: downstreamTiming.plannedEndTime,
-              plannedDurationMinutes: downstreamDuration
+              plannedDurationMinutes: downstreamDuration,
+              breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
             }, 'reorder');
             
             currentEndTime = downstreamTiming.plannedEndTime;
@@ -504,15 +514,16 @@ export const ProductionPlannerPage = () => {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
-      // Calculate end time using default duration
+      // Calculate end time and break adjustments using default duration
       const timing = calculatePlannedTimes(job.plannedStartTime, defaultDuration, shift);
       plannedEndTime = timing.plannedEndTime;
       
-      // Stage the reset change
+      // Stage the reset change - clears customDurationMinutes, keeps plannedDurationMinutes as EFinks base
       stageJobChange(jobId, {
         customDurationMinutes: undefined,
         plannedDurationMinutes: defaultDuration,
-        plannedEndTime
+        plannedEndTime,
+        breakAdjustmentMinutes: timing.breakAdjustmentMinutes
       }, 'resize');
       
       // Check for overlaps with downstream jobs and cascade if needed
@@ -540,7 +551,8 @@ export const ProductionPlannerPage = () => {
             stageJobChange(downstreamJob.id, {
               plannedStartTime: downstreamTiming.plannedStartTime,
               plannedEndTime: downstreamTiming.plannedEndTime,
-              plannedDurationMinutes: downstreamDuration
+              plannedDurationMinutes: downstreamDuration,
+              breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
             }, 'reorder');
             
             currentEndTime = downstreamTiming.plannedEndTime;

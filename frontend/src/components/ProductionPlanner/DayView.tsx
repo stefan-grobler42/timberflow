@@ -348,8 +348,14 @@ export const DayView: React.FC<DayViewProps> = ({
     return additions;
   };
 
+  const roundUpTo15Minutes = (minutes: number): number => {
+    return Math.ceil(minutes / 15) * 15;
+  };
+
   const getCalculatedDuration = useCallback((job: Job): number => {
-    return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
+    // EFinks calculation rounded UP to nearest 15 minutes
+    const rawMinutes = job.estimatedEFinks * MINUTES_PER_EFINK;
+    return Math.max(MIN_BLOCK_HEIGHT, roundUpTo15Minutes(rawMinutes));
   }, []);
 
   const hasManualResize = useCallback((job: Job): boolean => {
@@ -371,7 +377,7 @@ export const DayView: React.FC<DayViewProps> = ({
     // 1. Active resize state (user is currently resizing)
     // 2. Stored custom duration (user previously manually resized)
     // 3. Stored planned duration (EFinks-derived base)
-    // 4. EFinks calculation as fallback (for new/unscheduled jobs)
+    // 4. EFinks calculation as fallback (for new/unscheduled jobs) - rounded UP to nearest 15 min
     if (customDurations[job.id]) {
       return customDurations[job.id];
     }
@@ -381,7 +387,9 @@ export const DayView: React.FC<DayViewProps> = ({
     if (job.plannedDurationMinutes) {
       return job.plannedDurationMinutes;
     }
-    return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
+    // Calculate from EFinks and round UP to nearest 15 minutes
+    const rawMinutes = job.estimatedEFinks * MINUTES_PER_EFINK;
+    return Math.max(MIN_BLOCK_HEIGHT, roundUpTo15Minutes(rawMinutes));
   }, [customDurations]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {

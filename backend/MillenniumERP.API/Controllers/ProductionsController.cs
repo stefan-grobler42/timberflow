@@ -101,6 +101,12 @@ public class ProductionsController : ControllerBase
             PickingTeamId = createDto.PickingTeamId == Guid.Empty ? null : createDto.PickingTeamId,
             SawId = createDto.SawId == Guid.Empty ? null : createDto.SawId,
             JigId = createDto.JigId == Guid.Empty ? null : createDto.JigId,
+            // Planned timing fields
+            PlannedStartDate = createDto.PlannedStartDate,
+            PlannedStartTime = createDto.PlannedStartTime,
+            PlannedEndTime = createDto.PlannedEndTime,
+            PlannedDurationMinutes = createDto.PlannedDurationMinutes,
+            BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes,
             CreatedOn = DateTime.UtcNow
         };
 
