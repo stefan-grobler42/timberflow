@@ -159,13 +159,26 @@ export const DayView: React.FC<DayViewProps> = ({
     return totalMinutes - breakMinutes;
   }, [breakSlots]);
 
+  // Track last working hours end to only run redistribution when working hours ACTUALLY change
+  const lastWorkingEndRef = useRef<number | null>(null);
+  
   useEffect(() => {
     if (!workingHours || !baseWorkingHours || !onLinkedJobsResize) return;
     
     const baseAvailable = calculateAvailableWorkingMinutes(baseWorkingHours);
     const currentAvailable = calculateAvailableWorkingMinutes(workingHours);
     
-    if (baseAvailable === currentAvailable) return;
+    // Skip if no difference in available minutes
+    if (baseAvailable === currentAvailable) {
+      lastWorkingEndRef.current = workingHours.end;
+      return;
+    }
+    
+    // Only run when working hours end ACTUALLY changes, not on every jobs refresh
+    if (lastWorkingEndRef.current === workingHours.end) return;
+    
+    // Update ref AFTER checking, so redistribution runs once when hours change
+    lastWorkingEndRef.current = workingHours.end;
     
     const additionalMinutes = currentAvailable - baseAvailable;
     
@@ -457,10 +470,10 @@ export const DayView: React.FC<DayViewProps> = ({
             j.id === jobId ? { ...j, customDurationMinutes: finalDuration } : j
           );
           
-          const { overflowing, overflowMinutes } = checkJobOverflow(jobsWithUpdatedDuration, job.jigId);
+          const { overflowing, overflowDetails } = checkJobOverflow(jobsWithUpdatedDuration, job.jigId);
           
-          if (overflowing.has(jobId) && overflowMinutes.get(jobId)) {
-            const overflowAmount = overflowMinutes.get(jobId) || 0;
+          if (overflowing.has(jobId) && overflowDetails.get(jobId)) {
+            const overflowAmount = overflowDetails.get(jobId) || 0;
             const jigName = job.jigId ? (jigTeams.find(j => j.id === job.jigId)?.name || 'Unknown Team') : 'Unallocated';
             setCurrentOverflow({
               jobId: job.id,
@@ -610,16 +623,25 @@ export const DayView: React.FC<DayViewProps> = ({
       const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
       
       if (jobEndMinutes > workingEnd) {
-        overflowing.add(job.id);
-        const overflowAmount = jobEndMinutes - workingEnd;
-        overflowDetails.set(job.id, overflowAmount);
+        // Check if this job already has a rollover child - if so, don't mark as overflowing
+        const rootId = job.parentProductionId || job.id;
+        const hasRolloverChild = allJobs.some(j => 
+          j.parentProductionId === rootId && 
+          (j.rolloverSequence || 0) > (job.rolloverSequence || 0)
+        );
+        
+        if (!hasRolloverChild) {
+          overflowing.add(job.id);
+          const overflowAmount = jobEndMinutes - workingEnd;
+          overflowDetails.set(job.id, overflowAmount);
+        }
       }
       
       currentTop = getNextAvailableStartTime(jobEndMinutes);
     }
 
     return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations]);
+  }, [workingHours, breakSlots, customDurations, allJobs]);
 
   useEffect(() => {
     if (!workingHours) return;
