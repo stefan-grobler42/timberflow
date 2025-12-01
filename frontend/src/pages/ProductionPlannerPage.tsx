@@ -26,13 +26,6 @@ import {
   getJobDurationMinutes
 } from '../utils/scheduleUtils';
 
-interface JobSchedule {
-  id: string;
-  plannedStartTime: number;
-  plannedEndTime: number;
-  plannedDurationMinutes: number;
-}
-
 interface Job {
   id: string;
   name: string;
@@ -170,43 +163,6 @@ export const ProductionPlannerPage = () => {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-  };
-
-  const recalculateScheduleForTeamDay = async (
-    dateStr: string, 
-    _jigId: string, 
-    jobsToUpdate: Job[]
-  ): Promise<JobSchedule[]> => {
-    const overtime = overtimeByDay[dateStr];
-    const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
-    
-    const schedules: JobSchedule[] = [];
-    let currentTime = shift.startTime;
-    
-    for (const job of jobsToUpdate) {
-      if (currentTime >= shift.endTime) break;
-      
-      const duration = getJobDurationMinutes(job);
-      const timing = calculatePlannedTimes(currentTime, duration, shift);
-      
-      schedules.push({
-        id: job.id,
-        plannedStartTime: timing.plannedStartTime,
-        plannedEndTime: timing.plannedEndTime,
-        plannedDurationMinutes: duration
-      });
-      
-      currentTime = timing.plannedEndTime;
-      
-      for (const brk of shift.breaks) {
-        if (currentTime >= brk.start && currentTime < brk.end) {
-          currentTime = brk.end;
-          break;
-        }
-      }
-    }
-    
-    return schedules;
   };
 
   const handleDrop = async (dateStr: string, jigId?: string | null) => {
@@ -370,57 +326,121 @@ export const ProductionPlannerPage = () => {
   const handleJobDurationChange = async (jobId: string, durationMinutes: number) => {
     try {
       const job = allJobs.find(j => j.id === jobId);
-      if (!job || !job.jigId || !job.plannedDateStr) return;
+      if (!job) return;
       
       const dateStr = job.plannedDateStr;
       const jigId = job.jigId;
       
-      // Get all jobs on this team/day, sorted by start time
-      const jobsOnTeamDay = jobs
-        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
-        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+      // Calculate new end time based on the resized duration
+      let plannedEndTime: number | null = null;
       
-      // Update the resized job with new custom duration
-      const updatedJobs = jobsOnTeamDay.map(j => 
-        j.id === jobId 
-          ? { ...j, customDurationMinutes: durationMinutes }
-          : j
-      );
-      
-      // Recalculate schedule for all jobs on this team/day
-      const schedules = await recalculateScheduleForTeamDay(dateStr, jigId, updatedJobs);
-      
-      // Persist all updated schedules to database
-      const updatePromises = schedules.map(schedule => {
-        const isResizedJob = schedule.id === jobId;
-        return productionService.update(schedule.id, {
-          plannedStartTime: schedule.plannedStartTime,
-          plannedEndTime: schedule.plannedEndTime,
-          plannedDurationMinutes: schedule.plannedDurationMinutes,
-          ...(isResizedJob ? { customDurationMinutes: durationMinutes } : {})
-        });
-      });
-      await Promise.all(updatePromises);
-      
-      console.log('[PLANNER] ✓ Job duration updated and schedule recalculated for', schedules.length, 'jobs');
-      
-      // Update local state
-      setJobs(prevJobs => {
-        const scheduleMap = new Map(schedules.map(s => [s.id, s]));
-        return prevJobs.map(j => {
-          const schedule = scheduleMap.get(j.id);
-          if (schedule) {
-            return {
-              ...j,
-              plannedStartTime: schedule.plannedStartTime,
-              plannedEndTime: schedule.plannedEndTime,
-              plannedDurationMinutes: schedule.plannedDurationMinutes,
-              ...(j.id === jobId ? { customDurationMinutes: durationMinutes } : {})
-            };
+      if (job.plannedStartTime != null && jigId && dateStr) {
+        const overtime = overtimeByDay[dateStr];
+        const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+        
+        // Calculate new end time using the custom duration
+        const timing = calculatePlannedTimes(job.plannedStartTime, durationMinutes, shift);
+        plannedEndTime = timing.plannedEndTime;
+        
+        // Check for overlaps with downstream jobs and cascade if needed
+        const jobsOnTeamDay = jobs
+          .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
+          .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+        
+        const jobIndex = jobsOnTeamDay.findIndex(j => j.id === jobId);
+        if (jobIndex !== -1) {
+          const updates: Array<{id: string; data: any}> = [];
+          let currentEndTime = plannedEndTime;
+          
+          // First, add the resized job update
+          updates.push({
+            id: jobId,
+            data: {
+              customDurationMinutes: durationMinutes,
+              plannedDurationMinutes: durationMinutes,
+              plannedEndTime
+            }
+          });
+          
+          // Skip past break if needed
+          for (const brk of shift.breaks) {
+            if (currentEndTime >= brk.start && currentEndTime < brk.end) {
+              currentEndTime = brk.end;
+              break;
+            }
           }
-          return j;
-        });
-      });
+          
+          // Cascade to downstream jobs only if overlap would occur
+          for (let i = jobIndex + 1; i < jobsOnTeamDay.length; i++) {
+            const downstreamJob = jobsOnTeamDay[i];
+            const existingStart = downstreamJob.plannedStartTime ?? shift.startTime;
+            
+            if (currentEndTime > existingStart) {
+              // Overlap would occur - need to push this job forward
+              const downstreamDuration = getJobDurationMinutes(downstreamJob);
+              const downstreamTiming = calculatePlannedTimes(currentEndTime, downstreamDuration, shift);
+              
+              updates.push({
+                id: downstreamJob.id,
+                data: {
+                  plannedStartTime: downstreamTiming.plannedStartTime,
+                  plannedEndTime: downstreamTiming.plannedEndTime,
+                  plannedDurationMinutes: downstreamDuration
+                }
+              });
+              
+              currentEndTime = downstreamTiming.plannedEndTime;
+              // Skip past break if needed
+              for (const brk of shift.breaks) {
+                if (currentEndTime >= brk.start && currentEndTime < brk.end) {
+                  currentEndTime = brk.end;
+                  break;
+                }
+              }
+            } else {
+              // No overlap - stop cascading, preserve gap
+              break;
+            }
+          }
+          
+          // Persist all updates
+          await Promise.all(updates.map(u => productionService.update(u.id, u.data)));
+          console.log('[PLANNER] ✓ Job duration updated and cascaded to', updates.length, 'jobs');
+          
+          // Update local state
+          const updateMap = new Map(updates.map(u => [u.id, u.data]));
+          setJobs(prevJobs => 
+            prevJobs.map(j => {
+              const update = updateMap.get(j.id);
+              if (update) {
+                return { ...j, ...update };
+              }
+              return j;
+            })
+          );
+          return;
+        }
+      }
+      
+      // Fallback: just update this job if no cascade needed
+      const updateData: any = {
+        customDurationMinutes: durationMinutes,
+        plannedDurationMinutes: durationMinutes
+      };
+      if (plannedEndTime != null) {
+        updateData.plannedEndTime = plannedEndTime;
+      }
+      
+      await productionService.update(jobId, updateData);
+      console.log('[PLANNER] ✓ Job duration updated:', durationMinutes, 'minutes');
+      
+      setJobs(prevJobs => 
+        prevJobs.map(j => 
+          j.id === jobId 
+            ? { ...j, customDurationMinutes: durationMinutes, plannedDurationMinutes: durationMinutes, plannedEndTime }
+            : j
+        )
+      );
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to update job duration:', err);
     }
@@ -429,57 +449,124 @@ export const ProductionPlannerPage = () => {
   const handleJobDurationReset = async (jobId: string) => {
     try {
       const job = allJobs.find(j => j.id === jobId);
-      if (!job || !job.jigId || !job.plannedDateStr) return;
+      if (!job) return;
       
       const dateStr = job.plannedDateStr;
       const jigId = job.jigId;
       
-      // Get all jobs on this team/day, sorted by start time
-      const jobsOnTeamDay = jobs
-        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
-        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+      // Calculate default duration from EFinks
+      const defaultDuration = getJobDurationMinutes({ estimatedEFinks: job.estimatedEFinks });
       
-      // Clear custom duration for the reset job
-      const updatedJobs = jobsOnTeamDay.map(j => 
-        j.id === jobId 
-          ? { ...j, customDurationMinutes: undefined }
-          : j
-      );
+      // Calculate new end time based on the default duration
+      let plannedEndTime: number | null = null;
       
-      // Recalculate schedule for all jobs on this team/day
-      const schedules = await recalculateScheduleForTeamDay(dateStr, jigId, updatedJobs);
-      
-      // Persist all updated schedules to database
-      const updatePromises = schedules.map(schedule => {
-        const isResetJob = schedule.id === jobId;
-        return productionService.update(schedule.id, {
-          plannedStartTime: schedule.plannedStartTime,
-          plannedEndTime: schedule.plannedEndTime,
-          plannedDurationMinutes: schedule.plannedDurationMinutes,
-          ...(isResetJob ? { customDurationMinutes: null as any } : {})
-        });
-      });
-      await Promise.all(updatePromises);
-      
-      console.log('[PLANNER] ✓ Job duration reset and schedule recalculated for', schedules.length, 'jobs');
-      
-      // Update local state
-      setJobs(prevJobs => {
-        const scheduleMap = new Map(schedules.map(s => [s.id, s]));
-        return prevJobs.map(j => {
-          const schedule = scheduleMap.get(j.id);
-          if (schedule) {
-            return {
-              ...j,
-              plannedStartTime: schedule.plannedStartTime,
-              plannedEndTime: schedule.plannedEndTime,
-              plannedDurationMinutes: schedule.plannedDurationMinutes,
-              ...(j.id === jobId ? { customDurationMinutes: undefined } : {})
-            };
+      if (job.plannedStartTime != null && jigId && dateStr) {
+        const overtime = overtimeByDay[dateStr];
+        const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+        
+        // Calculate end time using default duration
+        const timing = calculatePlannedTimes(job.plannedStartTime, defaultDuration, shift);
+        plannedEndTime = timing.plannedEndTime;
+        
+        // Check for overlaps with downstream jobs and cascade if needed
+        const jobsOnTeamDay = jobs
+          .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
+          .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+        
+        const jobIndex = jobsOnTeamDay.findIndex(j => j.id === jobId);
+        if (jobIndex !== -1) {
+          const updates: Array<{id: string; data: any}> = [];
+          let currentEndTime = plannedEndTime;
+          
+          // First, add the reset job update
+          updates.push({
+            id: jobId,
+            data: {
+              customDurationMinutes: null as any,
+              plannedDurationMinutes: defaultDuration,
+              plannedEndTime
+            }
+          });
+          
+          // Skip past break if needed
+          for (const brk of shift.breaks) {
+            if (currentEndTime >= brk.start && currentEndTime < brk.end) {
+              currentEndTime = brk.end;
+              break;
+            }
           }
-          return j;
-        });
-      });
+          
+          // Cascade to downstream jobs only if overlap would occur
+          for (let i = jobIndex + 1; i < jobsOnTeamDay.length; i++) {
+            const downstreamJob = jobsOnTeamDay[i];
+            const existingStart = downstreamJob.plannedStartTime ?? shift.startTime;
+            
+            if (currentEndTime > existingStart) {
+              // Overlap would occur - need to push this job forward
+              const downstreamDuration = getJobDurationMinutes(downstreamJob);
+              const downstreamTiming = calculatePlannedTimes(currentEndTime, downstreamDuration, shift);
+              
+              updates.push({
+                id: downstreamJob.id,
+                data: {
+                  plannedStartTime: downstreamTiming.plannedStartTime,
+                  plannedEndTime: downstreamTiming.plannedEndTime,
+                  plannedDurationMinutes: downstreamDuration
+                }
+              });
+              
+              currentEndTime = downstreamTiming.plannedEndTime;
+              // Skip past break if needed
+              for (const brk of shift.breaks) {
+                if (currentEndTime >= brk.start && currentEndTime < brk.end) {
+                  currentEndTime = brk.end;
+                  break;
+                }
+              }
+            } else {
+              // No overlap - stop cascading, preserve gap
+              break;
+            }
+          }
+          
+          // Persist all updates
+          await Promise.all(updates.map(u => productionService.update(u.id, u.data)));
+          console.log('[PLANNER] ✓ Job duration reset and cascaded to', updates.length, 'jobs');
+          
+          // Update local state
+          const updateMap = new Map(updates.map(u => [u.id, u.data]));
+          setJobs(prevJobs => 
+            prevJobs.map(j => {
+              const update = updateMap.get(j.id);
+              if (update) {
+                return { ...j, ...update, customDurationMinutes: j.id === jobId ? undefined : j.customDurationMinutes };
+              }
+              return j;
+            })
+          );
+          return;
+        }
+      }
+      
+      // Fallback: just update this job if no cascade needed
+      const updateData: any = {
+        customDurationMinutes: null as any,
+        plannedDurationMinutes: defaultDuration
+      };
+      if (plannedEndTime != null) {
+        updateData.plannedEndTime = plannedEndTime;
+      }
+      
+      await productionService.update(jobId, updateData);
+      console.log('[PLANNER] ✓ Job duration reset to calculated value:', defaultDuration, 'minutes');
+      
+      setJobs(prevJobs => 
+        prevJobs.map(j => 
+          j.id === jobId 
+            ? { ...j, customDurationMinutes: undefined, plannedDurationMinutes: defaultDuration, plannedEndTime }
+            : j
+        )
+      );
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to reset job duration:', err);
     }
