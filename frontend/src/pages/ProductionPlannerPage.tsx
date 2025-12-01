@@ -6,7 +6,6 @@ import {
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService } from '../services/millenniumServices';
-import { teamDayService, teamDayAllocationService, type TeamDayDto } from '../services/teamDayService';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -36,10 +35,6 @@ interface Job {
   createdOn?: string;
 }
 
-interface OvertimeSettings {
-  enabled: boolean;
-  closeTime: string;
-}
 
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
@@ -55,108 +50,40 @@ export const ProductionPlannerPage = () => {
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const [overtimeByDay, setOvertimeByDay] = useState<Record<string, OvertimeSettings>>({});
-  const [teamDaysByDateAndTeam, setTeamDaysByDateAndTeam] = useState<Record<string, TeamDayDto>>({});
+  const [overtimeByDay, setOvertimeByDay] = useState<Record<string, { enabled: boolean; closeTime: string }>>({});
 
   const loadData = async () => {
     console.log('[PLANNER] Starting to load data...');
     setLoading(true);
     setError(null);
     try {
-      const [productions, jigs, orders, teamDays] = await Promise.all([
+      // SIMPLIFIED: Load productions, jigs, and orders only
+      // Production.jigId is the source of truth for team assignment
+      const [productions, jigs, orders] = await Promise.all([
         productionService.getAll(),
         jigService.getAll(),
-        d365OrderService.getAll(),
-        teamDayService.getAll()
+        d365OrderService.getAll()
       ]);
       
-      console.log(`[PLANNER] ✓ Loaded ${productions.length} total productions`);
+      console.log(`[PLANNER] ✓ Loaded ${productions.length} productions`);
       console.log(`[PLANNER] ✓ Loaded ${jigs.length} jig teams`);
       console.log(`[PLANNER] ✓ Loaded ${orders.length} sales orders`);
-      console.log(`[PLANNER] ✓ Loaded ${teamDays.length} team days with allocations`);
       
-      // Build allocation lookup: productionId -> { teamId, date, sequence }
-      const allocationMap = new Map<string, { teamId: string; dateStr: string; sequence: number }>();
-      const overtimeMap: Record<string, OvertimeSettings> = {};
-      const teamDayMap: Record<string, TeamDayDto> = {};
-      
-      for (const td of teamDays) {
-        const dateStr = td.workDate.split('T')[0];
-        const key = `${dateStr}-${td.teamId}`;
-        teamDayMap[key] = td;
-        
-        // Hydrate overtime settings keyed by date-teamId to preserve per-team settings
-        if (td.overtimeEnabled) {
-          overtimeMap[key] = {
-            enabled: td.overtimeEnabled,
-            closeTime: td.overtimeCloseTime || '17:00'
-          };
-        }
-        
-        // Build allocation sequence map
-        if (td.allocations) {
-          for (const alloc of td.allocations) {
-            allocationMap.set(alloc.productionId, {
-              teamId: td.teamId,
-              dateStr: dateStr,
-              sequence: alloc.sequence
-            });
-          }
-        }
-      }
-      
-      console.log(`[PLANNER] ✓ Built allocation map with ${allocationMap.size} entries`);
-      console.log(`[PLANNER] ✓ Found ${Object.keys(overtimeMap).length} days with overtime settings`);
-      
-      // Map productions to jobs, applying allocation data for sequence ordering
-      const jobList: Job[] = productions
-        .map((p: any) => {
-          const allocation = allocationMap.get(p.id);
-          return {
-            id: p.id,
-            name: p.name || '',
-            orderNumber: p.orderNumber || p.name || 'N/A',
-            customer: p.customerName || 'Unknown',
-            estimatedEFinks: p.newEstimateDefinks || 0,
-            customDurationMinutes: p.customDurationMinutes || undefined,
-            // Use allocation data if available, otherwise fall back to production data
-            plannedDateStr: allocation?.dateStr || formatIsoDateLocal(p.productionPlannedDate),
-            jigId: allocation?.teamId || p.jigId || null,
-            productionComplete: p.productionComplete === true,
-            parentProductionId: p.parentProductionId || undefined,
-            rolloverSequence: p.rolloverSequence || undefined,
-            createdOn: p.createdOn || undefined,
-            // Store allocation sequence for ordering
-            _allocationSequence: allocation?.sequence
-          };
-        });
-      
-      // Sort jobs by allocation sequence within each team/date group
-      // Jobs with allocations come first (sorted by sequence), then jobs without
-      jobList.sort((a, b) => {
-        // Group by date and team
-        const aKey = `${a.plannedDateStr}-${a.jigId}`;
-        const bKey = `${b.plannedDateStr}-${b.jigId}`;
-        
-        if (aKey !== bKey) {
-          // Different group, sort by date then team
-          if (a.plannedDateStr !== b.plannedDateStr) {
-            return (a.plannedDateStr || '').localeCompare(b.plannedDateStr || '');
-          }
-          return (a.jigId || '').localeCompare(b.jigId || '');
-        }
-        
-        // Same group, sort by allocation sequence
-        const aSeq = (a as any)._allocationSequence;
-        const bSeq = (b as any)._allocationSequence;
-        
-        if (aSeq !== undefined && bSeq !== undefined) {
-          return aSeq - bSeq;
-        }
-        if (aSeq !== undefined) return -1; // Has allocation comes first
-        if (bSeq !== undefined) return 1;
-        return 0;
-      });
+      // Map productions to jobs using Production.jigId as source of truth
+      const jobList: Job[] = productions.map((p: any) => ({
+        id: p.id,
+        name: p.name || '',
+        orderNumber: p.orderNumber || p.name || 'N/A',
+        customer: p.customerName || 'Unknown',
+        estimatedEFinks: p.newEstimateDefinks || 0,
+        customDurationMinutes: p.customDurationMinutes || undefined,
+        plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
+        jigId: p.jigId || null, // Direct from Production record
+        productionComplete: p.productionComplete === true,
+        parentProductionId: p.parentProductionId || undefined,
+        rolloverSequence: p.rolloverSequence || undefined,
+        createdOn: p.createdOn || undefined
+      }));
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
       
@@ -180,8 +107,6 @@ export const ProductionPlannerPage = () => {
       setJobs(jobList);
       setUnallocatedOrders(ordersNeedingProduction);
       setJigTeams(jigs);
-      setOvertimeByDay(overtimeMap);
-      setTeamDaysByDateAndTeam(teamDayMap);
       if (selectedJigIds.length === 0) {
         setSelectedJigIds(jigs.map(j => j.id));
       }
@@ -261,7 +186,8 @@ export const ProductionPlannerPage = () => {
         
         await loadData();
       } else {
-        // Update existing production record
+        // SIMPLIFIED: Just update the Production record directly
+        // Production.jigId and productionPlannedDate are the source of truth
         const updateData: any = {
           productionPlannedDate: date.toISOString()
         };
@@ -276,65 +202,14 @@ export const ProductionPlannerPage = () => {
           return [...otherJobs, updatedJob];
         });
         
-        // Update production record (this sets jigId and plannedDate on Production table)
+        // Update production record - this is the ONLY update needed
         await productionService.update(job.id, updateData);
-        
-        // CRITICAL: Manage allocation record for stable placement persistence
-        // 1. First delete any existing allocation for this production (from old team/date)
-        // 2. Then create new allocation on target team/date
-        // 3. Reload data to ensure state consistency
-        if (updatedJigId) {
-          try {
-            // Delete existing allocation for this production (if any)
-            await teamDayAllocationService.deleteByProduction(job.id);
-            console.log(`[PLANNER] ✓ Cleared old allocation for job ${job.id}`);
-            
-            const MINUTES_PER_EFINK = 6.5625;
-            const jobDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
-            
-            // Ensure TeamDay exists first
-            const teamDay = await teamDayService.ensure({
-              teamId: updatedJigId,
-              workDate: dateStr,
-              baseMinutes: 480
-            });
-            
-            // Fetch current allocations for this TeamDay to get accurate sequence
-            const currentAllocations = teamDay.allocations || [];
-            const sequence = currentAllocations.length;
-            
-            // Create new allocation for this job
-            await teamDayAllocationService.create({
-              teamDayId: teamDay.id,
-              productionId: job.id,
-              sequence: sequence,
-              allocatedMinutes: jobDuration,
-              startMinutes: 0,
-              status: 'planned'
-            });
-            
-            console.log(`[PLANNER] ✓ Created allocation for job ${job.id} on TeamDay ${teamDay.id} with sequence ${sequence}`);
-            
-            // Reload data to ensure state consistency
-            await loadData();
-          } catch (allocErr) {
-            console.error('[PLANNER] ✗ Failed to manage allocation:', allocErr);
-            await loadData(); // Reload to recover consistent state
-          }
-        } else {
-          // Job moved to unallocated or no team specified - just delete old allocation
-          try {
-            await teamDayAllocationService.deleteByProduction(job.id);
-            console.log(`[PLANNER] ✓ Cleared allocation for unallocated job ${job.id}`);
-          } catch (allocErr) {
-            console.warn('[PLANNER] Failed to clear allocation:', allocErr);
-          }
-        }
+        console.log(`[PLANNER] ✓ Updated job ${job.id}: date=${dateStr}, jigId=${updatedJigId}`);
       }
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
       setError(`Failed to schedule job: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      await loadData();
+      await loadData(); // Reload to recover consistent state
     } finally {
       setDraggedJobId(null);
     }
@@ -361,21 +236,13 @@ export const ProductionPlannerPage = () => {
         return [...otherJobs, updatedJob];
       });
       
-      // Clear the planned date and jig on Production record
+      // SIMPLIFIED: Just clear the jigId and plannedDate on Production record
       await productionService.update(job.id, {
-        productionPlannedDate: null,
-        jigId: null
+        productionPlannedDate: null as any,
+        jigId: null as any
       });
       
-      // CRITICAL: Delete allocation record to persist this change
-      try {
-        await teamDayAllocationService.deleteByProduction(job.id);
-        console.log(`[PLANNER] ✓ Cleared allocation for job ${job.id}`);
-      } catch (allocErr) {
-        console.warn('[PLANNER] Failed to clear allocation:', allocErr);
-      }
-      
-      console.log('[PLANNER] ✓ Job moved to unallocated');
+      console.log(`[PLANNER] ✓ Job ${job.id} moved to unallocated`);
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to unallocate job:', err);
       setError(`Failed to unallocate job: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -427,57 +294,14 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleOvertimeChange = async (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => {
-    // Update local overtime state first for immediate UI feedback
+  const handleOvertimeChange = async (dayStr: string, enabled: boolean, closeTime: string, _additionalMinutes?: number) => {
+    // SIMPLIFIED: For now, overtime is UI-only state
+    // Future: Can persist to Production or separate settings table
     setOvertimeByDay(prev => ({
       ...prev,
       [dayStr]: { enabled, closeTime }
     }));
-    
-    // Persist overtime settings to TeamDay table for each team on this day
-    // This ensures overtime settings are stable and don't cause recalculation
-    try {
-      const jobsOnThisDay = allJobs.filter(j => j.plannedDateStr === dayStr && j.jigId);
-      const teamIds = [...new Set(jobsOnThisDay.map(j => j.jigId).filter((id): id is string => id !== null))];
-      
-      for (const teamId of teamIds) {
-        const key = `${dayStr}-${teamId}`;
-        const existingTeamDay = teamDaysByDateAndTeam[key];
-        
-        if (existingTeamDay) {
-          // Update existing TeamDay record - ONLY update overtime settings, not recalculate allocations
-          await teamDayService.updateOvertime(existingTeamDay.id, {
-            overtimeEnabled: enabled,
-            overtimeMinutes: additionalMinutes || 0,
-            overtimeCloseTime: closeTime
-          });
-          console.log(`[PLANNER] ✓ Updated TeamDay overtime for ${teamId} on ${dayStr}: enabled=${enabled}, minutes=${additionalMinutes || 0}`);
-        } else {
-          // Create new TeamDay record
-          const newTeamDay = await teamDayService.ensure({
-            teamId,
-            workDate: dayStr,
-            baseMinutes: 480, // 8 hours default
-            overtimeMinutes: enabled ? (additionalMinutes || 0) : 0,
-            overtimeEnabled: enabled,
-            overtimeCloseTime: closeTime
-          });
-          
-          setTeamDaysByDateAndTeam(prev => ({
-            ...prev,
-            [key]: newTeamDay
-          }));
-          console.log(`[PLANNER] ✓ Created TeamDay for ${teamId} on ${dayStr} with overtime=${enabled}`);
-        }
-      }
-    } catch (err) {
-      console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
-    }
-    
-    // NOTE: Removing the automatic redistribution logic
-    // With the new allocation architecture, overtime toggle ONLY affects capacity
-    // Existing allocations remain stable - user must manually adjust if needed
-    console.log('[PLANNER] Overtime changed - allocations remain stable (no automatic redistribution)');
+    console.log(`[PLANNER] Overtime for ${dayStr}: enabled=${enabled}, closeTime=${closeTime}`);
   };
 
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
