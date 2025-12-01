@@ -11,10 +11,12 @@ interface ShiftConfig {
   breaks: Break[];
 }
 
+const MINUTES_PER_EFINK = 6.5625;
+
 const DEFAULT_SHIFT: ShiftConfig = {
-  startTime: 6 * 60,
-  endTime: 16 * 60 + 30,
-  overtimeEndTime: 18 * 60 + 30,
+  startTime: 7 * 60,
+  endTime: 17 * 60,
+  overtimeEndTime: 19 * 60,
   breaks: [
     { start: 9 * 60, end: 9 * 60 + 15, duration: 15 },
     { start: 12 * 60, end: 12 * 60 + 30, duration: 30 },
@@ -177,7 +179,7 @@ export function getJobDurationMinutes(job: { customDurationMinutes?: number; est
     return job.customDurationMinutes;
   }
   const efinks = job.estimatedEFinks || 0;
-  return Math.ceil(efinks / 5);
+  return Math.max(15, Math.round(efinks * MINUTES_PER_EFINK));
 }
 
 export function getShiftTotalMinutes(shift: ShiftConfig): number {

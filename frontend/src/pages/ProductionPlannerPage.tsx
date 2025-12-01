@@ -26,6 +26,13 @@ import {
   getJobDurationMinutes
 } from '../utils/scheduleUtils';
 
+interface JobSchedule {
+  id: string;
+  plannedStartTime: number;
+  plannedEndTime: number;
+  plannedDurationMinutes: number;
+}
+
 interface Job {
   id: string;
   name: string;
@@ -165,6 +172,43 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   };
 
+  const recalculateScheduleForTeamDay = async (
+    dateStr: string, 
+    _jigId: string, 
+    jobsToUpdate: Job[]
+  ): Promise<JobSchedule[]> => {
+    const overtime = overtimeByDay[dateStr];
+    const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+    
+    const schedules: JobSchedule[] = [];
+    let currentTime = shift.startTime;
+    
+    for (const job of jobsToUpdate) {
+      if (currentTime >= shift.endTime) break;
+      
+      const duration = getJobDurationMinutes(job);
+      const timing = calculatePlannedTimes(currentTime, duration, shift);
+      
+      schedules.push({
+        id: job.id,
+        plannedStartTime: timing.plannedStartTime,
+        plannedEndTime: timing.plannedEndTime,
+        plannedDurationMinutes: duration
+      });
+      
+      currentTime = timing.plannedEndTime;
+      
+      for (const brk of shift.breaks) {
+        if (currentTime >= brk.start && currentTime < brk.end) {
+          currentTime = brk.end;
+          break;
+        }
+      }
+    }
+    
+    return schedules;
+  };
+
   const handleDrop = async (dateStr: string, jigId?: string | null) => {
     if (!draggedJobId) return;
     
@@ -282,7 +326,8 @@ export const ProductionPlannerPage = () => {
     }
 
     try {
-      // Optimistically update UI
+      // Optimistically update UI - clear all timing fields including customDuration
+      // This ensures the job will recalculate from default when reallocated
       setJobs(prevJobs => {
         const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
         const updatedJob = { 
@@ -291,18 +336,21 @@ export const ProductionPlannerPage = () => {
           jigId: null,
           plannedStartTime: null,
           plannedEndTime: null,
-          plannedDurationMinutes: null
+          plannedDurationMinutes: null,
+          customDurationMinutes: undefined
         };
         return [...otherJobs, updatedJob];
       });
       
-      // SIMPLIFIED: Just clear the jigId, plannedDate, and planned times on Production record
+      // Clear the jigId, plannedDate, planned times, and customDuration on Production record
+      // Clearing customDuration resets to default calculated size when job is reallocated
       await productionService.update(job.id, {
         productionPlannedDate: null as any,
         jigId: null as any,
         plannedStartTime: null as any,
         plannedEndTime: null as any,
-        plannedDurationMinutes: null as any
+        plannedDurationMinutes: null as any,
+        customDurationMinutes: null as any
       });
       
       console.log(`[PLANNER] ✓ Job ${job.id} moved to unallocated (cleared planned times)`);
@@ -321,18 +369,58 @@ export const ProductionPlannerPage = () => {
 
   const handleJobDurationChange = async (jobId: string, durationMinutes: number) => {
     try {
-      await productionService.update(jobId, {
-        customDurationMinutes: durationMinutes
-      });
-      console.log('[PLANNER] ✓ Job duration updated:', durationMinutes, 'minutes');
+      const job = allJobs.find(j => j.id === jobId);
+      if (!job || !job.jigId || !job.plannedDateStr) return;
       
-      setJobs(prevJobs => 
-        prevJobs.map(j => 
-          j.id === jobId 
-            ? { ...j, customDurationMinutes: durationMinutes }
-            : j
-        )
+      const dateStr = job.plannedDateStr;
+      const jigId = job.jigId;
+      
+      // Get all jobs on this team/day, sorted by start time
+      const jobsOnTeamDay = jobs
+        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
+        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+      
+      // Update the resized job with new custom duration
+      const updatedJobs = jobsOnTeamDay.map(j => 
+        j.id === jobId 
+          ? { ...j, customDurationMinutes: durationMinutes }
+          : j
       );
+      
+      // Recalculate schedule for all jobs on this team/day
+      const schedules = await recalculateScheduleForTeamDay(dateStr, jigId, updatedJobs);
+      
+      // Persist all updated schedules to database
+      const updatePromises = schedules.map(schedule => {
+        const isResizedJob = schedule.id === jobId;
+        return productionService.update(schedule.id, {
+          plannedStartTime: schedule.plannedStartTime,
+          plannedEndTime: schedule.plannedEndTime,
+          plannedDurationMinutes: schedule.plannedDurationMinutes,
+          ...(isResizedJob ? { customDurationMinutes: durationMinutes } : {})
+        });
+      });
+      await Promise.all(updatePromises);
+      
+      console.log('[PLANNER] ✓ Job duration updated and schedule recalculated for', schedules.length, 'jobs');
+      
+      // Update local state
+      setJobs(prevJobs => {
+        const scheduleMap = new Map(schedules.map(s => [s.id, s]));
+        return prevJobs.map(j => {
+          const schedule = scheduleMap.get(j.id);
+          if (schedule) {
+            return {
+              ...j,
+              plannedStartTime: schedule.plannedStartTime,
+              plannedEndTime: schedule.plannedEndTime,
+              plannedDurationMinutes: schedule.plannedDurationMinutes,
+              ...(j.id === jobId ? { customDurationMinutes: durationMinutes } : {})
+            };
+          }
+          return j;
+        });
+      });
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to update job duration:', err);
     }
@@ -340,18 +428,58 @@ export const ProductionPlannerPage = () => {
 
   const handleJobDurationReset = async (jobId: string) => {
     try {
-      await productionService.update(jobId, {
-        customDurationMinutes: undefined
-      });
-      console.log('[PLANNER] ✓ Job duration reset to calculated value');
+      const job = allJobs.find(j => j.id === jobId);
+      if (!job || !job.jigId || !job.plannedDateStr) return;
       
-      setJobs(prevJobs => 
-        prevJobs.map(j => 
-          j.id === jobId 
-            ? { ...j, customDurationMinutes: undefined }
-            : j
-        )
+      const dateStr = job.plannedDateStr;
+      const jigId = job.jigId;
+      
+      // Get all jobs on this team/day, sorted by start time
+      const jobsOnTeamDay = jobs
+        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
+        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
+      
+      // Clear custom duration for the reset job
+      const updatedJobs = jobsOnTeamDay.map(j => 
+        j.id === jobId 
+          ? { ...j, customDurationMinutes: undefined }
+          : j
       );
+      
+      // Recalculate schedule for all jobs on this team/day
+      const schedules = await recalculateScheduleForTeamDay(dateStr, jigId, updatedJobs);
+      
+      // Persist all updated schedules to database
+      const updatePromises = schedules.map(schedule => {
+        const isResetJob = schedule.id === jobId;
+        return productionService.update(schedule.id, {
+          plannedStartTime: schedule.plannedStartTime,
+          plannedEndTime: schedule.plannedEndTime,
+          plannedDurationMinutes: schedule.plannedDurationMinutes,
+          ...(isResetJob ? { customDurationMinutes: null as any } : {})
+        });
+      });
+      await Promise.all(updatePromises);
+      
+      console.log('[PLANNER] ✓ Job duration reset and schedule recalculated for', schedules.length, 'jobs');
+      
+      // Update local state
+      setJobs(prevJobs => {
+        const scheduleMap = new Map(schedules.map(s => [s.id, s]));
+        return prevJobs.map(j => {
+          const schedule = scheduleMap.get(j.id);
+          if (schedule) {
+            return {
+              ...j,
+              plannedStartTime: schedule.plannedStartTime,
+              plannedEndTime: schedule.plannedEndTime,
+              plannedDurationMinutes: schedule.plannedDurationMinutes,
+              ...(j.id === jobId ? { customDurationMinutes: undefined } : {})
+            };
+          }
+          return j;
+        });
+      });
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to reset job duration:', err);
     }
