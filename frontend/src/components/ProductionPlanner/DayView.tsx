@@ -382,29 +382,14 @@ export const DayView: React.FC<DayViewProps> = ({
   }, [customDurations]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
-    return jobs
-      .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId)
-      .sort((a, b) => {
-        if (a.createdOn && b.createdOn) {
-          return new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime();
-        }
-        if (a.createdOn) return -1;
-        if (b.createdOn) return 1;
-        return 0;
-      });
+    // No automatic sorting - job order is user-driven
+    // Jobs maintain the order they were assigned/booked by the user
+    return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
   };
 
   const getUnallocatedJobsForDate = (dateStr: string) => {
-    return jobs
-      .filter(j => j.plannedDateStr === dateStr && !j.jigId)
-      .sort((a, b) => {
-        if (a.createdOn && b.createdOn) {
-          return new Date(a.createdOn).getTime() - new Date(b.createdOn).getTime();
-        }
-        if (a.createdOn) return -1;
-        if (b.createdOn) return 1;
-        return 0;
-      });
+    // No automatic sorting - job order is user-driven
+    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
   };
 
   const isLastInChain = useCallback((job: Job): boolean => {
@@ -514,9 +499,8 @@ export const DayView: React.FC<DayViewProps> = ({
     return Math.ceil(minutes / 60) * 60;
   };
 
-  const getNextAvailableStartTime = (jobEndMinutes: number, debugInfo?: string): number => {
+  const getNextAvailableStartTime = (jobEndMinutes: number): number => {
     let nextStart = roundUpToNextHour(jobEndMinutes);
-    const originalNextStart = nextStart;
     
     // Sort breaks chronologically to ensure consistent processing
     const sortedBreaks = [...breakSlots].sort((a, b) => {
@@ -536,30 +520,20 @@ export const DayView: React.FC<DayViewProps> = ({
         nextStart = roundUpToNextHour(breakEnd);
       }
       
-      // Also check: if job ends within the hour before a break starts,
-      // and rounding would land exactly at break start, push past break
+      // Also check: if rounding would land exactly at break start, push past break
       // This handles the case where job ends at 8:30, rounds to 9:00 (break start)
       if (nextStart === breakStart) {
         nextStart = roundUpToNextHour(breakEnd);
       }
     }
     
-    if (debugInfo && originalNextStart !== nextStart) {
-      console.log(`[BREAK ADJUST] ${debugInfo}: jobEnd=${jobEndMinutes} rounded=${originalNextStart} adjusted=${nextStart}`);
-    }
-    
     return nextStart;
   };
 
-  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true, teamName?: string): JobPositionInfo[] => {
+  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
-
-    // Debug: log team calculation start
-    if (teamName && jigJobs.length > 0) {
-      console.log(`[CALC POS] ${teamName}: ${jigJobs.length} jobs, starting at ${currentTop} mins (${Math.floor(currentTop/60)}:${String(currentTop%60).padStart(2,'0')})`);
-    }
 
     for (let i = 0; i < jigJobs.length; i++) {
       const job = jigJobs[i];
@@ -587,16 +561,7 @@ export const DayView: React.FC<DayViewProps> = ({
       
       if (includeBreaks) {
         const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
-        const prevTop = currentTop;
-        currentTop = getNextAvailableStartTime(jobEndMinutes, teamName);
-        
-        // Debug: log each job's positioning
-        if (teamName && i < 5) { // Only log first 5 jobs per team
-          const startTime = `${Math.floor(prevTop/60)}:${String(prevTop%60).padStart(2,'0')}`;
-          const endTime = `${Math.floor(jobEndMinutes/60)}:${String(jobEndMinutes%60).padStart(2,'0')}`;
-          const nextTime = `${Math.floor(currentTop/60)}:${String(currentTop%60).padStart(2,'0')}`;
-          console.log(`[CALC POS] ${teamName} Job ${i+1}: ${job.orderNumber} starts=${startTime} ends=${endTime} nextStart=${nextTime} breaks=${totalBreakMinutes}m`);
-        }
+        currentTop = getNextAvailableStartTime(jobEndMinutes);
       } else {
         currentTop += baseHeight + 4;
       }
@@ -1102,7 +1067,7 @@ export const DayView: React.FC<DayViewProps> = ({
                   const { overflowDetails } = checkJobOverflow(jigJobs, jig.id);
                   const workingEnd = getWorkingEndMinutes();
                   
-                  return calculateJobPositions(jigJobs, true, jig.name).map(({ job, top, height, baseHeight, breakAdditions }) => {
+                  return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isOverflowing = overflowingJobs.has(job.id);
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
                     const maxHeight = Math.max(0, workingEnd * PIXELS_PER_MINUTE - top - 4);
