@@ -68,9 +68,8 @@ interface DayViewProps {
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
-  onLinkedJobsResize?: (updates: { jobId: string; durationMinutes: number }[]) => void;
   overtimeSettings?: { enabled: boolean; closeTime: string };
-  onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string) => void;
+  onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -91,7 +90,6 @@ export const DayView: React.FC<DayViewProps> = ({
   onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover,
-  onLinkedJobsResize,
   overtimeSettings,
   onOvertimeChange
 }) => {
@@ -114,15 +112,37 @@ export const DayView: React.FC<DayViewProps> = ({
   const overtimeEnabled = overtimeSettings?.enabled ?? false;
   const overtimeCloseTime = overtimeSettings?.closeTime ?? '21:00';
 
+  // Calculate additional working minutes for overtime
+  const calculateOvertimeDelta = useCallback((newCloseTime: string) => {
+    if (!baseWorkingHours) return 0;
+    
+    const [hourStr, minStr] = newCloseTime.split(':');
+    const hour = parseInt(hourStr) || baseWorkingHours.end;
+    const minutes = parseInt(minStr) || 0;
+    const overtimeEndHour = minutes > 0 ? hour + 1 : hour;
+    
+    const baseMinutes = (baseWorkingHours.end - baseWorkingHours.start) * 60;
+    const overtimeMinutes = (overtimeEndHour - baseWorkingHours.start) * 60;
+    
+    // Subtract dinner break (30 mins) if overtime extends past 5pm
+    const dinnerBreak = overtimeEndHour > 17 ? 30 : 0;
+    
+    return (overtimeMinutes - dinnerBreak) - baseMinutes;
+  }, [baseWorkingHours]);
+  
   const handleOvertimeToggle = (checked: boolean) => {
     if (onOvertimeChange) {
-      onOvertimeChange(dayStr, checked, overtimeCloseTime);
+      // When enabling overtime, calculate and pass the additional minutes
+      const deltaMinutes = checked ? calculateOvertimeDelta(overtimeCloseTime) : 0;
+      onOvertimeChange(dayStr, checked, overtimeCloseTime, deltaMinutes);
     }
   };
 
   const handleOvertimeCloseTimeChange = (newTime: string) => {
     if (onOvertimeChange) {
-      onOvertimeChange(dayStr, overtimeEnabled, newTime);
+      // Calculate new delta when close time changes
+      const deltaMinutes = overtimeEnabled ? calculateOvertimeDelta(newTime) : 0;
+      onOvertimeChange(dayStr, overtimeEnabled, newTime, deltaMinutes);
     }
   };
 
@@ -172,81 +192,9 @@ export const DayView: React.FC<DayViewProps> = ({
     return totalMinutes - breakMinutes;
   }, [breakSlots]);
 
-  // Track last working hours end to only run redistribution when working hours ACTUALLY change
-  const lastWorkingEndRef = useRef<number | null>(null);
-  
-  useEffect(() => {
-    if (!workingHours || !baseWorkingHours || !onLinkedJobsResize) return;
-    
-    const baseAvailable = calculateAvailableWorkingMinutes(baseWorkingHours);
-    const currentAvailable = calculateAvailableWorkingMinutes(workingHours);
-    
-    // Skip if no difference in available minutes
-    if (baseAvailable === currentAvailable) {
-      lastWorkingEndRef.current = workingHours.end;
-      return;
-    }
-    
-    // Only run when working hours end ACTUALLY changes, not on every jobs refresh
-    if (lastWorkingEndRef.current === workingHours.end) return;
-    
-    // Update ref AFTER checking, so redistribution runs once when hours change
-    lastWorkingEndRef.current = workingHours.end;
-    
-    const additionalMinutes = currentAvailable - baseAvailable;
-    
-    const jobsOnThisDay = jobs.filter(j => j.plannedDateStr === dayStr);
-    
-    const updates: { jobId: string; durationMinutes: number }[] = [];
-    
-    jobsOnThisDay.forEach(job => {
-      const rootId = job.parentProductionId || job.id;
-      
-      const chainJobs = allJobs.filter(j => 
-        j.id === rootId || j.parentProductionId === rootId
-      );
-      
-      if (chainJobs.length <= 1) return;
-      
-      const isThisJobRoot = job.id === rootId || !job.parentProductionId;
-      if (!isThisJobRoot) return;
-      
-      const rolloverJobs = chainJobs
-        .filter(j => j.id !== job.id && j.plannedDateStr !== dayStr)
-        .sort((a, b) => (a.rolloverSequence || 0) - (b.rolloverSequence || 0));
-      
-      if (rolloverJobs.length === 0) return;
-      
-      const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
-      const totalChainDuration = chainJobs.reduce((sum, j) => 
-        sum + (j.customDurationMinutes || Math.round(j.estimatedEFinks * MINUTES_PER_EFINK)), 0
-      );
-      
-      const newCurrentDuration = Math.min(
-        currentDuration + additionalMinutes,
-        totalChainDuration - (rolloverJobs.length * MIN_BLOCK_HEIGHT)
-      );
-      const increase = newCurrentDuration - currentDuration;
-      
-      if (increase > 0) {
-        updates.push({ jobId: job.id, durationMinutes: newCurrentDuration });
-        
-        let remainingDecrease = increase;
-        rolloverJobs.forEach(rollover => {
-          const rolloverDuration = rollover.customDurationMinutes || Math.round(rollover.estimatedEFinks * MINUTES_PER_EFINK);
-          const decrease = Math.min(remainingDecrease, rolloverDuration - MIN_BLOCK_HEIGHT);
-          if (decrease > 0) {
-            updates.push({ jobId: rollover.id, durationMinutes: rolloverDuration - decrease });
-            remainingDecrease -= decrease;
-          }
-        });
-      }
-    });
-    
-    if (updates.length > 0) {
-      onLinkedJobsResize(updates);
-    }
-  }, [workingHours, baseWorkingHours, jobs, allJobs, dayStr, calculateAvailableWorkingMinutes, onLinkedJobsResize]);
+  // REMOVED: The automatic redistribution effect caused an infinite loop
+  // Redistribution is now ONLY triggered when the user explicitly toggles overtime
+  // This is handled via the onOvertimeChange callback in ProductionPlannerPage
 
   const parseTime = (timeStr: string): { hour: number; minute: number } => {
     const [hour, minute] = timeStr.split(':').map(Number);

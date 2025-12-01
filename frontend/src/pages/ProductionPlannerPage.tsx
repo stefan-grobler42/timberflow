@@ -297,37 +297,99 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleLinkedJobsResize = async (updates: { jobId: string; durationMinutes: number }[]) => {
-    try {
-      console.log('[PLANNER] Resizing linked jobs due to overtime change:', updates);
-      
-      await Promise.all(updates.map(update => 
-        productionService.update(update.jobId, {
-          customDurationMinutes: update.durationMinutes
-        })
-      ));
-      
-      setJobs(prevJobs => 
-        prevJobs.map(job => {
-          const update = updates.find(u => u.jobId === job.id);
-          if (update) {
-            return { ...job, customDurationMinutes: update.durationMinutes };
-          }
-          return job;
-        })
-      );
-      
-      console.log('[PLANNER] ✓ Linked jobs resized successfully');
-    } catch (err) {
-      console.error('[PLANNER] ✗ Failed to resize linked jobs:', err);
-    }
-  };
-
-  const handleOvertimeChange = (dayStr: string, enabled: boolean, closeTime: string) => {
+  const handleOvertimeChange = async (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => {
+    // Update overtime settings first
     setOvertimeByDay(prev => ({
       ...prev,
       [dayStr]: { enabled, closeTime }
     }));
+    
+    // If overtime is being enabled and we have additional minutes info, redistribute linked jobs
+    // This ONLY runs when user explicitly toggles overtime, not on every render
+    if (enabled && additionalMinutes && additionalMinutes > 0) {
+      const MINUTES_PER_EFINK = 6.5625;
+      const MIN_BLOCK_HEIGHT = 20;
+      
+      const jobsOnThisDay = allJobs.filter(j => j.plannedDateStr === dayStr);
+      const updates: { jobId: string; durationMinutes: number }[] = [];
+      
+      jobsOnThisDay.forEach(job => {
+        const rootId = job.parentProductionId || job.id;
+        
+        const chainJobs = allJobs.filter(j => 
+          j.id === rootId || j.parentProductionId === rootId
+        );
+        
+        if (chainJobs.length <= 1) return;
+        
+        const isThisJobRoot = job.id === rootId || !job.parentProductionId;
+        if (!isThisJobRoot) return;
+        
+        const rolloverJobs = chainJobs
+          .filter(j => j.id !== job.id && j.plannedDateStr !== dayStr)
+          .sort((a, b) => (a.rolloverSequence || 0) - (b.rolloverSequence || 0));
+        
+        if (rolloverJobs.length === 0) return;
+        
+        const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
+        const totalChainDuration = chainJobs.reduce((sum, j) => 
+          sum + (j.customDurationMinutes || Math.round(j.estimatedEFinks * MINUTES_PER_EFINK)), 0
+        );
+        
+        const newCurrentDuration = Math.min(
+          currentDuration + additionalMinutes,
+          totalChainDuration - (rolloverJobs.length * MIN_BLOCK_HEIGHT)
+        );
+        const increase = newCurrentDuration - currentDuration;
+        
+        if (increase > 0) {
+          const firstRollover = rolloverJobs[0];
+          const rolloverDuration = firstRollover.customDurationMinutes || Math.round(firstRollover.estimatedEFinks * MINUTES_PER_EFINK);
+          
+          if (rolloverDuration <= MIN_BLOCK_HEIGHT) {
+            console.log('[PLANNER] Skipping redistribution - rollover already at minimum');
+            return;
+          }
+          
+          updates.push({ jobId: job.id, durationMinutes: newCurrentDuration });
+          
+          let remainingDecrease = increase;
+          rolloverJobs.forEach(rollover => {
+            const rolloverDur = rollover.customDurationMinutes || Math.round(rollover.estimatedEFinks * MINUTES_PER_EFINK);
+            const decrease = Math.min(remainingDecrease, rolloverDur - MIN_BLOCK_HEIGHT);
+            if (decrease > 0) {
+              updates.push({ jobId: rollover.id, durationMinutes: rolloverDur - decrease });
+              remainingDecrease -= decrease;
+            }
+          });
+        }
+      });
+      
+      if (updates.length > 0) {
+        console.log('[PLANNER] Redistributing linked jobs on overtime toggle:', updates);
+        try {
+          await Promise.all(updates.map(update => 
+            productionService.update(update.jobId, {
+              customDurationMinutes: update.durationMinutes
+            })
+          ));
+          
+          setJobs(prevJobs => 
+            prevJobs.map(job => {
+              const update = updates.find(u => u.jobId === job.id);
+              if (update) {
+                return { ...job, customDurationMinutes: update.durationMinutes };
+              }
+              return job;
+            })
+          );
+          
+          console.log('[PLANNER] ✓ Linked jobs redistributed on overtime toggle');
+        } catch (err) {
+          console.error('[PLANNER] ✗ Failed to redistribute linked jobs:', err);
+        }
+      }
+    }
   };
 
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
@@ -755,7 +817,6 @@ export const ProductionPlannerPage = () => {
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
-              onLinkedJobsResize={handleLinkedJobsResize}
               overtimeSettings={overtimeByDay[currentDateStr]}
               onOvertimeChange={handleOvertimeChange}
             />
