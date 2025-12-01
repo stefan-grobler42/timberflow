@@ -98,6 +98,8 @@ export const DayView: React.FC<DayViewProps> = ({
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
+  const [baseBreakSlots, setBaseBreakSlots] = useState<BreakSlot[]>([]);
+  const [dinnerBreakSlot, setDinnerBreakSlot] = useState<BreakSlot | null>(null);
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
@@ -141,6 +143,17 @@ export const DayView: React.FC<DayViewProps> = ({
       setWorkingHours(baseWorkingHours);
     }
   }, [overtimeEnabled, overtimeCloseTime, baseWorkingHours]);
+
+  // Dynamically add/remove dinner break based on overtime state
+  useEffect(() => {
+    if (overtimeEnabled && dinnerBreakSlot) {
+      // Add dinner break when overtime is enabled
+      setBreakSlots([...baseBreakSlots, dinnerBreakSlot]);
+    } else {
+      // Remove dinner break when overtime is disabled
+      setBreakSlots(baseBreakSlots);
+    }
+  }, [overtimeEnabled, baseBreakSlots, dinnerBreakSlot]);
 
   const calculateAvailableWorkingMinutes = useCallback((hours: { start: number; end: number }) => {
     const totalMinutes = (hours.end - hours.start) * 60;
@@ -303,10 +316,11 @@ export const DayView: React.FC<DayViewProps> = ({
           color: '#fff3cd'
         });
 
+        // Store dinner break separately - it's added dynamically based on overtime state
         if (breakTimes.weekdayOvertime) {
           const dinnerStart = parseTime(breakTimes.weekdayOvertime.dinnerStart);
           const dinnerEnd = parseTime(breakTimes.weekdayOvertime.dinnerEnd);
-          breaks.push({
+          setDinnerBreakSlot({
             startHour: dinnerStart.hour,
             startMinute: dinnerStart.minute,
             endHour: dinnerEnd.hour,
@@ -317,6 +331,7 @@ export const DayView: React.FC<DayViewProps> = ({
         }
       }
 
+      setBaseBreakSlots(breaks);
       setBreakSlots(breaks);
       setLoading(false);
     } catch (err) {
