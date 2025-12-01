@@ -45,7 +45,8 @@ public class ProductionDto
     public DateTime? PlannedStartDate { get; set; }
     public int? PlannedStartTime { get; set; }  // Minutes from midnight (e.g., 480 = 8:00 AM)
     public int? PlannedEndTime { get; set; }    // Minutes from midnight (e.g., 1020 = 5:00 PM)
-    public int? PlannedDurationMinutes { get; set; }
+    public int? PlannedDurationMinutes { get; set; }  // Base duration from EFinks (no breaks)
+    public int? BreakAdjustmentMinutes { get; set; }  // Extra time added when job crosses breaks
     
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
@@ -96,6 +97,7 @@ public class CreateProductionDto
     public int? PlannedStartTime { get; set; }
     public int? PlannedEndTime { get; set; }
     public int? PlannedDurationMinutes { get; set; }
+    public int? BreakAdjustmentMinutes { get; set; }
 }
 
 public class UpdateProductionDto
@@ -141,4 +143,5 @@ public class UpdateProductionDto
     public int? PlannedStartTime { get; set; }
     public int? PlannedEndTime { get; set; }
     public int? PlannedDurationMinutes { get; set; }
+    public int? BreakAdjustmentMinutes { get; set; }
 }

@@ -165,9 +165,13 @@ namespace MillenniumERP.Domain.Entities
         [Column("planned_end_time")]
         public int? PlannedEndTime { get; set; }
 
-        /// <summary>Planned Duration in minutes (break-adjusted)</summary>
+        /// <summary>Planned Duration in minutes (base duration from EFinks, no breaks)</summary>
         [Column("planned_duration_minutes")]
         public int? PlannedDurationMinutes { get; set; }
+
+        /// <summary>Break Adjustment in minutes (extra time added when job crosses breaks)</summary>
+        [Column("break_adjustment_minutes")]
+        public int? BreakAdjustmentMinutes { get; set; }
 
         // Audit fields
         public DateTime? CreatedOn { get; set; }

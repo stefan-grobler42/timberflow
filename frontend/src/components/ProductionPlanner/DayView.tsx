@@ -19,6 +19,7 @@ interface Job {
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
+  breakAdjustmentMinutes?: number | null;
 }
 
 interface Jig {
@@ -365,11 +366,11 @@ export const DayView: React.FC<DayViewProps> = ({
     return false;
   }, [customDurations]);
 
-  const getJobDurationMinutes = useCallback((job: Job): number => {
-    // Priority order for determining job duration:
+  const getBaseDuration = useCallback((job: Job): number => {
+    // Get the BASE duration (without breaks):
     // 1. Active resize state (user is currently resizing)
     // 2. Stored custom duration (user previously manually resized)
-    // 3. Stored planned duration from database (includes break adjustments)
+    // 3. Stored planned duration (EFinks-derived base)
     // 4. EFinks calculation as fallback (for new/unscheduled jobs)
     if (customDurations[job.id]) {
       return customDurations[job.id];
@@ -382,6 +383,13 @@ export const DayView: React.FC<DayViewProps> = ({
     }
     return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
   }, [customDurations]);
+
+  const getJobDurationMinutes = useCallback((job: Job): number => {
+    // Final Duration = baseDuration + breakAdjustments
+    const baseDuration = getBaseDuration(job);
+    const breakAdjustment = job.breakAdjustmentMinutes || 0;
+    return baseDuration + breakAdjustment;
+  }, [getBaseDuration]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     // No automatic sorting - job order is user-driven
@@ -490,17 +498,8 @@ export const DayView: React.FC<DayViewProps> = ({
   };
 
   const getBaseDurationMinutes = (job: Job): number => {
-    // Same priority as getJobDurationMinutes - display what's stored in database
-    if (customDurations[job.id]) {
-      return customDurations[job.id];
-    }
-    if (job.customDurationMinutes) {
-      return job.customDurationMinutes;
-    }
-    if (job.plannedDurationMinutes) {
-      return job.plannedDurationMinutes;
-    }
-    return Math.max(MIN_BLOCK_HEIGHT, Math.round(job.estimatedEFinks * MINUTES_PER_EFINK));
+    // Delegate to getBaseDuration for consistent logic
+    return getBaseDuration(job);
   };
 
   const roundUpToNextHour = (minutes: number): number => {

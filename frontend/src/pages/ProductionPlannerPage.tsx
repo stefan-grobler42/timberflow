@@ -51,6 +51,7 @@ interface Job {
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
+  breakAdjustmentMinutes?: number | null;
 }
 
 
@@ -105,7 +106,8 @@ export const ProductionPlannerPage = () => {
         createdOn: p.createdOn || undefined,
         plannedStartTime: p.plannedStartTime ?? null,
         plannedEndTime: p.plannedEndTime ?? null,
-        plannedDurationMinutes: p.plannedDurationMinutes ?? null
+        plannedDurationMinutes: p.plannedDurationMinutes ?? null,
+        breakAdjustmentMinutes: p.breakAdjustmentMinutes ?? null
       }));
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);

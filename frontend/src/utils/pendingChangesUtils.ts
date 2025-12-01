@@ -7,6 +7,7 @@ export interface PendingJobChange {
     plannedEndTime: number | null;
     plannedDurationMinutes: number | null;
     customDurationMinutes?: number;
+    breakAdjustmentMinutes?: number | null;
   };
   pendingData: {
     jigId?: string | null;
@@ -15,6 +16,7 @@ export interface PendingJobChange {
     plannedEndTime?: number | null;
     plannedDurationMinutes?: number | null;
     customDurationMinutes?: number | null;
+    breakAdjustmentMinutes?: number | null;
   };
   changeType: 'allocate' | 'unallocate' | 'resize' | 'rollover' | 'reorder';
 }
@@ -122,6 +124,9 @@ export function buildUpdatePayload(change: PendingJobChange): Record<string, any
   }
   if (change.pendingData.customDurationMinutes !== undefined) {
     payload.customDurationMinutes = change.pendingData.customDurationMinutes;
+  }
+  if (change.pendingData.breakAdjustmentMinutes !== undefined) {
+    payload.breakAdjustmentMinutes = change.pendingData.breakAdjustmentMinutes;
   }
   
   return payload;

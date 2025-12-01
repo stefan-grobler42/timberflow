@@ -178,6 +178,7 @@ public class ProductionsController : ControllerBase
         if (updateDto.PlannedStartTime.HasValue) production.PlannedStartTime = updateDto.PlannedStartTime;
         if (updateDto.PlannedEndTime.HasValue) production.PlannedEndTime = updateDto.PlannedEndTime;
         if (updateDto.PlannedDurationMinutes.HasValue) production.PlannedDurationMinutes = updateDto.PlannedDurationMinutes;
+        if (updateDto.BreakAdjustmentMinutes.HasValue) production.BreakAdjustmentMinutes = updateDto.BreakAdjustmentMinutes;
         
         production.ModifiedOn = DateTime.UtcNow;
 
@@ -259,6 +260,7 @@ public class ProductionsController : ControllerBase
             PlannedStartTime = production.PlannedStartTime,
             PlannedEndTime = production.PlannedEndTime,
             PlannedDurationMinutes = production.PlannedDurationMinutes,
+            BreakAdjustmentMinutes = production.BreakAdjustmentMinutes,
             CreatedOn = production.CreatedOn,
             CreatedBy = production.CreatedBy,
             ModifiedOn = production.ModifiedOn,
