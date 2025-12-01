@@ -85,9 +85,9 @@ export const ProductionPlannerPage = () => {
         const key = `${dateStr}-${td.teamId}`;
         teamDayMap[key] = td;
         
-        // Hydrate overtime settings from persisted TeamDay data
+        // Hydrate overtime settings keyed by date-teamId to preserve per-team settings
         if (td.overtimeEnabled) {
-          overtimeMap[dateStr] = {
+          overtimeMap[key] = {
             enabled: td.overtimeEnabled,
             closeTime: td.overtimeCloseTime || '17:00'
           };
@@ -282,6 +282,7 @@ export const ProductionPlannerPage = () => {
         // CRITICAL: Manage allocation record for stable placement persistence
         // 1. First delete any existing allocation for this production (from old team/date)
         // 2. Then create new allocation on target team/date
+        // 3. Reload data to ensure state consistency
         if (updatedJigId) {
           try {
             // Delete existing allocation for this production (if any)
@@ -291,20 +292,16 @@ export const ProductionPlannerPage = () => {
             const MINUTES_PER_EFINK = 6.5625;
             const jobDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * MINUTES_PER_EFINK);
             
-            // Get all jobs for this team and date to calculate sequence
-            const existingJobs = allJobs.filter(j => 
-              j.plannedDateStr === dateStr && 
-              j.jigId === updatedJigId && 
-              j.id !== job.id
-            );
-            const sequence = existingJobs.length;
-            
-            // Ensure TeamDay exists
+            // Ensure TeamDay exists first
             const teamDay = await teamDayService.ensure({
               teamId: updatedJigId,
               workDate: dateStr,
               baseMinutes: 480
             });
+            
+            // Fetch current allocations for this TeamDay to get accurate sequence
+            const currentAllocations = teamDay.allocations || [];
+            const sequence = currentAllocations.length;
             
             // Create new allocation for this job
             await teamDayAllocationService.create({
@@ -317,8 +314,12 @@ export const ProductionPlannerPage = () => {
             });
             
             console.log(`[PLANNER] ✓ Created allocation for job ${job.id} on TeamDay ${teamDay.id} with sequence ${sequence}`);
+            
+            // Reload data to ensure state consistency
+            await loadData();
           } catch (allocErr) {
             console.error('[PLANNER] ✗ Failed to manage allocation:', allocErr);
+            await loadData(); // Reload to recover consistent state
           }
         } else {
           // Job moved to unallocated or no team specified - just delete old allocation
