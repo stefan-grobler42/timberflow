@@ -638,18 +638,11 @@ export const DayView: React.FC<DayViewProps> = ({
       const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
       
       if (jobEndMinutes > workingEnd) {
-        // Check if this job already has a rollover child - if so, don't mark as overflowing
-        const rootId = job.parentProductionId || job.id;
-        const hasRolloverChild = allJobs.some(j => 
-          j.parentProductionId === rootId && 
-          (j.rolloverSequence || 0) > (job.rolloverSequence || 0)
-        );
-        
-        if (!hasRolloverChild) {
-          overflowing.add(job.id);
-          const overflowAmount = jobEndMinutes - workingEnd;
-          overflowDetails.set(job.id, overflowAmount);
-        }
+        // Always mark as overflowing - even if rollover child exists, we need to recalculate
+        // because overtime extension may have changed the overflow amount
+        overflowing.add(job.id);
+        const overflowAmount = jobEndMinutes - workingEnd;
+        overflowDetails.set(job.id, overflowAmount);
       }
       
       currentTop = getNextAvailableStartTime(jobEndMinutes);
