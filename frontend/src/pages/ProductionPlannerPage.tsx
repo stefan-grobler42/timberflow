@@ -359,7 +359,7 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleDropToUnallocated = () => {
+  const handleDropToUnallocated = async () => {
     if (!draggedJobId) return;
     
     // Block unallocate for OTHER jobs when there's a pending change that needs confirmation
@@ -379,18 +379,30 @@ export const ProductionPlannerPage = () => {
       return;
     }
 
-    // Stage the unallocate change - don't persist until user confirms
-    stageJobChange(job.id, {
-      plannedDateStr: null,
-      jigId: null,
-      plannedStartTime: null,
-      plannedEndTime: null,
-      plannedDurationMinutes: null,
-      customDurationMinutes: undefined
-    }, 'unallocate');
-    
-    console.log(`[PLANNER] Staged unallocate for job ${job.id}`);
-    setDraggedJobId(null);
+    // Unallocate persists immediately - no confirmation needed since the job is 
+    // leaving the schedule and poses no collision risk with other jobs
+    try {
+      console.log(`[PLANNER] Unallocating job ${job.id} - persisting immediately`);
+      
+      await productionService.update(job.id, {
+        jigId: undefined,
+        plannedStartDate: undefined,
+        plannedStartTime: undefined,
+        plannedEndTime: undefined,
+        plannedDurationMinutes: undefined,
+        customDurationMinutes: undefined
+      });
+      
+      console.log('[PLANNER] ✓ Job unallocated successfully');
+      
+      // Reload data to reflect the change
+      await loadData();
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to unallocate job:', err);
+      setError(`Failed to unallocate job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setDraggedJobId(null);
+    }
   };
 
   const handleJobDoubleClick = (jobId: string) => {
