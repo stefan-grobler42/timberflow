@@ -242,6 +242,10 @@ export interface Production {
   pickingTeamId?: string;
   sawId?: string;
   jigId?: string;
+  plannedStartDate?: string;
+  plannedStartTime?: number;
+  plannedEndTime?: number;
+  plannedDurationMinutes?: number;
   createdOn?: string;
   createdBy?: string;
   modifiedOn?: string;

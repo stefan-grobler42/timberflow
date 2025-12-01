@@ -19,6 +19,12 @@ import {
   getDaysInMonth, 
   getDaysInWeek 
 } from '../utils/dateUtils';
+import {
+  getShiftConfig,
+  calculatePlannedTimes,
+  calculateNextAvailableStartTime,
+  getJobDurationMinutes
+} from '../utils/scheduleUtils';
 
 interface Job {
   id: string;
@@ -33,6 +39,9 @@ interface Job {
   parentProductionId?: string;
   rolloverSequence?: number;
   createdOn?: string;
+  plannedStartTime?: number | null;
+  plannedEndTime?: number | null;
+  plannedDurationMinutes?: number | null;
 }
 
 
@@ -82,7 +91,10 @@ export const ProductionPlannerPage = () => {
         productionComplete: p.productionComplete === true,
         parentProductionId: p.parentProductionId || undefined,
         rolloverSequence: p.rolloverSequence || undefined,
-        createdOn: p.createdOn || undefined
+        createdOn: p.createdOn || undefined,
+        plannedStartTime: p.plannedStartTime ?? null,
+        plannedEndTime: p.plannedEndTime ?? null,
+        plannedDurationMinutes: p.plannedDurationMinutes ?? null
       }));
       
       console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
@@ -169,6 +181,34 @@ export const ProductionPlannerPage = () => {
     try {
       const date = new Date(dateStr);
       
+      // Calculate planned times if we have a jig assignment
+      let plannedStartTime: number | null = null;
+      let plannedEndTime: number | null = null;
+      let plannedDurationMinutes: number | null = null;
+      
+      if (updatedJigId) {
+        const dayKey = dateStr;
+        const overtime = overtimeByDay[dayKey];
+        const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+        
+        // Get duration for this job
+        const jobDuration = getJobDurationMinutes(job);
+        
+        // Find next available start time on this team/day
+        const otherJobsOnTeamDay = jobs.filter(
+          j => j.id !== job.id && j.plannedDateStr === dateStr && j.jigId === updatedJigId
+        );
+        
+        plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
+        
+        // Calculate end time accounting for breaks
+        const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
+        plannedEndTime = timing.plannedEndTime;
+        plannedDurationMinutes = jobDuration;
+        
+        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min`);
+      }
+      
       if (isSalesOrder && actualOrderId) {
         // Create a new production record for this sales order
         const createData: any = {
@@ -177,7 +217,10 @@ export const ProductionPlannerPage = () => {
           productionPlannedDate: date.toISOString(),
           newEstimateDefinks: job.estimatedEFinks || 0,
           productionComplete: false,
-          jigId: updatedJigId
+          jigId: updatedJigId,
+          plannedStartTime,
+          plannedEndTime,
+          plannedDurationMinutes
         };
         
         console.log('[PLANNER] Creating production for sales order:', actualOrderId);
@@ -189,7 +232,10 @@ export const ProductionPlannerPage = () => {
         // SIMPLIFIED: Just update the Production record directly
         // Production.jigId and productionPlannedDate are the source of truth
         const updateData: any = {
-          productionPlannedDate: date.toISOString()
+          productionPlannedDate: date.toISOString(),
+          plannedStartTime,
+          plannedEndTime,
+          plannedDurationMinutes
         };
         if (updatedJigId !== undefined) {
           updateData.jigId = updatedJigId;
@@ -198,13 +244,20 @@ export const ProductionPlannerPage = () => {
         // Optimistically update UI
         setJobs(prevJobs => {
           const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
-          const updatedJob = { ...job, plannedDateStr: dateStr, jigId: updatedJigId };
+          const updatedJob = { 
+            ...job, 
+            plannedDateStr: dateStr, 
+            jigId: updatedJigId,
+            plannedStartTime,
+            plannedEndTime,
+            plannedDurationMinutes
+          };
           return [...otherJobs, updatedJob];
         });
         
         // Update production record - this is the ONLY update needed
         await productionService.update(job.id, updateData);
-        console.log(`[PLANNER] ✓ Updated job ${job.id}: date=${dateStr}, jigId=${updatedJigId}`);
+        console.log(`[PLANNER] ✓ Updated job ${job.id}: date=${dateStr}, jigId=${updatedJigId}, start=${plannedStartTime}, end=${plannedEndTime}`);
       }
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
@@ -232,17 +285,27 @@ export const ProductionPlannerPage = () => {
       // Optimistically update UI
       setJobs(prevJobs => {
         const otherJobs = prevJobs.filter(j => j.id !== draggedJobId);
-        const updatedJob = { ...job, plannedDateStr: null, jigId: null };
+        const updatedJob = { 
+          ...job, 
+          plannedDateStr: null, 
+          jigId: null,
+          plannedStartTime: null,
+          plannedEndTime: null,
+          plannedDurationMinutes: null
+        };
         return [...otherJobs, updatedJob];
       });
       
-      // SIMPLIFIED: Just clear the jigId and plannedDate on Production record
+      // SIMPLIFIED: Just clear the jigId, plannedDate, and planned times on Production record
       await productionService.update(job.id, {
         productionPlannedDate: null as any,
-        jigId: null as any
+        jigId: null as any,
+        plannedStartTime: null as any,
+        plannedEndTime: null as any,
+        plannedDurationMinutes: null as any
       });
       
-      console.log(`[PLANNER] ✓ Job ${job.id} moved to unallocated`);
+      console.log(`[PLANNER] ✓ Job ${job.id} moved to unallocated (cleared planned times)`);
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to unallocate job:', err);
       setError(`Failed to unallocate job: ${err instanceof Error ? err.message : 'Unknown error'}`);

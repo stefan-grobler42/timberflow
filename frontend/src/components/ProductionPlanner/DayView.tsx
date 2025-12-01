@@ -16,6 +16,9 @@ interface Job {
   parentProductionId?: string | null;
   rolloverSequence?: number;
   createdOn?: string;
+  plannedStartTime?: number | null;
+  plannedEndTime?: number | null;
+  plannedDurationMinutes?: number | null;
 }
 
 interface Jig {
@@ -475,6 +478,30 @@ export const DayView: React.FC<DayViewProps> = ({
     return Math.ceil(minutes / 60) * 60;
   };
 
+  const advancePastBreaks = (startMinutes: number): number => {
+    let currentPos = startMinutes;
+    
+    // Sort breaks chronologically
+    const sortedBreaks = [...breakSlots].sort((a, b) => {
+      const aStart = a.startHour * 60 + a.startMinute;
+      const bStart = b.startHour * 60 + b.startMinute;
+      return aStart - bStart;
+    });
+    
+    // Only advance if we're inside a break
+    for (const breakSlot of sortedBreaks) {
+      const breakStart = getBreakStartMinutes(breakSlot);
+      const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
+      
+      if (currentPos >= breakStart && currentPos < breakEnd) {
+        currentPos = breakEnd;
+        break;
+      }
+    }
+    
+    return currentPos;
+  };
+  
   const getNextAvailableStartTime = (jobEndMinutes: number): number => {
     let nextStart = roundUpToNextHour(jobEndMinutes);
     
@@ -511,35 +538,72 @@ export const DayView: React.FC<DayViewProps> = ({
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
 
-    for (let i = 0; i < jigJobs.length; i++) {
-      const job = jigJobs[i];
+    // Sort jobs by plannedStartTime if available, otherwise by order received
+    const sortedJobs = [...jigJobs].sort((a, b) => {
+      if (a.plannedStartTime != null && b.plannedStartTime != null) {
+        return a.plannedStartTime - b.plannedStartTime;
+      }
+      if (a.plannedStartTime != null) return -1;
+      if (b.plannedStartTime != null) return 1;
+      return 0;
+    });
+
+    for (let i = 0; i < sortedJobs.length; i++) {
+      const job = sortedJobs[i];
       const baseDuration = getBaseDurationMinutes(job);
       const baseHeight = Math.max(MIN_BLOCK_HEIGHT, baseDuration * PIXELS_PER_MINUTE);
       
       let breakAdditions: BreakAddition[] = [];
       let totalBreakMinutes = 0;
       
-      if (includeBreaks) {
-        breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+      // Use database-stored planned times if available (converted to pixels)
+      // plannedStartTime is in minutes from midnight
+      if (includeBreaks && job.plannedStartTime != null && job.plannedEndTime != null) {
+        // Use the stored start time directly as position
+        const startPosition = job.plannedStartTime * PIXELS_PER_MINUTE;
+        const endPosition = job.plannedEndTime * PIXELS_PER_MINUTE;
+        const storedHeight = endPosition - startPosition;
+        
+        // Calculate breaks for display purposes
+        breakAdditions = calculateBreaksSpanned(startPosition, baseDuration);
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
-      }
-      
-      const totalHeight = baseHeight + (totalBreakMinutes * PIXELS_PER_MINUTE);
-      
-      positions.push({ 
-        job, 
-        top: currentTop, 
-        height: totalHeight,
-        baseHeight,
-        breakAdditions,
-        totalBreakMinutes
-      });
-      
-      if (includeBreaks) {
-        const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
-        currentTop = getNextAvailableStartTime(jobEndMinutes);
+        
+        positions.push({ 
+          job, 
+          top: startPosition, 
+          height: Math.max(MIN_BLOCK_HEIGHT, storedHeight),
+          baseHeight,
+          breakAdditions,
+          totalBreakMinutes
+        });
+        
+        // For persisted jobs, advance currentTop past the job's end (only skipping breaks, no rounding)
+        // This preserves exact database times while still avoiding break overlaps
+        currentTop = advancePastBreaks(job.plannedEndTime);
       } else {
-        currentTop += baseHeight + 4;
+        // Fallback: calculate position sequentially
+        if (includeBreaks) {
+          breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+          totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+        }
+        
+        const totalHeight = baseHeight + (totalBreakMinutes * PIXELS_PER_MINUTE);
+        
+        positions.push({ 
+          job, 
+          top: currentTop, 
+          height: totalHeight,
+          baseHeight,
+          breakAdditions,
+          totalBreakMinutes
+        });
+        
+        if (includeBreaks) {
+          const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
+          currentTop = getNextAvailableStartTime(jobEndMinutes);
+        } else {
+          currentTop += baseHeight + 4;
+        }
       }
     }
 
