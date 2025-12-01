@@ -22,7 +22,7 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 ### Technical Implementations
 -   **Backend**: ASP.NET Core 8 Web API, layered structure (Controllers → Services → Data), separate DTOs, PostgreSQL with Entity Framework Core (Npgsql driver).
 -   **Database**: PostgreSQL is the primary database, replacing SQLite for production persistence.
--   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs.
+-   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs. Uses dedicated TeamDay and TeamDayAllocation tables for stable allocation persistence - overtime toggles only update capacity settings without recalculating existing job placements.
 -   **System Settings**: Configuration module for Financial Year, Working Hours (Office/Factory Staff), and Timezone management.
 -   **Order Form Summary**: Reactive workflow timeline (Quote Created to Order Complete) dynamically updating based on form data, responsive two-column layout.
 -   **Form Enhancements**: `cleanFormData` function for robust handling of nullable fields and team allocations.
