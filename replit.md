@@ -22,7 +22,13 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 ### Technical Implementations
 -   **Backend**: ASP.NET Core 8 Web API, layered structure (Controllers → Services → Data), separate DTOs, PostgreSQL with Entity Framework Core (Npgsql driver).
 -   **Database**: PostgreSQL is the primary database, replacing SQLite for production persistence.
--   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs. Uses dedicated TeamDay and TeamDayAllocation tables for stable allocation persistence - overtime toggles only update capacity settings without recalculating existing job placements.
+-   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs. Uses dedicated TeamDay and TeamDayAllocation tables for stable allocation persistence.
+    -   **Scheduling Engine**: Sequential job placement starting at 07:00 with mandatory 15-minute gaps between jobs. Break-aware scheduling (tea at 9:00-9:15, lunch at 12:00-12:30, afternoon tea at 14:30-14:45, dinner for overtime at 17:00-17:30).
+    -   **Rollover Logic**: Jobs exceeding daily capacity trigger rollover dialog (Rollover vs Resize options). Rollovers create linked child jobs on next working day with parent-child relationship tracking.
+    -   **Drop Zone Highlighting**: Visual drop indicators snap to valid positions (between jobs, at day start, after last job). Blue line with end circles shows insertion point.
+    -   **Cascade Scheduling**: Inserting a job pushes all subsequent jobs down to maintain sequential placement.
+    -   **Chain Management**: Rollover chains have parent-child relationships; segment deletion redistributes time to previous segment.
+    -   **Overtime Toggle**: Per-day overtime setting extends working hours; scheduling engine dynamically adjusts available capacity.
 -   **System Settings**: Configuration module for Financial Year, Working Hours (Office/Factory Staff), and Timezone management.
 -   **Order Form Summary**: Reactive workflow timeline (Quote Created to Order Complete) dynamically updating based on form data, responsive two-column layout.
 -   **Form Enhancements**: `cleanFormData` function for robust handling of nullable fields and team allocations.

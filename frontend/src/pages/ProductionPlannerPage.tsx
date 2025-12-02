@@ -34,7 +34,10 @@ import {
   scheduleJobsSequentially,
   createRolloverJob,
   findInsertPosition,
-  getNextWorkingDay
+  getNextWorkingDay,
+  canDeleteRolloverSegment,
+  deleteRolloverSegment,
+  getRolloverChain
 } from '../utils/schedulingEngine';
 import {
   type GlobalStagingState,
@@ -932,6 +935,58 @@ export const ProductionPlannerPage = () => {
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to roll over job:', err);
       setError(`Failed to roll over job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleDeleteRolloverSegment = async (jobId: string) => {
+    try {
+      const job = allJobs.find(j => j.id === jobId);
+      if (!job) {
+        console.log('[DELETE] Job not found:', jobId);
+        return;
+      }
+
+      const { canDelete, reason } = canDeleteRolloverSegment(jobId, allJobs as ScheduledJob[]);
+      if (!canDelete) {
+        setError(reason || 'Cannot delete this segment');
+        return;
+      }
+
+      console.log('[DELETE] Deleting rollover segment:', jobId);
+      
+      const result = deleteRolloverSegment(jobId, allJobs as ScheduledJob[], overtimeByDay);
+      
+      for (const updatedJob of result.updatedJobs) {
+        stageJobUpdate(updatedJob.id, {
+          plannedStartTime: updatedJob.plannedStartTime,
+          plannedEndTime: updatedJob.plannedEndTime,
+          plannedDurationMinutes: updatedJob.plannedDurationMinutes,
+          customDurationMinutes: updatedJob.customDurationMinutes,
+          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes
+        }, 'cascade');
+      }
+      
+      for (const deletedId of result.deletedJobIds) {
+        await productionService.delete(deletedId);
+        console.log('[DELETE] Deleted segment:', deletedId);
+      }
+      
+      for (const updatedJob of result.updatedJobs) {
+        await productionService.update(updatedJob.id, {
+          plannedStartTime: updatedJob.plannedStartTime,
+          plannedEndTime: updatedJob.plannedEndTime,
+          plannedDurationMinutes: updatedJob.plannedDurationMinutes,
+          customDurationMinutes: updatedJob.customDurationMinutes,
+          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes
+        });
+      }
+      
+      console.log('[DELETE] Segment deleted successfully, updated', result.updatedJobs.length, 'related jobs');
+      
+      await loadData();
+    } catch (err) {
+      console.error('[DELETE] Failed to delete segment:', err);
+      setError(`Failed to delete segment: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
