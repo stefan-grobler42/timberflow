@@ -24,8 +24,7 @@ import {
   calculatePlannedTimes,
   calculateNextAvailableStartTime,
   getJobDurationMinutes,
-  roundUpToQuarterHour,
-  calculateGapAdjustedStartTime
+  roundUpToQuarterHour
 } from '../utils/scheduleUtils';
 import {
   type PendingJobChange,
@@ -430,63 +429,21 @@ export const ProductionPlannerPage = () => {
     const roundedDuration = roundUpToQuarterHour(durationMinutes);
     
     // Calculate new end time based on the resized duration
-    let plannedEndTime: number | null = null;
-    
     if (job.plannedStartTime != null && jigId && dateStr) {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
       // Calculate new end time and break adjustments using the rounded duration
       const timing = calculatePlannedTimes(job.plannedStartTime, roundedDuration, shift);
-      plannedEndTime = timing.plannedEndTime;
-      const breakAdjustmentMinutes = timing.breakAdjustmentMinutes;
       
-      // Stage the resize change - customDurationMinutes is the base work time
+      // Stage ONLY the resize change for this job - NO cascading
+      // Overlaps are allowed during editing and resolved sequentially on confirm
       stageJobChange(jobId, {
         customDurationMinutes: roundedDuration,
         plannedDurationMinutes: roundedDuration,
-        plannedEndTime,
-        breakAdjustmentMinutes
+        plannedEndTime: timing.plannedEndTime,
+        breakAdjustmentMinutes: timing.breakAdjustmentMinutes
       }, 'resize');
-      
-      // Check for overlaps with downstream jobs and cascade if needed
-      const jobsOnTeamDay = allJobs
-        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
-        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
-      
-      const jobIndex = jobsOnTeamDay.findIndex(j => j.id === jobId);
-      if (jobIndex !== -1) {
-        let currentEndTime = plannedEndTime;
-        
-        // Apply 30-min gap with break proximity
-        currentEndTime = calculateGapAdjustedStartTime(currentEndTime, shift);
-        
-        // Cascade to downstream jobs only if overlap would occur
-        for (let i = jobIndex + 1; i < jobsOnTeamDay.length; i++) {
-          const downstreamJob = jobsOnTeamDay[i];
-          const existingStart = downstreamJob.plannedStartTime ?? shift.startTime;
-          
-          if (currentEndTime > existingStart) {
-            // Overlap would occur - need to push this job forward
-            const downstreamDuration = getJobDurationMinutes(downstreamJob);
-            const downstreamTiming = calculatePlannedTimes(currentEndTime, downstreamDuration, shift);
-            
-            stageJobChange(downstreamJob.id, {
-              plannedStartTime: downstreamTiming.plannedStartTime,
-              plannedEndTime: downstreamTiming.plannedEndTime,
-              plannedDurationMinutes: downstreamDuration,
-              breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
-            }, 'reorder', false); // false = cascaded change, don't update activeJobId
-            
-            currentEndTime = downstreamTiming.plannedEndTime;
-            // Apply 30-min gap with break proximity
-            currentEndTime = calculateGapAdjustedStartTime(currentEndTime, shift);
-          } else {
-            // No overlap - stop cascading, preserve gap
-            break;
-          }
-        }
-      }
       
       console.log('[PLANNER] Staged resize for job:', jobId, 'duration:', roundedDuration, 'minutes');
     } else {
@@ -508,63 +465,20 @@ export const ProductionPlannerPage = () => {
     // Calculate default duration from EFinks (this will be rounded to 15min)
     const defaultDuration = getJobDurationMinutes({ estimatedEFinks: job.estimatedEFinks });
     
-    // Calculate new end time based on the default duration
-    let plannedEndTime: number | null = null;
-    
     if (job.plannedStartTime != null && jigId && dateStr) {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
       // Calculate end time and break adjustments using default duration
       const timing = calculatePlannedTimes(job.plannedStartTime, defaultDuration, shift);
-      plannedEndTime = timing.plannedEndTime;
       
-      // Stage the reset change - clears customDurationMinutes, keeps plannedDurationMinutes as EFinks base
+      // Stage ONLY the reset change for this job - NO cascading
       stageJobChange(jobId, {
         customDurationMinutes: undefined,
         plannedDurationMinutes: defaultDuration,
-        plannedEndTime,
+        plannedEndTime: timing.plannedEndTime,
         breakAdjustmentMinutes: timing.breakAdjustmentMinutes
       }, 'resize');
-      
-      // Check for overlaps with downstream jobs and cascade if needed
-      const jobsOnTeamDay = allJobs
-        .filter(j => j.plannedDateStr === dateStr && j.jigId === jigId && !j.productionComplete)
-        .sort((a, b) => (a.plannedStartTime || 0) - (b.plannedStartTime || 0));
-      
-      const jobIndex = jobsOnTeamDay.findIndex(j => j.id === jobId);
-      if (jobIndex !== -1) {
-        let currentEndTime = plannedEndTime;
-        
-        // Apply 30-min gap with break proximity
-        currentEndTime = calculateGapAdjustedStartTime(currentEndTime, shift);
-        
-        // Cascade to downstream jobs only if overlap would occur
-        for (let i = jobIndex + 1; i < jobsOnTeamDay.length; i++) {
-          const downstreamJob = jobsOnTeamDay[i];
-          const existingStart = downstreamJob.plannedStartTime ?? shift.startTime;
-          
-          if (currentEndTime > existingStart) {
-            // Overlap would occur - need to push this job forward
-            const downstreamDuration = getJobDurationMinutes(downstreamJob);
-            const downstreamTiming = calculatePlannedTimes(currentEndTime, downstreamDuration, shift);
-            
-            stageJobChange(downstreamJob.id, {
-              plannedStartTime: downstreamTiming.plannedStartTime,
-              plannedEndTime: downstreamTiming.plannedEndTime,
-              plannedDurationMinutes: downstreamDuration,
-              breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
-            }, 'reorder', false); // false = cascaded change, don't update activeJobId
-            
-            currentEndTime = downstreamTiming.plannedEndTime;
-            // Apply 30-min gap with break proximity
-            currentEndTime = calculateGapAdjustedStartTime(currentEndTime, shift);
-          } else {
-            // No overlap - stop cascading, preserve gap
-            break;
-          }
-        }
-      }
       
       console.log('[PLANNER] Staged reset for job:', jobId, 'duration:', defaultDuration, 'minutes');
     } else {
