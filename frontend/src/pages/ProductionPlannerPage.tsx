@@ -24,7 +24,6 @@ import {
 import {
   getShiftConfig,
   calculatePlannedTimes,
-  calculateNextAvailableStartTime,
   getJobDurationMinutes,
   roundUpToQuarterHour,
   getDefaultEfinksDuration,
@@ -415,6 +414,7 @@ export const ProductionPlannerPage = () => {
   }, []);
 
   // Drop to a team/day column - assign jig, date, and calculate time
+  // SIMPLIFIED: Only updates the moved job, no cascading. Defaults to 07:00 start.
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     if (!draggedJobId) return;
     
@@ -444,26 +444,18 @@ export const ProductionPlannerPage = () => {
         // Get BASE duration for this job (without breaks)
         const jobDuration = getJobDurationMinutes(job);
         
-        // Constrain drop position to working hours
         const WORKING_START = shift.startTime; // 07:00 = 420 minutes
-        const WORKING_END = shift.endTime;     // 17:00 = 1020 minutes (or overtime)
+        const WORKING_END = shift.endTime;     // 17:00 = 1020 minutes
         
-        // Use drop position or find next available slot
+        // SIMPLIFIED: Place at drop position or 07:00 - no cascading calculations
         if (dropTimeMinutes !== undefined) {
-          // Soft snap to 15-min intervals, constrained to working hours
           let snappedTime = snapToQuarterHour(dropTimeMinutes);
-          
-          // Constrain to working hours
           snappedTime = Math.max(WORKING_START, snappedTime);
-          snappedTime = Math.min(WORKING_END - 15, snappedTime); // Leave at least 15 min before end
-          
+          snappedTime = Math.min(WORKING_END - 15, snappedTime);
           plannedStartTime = snappedTime;
         } else {
-          // Find next available start time on this team/day using efficient O(1) lookup
-          const dayMap = jobsByDateAndTeam.get(dateStr);
-          const teamJobs = dayMap?.get(updatedJigId) || [];
-          const otherJobsOnTeamDay = teamJobs.filter(j => j.id !== job.id);
-          plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
+          // Default to 07:00 (start of day) - no expensive lookups
+          plannedStartTime = WORKING_START;
         }
         
         // Calculate end time accounting for breaks
