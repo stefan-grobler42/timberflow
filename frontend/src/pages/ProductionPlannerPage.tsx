@@ -390,10 +390,20 @@ export const ProductionPlannerPage = () => {
         // Get BASE duration for this job (without breaks)
         const jobDuration = getJobDurationMinutes(job);
         
+        // Constrain drop position to working hours
+        const WORKING_START = shift.startTime; // 07:00 = 420 minutes
+        const WORKING_END = shift.endTime;     // 17:00 = 1020 minutes (or overtime)
+        
         // Use drop position or find next available slot
         if (dropTimeMinutes !== undefined) {
-          // Soft snap to 15-min intervals
-          plannedStartTime = snapToQuarterHour(dropTimeMinutes);
+          // Soft snap to 15-min intervals, constrained to working hours
+          let snappedTime = snapToQuarterHour(dropTimeMinutes);
+          
+          // Constrain to working hours
+          snappedTime = Math.max(WORKING_START, snappedTime);
+          snappedTime = Math.min(WORKING_END - 15, snappedTime); // Leave at least 15 min before end
+          
+          plannedStartTime = snappedTime;
         } else {
           // Find next available start time on this team/day
           const otherJobsOnTeamDay = allJobs.filter(
