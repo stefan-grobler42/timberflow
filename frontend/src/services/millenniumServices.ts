@@ -144,3 +144,71 @@ export const jigService = {
   update: (id: string, data: Partial<Jig>) => api.put<Jig>(`/jigs/${id}`, data),
   delete: (id: string) => api.delete(`/jigs/${id}`),
 };
+
+export interface ProductionAudit {
+  id: string;
+  productionId: string;
+  changeType: string;
+  fieldName?: string;
+  oldValue?: string;
+  newValue?: string;
+  oldJigId?: string;
+  newJigId?: string;
+  oldJigName?: string;
+  newJigName?: string;
+  oldPlannedDate?: string;
+  newPlannedDate?: string;
+  oldStartTime?: number;
+  newStartTime?: number;
+  oldEndTime?: number;
+  newEndTime?: number;
+  oldDurationMinutes?: number;
+  newDurationMinutes?: number;
+  batchId?: string;
+  orderNumber?: string;
+  customerName?: string;
+  changedBy?: string;
+  changedOn: string;
+  notes?: string;
+}
+
+export interface CreateProductionAuditDto {
+  productionId: string;
+  changeType: string;
+  fieldName?: string;
+  oldValue?: string;
+  newValue?: string;
+  oldJigId?: string | null;
+  newJigId?: string | null;
+  oldPlannedDate?: string | null;
+  newPlannedDate?: string | null;
+  oldStartTime?: number | null;
+  newStartTime?: number | null;
+  oldEndTime?: number | null;
+  newEndTime?: number | null;
+  oldDurationMinutes?: number | null;
+  newDurationMinutes?: number | null;
+  batchId?: string;
+  orderNumber?: string;
+  customerName?: string;
+  changedBy?: string;
+  notes?: string;
+}
+
+export const productionAuditService = {
+  getAll: (params?: { productionId?: string; batchId?: string; fromDate?: string; toDate?: string; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.productionId) searchParams.append('productionId', params.productionId);
+    if (params?.batchId) searchParams.append('batchId', params.batchId);
+    if (params?.fromDate) searchParams.append('fromDate', params.fromDate);
+    if (params?.toDate) searchParams.append('toDate', params.toDate);
+    if (params?.limit) searchParams.append('limit', params.limit.toString());
+    const queryString = searchParams.toString();
+    return api.get<ProductionAudit[]>(`/productionaudits${queryString ? '?' + queryString : ''}`);
+  },
+  getById: (id: string) => api.get<ProductionAudit>(`/productionaudits/${id}`),
+  getByProductionId: (productionId: string) => api.get<ProductionAudit[]>(`/productionaudits/production/${productionId}`),
+  getByBatchId: (batchId: string) => api.get<ProductionAudit[]>(`/productionaudits/batch/${batchId}`),
+  create: (data: CreateProductionAuditDto) => api.post<ProductionAudit>('/productionaudits', data),
+  createBatch: (data: CreateProductionAuditDto[]) => api.post<ProductionAudit[]>('/productionaudits/batch', data),
+};

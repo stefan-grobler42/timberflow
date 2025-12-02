@@ -6,7 +6,8 @@ import {
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
-import { jigService } from '../services/millenniumServices';
+import { jigService, productionAuditService } from '../services/millenniumServices';
+import type { CreateProductionAuditDto } from '../services/millenniumServices';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -40,6 +41,7 @@ import {
   getStagedJobCount,
   isJobStaged,
   buildBatchUpdatePayloads,
+  buildAuditRecords,
   findAffectedJobs,
   getEffectiveValue
 } from '../utils/pendingChangesUtils';
@@ -252,10 +254,44 @@ export const ProductionPlannerPage = () => {
     try {
       const updates = buildBatchUpdatePayloads(globalStaging);
       
-      // Persist all changes
+      // Build job details map for audit records
+      const jobDetailsMap = new Map<string, { orderNumber?: string; customer?: string }>();
+      for (const job of [...jobs, ...unallocatedOrders]) {
+        jobDetailsMap.set(job.id, { orderNumber: job.orderNumber, customer: job.customer });
+      }
+      
+      // Build audit records before persisting
+      const auditRecords = buildAuditRecords(globalStaging, jobDetailsMap);
+      console.log('[PLANNER] Creating', auditRecords.length, 'audit records');
+      
+      // Persist all production changes
       for (const { id, payload } of updates) {
         console.log('[PLANNER] Persisting job:', id, payload);
         await productionService.update(id, payload);
+      }
+      
+      // Send audit records to backend
+      if (auditRecords.length > 0) {
+        const auditDtos: CreateProductionAuditDto[] = auditRecords.map(record => ({
+          productionId: record.productionId,
+          changeType: record.changeType,
+          oldJigId: record.oldJigId,
+          newJigId: record.newJigId,
+          oldPlannedDate: record.oldPlannedDate,
+          newPlannedDate: record.newPlannedDate,
+          oldStartTime: record.oldStartTime,
+          newStartTime: record.newStartTime,
+          oldEndTime: record.oldEndTime,
+          newEndTime: record.newEndTime,
+          oldDurationMinutes: record.oldDurationMinutes,
+          newDurationMinutes: record.newDurationMinutes,
+          orderNumber: record.orderNumber,
+          customerName: record.customerName,
+          notes: record.notes
+        }));
+        
+        await productionAuditService.createBatch(auditDtos);
+        console.log('[PLANNER] ✓ Audit records saved');
       }
       
       console.log('[PLANNER] ✓ All changes persisted');

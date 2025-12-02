@@ -363,3 +363,60 @@ export function createEmptyPendingState(): PendingChangesState {
 export function hasPendingChanges(state: PendingChangesState): boolean {
   return state.changes.size > 0;
 }
+
+export interface AuditRecord {
+  productionId: string;
+  changeType: string;
+  fieldName?: string;
+  oldValue?: string;
+  newValue?: string;
+  oldJigId?: string | null;
+  newJigId?: string | null;
+  oldPlannedDate?: string | null;
+  newPlannedDate?: string | null;
+  oldStartTime?: number | null;
+  newStartTime?: number | null;
+  oldEndTime?: number | null;
+  newEndTime?: number | null;
+  oldDurationMinutes?: number | null;
+  newDurationMinutes?: number | null;
+  orderNumber?: string;
+  customerName?: string;
+  notes?: string;
+}
+
+export function buildAuditRecords(
+  state: GlobalStagingState,
+  jobDetails: Map<string, { orderNumber?: string; customer?: string }>
+): AuditRecord[] {
+  const records: AuditRecord[] = [];
+  
+  for (const staged of state.stagedJobs.values()) {
+    if (!hasJobChanged(staged)) continue;
+    
+    const details = jobDetails.get(staged.id) || {};
+    const isPrimary = staged.isPrimary;
+    
+    const record: AuditRecord = {
+      productionId: staged.id,
+      changeType: isPrimary ? staged.changeType : 'reorder',
+      orderNumber: details.orderNumber,
+      customerName: details.customer,
+      oldJigId: staged.originalData.jigId,
+      newJigId: staged.pendingData.jigId !== undefined ? staged.pendingData.jigId : staged.originalData.jigId,
+      oldPlannedDate: staged.originalData.plannedDateStr,
+      newPlannedDate: staged.pendingData.plannedDateStr !== undefined ? staged.pendingData.plannedDateStr : staged.originalData.plannedDateStr,
+      oldStartTime: staged.originalData.plannedStartTime,
+      newStartTime: staged.pendingData.plannedStartTime !== undefined ? staged.pendingData.plannedStartTime : staged.originalData.plannedStartTime,
+      oldEndTime: staged.originalData.plannedEndTime,
+      newEndTime: staged.pendingData.plannedEndTime !== undefined ? staged.pendingData.plannedEndTime : staged.originalData.plannedEndTime,
+      oldDurationMinutes: staged.originalData.plannedDurationMinutes,
+      newDurationMinutes: staged.pendingData.plannedDurationMinutes !== undefined ? staged.pendingData.plannedDurationMinutes : staged.originalData.plannedDurationMinutes,
+      notes: isPrimary ? 'Primary job change' : 'Affected by primary job move'
+    };
+    
+    records.push(record);
+  }
+  
+  return records;
+}
