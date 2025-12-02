@@ -517,68 +517,24 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return getBaseDuration(job);
   };
 
-  const advancePastBreaks = (startMinutes: number): number => {
-    let currentPos = startMinutes;
-    
-    // Sort breaks chronologically
-    const sortedBreaks = [...breakSlots].sort((a, b) => {
-      const aStart = a.startHour * 60 + a.startMinute;
-      const bStart = b.startHour * 60 + b.startMinute;
-      return aStart - bStart;
-    });
-    
-    // Only advance if we're inside a break
-    for (const breakSlot of sortedBreaks) {
-      const breakStart = getBreakStartMinutes(breakSlot);
-      const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
-      
-      if (currentPos >= breakStart && currentPos < breakEnd) {
-        currentPos = breakEnd;
-        break;
-      }
-    }
-    
-    return currentPos;
-  };
-
   const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0; // 07:00 = 420 minutes
-    const GAP_BETWEEN_JOBS = 15; // 15 minutes gap between jobs
     
-    // Sort jobs by plannedStartTime if available, otherwise by creation order
-    // This determines the ORDER jobs appear, not their position
-    const sortedJobs = [...jigJobs].sort((a, b) => {
-      // If both have plannedStartTime, sort by it
-      if (a.plannedStartTime != null && b.plannedStartTime != null) {
-        return (a.plannedStartTime as number) - (b.plannedStartTime as number);
-      }
-      // Jobs with plannedStartTime come before those without
-      if (a.plannedStartTime != null) return -1;
-      if (b.plannedStartTime != null) return 1;
-      // Otherwise maintain original order
-      return 0;
-    });
-
-    // Start first job at 07:00
-    let currentTop = workingHoursOffset;
-
-    for (let i = 0; i < sortedJobs.length; i++) {
-      const job = sortedJobs[i];
+    // CALENDAR-STYLE: Each job uses its stored plannedStartTime for positioning
+    // No sequential recalculation - allows overlaps which user can resolve manually
+    for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const baseHeight = Math.max(MIN_BLOCK_HEIGHT, baseDuration * PIXELS_PER_MINUTE);
+      
+      // Use stored plannedStartTime if available, otherwise default to shift start
+      const jobTop = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
       
       let breakAdditions: BreakAddition[] = [];
       let totalBreakMinutes = 0;
       
-      // Always calculate position sequentially - ignore stored plannedStartTime for display
-      // First job starts at 07:00, each subsequent job starts 15 min after previous ends
-      
-      // Skip past any breaks we're currently in
-      currentTop = advancePastBreaks(currentTop);
-      
       if (includeBreaks) {
-        breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+        breakAdditions = calculateBreaksSpanned(jobTop, baseDuration);
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
@@ -586,20 +542,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       
       positions.push({ 
         job, 
-        top: currentTop, 
+        top: jobTop, 
         height: totalHeight,
         baseHeight,
         breakAdditions,
         totalBreakMinutes
       });
-      
-      // Next job starts 15 minutes after this job ends (plus any break adjustments)
-      const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
-      currentTop = jobEndMinutes + GAP_BETWEEN_JOBS;
-      
-      // Skip past any breaks after the gap
-      currentTop = advancePastBreaks(currentTop);
     }
+
+    // Sort by top position for consistent rendering order
+    positions.sort((a, b) => a.top - b.top);
 
     return positions;
   };
@@ -633,30 +585,22 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const overflowDetails = new Map<string, number>();
     const workingEnd = getWorkingEndMinutes();
     const workingHoursOffset = getWorkingHoursOffset();
-    const GAP_BETWEEN_JOBS = 15;
-    let currentTop = workingHoursOffset;
 
-    for (let i = 0; i < jigJobs.length; i++) {
-      const job = jigJobs[i];
+    // CALENDAR-STYLE: Check each job independently at its stored position
+    for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
+      const jobStart = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
       
-      // Skip past any breaks we're currently in
-      currentTop = advancePastBreaks(currentTop);
-      
-      const breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
+      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration);
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       
-      const jobEndMinutes = currentTop + baseDuration + totalBreakMinutes;
+      const jobEndMinutes = jobStart + baseDuration + totalBreakMinutes;
       
       if (jobEndMinutes > workingEnd) {
         overflowing.add(job.id);
         const overflowAmount = jobEndMinutes - workingEnd;
         overflowDetails.set(job.id, overflowAmount);
       }
-      
-      // Next job starts 15 minutes after this job ends
-      currentTop = jobEndMinutes + GAP_BETWEEN_JOBS;
-      currentTop = advancePastBreaks(currentTop);
     }
 
     return { overflowing, overflowDetails };
