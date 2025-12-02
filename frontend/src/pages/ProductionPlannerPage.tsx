@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown
+  Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
+  PrimaryButton, DefaultButton, Icon
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
@@ -24,15 +25,23 @@ import {
   calculatePlannedTimes,
   calculateNextAvailableStartTime,
   getJobDurationMinutes,
-  roundUpToQuarterHour
+  roundUpToQuarterHour,
+  getDefaultEfinksDuration,
+  snapToQuarterHour
 } from '../utils/scheduleUtils';
 import {
-  type PendingJobChange,
-  type PendingChangesState,
-  createEmptyPendingState,
-  addPendingChange,
-  buildUpdatePayload,
-  findFirstOverlappingJob
+  type GlobalStagingState,
+  type StagedJob,
+  createEmptyStagingState,
+  stageJob,
+  stageMultipleJobs,
+  updateStagedJob,
+  hasStagedChanges,
+  getStagedJobCount,
+  isJobStaged,
+  buildBatchUpdatePayloads,
+  findAffectedJobs,
+  getEffectiveValue
 } from '../utils/pendingChangesUtils';
 
 interface Job {
@@ -70,8 +79,8 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByDay, setOvertimeByDay] = useState<Record<string, { enabled: boolean; closeTime: string }>>({});
-  const [pendingChanges, setPendingChanges] = useState<PendingChangesState>(createEmptyPendingState());
-  const [stagedJobs, setStagedJobs] = useState<Map<string, Partial<Job>>>(new Map());
+  const [globalStaging, setGlobalStaging] = useState<GlobalStagingState>(createEmptyStagingState());
+  const [isSaving, setIsSaving] = useState(false);
 
   const loadData = async () => {
     console.log('[PLANNER] Starting to load data...');
@@ -150,150 +159,103 @@ export const ProductionPlannerPage = () => {
   }, []);
 
   // Merge unallocated orders into jobs array for display in all views
-  // Apply staged (pending) changes on top of persisted data
+  // Apply staged changes on top of persisted data
   const allJobs = useMemo(() => {
     const merged = [...jobs, ...unallocatedOrders].map(job => {
-      const staged = stagedJobs.get(job.id);
+      const staged = globalStaging.stagedJobs.get(job.id);
       if (staged) {
-        return { ...job, ...staged };
+        return { 
+          ...job,
+          jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
+          plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
+          plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
+          plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
+          plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
+          customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
+          breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
+        };
       }
       return job;
     });
     return merged;
-  }, [jobs, unallocatedOrders, stagedJobs]);
+  }, [jobs, unallocatedOrders, globalStaging]);
   
-  // Stage a job change locally (does not persist to DB until confirmed)
-  // isPrimaryChange: true = user-initiated action, false = cascaded/downstream change
-  const stageJobChange = (jobId: string, changes: Partial<Job>, changeType: PendingJobChange['changeType'], isPrimaryChange: boolean = true) => {
-    const job = allJobs.find(j => j.id === jobId);
+  // Stage a job click - adds job + affected jobs to global staging
+  const handleJobClick = (jobId: string) => {
+    const job = [...jobs, ...unallocatedOrders].find(j => j.id === jobId);
     if (!job) return;
     
-    // Create pending change record
-    const pendingChange: PendingJobChange = {
-      id: jobId,
-      originalData: {
-        jigId: job.jigId,
-        plannedDateStr: job.plannedDateStr,
-        plannedStartTime: job.plannedStartTime ?? null,
-        plannedEndTime: job.plannedEndTime ?? null,
-        plannedDurationMinutes: job.plannedDurationMinutes ?? null,
-        customDurationMinutes: job.customDurationMinutes,
-        breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null
-      },
-      pendingData: {
-        jigId: changes.jigId,
-        plannedDateStr: changes.plannedDateStr,
-        plannedStartTime: changes.plannedStartTime,
-        plannedEndTime: changes.plannedEndTime,
-        plannedDurationMinutes: changes.plannedDurationMinutes,
-        customDurationMinutes: changes.customDurationMinutes,
-        breakAdjustmentMinutes: changes.breakAdjustmentMinutes
-      },
-      changeType
-    };
+    // If already staged, do nothing (user can continue editing)
+    if (isJobStaged(globalStaging, jobId)) {
+      console.log('[PLANNER] Job already staged:', jobId);
+      return;
+    }
     
-    setPendingChanges(prev => addPendingChange(prev, pendingChange, isPrimaryChange));
-    setStagedJobs(prev => {
-      const next = new Map(prev);
-      const existing = next.get(jobId) || {};
-      next.set(jobId, { ...existing, ...changes });
-      return next;
-    });
+    // Find affected jobs (those that would be impacted by this job's changes)
+    const affectedJobIds = job.plannedEndTime && job.jigId && job.plannedDateStr
+      ? findAffectedJobs(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr, [...jobs, ...unallocatedOrders])
+      : [];
     
-    console.log('[PLANNER] Staged change:', changeType, 'for job:', jobId, isPrimaryChange ? '(primary)' : '(cascade)', changes);
+    const affectedJobs = affectedJobIds
+      .map(id => [...jobs, ...unallocatedOrders].find(j => j.id === id))
+      .filter((j): j is Job => j !== undefined);
+    
+    console.log('[PLANNER] Staging job:', jobId, 'with', affectedJobs.length, 'affected jobs');
+    
+    setGlobalStaging(prev => stageMultipleJobs(prev, job, affectedJobs, 'move'));
   };
 
-  // Confirm and persist a single job's pending changes
-  // If the confirmed job causes an overlap, activate the next job for sequential manual confirmation
-  const confirmJobChange = async (jobId: string) => {
-    const change = pendingChanges.changes.get(jobId);
-    if (!change) return;
+  // Stage a change to a job (for resize, move, etc.)
+  const stageJobUpdate = (jobId: string, updates: Partial<Job>, changeType: StagedJob['changeType'] = 'move') => {
+    const job = [...jobs, ...unallocatedOrders].find(j => j.id === jobId);
+    if (!job) return;
     
-    console.log('[PLANNER] Confirming change for job:', jobId);
+    // If not staged yet, stage it first
+    if (!isJobStaged(globalStaging, jobId)) {
+      setGlobalStaging(prev => {
+        const withJob = stageJob(prev, job, true, changeType);
+        return updateStagedJob(withJob, jobId, updates, changeType);
+      });
+    } else {
+      setGlobalStaging(prev => updateStagedJob(prev, jobId, updates, changeType));
+    }
+    
+    console.log('[PLANNER] Updated staged job:', jobId, updates);
+  };
+
+  // Global Accept - persist ALL staged changes
+  const acceptAllChanges = async () => {
+    if (!hasStagedChanges(globalStaging)) return;
+    
+    setIsSaving(true);
+    console.log('[PLANNER] Accepting all staged changes:', getStagedJobCount(globalStaging), 'jobs');
     
     try {
-      const payload = buildUpdatePayload(change);
-      await productionService.update(jobId, payload);
-      console.log('[PLANNER] ✓ Job change persisted to database');
+      const updates = buildBatchUpdatePayloads(globalStaging);
       
-      // Get the confirmed job's end time for overlap detection
-      const stagedData = stagedJobs.get(jobId);
-      const confirmedEndTime = stagedData?.plannedEndTime ?? change.pendingData.plannedEndTime;
-      const confirmedJigId = stagedData?.jigId ?? change.pendingData.jigId ?? change.originalData.jigId;
-      const confirmedDateStr = stagedData?.plannedDateStr ?? change.pendingData.plannedDateStr ?? change.originalData.plannedDateStr;
-      
-      // Merge staged change into jobs state
-      const updatedJobs = jobs.map(job => {
-        if (job.id === jobId) {
-          const staged = stagedJobs.get(jobId);
-          if (staged) {
-            return { ...job, ...staged };
-          }
-        }
-        return job;
-      });
-      setJobs(updatedJobs);
-      
-      // Check for overlapping job AFTER confirming this one
-      // Use the updated jobs array to find the first job that overlaps
-      if (confirmedEndTime != null && confirmedJigId && confirmedDateStr) {
-        const overlappingJobId = findFirstOverlappingJob(
-          jobId,
-          confirmedEndTime,
-          confirmedJigId,
-          confirmedDateStr,
-          updatedJobs
-        );
-        
-        if (overlappingJobId) {
-          console.log('[PLANNER] Found overlapping job:', overlappingJobId, '- activating for manual repositioning');
-          
-          // Activate the overlapping job for manual repositioning
-          const overlappingJob = updatedJobs.find(j => j.id === overlappingJobId);
-          if (overlappingJob) {
-            // Create a pending change to activate this job for repositioning
-            // User will need to manually move it
-            const pendingChange: PendingJobChange = {
-              id: overlappingJobId,
-              originalData: {
-                jigId: overlappingJob.jigId,
-                plannedDateStr: overlappingJob.plannedDateStr,
-                plannedStartTime: overlappingJob.plannedStartTime ?? null,
-                plannedEndTime: overlappingJob.plannedEndTime ?? null,
-                plannedDurationMinutes: overlappingJob.plannedDurationMinutes ?? null,
-                customDurationMinutes: overlappingJob.customDurationMinutes,
-                breakAdjustmentMinutes: overlappingJob.breakAdjustmentMinutes ?? null
-              },
-              pendingData: {}, // No changes yet - user will reposition
-              changeType: 'reorder'
-            };
-            
-            // Set this job as active so user can reposition it
-            setPendingChanges({
-              changes: new Map([[overlappingJobId, pendingChange]]),
-              affectedDays: new Set([confirmedDateStr]),
-              activeJobId: overlappingJobId
-            });
-            setStagedJobs(new Map()); // Clear staged, user will make new changes
-            return; // Don't clear state - we activated the next job
-          }
-        }
+      // Persist all changes
+      for (const { id, payload } of updates) {
+        console.log('[PLANNER] Persisting job:', id, payload);
+        await productionService.update(id, payload);
       }
       
-      // No overlaps - clear all pending state
-      setPendingChanges(createEmptyPendingState());
-      setStagedJobs(new Map());
+      console.log('[PLANNER] ✓ All changes persisted');
+      
+      // Clear staging and reload data
+      setGlobalStaging(createEmptyStagingState());
+      await loadData();
     } catch (err) {
-      console.error('[PLANNER] ✗ Failed to persist job change:', err);
+      console.error('[PLANNER] ✗ Failed to persist changes:', err);
       setError('Failed to save changes. Please try again.');
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Discard a single job's pending changes  
-  const discardJobChange = (jobId: string) => {
-    console.log('[PLANNER] Discarding change for job:', jobId);
-    setPendingChanges(createEmptyPendingState());
-    setStagedJobs(new Map());
+  // Global Discard - clear all staged changes
+  const discardAllChanges = () => {
+    console.log('[PLANNER] Discarding all staged changes');
+    setGlobalStaging(createEmptyStagingState());
   };
 
   // Unallocated basket: all production without planned date + orders needing production
@@ -320,16 +282,9 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   };
 
-  const handleDrop = async (dateStr: string, jigId?: string | null) => {
+  // Drop to a team/day column - assign jig, date, and calculate time
+  const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     if (!draggedJobId) return;
-    
-    // Block drops for OTHER jobs when there's a pending change that needs confirmation
-    // The active job itself can still be repositioned before confirmation
-    if (pendingChanges.activeJobId !== null && pendingChanges.activeJobId !== draggedJobId) {
-      console.log('[PLANNER] Drop blocked - confirm pending changes for active job first');
-      setDraggedJobId(null);
-      return;
-    }
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
@@ -351,33 +306,35 @@ export const ProductionPlannerPage = () => {
       let breakAdjustmentMinutes: number | null = null;
       
       if (updatedJigId) {
-        const dayKey = dateStr;
-        const overtime = overtimeByDay[dayKey];
+        const overtime = overtimeByDay[dateStr];
         const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
         
         // Get BASE duration for this job (without breaks)
         const jobDuration = getJobDurationMinutes(job);
         
-        // Find next available start time on this team/day
-        // Use allJobs to include staged changes so multiple pending drops don't collide
-        const otherJobsOnTeamDay = allJobs.filter(
-          j => j.id !== job.id && j.plannedDateStr === dateStr && j.jigId === updatedJigId
-        );
+        // Use drop position or find next available slot
+        if (dropTimeMinutes !== undefined) {
+          // Soft snap to 15-min intervals
+          plannedStartTime = snapToQuarterHour(dropTimeMinutes);
+        } else {
+          // Find next available start time on this team/day
+          const otherJobsOnTeamDay = allJobs.filter(
+            j => j.id !== job.id && j.plannedDateStr === dateStr && j.jigId === updatedJigId
+          );
+          plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
+        }
         
-        plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
-        
-        // Calculate end time accounting for breaks and get break adjustment
+        // Calculate end time accounting for breaks
         const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
         plannedEndTime = timing.plannedEndTime;
         plannedDurationMinutes = jobDuration;
         breakAdjustmentMinutes = timing.breakAdjustmentMinutes;
         
-        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min, breakAdjust=${breakAdjustmentMinutes}min`);
+        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min`);
       }
       
       if (isSalesOrder && actualOrderId) {
         // Create a new production record for this sales order
-        // Sales orders need immediate creation since they don't exist yet
         const createData: any = {
           name: job.name || job.orderNumber || 'Production',
           orderNo: actualOrderId,
@@ -393,12 +350,10 @@ export const ProductionPlannerPage = () => {
         
         console.log('[PLANNER] Creating production for sales order:', actualOrderId);
         await productionService.create(createData);
-        console.log('[PLANNER] ✓ Production created, reloading data...');
-        
         await loadData();
       } else {
-        // Stage the change - don't persist until user confirms
-        stageJobChange(job.id, {
+        // Stage the change - don't persist until global accept
+        stageJobUpdate(job.id, {
           plannedDateStr: dateStr,
           jigId: updatedJigId,
           plannedStartTime,
@@ -407,7 +362,7 @@ export const ProductionPlannerPage = () => {
           breakAdjustmentMinutes
         }, 'allocate');
         
-        // Switch to day view to show the confirmation bar
+        // Switch to day view if not already
         if (viewMode !== 'day') {
           setViewMode('day');
           setCurrentDateStr(dateStr);
@@ -416,21 +371,14 @@ export const ProductionPlannerPage = () => {
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
       setError(`Failed to schedule job: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      await loadData(); // Reload to recover consistent state
     } finally {
       setDraggedJobId(null);
     }
   };
 
-  const handleDropToUnallocated = async () => {
+  // Drop to global unallocated basket - reset to EFinks and clear assignment
+  const handleDropToUnallocated = () => {
     if (!draggedJobId) return;
-    
-    // Block unallocate for OTHER jobs when there's a pending change that needs confirmation
-    if (pendingChanges.activeJobId !== null && pendingChanges.activeJobId !== draggedJobId) {
-      console.log('[PLANNER] Unallocate blocked - confirm pending changes for active job first');
-      setDraggedJobId(null);
-      return;
-    }
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
@@ -442,31 +390,52 @@ export const ProductionPlannerPage = () => {
       return;
     }
 
-    // Unallocate persists immediately - no confirmation needed since the job is 
-    // leaving the schedule and poses no collision risk with other jobs
-    try {
-      console.log(`[PLANNER] Unallocating job ${job.id} - persisting immediately`);
-      
-      await productionService.update(job.id, {
-        jigId: undefined,
-        plannedStartDate: undefined,
-        plannedStartTime: undefined,
-        plannedEndTime: undefined,
-        plannedDurationMinutes: undefined,
-        customDurationMinutes: undefined,
-        breakAdjustmentMinutes: undefined
-      });
-      
-      console.log('[PLANNER] ✓ Job unallocated successfully');
-      
-      // Reload data to reflect the change
-      await loadData();
-    } catch (err) {
-      console.error('[PLANNER] ✗ Failed to unallocate job:', err);
-      setError(`Failed to unallocate job: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
+    // Reset to EFinks default when moving to unallocated
+    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+    
+    // Stage the unallocate - resets to EFinks default
+    stageJobUpdate(job.id, {
+      jigId: null,
+      plannedDateStr: null,
+      plannedStartTime: null,
+      plannedEndTime: null,
+      plannedDurationMinutes: defaultDuration,
+      customDurationMinutes: undefined,
+      breakAdjustmentMinutes: null
+    }, 'unallocate');
+    
+    console.log('[PLANNER] Staged unallocate for job:', job.id, 'reset to EFinks:', defaultDuration, 'min');
+    setDraggedJobId(null);
+  };
+
+  // Drop to team unallocated column - assign team but no date/time, reset to EFinks
+  const handleDropToTeamUnallocated = (jigId: string) => {
+    if (!draggedJobId) return;
+    
+    const job = allJobs.find(j => j.id === draggedJobId);
+    if (!job) return;
+
+    const isSalesOrder = job.id.startsWith('order-');
+    if (isSalesOrder) {
       setDraggedJobId(null);
+      return;
     }
+
+    // Reset to EFinks default when moving to team unallocated
+    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+    
+    stageJobUpdate(job.id, {
+      jigId: jigId,
+      plannedDateStr: null,
+      plannedStartTime: null,
+      plannedEndTime: null,
+      plannedDurationMinutes: defaultDuration,
+      customDurationMinutes: undefined,
+      breakAdjustmentMinutes: null
+    }, 'unallocate');
+    
+    console.log('[PLANNER] Staged team unallocate for job:', job.id, 'team:', jigId);
+    setDraggedJobId(null);
   };
 
   const handleJobDoubleClick = (jobId: string) => {
@@ -488,12 +457,11 @@ export const ProductionPlannerPage = () => {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
-      // Calculate new end time and break adjustments using the rounded duration
+      // Calculate new end time and break adjustments
       const timing = calculatePlannedTimes(job.plannedStartTime, roundedDuration, shift);
       
-      // Stage ONLY the resize change for this job - NO cascading
-      // Overlaps are allowed during editing and resolved sequentially on confirm
-      stageJobChange(jobId, {
+      // Stage the resize - no cascading, overlaps allowed during staging
+      stageJobUpdate(jobId, {
         customDurationMinutes: roundedDuration,
         plannedDurationMinutes: roundedDuration,
         plannedEndTime: timing.plannedEndTime,
@@ -502,8 +470,7 @@ export const ProductionPlannerPage = () => {
       
       console.log('[PLANNER] Staged resize for job:', jobId, 'duration:', roundedDuration, 'minutes');
     } else {
-      // Just stage the duration change
-      stageJobChange(jobId, {
+      stageJobUpdate(jobId, {
         customDurationMinutes: roundedDuration,
         plannedDurationMinutes: roundedDuration
       }, 'resize');
@@ -517,18 +484,18 @@ export const ProductionPlannerPage = () => {
     const dateStr = job.plannedDateStr;
     const jigId = job.jigId;
     
-    // Calculate default duration from EFinks (this will be rounded to 15min)
-    const defaultDuration = getJobDurationMinutes({ estimatedEFinks: job.estimatedEFinks });
+    // Calculate default duration from EFinks
+    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
     
     if (job.plannedStartTime != null && jigId && dateStr) {
       const overtime = overtimeByDay[dateStr];
       const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
-      // Calculate end time and break adjustments using default duration
+      // Calculate end time using default duration
       const timing = calculatePlannedTimes(job.plannedStartTime, defaultDuration, shift);
       
-      // Stage ONLY the reset change for this job - NO cascading
-      stageJobChange(jobId, {
+      // Stage the reset - clears customDurationMinutes
+      stageJobUpdate(jobId, {
         customDurationMinutes: undefined,
         plannedDurationMinutes: defaultDuration,
         plannedEndTime: timing.plannedEndTime,
@@ -537,8 +504,7 @@ export const ProductionPlannerPage = () => {
       
       console.log('[PLANNER] Staged reset for job:', jobId, 'duration:', defaultDuration, 'minutes');
     } else {
-      // Just stage the reset
-      stageJobChange(jobId, {
+      stageJobUpdate(jobId, {
         customDurationMinutes: undefined,
         plannedDurationMinutes: defaultDuration
       }, 'resize');
@@ -877,6 +843,43 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
+      {hasStagedChanges(globalStaging) && (
+        <Stack 
+          horizontal 
+          verticalAlign="center" 
+          tokens={{ childrenGap: 15 }}
+          styles={{ 
+            root: { 
+              padding: '12px 16px',
+              marginTop: 10,
+              backgroundColor: '#fff4ce',
+              borderRadius: 4,
+              border: '1px solid #ffb900'
+            } 
+          }}
+        >
+          <Icon iconName="Edit" styles={{ root: { color: '#ffb900', fontSize: 18 } }} />
+          <Text styles={{ root: { fontWeight: 600, color: '#323130' } }}>
+            {getStagedJobCount(globalStaging)} job{getStagedJobCount(globalStaging) !== 1 ? 's' : ''} staged for changes
+          </Text>
+          <Stack horizontal tokens={{ childrenGap: 10 }} styles={{ root: { marginLeft: 'auto' } }}>
+            <DefaultButton
+              text="Discard All"
+              onClick={discardAllChanges}
+              disabled={isSaving}
+              styles={{ root: { minWidth: 100 } }}
+            />
+            <PrimaryButton
+              text={isSaving ? 'Saving...' : 'Accept All Changes'}
+              onClick={acceptAllChanges}
+              disabled={isSaving}
+              iconProps={{ iconName: 'CheckMark' }}
+              styles={{ root: { minWidth: 150 } }}
+            />
+          </Stack>
+        </Stack>
+      )}
+
       <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15 } }}>
         <div
           onMouseEnter={() => setBasketCollapsed(false)}
@@ -997,15 +1000,15 @@ export const ProductionPlannerPage = () => {
               onDragOver={handleDragOver}
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
               onJobDoubleClick={handleJobDoubleClick}
+              onJobClick={handleJobClick}
               onJobDurationChange={handleJobDurationChange}
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
               overtimeSettings={overtimeByDay[currentDateStr]}
               onOvertimeChange={handleOvertimeChange}
-              activeJobId={pendingChanges.activeJobId}
-              onConfirmJobChange={confirmJobChange}
-              onDiscardJobChange={discardJobChange}
+              globalStaging={globalStaging}
+              onDropToTeamUnallocated={handleDropToTeamUnallocated}
             />
           )}
         </Stack>

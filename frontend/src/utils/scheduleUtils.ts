@@ -12,8 +12,7 @@ interface ShiftConfig {
 }
 
 const MINUTES_PER_EFINK = 6.5625;
-const GAP_MINUTES = 30; // Standard gap between jobs
-const BREAK_PROXIMITY_MINUTES = 15; // If gap ends within this of a break, snap to break end
+const BUFFER_MINUTES = 15; // Buffer between jobs for paperwork
 
 /**
  * Round up to nearest 15-minute increment
@@ -24,34 +23,45 @@ export function roundUpToQuarterHour(minutes: number): number {
 }
 
 /**
- * Calculate the next job start time considering:
- * 1. 30-minute gap after previous job
- * 2. If gap end falls within 15 min of a break start, snap to break end
+ * Soft snap to nearest 15-minute interval
  */
-export function calculateGapAdjustedStartTime(
-  previousEndTime: number,
-  shift: ShiftConfig
+export function snapToQuarterHour(minutes: number): number {
+  return Math.round(minutes / 15) * 15;
+}
+
+/**
+ * Calculate the next job start time with 15-minute buffer
+ * No automatic break proximity snapping - manual booking control
+ */
+export function calculateBufferedStartTime(
+  previousEndTime: number
 ): number {
-  const gapEndTime = previousEndTime + GAP_MINUTES;
-  
-  // Check if gap end falls within 15 min of any break start
-  for (const brk of shift.breaks) {
-    // If gapEndTime is within BREAK_PROXIMITY_MINUTES of break start
-    // OR if gapEndTime falls inside the break
-    if (gapEndTime >= brk.start - BREAK_PROXIMITY_MINUTES && gapEndTime < brk.end) {
-      // Snap to break end
-      return brk.end;
-    }
-  }
-  
-  // If we're inside a break, skip to break end
-  for (const brk of shift.breaks) {
-    if (gapEndTime >= brk.start && gapEndTime < brk.end) {
-      return brk.end;
-    }
-  }
-  
-  return gapEndTime;
+  return previousEndTime + BUFFER_MINUTES;
+}
+
+/**
+ * Get default duration from EFinks estimate
+ */
+export function getDefaultEfinksDuration(estimatedEFinks?: number): number {
+  const efinks = estimatedEFinks || 0;
+  const rawMinutes = efinks * MINUTES_PER_EFINK;
+  return Math.max(15, roundUpToQuarterHour(rawMinutes));
+}
+
+/**
+ * Check if a job has been manually altered from EFinks default
+ */
+export function isManuallyAltered(job: {
+  customDurationMinutes?: number | null;
+  estimatedEFinks?: number;
+}): boolean {
+  if (!job.customDurationMinutes) return false;
+  const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+  return job.customDurationMinutes !== defaultDuration;
+}
+
+export function getBufferMinutes(): number {
+  return BUFFER_MINUTES;
 }
 
 const DEFAULT_SHIFT: ShiftConfig = {
@@ -255,13 +265,13 @@ export function calculateNextAvailableStartTime(
     }
   }
   
-  // Apply 30-minute gap with break proximity logic
-  // If no jobs exist yet, start at shift start (no gap needed)
+  // Apply 15-minute buffer (no complex break proximity - manual control)
+  // If no jobs exist yet, start at shift start (no buffer needed)
   if (lastEndTime === shift.startTime) {
     return shift.startTime;
   }
   
-  return calculateGapAdjustedStartTime(lastEndTime, shift);
+  return calculateBufferedStartTime(lastEndTime);
 }
 
 export function getJobDurationMinutes(job: { customDurationMinutes?: number; estimatedEFinks?: number }): number {
