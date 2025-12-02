@@ -557,17 +557,23 @@ export const DayView: React.FC<DayViewProps> = ({
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
 
-    // Sort jobs by plannedStartTime - jobs WITH valid times are sorted by time,
-    // jobs WITHOUT times are placed at their sequential position from start of day
+    // Sort jobs: jobs WITHOUT times come FIRST (to be placed from start of day),
+    // then jobs WITH times sorted by their start time
     const sortedJobs = [...jigJobs].sort((a, b) => {
       const aHasTime = a.plannedStartTime != null;
       const bHasTime = b.plannedStartTime != null;
       
       if (aHasTime && bHasTime) {
+        // Both have times - sort by start time
         return (a.plannedStartTime as number) - (b.plannedStartTime as number);
       }
-      // If neither has time, maintain creation order
-      return 0;
+      if (!aHasTime && !bHasTime) {
+        // Neither has time - maintain creation order
+        return 0;
+      }
+      // Jobs WITHOUT times come BEFORE jobs WITH times
+      // This ensures null-start jobs are placed from shift start, not after persisted jobs
+      return aHasTime ? 1 : -1;
     });
 
     for (let i = 0; i < sortedJobs.length; i++) {

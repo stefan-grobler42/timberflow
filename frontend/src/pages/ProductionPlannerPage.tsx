@@ -31,7 +31,8 @@ import {
   type PendingChangesState,
   createEmptyPendingState,
   addPendingChange,
-  buildUpdatePayload
+  buildUpdatePayload,
+  findFirstOverlappingJob
 } from '../utils/pendingChangesUtils';
 
 interface Job {
@@ -203,6 +204,7 @@ export const ProductionPlannerPage = () => {
   };
 
   // Confirm and persist a single job's pending changes
+  // If the confirmed job causes an overlap, activate the next job for sequential manual confirmation
   const confirmJobChange = async (jobId: string) => {
     const change = pendingChanges.changes.get(jobId);
     if (!change) return;
@@ -214,8 +216,14 @@ export const ProductionPlannerPage = () => {
       await productionService.update(jobId, payload);
       console.log('[PLANNER] ✓ Job change persisted to database');
       
+      // Get the confirmed job's end time for overlap detection
+      const stagedData = stagedJobs.get(jobId);
+      const confirmedEndTime = stagedData?.plannedEndTime ?? change.pendingData.plannedEndTime;
+      const confirmedJigId = stagedData?.jigId ?? change.pendingData.jigId ?? change.originalData.jigId;
+      const confirmedDateStr = stagedData?.plannedDateStr ?? change.pendingData.plannedDateStr ?? change.originalData.plannedDateStr;
+      
       // Merge staged change into jobs state
-      setJobs(prevJobs => prevJobs.map(job => {
+      const updatedJobs = jobs.map(job => {
         if (job.id === jobId) {
           const staged = stagedJobs.get(jobId);
           if (staged) {
@@ -223,9 +231,56 @@ export const ProductionPlannerPage = () => {
           }
         }
         return job;
-      }));
+      });
+      setJobs(updatedJobs);
       
-      // Clear pending state
+      // Check for overlapping job AFTER confirming this one
+      // Use the updated jobs array to find the first job that overlaps
+      if (confirmedEndTime != null && confirmedJigId && confirmedDateStr) {
+        const overlappingJobId = findFirstOverlappingJob(
+          jobId,
+          confirmedEndTime,
+          confirmedJigId,
+          confirmedDateStr,
+          updatedJobs
+        );
+        
+        if (overlappingJobId) {
+          console.log('[PLANNER] Found overlapping job:', overlappingJobId, '- activating for manual repositioning');
+          
+          // Activate the overlapping job for manual repositioning
+          const overlappingJob = updatedJobs.find(j => j.id === overlappingJobId);
+          if (overlappingJob) {
+            // Create a pending change to activate this job for repositioning
+            // User will need to manually move it
+            const pendingChange: PendingJobChange = {
+              id: overlappingJobId,
+              originalData: {
+                jigId: overlappingJob.jigId,
+                plannedDateStr: overlappingJob.plannedDateStr,
+                plannedStartTime: overlappingJob.plannedStartTime ?? null,
+                plannedEndTime: overlappingJob.plannedEndTime ?? null,
+                plannedDurationMinutes: overlappingJob.plannedDurationMinutes ?? null,
+                customDurationMinutes: overlappingJob.customDurationMinutes,
+                breakAdjustmentMinutes: overlappingJob.breakAdjustmentMinutes ?? null
+              },
+              pendingData: {}, // No changes yet - user will reposition
+              changeType: 'reorder'
+            };
+            
+            // Set this job as active so user can reposition it
+            setPendingChanges({
+              changes: new Map([[overlappingJobId, pendingChange]]),
+              affectedDays: new Set([confirmedDateStr]),
+              activeJobId: overlappingJobId
+            });
+            setStagedJobs(new Map()); // Clear staged, user will make new changes
+            return; // Don't clear state - we activated the next job
+          }
+        }
+      }
+      
+      // No overlaps - clear all pending state
       setPendingChanges(createEmptyPendingState());
       setStagedJobs(new Map());
     } catch (err) {

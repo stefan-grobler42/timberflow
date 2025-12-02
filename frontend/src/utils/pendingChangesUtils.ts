@@ -97,6 +97,85 @@ export function isJobLocked(state: PendingChangesState, jobId: string): boolean 
   return state.activeJobId !== null && state.activeJobId !== jobId;
 }
 
+/**
+ * Calculate the next job start time considering:
+ * 1. 30-minute gap after previous job
+ * 2. If gap end falls within 15 min of a break start, snap to break end
+ */
+function calculateGapAdjustedStart(previousEndTime: number): number {
+  const GAP_MINUTES = 30;
+  const BREAK_PROXIMITY_MINUTES = 15;
+  
+  const breaks = [
+    { start: 9 * 60, end: 9 * 60 + 15 },      // 9:00-9:15
+    { start: 12 * 60, end: 12 * 60 + 30 },    // 12:00-12:30
+    { start: 14 * 60 + 30, end: 14 * 60 + 45 } // 14:30-14:45
+  ];
+  
+  const gapEndTime = previousEndTime + GAP_MINUTES;
+  
+  // Check if gap end falls within 15 min of any break start or inside a break
+  for (const brk of breaks) {
+    if (gapEndTime >= brk.start - BREAK_PROXIMITY_MINUTES && gapEndTime < brk.end) {
+      return brk.end;
+    }
+  }
+  
+  // If we're inside a break, skip to break end
+  for (const brk of breaks) {
+    if (gapEndTime >= brk.start && gapEndTime < brk.end) {
+      return brk.end;
+    }
+  }
+  
+  return gapEndTime;
+}
+
+/**
+ * Detect if a job overlaps with another job on the same jig/day
+ * Returns the first overlapping job ID if found
+ * Uses gap + break proximity rules for overlap detection
+ */
+export function findFirstOverlappingJob(
+  activeJobId: string,
+  activeEndTime: number,
+  jigId: string | null,
+  dateStr: string | null,
+  allJobs: Array<{
+    id: string;
+    jigId: string | null;
+    plannedDateStr: string | null;
+    plannedStartTime?: number | null;
+    plannedEndTime?: number | null;
+    productionComplete?: boolean;
+  }>
+): string | null {
+  if (!jigId || !dateStr) return null;
+  
+  // Calculate where the next job should start (with gap + break proximity)
+  const nextJobStart = calculateGapAdjustedStart(activeEndTime);
+  
+  // Find jobs on the same jig/day, sorted by start time
+  const jobsOnTeamDay = allJobs
+    .filter(j => 
+      j.id !== activeJobId && 
+      j.plannedDateStr === dateStr && 
+      j.jigId === jigId &&
+      !j.productionComplete &&
+      j.plannedStartTime != null
+    )
+    .sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
+  
+  // Find the first job that starts before where the next job should start
+  for (const job of jobsOnTeamDay) {
+    if (job.plannedStartTime != null && job.plannedStartTime < nextJobStart) {
+      return job.id;
+    }
+  }
+  
+  return null;
+}
+
 export function getPendingChangeForJob(state: PendingChangesState, jobId: string): PendingJobChange | undefined {
   return state.changes.get(jobId);
 }
