@@ -230,13 +230,12 @@ export function calculateNextAvailableStartTime(
     return shift.startTime;
   }
   
-  // Sort jobs by plannedStartTime, placing legacy jobs at the end
+  // Sort jobs by plannedStartTime - jobs without times maintain their order
   const sortedJobs = [...jobsOnTeamDay].sort((a, b) => {
     if (a.plannedStartTime != null && b.plannedStartTime != null) {
       return a.plannedStartTime - b.plannedStartTime;
     }
-    if (a.plannedStartTime != null) return -1;
-    if (b.plannedStartTime != null) return 1;
+    // If either lacks time, maintain original order (don't push to end)
     return 0;
   });
   

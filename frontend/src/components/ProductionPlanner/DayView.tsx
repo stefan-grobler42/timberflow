@@ -557,13 +557,16 @@ export const DayView: React.FC<DayViewProps> = ({
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     let currentTop = workingHoursOffset;
 
-    // Sort jobs by plannedStartTime if available, otherwise by order received
+    // Sort jobs by plannedStartTime - jobs WITH valid times are sorted by time,
+    // jobs WITHOUT times are placed at their sequential position from start of day
     const sortedJobs = [...jigJobs].sort((a, b) => {
-      if (a.plannedStartTime != null && b.plannedStartTime != null) {
-        return a.plannedStartTime - b.plannedStartTime;
+      const aHasTime = a.plannedStartTime != null;
+      const bHasTime = b.plannedStartTime != null;
+      
+      if (aHasTime && bHasTime) {
+        return (a.plannedStartTime as number) - (b.plannedStartTime as number);
       }
-      if (a.plannedStartTime != null) return -1;
-      if (b.plannedStartTime != null) return 1;
+      // If neither has time, maintain creation order
       return 0;
     });
 
@@ -596,11 +599,13 @@ export const DayView: React.FC<DayViewProps> = ({
           totalBreakMinutes
         });
         
-        // For persisted jobs, advance currentTop past the job's end (only skipping breaks, no rounding)
-        // This preserves exact database times while still avoiding break overlaps
-        currentTop = advancePastBreaks(job.plannedEndTime);
+        // Update currentTop to be past this job's end for any subsequent jobs without times
+        const jobEndForTracking = advancePastBreaks(job.plannedEndTime);
+        if (jobEndForTracking > currentTop) {
+          currentTop = jobEndForTracking;
+        }
       } else {
-        // Fallback: calculate position sequentially
+        // Jobs without times: calculate position sequentially from currentTop (start of day or after previous jobs)
         if (includeBreaks) {
           breakAdditions = calculateBreaksSpanned(currentTop, baseDuration);
           totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
