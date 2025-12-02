@@ -47,6 +47,9 @@ public class AppDbContext : DbContext
     public DbSet<TeamDay> TeamDays { get; set; }
     public DbSet<TeamDayAllocation> TeamDayAllocations { get; set; }
     
+    // Production audit trail
+    public DbSet<ProductionAudit> ProductionAudits { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
@@ -501,6 +504,30 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.OverflowFromAllocation)
                   .WithMany()
                   .HasForeignKey(e => e.OverflowFromAllocationId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ProductionAudit configuration
+        modelBuilder.Entity<ProductionAudit>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ProductionId);
+            entity.HasIndex(e => e.BatchId);
+            entity.HasIndex(e => e.ChangedOn);
+
+            entity.HasOne(e => e.Production)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProductionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.OldJig)
+                  .WithMany()
+                  .HasForeignKey(e => e.OldJigId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.NewJig)
+                  .WithMany()
+                  .HasForeignKey(e => e.NewJigId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
