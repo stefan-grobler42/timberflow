@@ -1,4 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
+import { useMemo, memo } from 'react';
 
 interface Job {
   id: string;
@@ -28,7 +29,7 @@ interface WeekViewProps {
   onTeamDoubleClick: (teamId: string) => void;
 }
 
-export const WeekView: React.FC<WeekViewProps> = ({
+const WeekViewComponent: React.FC<WeekViewProps> = ({
   daysInView,
   jobs,
   jigTeams,
@@ -39,18 +40,52 @@ export const WeekView: React.FC<WeekViewProps> = ({
   onDayClick,
   onTeamDoubleClick
 }) => {
+  const jobsByDateAndJig = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of jobs) {
+      if (job.plannedDateStr && job.jigId) {
+        const key = `${job.plannedDateStr}|${job.jigId}`;
+        const existing = map.get(key) || [];
+        existing.push(job);
+        map.set(key, existing);
+      }
+    }
+    return map;
+  }, [jobs]);
+
+  const unallocatedByDate = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of jobs) {
+      if (job.plannedDateStr && !job.jigId) {
+        const existing = map.get(job.plannedDateStr) || [];
+        existing.push(job);
+        map.set(job.plannedDateStr, existing);
+      }
+    }
+    return map;
+  }, [jobs]);
+
+  const efinksByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const current = map.get(job.plannedDateStr) || 0;
+        map.set(job.plannedDateStr, current + job.estimatedEFinks);
+      }
+    }
+    return map;
+  }, [jobs]);
+
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
+    return jobsByDateAndJig.get(`${dateStr}|${jigId}`) || [];
   };
 
   const getUnallocatedJobsForDate = (dateStr: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+    return unallocatedByDate.get(dateStr) || [];
   };
 
   const getTotalEFinksForDate = (dateStr: string): number => {
-    return jobs
-      .filter(j => j.plannedDateStr === dateStr)
-      .reduce((sum, j) => sum + j.estimatedEFinks, 0);
+    return efinksByDate.get(dateStr) || 0;
   };
 
   const formatDate = (dateStr: string): string => {
@@ -342,3 +377,5 @@ export const WeekView: React.FC<WeekViewProps> = ({
     </div>
   );
 };
+
+export const WeekView = memo(WeekViewComponent);

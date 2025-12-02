@@ -1,6 +1,6 @@
 import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton, IconButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 
 interface Job {
@@ -90,7 +90,7 @@ const PIXELS_PER_MINUTE = 1;
 const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
 
-export const DayView: React.FC<DayViewProps> = ({
+const DayViewComponent: React.FC<DayViewProps> = ({
   dayStr,
   jobs,
   allJobs,
@@ -385,22 +385,44 @@ export const DayView: React.FC<DayViewProps> = ({
     return baseDuration + breakAdjustment;
   }, [getBaseDuration]);
 
-  const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
-    // No automatic sorting - job order is user-driven
-    // Jobs maintain the order they were assigned/booked by the user
-    return jobs.filter(j => j.plannedDateStr === dateStr && j.jigId === jigId);
+  const jobsByJig = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of jobs) {
+      if (job.plannedDateStr === dayStr && job.jigId) {
+        const existing = map.get(job.jigId) || [];
+        existing.push(job);
+        map.set(job.jigId, existing);
+      }
+    }
+    return map;
+  }, [jobs, dayStr]);
+
+  const unallocatedJobs = useMemo(() => {
+    return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId);
+  }, [jobs, dayStr]);
+
+  const chainJobsMap = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of allJobs) {
+      const rootId = job.parentProductionId || job.id;
+      const existing = map.get(rootId) || [];
+      existing.push(job);
+      map.set(rootId, existing);
+    }
+    return map;
+  }, [allJobs]);
+
+  const getJobsForDateAndJig = (_dateStr: string, jigId: string) => {
+    return jobsByJig.get(jigId) || [];
   };
 
-  const getUnallocatedJobsForDate = (dateStr: string) => {
-    // No automatic sorting - job order is user-driven
-    return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
+  const getUnallocatedJobsForDate = (_dateStr: string) => {
+    return unallocatedJobs;
   };
 
   const isLastInChain = useCallback((job: Job): boolean => {
     const rootId = job.parentProductionId || job.id;
-    const chainJobs = allJobs.filter(j => 
-      j.id === rootId || j.parentProductionId === rootId
-    );
+    const chainJobs = chainJobsMap.get(rootId) || [];
     
     if (chainJobs.length <= 1) return true;
     
@@ -408,7 +430,7 @@ export const DayView: React.FC<DayViewProps> = ({
     const jobSequence = job.rolloverSequence || 0;
     
     return jobSequence === maxSequence;
-  }, [allJobs]);
+  }, [chainJobsMap]);
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -1372,3 +1394,5 @@ export const DayView: React.FC<DayViewProps> = ({
     </Stack>
   );
 };
+
+export const DayView = memo(DayViewComponent);

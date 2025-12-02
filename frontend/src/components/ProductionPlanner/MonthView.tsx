@@ -1,4 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
+import { useMemo, memo } from 'react';
 
 interface Job {
   id: string;
@@ -23,7 +24,7 @@ interface MonthViewProps {
   onDayClick: (dateStr: string) => void;
 }
 
-export const MonthView: React.FC<MonthViewProps> = ({
+const MonthViewComponent: React.FC<MonthViewProps> = ({
   daysInView,
   jobs,
   currentMonth,
@@ -36,14 +37,36 @@ export const MonthView: React.FC<MonthViewProps> = ({
 }) => {
   const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
   const currentMonthNum = currentMonthDate.getUTCMonth();
+  
+  const jobsByDate = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const existing = map.get(job.plannedDateStr) || [];
+        existing.push(job);
+        map.set(job.plannedDateStr, existing);
+      }
+    }
+    return map;
+  }, [jobs]);
+
+  const efinksByDate = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const current = map.get(job.plannedDateStr) || 0;
+        map.set(job.plannedDateStr, current + job.estimatedEFinks);
+      }
+    }
+    return map;
+  }, [jobs]);
+
   const getJobsForDate = (dateStr: string) => {
-    return jobs.filter(j => j.plannedDateStr === dateStr);
+    return jobsByDate.get(dateStr) || [];
   };
 
   const getTotalEFinksForDate = (dateStr: string): number => {
-    return jobs
-      .filter(j => j.plannedDateStr === dateStr)
-      .reduce((sum, j) => sum + j.estimatedEFinks, 0);
+    return efinksByDate.get(dateStr) || 0;
   };
 
   const formatDate = (dateStr: string): string => {
@@ -233,3 +256,5 @@ export const MonthView: React.FC<MonthViewProps> = ({
     </Stack>
   );
 };
+
+export const MonthView = memo(MonthViewComponent);
