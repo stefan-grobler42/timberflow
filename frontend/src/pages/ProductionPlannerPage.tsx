@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
@@ -158,27 +158,46 @@ export const ProductionPlannerPage = () => {
     loadData();
   }, []);
 
-  // Merge unallocated orders into jobs array for display in all views
-  // Apply staged changes on top of persisted data
+  // Track staged job IDs for efficient lookup
+  const stagedJobIds = useMemo(() => {
+    return new Set(globalStaging.stagedJobs.keys());
+  }, [globalStaging.stagedJobs]);
+
+  // Cache for merged job objects - only recreate when staging changes for that job
+  const stagedJobCache = useRef<Map<string, Job>>(new Map());
+
+  // Merge unallocated orders into jobs array - preserve object references for non-staged jobs
   const allJobs = useMemo(() => {
-    const merged = [...jobs, ...unallocatedOrders].map(job => {
-      const staged = globalStaging.stagedJobs.get(job.id);
-      if (staged) {
-        return { 
-          ...job,
-          jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
-          plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
-          plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
-          plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
-          plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
-          customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
-          breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
-        };
+    const baseJobs = [...jobs, ...unallocatedOrders];
+    
+    // If no staging, return base jobs directly (preserves references)
+    if (stagedJobIds.size === 0) {
+      stagedJobCache.current.clear();
+      return baseJobs;
+    }
+    
+    // Only create new objects for staged jobs
+    return baseJobs.map(job => {
+      if (!stagedJobIds.has(job.id)) {
+        return job; // Preserve original reference
       }
-      return job;
+      
+      const staged = globalStaging.stagedJobs.get(job.id);
+      if (!staged) return job;
+      
+      // Create merged object for staged job
+      return { 
+        ...job,
+        jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
+        plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
+        plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
+        plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
+        plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
+        customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
+        breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
+      };
     });
-    return merged;
-  }, [jobs, unallocatedOrders, globalStaging]);
+  }, [jobs, unallocatedOrders, globalStaging, stagedJobIds]);
   
   // Stage a job click - adds job + affected jobs to global staging
   const handleJobClick = (jobId: string) => {
