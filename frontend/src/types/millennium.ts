@@ -246,6 +246,7 @@ export interface Production {
   plannedStartTime?: number;
   plannedEndTime?: number;
   plannedDurationMinutes?: number;
+  breakAdjustmentMinutes?: number;
   createdOn?: string;
   createdBy?: string;
   modifiedOn?: string;

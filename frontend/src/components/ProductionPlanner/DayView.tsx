@@ -124,7 +124,6 @@ export const DayView: React.FC<DayViewProps> = ({
 
   const isJobPending = (jobId: string) => activeJobId === jobId;
   const isJobLocked = (jobId: string) => activeJobId !== null && activeJobId !== jobId;
-  const hasAnyPendingChange = activeJobId !== null;
 
   // Calculate additional working minutes for overtime
   const calculateOvertimeDelta = useCallback((newCloseTime: string) => {
@@ -189,24 +188,7 @@ export const DayView: React.FC<DayViewProps> = ({
     }
   }, [overtimeEnabled, baseBreakSlots, dinnerBreakSlot]);
 
-  const calculateAvailableWorkingMinutes = useCallback((hours: { start: number; end: number }) => {
-    const totalMinutes = (hours.end - hours.start) * 60;
-    const breakMinutes = breakSlots.reduce((sum, b) => {
-      const breakStart = b.startHour * 60 + b.startMinute;
-      const breakEnd = b.endHour * 60 + b.endMinute;
-      const dayStart = hours.start * 60;
-      const dayEnd = hours.end * 60;
-      if (breakEnd > dayStart && breakStart < dayEnd) {
-        const effectiveStart = Math.max(breakStart, dayStart);
-        const effectiveEnd = Math.min(breakEnd, dayEnd);
-        return sum + (effectiveEnd - effectiveStart);
-      }
-      return sum;
-    }, 0);
-    return totalMinutes - breakMinutes;
-  }, [breakSlots]);
-
-  // REMOVED: The automatic redistribution effect caused an infinite loop
+  // NOTE: The automatic redistribution effect was removed as it caused an infinite loop
   // Redistribution is now ONLY triggered when the user explicitly toggles overtime
   // This is handled via the onOvertimeChange callback in ProductionPlannerPage
 
@@ -351,12 +333,6 @@ export const DayView: React.FC<DayViewProps> = ({
   const roundUpTo15Minutes = (minutes: number): number => {
     return Math.ceil(minutes / 15) * 15;
   };
-
-  const getCalculatedDuration = useCallback((job: Job): number => {
-    // EFinks calculation rounded UP to nearest 15 minutes
-    const rawMinutes = job.estimatedEFinks * MINUTES_PER_EFINK;
-    return Math.max(MIN_BLOCK_HEIGHT, roundUpTo15Minutes(rawMinutes));
-  }, []);
 
   const hasManualResize = useCallback((job: Job): boolean => {
     // Reset icon should only show when:
@@ -677,7 +653,7 @@ export const DayView: React.FC<DayViewProps> = ({
     return workingHours.end * 60;
   };
 
-  const checkJobOverflow = useCallback((jigJobs: Job[], jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
+  const checkJobOverflow = useCallback((jigJobs: Job[], _jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
     const overflowing = new Set<string>();
     const overflowDetails = new Map<string, number>();
     const workingEnd = getWorkingEndMinutes();
@@ -986,7 +962,7 @@ export const DayView: React.FC<DayViewProps> = ({
                 }}
               >
                 {/* Job blocks */}
-                {calculateJobPositions(unallocatedJobs, false).map(({ job, top, height, baseHeight, breakAdditions }) => (
+                {calculateJobPositions(unallocatedJobs, false).map(({ job, top, height, baseHeight }) => (
                   <div
                     key={job.id}
                     draggable={!resizingJob}
