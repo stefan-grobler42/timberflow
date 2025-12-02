@@ -1279,7 +1279,7 @@ export const ProductionPlannerPage = () => {
               chainJobsMap={chainJobsMap}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
-              onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
+              onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
               onJobDoubleClick={handleJobDoubleClick}
               onJobClick={handleJobClick}
               onJobDurationChange={handleJobDurationChange}
@@ -1290,6 +1290,7 @@ export const ProductionPlannerPage = () => {
               onOvertimeChange={handleOvertimeChange}
               globalStaging={globalStaging}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
+              isDragging={!!draggedJobId}
             />
           )}
         </Stack>

@@ -73,7 +73,7 @@ interface DayViewProps {
   chainJobsMap: Map<string, Job[]>;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (dateStr: string, jigId: string | null) => void;
+  onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
   onJobDoubleClick: (jobId: string) => void;
   onJobClick?: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
@@ -84,6 +84,7 @@ interface DayViewProps {
   onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
   globalStaging?: GlobalStagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
+  isDragging?: boolean;
 }
 
 const MINUTES_PER_EFINK = 6.5625;
@@ -109,7 +110,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   overtimeSettings,
   onOvertimeChange,
   globalStaging,
-  onDropToTeamUnallocated: _onDropToTeamUnallocated
+  onDropToTeamUnallocated: _onDropToTeamUnallocated,
+  isDragging = false
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -125,6 +127,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
+  const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
+  const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
 
   // Use parent-provided overtime settings if available, otherwise default
   const overtimeEnabled = overtimeSettings?.enabled ?? false;
@@ -667,6 +671,86 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     setCurrentOverflow(null);
   };
 
+  const calculateDropZones = useCallback((jigId: string): { position: number; afterJobId: string | null }[] => {
+    if (!workingHours) return [];
+    
+    const workingStart = workingHours.start * 60;
+    const jigJobs = getJobsForDateAndJig(dayStr, jigId)
+      .filter(j => !j.productionComplete)
+      .sort((a, b) => (a.plannedStartTime ?? workingStart) - (b.plannedStartTime ?? workingStart));
+    
+    const dropZones: { position: number; afterJobId: string | null }[] = [];
+    
+    dropZones.push({ position: workingStart, afterJobId: null });
+    
+    for (const job of jigJobs) {
+      const baseDuration = getBaseDurationMinutes(job);
+      const jobStart = job.plannedStartTime ?? workingStart;
+      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration);
+      const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+      const jobEnd = jobStart + baseDuration + totalBreakMinutes;
+      
+      dropZones.push({ position: jobEnd + 15, afterJobId: job.id });
+    }
+    
+    return dropZones;
+  }, [workingHours, dayStr, jobs]);
+
+  const handleTimelineDragOver = (e: React.DragEvent, jigId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOver(e);
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const dropMinutes = Math.round(y / PIXELS_PER_MINUTE);
+    
+    setDropHoverJigId(jigId);
+    setDropHoverPosition(dropMinutes);
+  };
+
+  const handleTimelineDragLeave = () => {
+    setDropHoverJigId(null);
+    setDropHoverPosition(null);
+  };
+
+  const handleTimelineDrop = (e: React.DragEvent, jigId: string | null) => {
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const rawDropMinutes = Math.round(y / PIXELS_PER_MINUTE);
+    
+    let snappedPosition = rawDropMinutes;
+    
+    if (jigId && workingHours) {
+      const dropZones = calculateDropZones(jigId);
+      if (dropZones.length > 0) {
+        let nearestZone = dropZones[0];
+        let minDistance = Math.abs(rawDropMinutes - nearestZone.position);
+        
+        for (const zone of dropZones) {
+          const distance = Math.abs(rawDropMinutes - zone.position);
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestZone = zone;
+          }
+        }
+        
+        snappedPosition = nearestZone.position;
+      }
+      
+      const workingStart = workingHours.start * 60;
+      if (snappedPosition < workingStart) {
+        snappedPosition = workingStart;
+      }
+    }
+    
+    setDropHoverJigId(null);
+    setDropHoverPosition(null);
+    
+    onDrop(dayStr, jigId, snappedPosition);
+  };
+
   interface TimelineSegment {
     startMinutes: number;
     durationMinutes: number;
@@ -1039,12 +1123,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
               {/* Timeline background with break slots */}
               <div
-                onDragOver={onDragOver}
-                onDrop={() => onDrop(dayStr, jig.id)}
+                onDragOver={(e) => handleTimelineDragOver(e, jig.id)}
+                onDragLeave={handleTimelineDragLeave}
+                onDrop={(e) => handleTimelineDrop(e, jig.id)}
                 style={{
                   position: 'relative',
                   height: totalTimelineHeight,
-                  borderBottom: '1px solid #ddd'
+                  borderBottom: '1px solid #ddd',
+                  backgroundColor: isDragging && dropHoverJigId === jig.id ? 'rgba(0, 120, 212, 0.05)' : undefined
                 }}
               >
                 {/* Timeline segments background */}
@@ -1062,6 +1148,60 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     }}
                   />
                 ))}
+
+                {/* Drop zone indicators - shown when dragging */}
+                {isDragging && dropHoverJigId === jig.id && (() => {
+                  const dropZones = calculateDropZones(jig.id);
+                  if (!dropHoverPosition) return null;
+                  
+                  let nearestZone = dropZones[0];
+                  let minDistance = Math.abs(dropHoverPosition - nearestZone.position);
+                  
+                  for (const zone of dropZones) {
+                    const distance = Math.abs(dropHoverPosition - zone.position);
+                    if (distance < minDistance) {
+                      minDistance = distance;
+                      nearestZone = zone;
+                    }
+                  }
+                  
+                  return (
+                    <div
+                      key="drop-indicator"
+                      style={{
+                        position: 'absolute',
+                        top: nearestZone.position * PIXELS_PER_MINUTE - 2,
+                        left: 4,
+                        right: 4,
+                        height: 4,
+                        backgroundColor: '#0078d4',
+                        borderRadius: 2,
+                        zIndex: 500,
+                        boxShadow: '0 0 8px rgba(0, 120, 212, 0.5)',
+                        transition: 'top 0.1s ease-out'
+                      }}
+                    >
+                      <div style={{
+                        position: 'absolute',
+                        left: -6,
+                        top: -4,
+                        width: 12,
+                        height: 12,
+                        backgroundColor: '#0078d4',
+                        borderRadius: '50%'
+                      }} />
+                      <div style={{
+                        position: 'absolute',
+                        right: -6,
+                        top: -4,
+                        width: 12,
+                        height: 12,
+                        backgroundColor: '#0078d4',
+                        borderRadius: '50%'
+                      }} />
+                    </div>
+                  );
+                })()}
 
                 {/* Job blocks */}
                 {(() => {
