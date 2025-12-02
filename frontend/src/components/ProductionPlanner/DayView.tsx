@@ -524,10 +524,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return getBaseDuration(job);
   };
 
-  const roundUpToNextHour = (minutes: number): number => {
-    return Math.ceil(minutes / 60) * 60;
-  };
-
   const advancePastBreaks = (startMinutes: number): number => {
     let currentPos = startMinutes;
     
@@ -550,37 +546,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
     
     return currentPos;
-  };
-  
-  const getNextAvailableStartTime = (jobEndMinutes: number): number => {
-    let nextStart = roundUpToNextHour(jobEndMinutes);
-    
-    // Sort breaks chronologically to ensure consistent processing
-    const sortedBreaks = [...breakSlots].sort((a, b) => {
-      const aStart = a.startHour * 60 + a.startMinute;
-      const bStart = b.startHour * 60 + b.startMinute;
-      return aStart - bStart;
-    });
-    
-    // Check each break and adjust if needed
-    for (const breakSlot of sortedBreaks) {
-      const breakStart = getBreakStartMinutes(breakSlot);
-      const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
-      
-      // If the rounded start time falls within or at the start of a break,
-      // push to the next hour after the break
-      if (nextStart >= breakStart && nextStart < breakEnd) {
-        nextStart = roundUpToNextHour(breakEnd);
-      }
-      
-      // Also check: if rounding would land exactly at break start, push past break
-      // This handles the case where job ends at 8:30, rounds to 9:00 (break start)
-      if (nextStart === breakStart) {
-        nextStart = roundUpToNextHour(breakEnd);
-      }
-    }
-    
-    return nextStart;
   };
 
   const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
