@@ -65,7 +65,8 @@ export function dayHasPendingChanges(
 
 export function addPendingChange(
   state: PendingChangesState,
-  change: PendingJobChange
+  change: PendingJobChange,
+  isPrimaryChange: boolean = true
 ): PendingChangesState {
   const newChanges = new Map(state.changes);
   newChanges.set(change.id, change);
@@ -84,7 +85,7 @@ export function addPendingChange(
     rolloverTargetDay: change.changeType === 'rollover' 
       ? change.pendingData.plannedDateStr || state.rolloverTargetDay
       : state.rolloverTargetDay,
-    activeJobId: change.id
+    activeJobId: isPrimaryChange ? change.id : state.activeJobId
   };
 }
 

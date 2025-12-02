@@ -163,7 +163,8 @@ export const ProductionPlannerPage = () => {
   }, [jobs, unallocatedOrders, stagedJobs]);
   
   // Stage a job change locally (does not persist to DB until confirmed)
-  const stageJobChange = (jobId: string, changes: Partial<Job>, changeType: PendingJobChange['changeType']) => {
+  // isPrimaryChange: true = user-initiated action, false = cascaded/downstream change
+  const stageJobChange = (jobId: string, changes: Partial<Job>, changeType: PendingJobChange['changeType'], isPrimaryChange: boolean = true) => {
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
     
@@ -191,7 +192,7 @@ export const ProductionPlannerPage = () => {
       changeType
     };
     
-    setPendingChanges(prev => addPendingChange(prev, pendingChange));
+    setPendingChanges(prev => addPendingChange(prev, pendingChange, isPrimaryChange));
     setStagedJobs(prev => {
       const next = new Map(prev);
       const existing = next.get(jobId) || {};
@@ -199,7 +200,7 @@ export const ProductionPlannerPage = () => {
       return next;
     });
     
-    console.log('[PLANNER] Staged change:', changeType, 'for job:', jobId, changes);
+    console.log('[PLANNER] Staged change:', changeType, 'for job:', jobId, isPrimaryChange ? '(primary)' : '(cascade)', changes);
   };
 
   // Confirm and persist a single job's pending changes
@@ -475,7 +476,7 @@ export const ProductionPlannerPage = () => {
               plannedEndTime: downstreamTiming.plannedEndTime,
               plannedDurationMinutes: downstreamDuration,
               breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
-            }, 'reorder');
+            }, 'reorder', false); // false = cascaded change, don't update activeJobId
             
             currentEndTime = downstreamTiming.plannedEndTime;
             // Apply 30-min gap with break proximity
@@ -553,7 +554,7 @@ export const ProductionPlannerPage = () => {
               plannedEndTime: downstreamTiming.plannedEndTime,
               plannedDurationMinutes: downstreamDuration,
               breakAdjustmentMinutes: downstreamTiming.breakAdjustmentMinutes
-            }, 'reorder');
+            }, 'reorder', false); // false = cascaded change, don't update activeJobId
             
             currentEndTime = downstreamTiming.plannedEndTime;
             // Apply 30-min gap with break proximity
