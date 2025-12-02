@@ -446,10 +446,10 @@ export const ProductionPlannerPage = () => {
           
           plannedStartTime = snappedTime;
         } else {
-          // Find next available start time on this team/day
-          const otherJobsOnTeamDay = allJobs.filter(
-            j => j.id !== job.id && j.plannedDateStr === dateStr && j.jigId === updatedJigId
-          );
+          // Find next available start time on this team/day using efficient O(1) lookup
+          const dayMap = jobsByDateAndTeam.get(dateStr);
+          const teamJobs = dayMap?.get(updatedJigId) || [];
+          const otherJobsOnTeamDay = teamJobs.filter(j => j.id !== job.id);
           plannedStartTime = calculateNextAvailableStartTime(dateStr, updatedJigId, otherJobsOnTeamDay, shift);
         }
         
