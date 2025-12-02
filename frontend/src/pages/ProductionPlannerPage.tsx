@@ -170,8 +170,11 @@ export const ProductionPlannerPage = () => {
 
   // Initialize job store when base jobs change
   useEffect(() => {
+    if (baseJobs.length === 0) return; // Don't initialize with empty data
+    
     if (!jobStoreRef.current) {
       jobStoreRef.current = createIndexedJobStore(baseJobs);
+      setStoreTick(t => t + 1); // Trigger re-render after initial creation
     } else {
       const touched = jobStoreRef.current.replaceBaseJobs(baseJobs);
       if (touched.size > 0) {
