@@ -195,13 +195,17 @@ export const ProductionPlannerPage = () => {
       
       return { 
         ...job,
-        jigId: staged.changes.jigId !== undefined ? staged.changes.jigId : job.jigId,
-        plannedDateStr: staged.changes.plannedDateStr !== undefined ? staged.changes.plannedDateStr : job.plannedDateStr,
-        plannedStartTime: staged.changes.plannedStartTime !== undefined ? staged.changes.plannedStartTime : job.plannedStartTime,
-        plannedEndTime: staged.changes.plannedEndTime !== undefined ? staged.changes.plannedEndTime : job.plannedEndTime,
-        plannedDurationMinutes: staged.changes.plannedDurationMinutes !== undefined ? staged.changes.plannedDurationMinutes : job.plannedDurationMinutes,
-        customDurationMinutes: staged.changes.customDurationMinutes !== undefined ? staged.changes.customDurationMinutes : job.customDurationMinutes,
-        breakAdjustmentMinutes: staged.changes.breakAdjustmentMinutes !== undefined ? staged.changes.breakAdjustmentMinutes : job.breakAdjustmentMinutes
+        jigId: staged.pendingData.jigId !== undefined ? staged.pendingData.jigId : job.jigId,
+        plannedDateStr: staged.pendingData.plannedDateStr !== undefined ? staged.pendingData.plannedDateStr : job.plannedDateStr,
+        plannedStartTime: staged.pendingData.plannedStartTime !== undefined ? staged.pendingData.plannedStartTime : job.plannedStartTime,
+        plannedEndTime: staged.pendingData.plannedEndTime !== undefined ? staged.pendingData.plannedEndTime : job.plannedEndTime,
+        plannedDurationMinutes: staged.pendingData.plannedDurationMinutes !== undefined ? staged.pendingData.plannedDurationMinutes : job.plannedDurationMinutes,
+        customDurationMinutes: staged.pendingData.customDurationMinutes !== undefined 
+          ? (staged.pendingData.customDurationMinutes === null ? undefined : staged.pendingData.customDurationMinutes) 
+          : job.customDurationMinutes,
+        breakAdjustmentMinutes: staged.pendingData.breakAdjustmentMinutes !== undefined 
+          ? (staged.pendingData.breakAdjustmentMinutes === null ? undefined : staged.pendingData.breakAdjustmentMinutes)
+          : job.breakAdjustmentMinutes
       };
     });
 
@@ -1118,7 +1122,7 @@ export const ProductionPlannerPage = () => {
           {viewMode === 'day' && (
             <DayView
               dayStr={currentDateStr}
-              jobs={jobsForCurrentDay}
+              jobs={allJobs}
               allJobs={allJobs}
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
