@@ -42,9 +42,9 @@ import {
   isJobStaged,
   buildBatchUpdatePayloads,
   buildAuditRecords,
-  findAffectedJobs,
-  getEffectiveValue
+  findAffectedJobs
 } from '../utils/pendingChangesUtils';
+import { createIndexedJobStore, type IndexedJobStore } from '../utils/jobStoreUtils';
 
 interface Job {
   id: string;
@@ -83,6 +83,9 @@ export const ProductionPlannerPage = () => {
   const [overtimeByDay, setOvertimeByDay] = useState<Record<string, { enabled: boolean; closeTime: string }>>({});
   const [globalStaging, setGlobalStaging] = useState<GlobalStagingState>(createEmptyStagingState());
   const [isSaving, setIsSaving] = useState(false);
+  
+  const jobStoreRef = useRef<IndexedJobStore | null>(null);
+  const [storeTick, setStoreTick] = useState(0);
 
   const loadData = async () => {
     console.log('[PLANNER] Starting to load data...');
@@ -165,64 +168,38 @@ export const ProductionPlannerPage = () => {
     return [...jobs, ...unallocatedOrders];
   }, [jobs, unallocatedOrders]);
 
-  // Cache the complete result array to avoid recreating on every render
-  const allJobsCache = useRef<Job[]>([]);
-  const lastBaseJobsRef = useRef<Job[]>([]);
-  const lastStagingMapRef = useRef<Map<string, any>>(new Map());
+  // Initialize job store when base jobs change
+  useEffect(() => {
+    if (!jobStoreRef.current) {
+      jobStoreRef.current = createIndexedJobStore(baseJobs);
+    } else {
+      const touched = jobStoreRef.current.replaceBaseJobs(baseJobs);
+      if (touched.size > 0) {
+        setStoreTick(t => t + 1);
+      }
+    }
+  }, [baseJobs]);
 
-  // Compute allJobs with maximum stability
+  // Sync staging changes with job store
+  useEffect(() => {
+    if (!jobStoreRef.current) return;
+    const touched = jobStoreRef.current.syncStaging(globalStaging.stagedJobs);
+    if (touched.size > 0) {
+      setStoreTick(t => t + 1);
+    }
+  }, [globalStaging.stagedJobs]);
+
+  // Get jobs for current day view - only recomputes when store changes or date changes
+  const jobsForCurrentDay = useMemo(() => {
+    if (!jobStoreRef.current) return [];
+    return jobStoreRef.current.getJobsForDay(currentDateStr, selectedJigIds.length > 0 ? selectedJigIds : null);
+  }, [storeTick, currentDateStr, selectedJigIds]);
+
+  // Get all jobs snapshot - only for operations that need full dataset (like MonthView/WeekView)
   const allJobs = useMemo(() => {
-    // Fast path: if base jobs haven't changed and no staging, return cached
-    if (baseJobs === lastBaseJobsRef.current && globalStaging.stagedJobs.size === 0) {
-      if (allJobsCache.current.length === baseJobs.length) {
-        return allJobsCache.current;
-      }
-    }
-
-    // Fast path: no staging changes, return baseJobs directly
-    if (globalStaging.stagedJobs.size === 0) {
-      lastBaseJobsRef.current = baseJobs;
-      lastStagingMapRef.current = new Map();
-      allJobsCache.current = baseJobs;
-      return baseJobs;
-    }
-
-    // Check if staging has actually changed
-    const stagingChanged = globalStaging.stagedJobs !== lastStagingMapRef.current;
-    const baseChanged = baseJobs !== lastBaseJobsRef.current;
-    
-    if (!stagingChanged && !baseChanged && allJobsCache.current.length > 0) {
-      return allJobsCache.current;
-    }
-
-    // Only rebuild if something actually changed
-    const result: Job[] = new Array(baseJobs.length);
-    
-    for (let i = 0; i < baseJobs.length; i++) {
-      const job = baseJobs[i];
-      const staged = globalStaging.stagedJobs.get(job.id);
-      
-      if (!staged) {
-        result[i] = job;
-      } else {
-        result[i] = { 
-          ...job,
-          jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
-          plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
-          plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
-          plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
-          plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
-          customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
-          breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
-        };
-      }
-    }
-
-    lastBaseJobsRef.current = baseJobs;
-    lastStagingMapRef.current = globalStaging.stagedJobs;
-    allJobsCache.current = result;
-    return result;
-  }, [baseJobs, globalStaging]);
+    if (!jobStoreRef.current) return [];
+    return jobStoreRef.current.snapshotAll();
+  }, [storeTick]);
   
   // Stage a job click - adds job + affected jobs to global staging
   const handleJobClick = useCallback((jobId: string) => {
@@ -1085,7 +1062,7 @@ export const ProductionPlannerPage = () => {
           {viewMode === 'day' && (
             <DayView
               dayStr={currentDateStr}
-              jobs={allJobs}
+              jobs={jobsForCurrentDay}
               allJobs={allJobs}
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
