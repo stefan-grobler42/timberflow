@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
-  PrimaryButton, DefaultButton, Icon
+  PrimaryButton, DefaultButton, Icon, Dialog, DialogType, DialogFooter
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
@@ -26,9 +26,16 @@ import {
   calculatePlannedTimes,
   getJobDurationMinutes,
   roundUpToQuarterHour,
-  getDefaultEfinksDuration,
-  snapToQuarterHour
+  getDefaultEfinksDuration
 } from '../utils/scheduleUtils';
+import {
+  type ScheduledJob,
+  type OverflowInfo,
+  scheduleJobsSequentially,
+  createRolloverJob,
+  findInsertPosition,
+  getNextWorkingDay
+} from '../utils/schedulingEngine';
 import {
   type GlobalStagingState,
   type StagedJob,
@@ -413,10 +420,19 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   }, []);
 
+  // State for rollover dialog
+  const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
+  const [pendingRollover, setPendingRollover] = useState<{
+    job: Job;
+    overflow: OverflowInfo;
+    dateStr: string;
+    jigId: string;
+  } | null>(null);
+
   // Drop to a team/day column - assign jig, date, and calculate time
-  // SIMPLIFIED: Only updates the moved job, no cascading. Defaults to 07:00 start.
+  // Uses sequential scheduling: first job at 07:00, subsequent jobs after previous end + 15-min gap
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
-    console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId });
+    console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
     
     if (!draggedJobId) return;
     
@@ -425,86 +441,133 @@ export const ProductionPlannerPage = () => {
     
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
-    // Check if this is a sales order needing production (prefixed with 'order-')
     const isSalesOrder = job.id.startsWith('order-');
-    const actualOrderId = isSalesOrder ? job.id.substring(6) : null;
 
-    // For month view, don't assign jig (keep existing or null)
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
 
     try {
-      const date = new Date(dateStr);
-      
-      // Calculate planned times if we have a jig assignment
-      let plannedStartTime: number | null = null;
-      let plannedEndTime: number | null = null;
-      let plannedDurationMinutes: number | null = null;
-      let breakAdjustmentMinutes: number | null = null;
-      
       if (updatedJigId) {
         const overtime = overtimeByDay[dateStr];
         const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+        const WORKING_START = shift.startTime;
+        const WORKING_END = shift.endTime;
         
-        // Get BASE duration for this job (without breaks)
+        const existingJobsOnDay = allJobs.filter(
+          j => j.plannedDateStr === dateStr && 
+               j.jigId === updatedJigId && 
+               j.id !== job.id &&
+               !j.productionComplete
+        ).sort((a, b) => (a.plannedStartTime ?? WORKING_START) - (b.plannedStartTime ?? WORKING_START));
+        
         const jobDuration = getJobDurationMinutes(job);
         
-        const WORKING_START = shift.startTime; // 07:00 = 420 minutes
-        const WORKING_END = shift.endTime;     // 17:00 = 1020 minutes
+        let plannedStartTime: number;
+        let insertIndex: number;
         
-        // SIMPLIFIED: Place at drop position or 07:00 - no cascading calculations
-        if (dropTimeMinutes !== undefined) {
-          let snappedTime = snapToQuarterHour(dropTimeMinutes);
-          snappedTime = Math.max(WORKING_START, snappedTime);
-          snappedTime = Math.min(WORKING_END - 15, snappedTime);
-          plannedStartTime = snappedTime;
-        } else {
-          // Default to 07:00 (start of day) - no expensive lookups
+        if (existingJobsOnDay.length === 0) {
           plannedStartTime = WORKING_START;
+          insertIndex = 0;
+        } else {
+          insertIndex = findInsertPosition(
+            dropTimeMinutes ?? (WORKING_END - 60), 
+            allJobs as ScheduledJob[], 
+            dateStr, 
+            updatedJigId, 
+            overtimeByDay
+          );
+          
+          if (insertIndex === 0) {
+            plannedStartTime = WORKING_START;
+          } else {
+            const prevJob = existingJobsOnDay[insertIndex - 1];
+            const prevEnd = prevJob.plannedEndTime ?? (prevJob.plannedStartTime ?? WORKING_START) + getJobDurationMinutes(prevJob);
+            plannedStartTime = prevEnd + 15;
+          }
         }
         
-        // Calculate end time accounting for breaks
         const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
-        plannedEndTime = timing.plannedEndTime;
-        plannedDurationMinutes = jobDuration;
-        breakAdjustmentMinutes = timing.breakAdjustmentMinutes;
         
-        console.log(`[PLANNER] Calculated timing: start=${plannedStartTime}, end=${plannedEndTime}, duration=${plannedDurationMinutes}min`);
-      }
-      
-      if (isSalesOrder && actualOrderId) {
-        // Create a new production record for this sales order
-        const createData: any = {
-          name: job.name || job.orderNumber || 'Production',
-          orderNo: actualOrderId,
-          productionPlannedDate: date.toISOString(),
-          newEstimateDefinks: job.estimatedEFinks || 0,
-          productionComplete: false,
-          jigId: updatedJigId,
+        console.log('[PLANNER] Calculated timing:', {
+          insertIndex,
           plannedStartTime,
-          plannedEndTime,
-          plannedDurationMinutes,
-          breakAdjustmentMinutes
-        };
+          plannedEndTime: timing.plannedEndTime,
+          duration: jobDuration,
+          overflowMinutes: timing.overflowMinutes
+        });
         
-        console.log('[PLANNER] Creating production for sales order:', actualOrderId);
-        await productionService.create(createData);
-        await loadData();
-      } else {
-        // Stage the change - don't persist until global accept
         stageJobUpdate(job.id, {
           plannedDateStr: dateStr,
           jigId: updatedJigId,
           plannedStartTime,
-          plannedEndTime,
-          plannedDurationMinutes,
-          breakAdjustmentMinutes
+          plannedEndTime: Math.min(timing.plannedEndTime, WORKING_END),
+          plannedDurationMinutes: timing.overflowMinutes > 0 ? jobDuration - timing.overflowMinutes : jobDuration,
+          breakAdjustmentMinutes: timing.breakAdjustmentMinutes
         }, 'allocate');
         
-        // Switch to day view if not already
+        if (insertIndex < existingJobsOnDay.length) {
+          let cascadeStartTime = timing.plannedEndTime + 15;
+          
+          for (let i = insertIndex; i < existingJobsOnDay.length; i++) {
+            const cascadeJob = existingJobsOnDay[i];
+            const cascadeDuration = getJobDurationMinutes(cascadeJob);
+            const cascadeTiming = calculatePlannedTimes(cascadeStartTime, cascadeDuration, shift);
+            
+            const originalStart = cascadeJob.plannedStartTime ?? WORKING_START;
+            if (cascadeStartTime !== originalStart) {
+              stageJobUpdate(cascadeJob.id, {
+                plannedStartTime: cascadeStartTime,
+                plannedEndTime: cascadeTiming.plannedEndTime,
+                plannedDurationMinutes: cascadeDuration,
+                breakAdjustmentMinutes: cascadeTiming.breakAdjustmentMinutes
+              }, 'cascade');
+            }
+            
+            cascadeStartTime = cascadeTiming.plannedEndTime + 15;
+          }
+        }
+        
+        if (timing.overflowMinutes > 0) {
+          const overflowInfo: OverflowInfo = {
+            jobId: job.id,
+            jobName: job.name,
+            orderNumber: job.orderNumber,
+            overflowMinutes: timing.overflowMinutes,
+            jigId: updatedJigId,
+            availableMinutesOnDay: WORKING_END - WORKING_START,
+            usedMinutesOnDay: WORKING_END - plannedStartTime
+          };
+          
+          setPendingRollover({
+            job,
+            overflow: overflowInfo,
+            dateStr,
+            jigId: updatedJigId
+          });
+          setRolloverDialogOpen(true);
+        }
+        
         if (viewMode !== 'day') {
           setViewMode('day');
           setCurrentDateStr(dateStr);
         }
+      } else {
+        stageJobUpdate(job.id, {
+          plannedDateStr: dateStr,
+          jigId: null,
+          plannedStartTime: null,
+          plannedEndTime: null,
+          plannedDurationMinutes: getJobDurationMinutes(job),
+          breakAdjustmentMinutes: null
+        }, 'allocate');
+        
+        if (viewMode !== 'day') {
+          setViewMode('day');
+          setCurrentDateStr(dateStr);
+        }
+      }
+      
+      if (isSalesOrder) {
+        console.log('[PLANNER] Note: Sales order will be created on accept');
       }
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
@@ -512,6 +575,85 @@ export const ProductionPlannerPage = () => {
     } finally {
       setDraggedJobId(null);
     }
+  };
+
+  const handleRolloverConfirm = () => {
+    if (!pendingRollover) return;
+    
+    const { job, overflow, dateStr, jigId } = pendingRollover;
+    const nextDateStr = getNextWorkingDay(dateStr, overtimeByDay);
+    
+    console.log('[PLANNER] Creating rollover to:', nextDateStr, 'for', overflow.overflowMinutes, 'minutes');
+    
+    const rolloverJob = createRolloverJob(
+      job as ScheduledJob,
+      overflow.overflowMinutes,
+      nextDateStr,
+      (job.rolloverSequence || 0) + 1
+    );
+    
+    const existingNextDay = allJobs.filter(
+      j => j.plannedDateStr === nextDateStr && j.jigId === jigId && !j.productionComplete
+    );
+    
+    const nextDayResult = scheduleJobsSequentially(
+      [...existingNextDay] as ScheduledJob[],
+      nextDateStr,
+      jigId,
+      overtimeByDay,
+      { job: rolloverJob, index: 0 }
+    );
+    
+    for (const scheduledJob of nextDayResult.jobs) {
+      const isRollover = scheduledJob.id === rolloverJob.id;
+      stageJobUpdate(scheduledJob.id, {
+        plannedDateStr: nextDateStr,
+        jigId,
+        plannedStartTime: scheduledJob.plannedStartTime,
+        plannedEndTime: scheduledJob.plannedEndTime,
+        plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
+        breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes,
+        parentProductionId: isRollover ? (job.parentProductionId || job.id) : undefined,
+        rolloverSequence: isRollover ? rolloverJob.rolloverSequence : undefined
+      }, isRollover ? 'rollover' : 'cascade');
+    }
+    
+    if (nextDayResult.requiresRollover && nextDayResult.overflows.length > 0) {
+      const nextOverflow = nextDayResult.overflows[0];
+      if (nextOverflow.jobId === rolloverJob.id) {
+        setPendingRollover({
+          job: { ...rolloverJob } as Job,
+          overflow: nextOverflow,
+          dateStr: nextDateStr,
+          jigId
+        });
+        return;
+      }
+    }
+    
+    setRolloverDialogOpen(false);
+    setPendingRollover(null);
+  };
+
+  const handleResizeInstead = () => {
+    if (!pendingRollover) return;
+    
+    const { overflow } = pendingRollover;
+    const job = allJobs.find(j => j.id === overflow.jobId);
+    if (!job) return;
+    
+    const currentDuration = job.plannedDurationMinutes || getJobDurationMinutes(job);
+    const reducedDuration = Math.max(15, currentDuration - overflow.overflowMinutes);
+    
+    console.log('[PLANNER] Resizing job to fit:', reducedDuration, 'minutes');
+    
+    stageJobUpdate(overflow.jobId, {
+      customDurationMinutes: reducedDuration,
+      plannedDurationMinutes: reducedDuration
+    }, 'resize');
+    
+    setRolloverDialogOpen(false);
+    setPendingRollover(null);
   };
 
   // Drop to global unallocated basket - reset to EFinks and clear assignment
@@ -1152,6 +1294,38 @@ export const ProductionPlannerPage = () => {
           )}
         </Stack>
       </Stack>
+
+      {/* Rollover Dialog */}
+      <Dialog
+        hidden={!rolloverDialogOpen}
+        onDismiss={() => {
+          setRolloverDialogOpen(false);
+          setPendingRollover(null);
+        }}
+        dialogContentProps={{
+          type: DialogType.normal,
+          title: 'Job Exceeds Available Time',
+          subText: pendingRollover 
+            ? `The job "${pendingRollover.job.name}" requires ${Math.round(pendingRollover.overflow.overflowMinutes)} more minutes than available on this day. Would you like to roll over the remaining time to the next working day, or resize the job to fit?`
+            : ''
+        }}
+        modalProps={{
+          isBlocking: true
+        }}
+      >
+        <DialogFooter>
+          <PrimaryButton 
+            text="Roll Over to Next Day" 
+            onClick={handleRolloverConfirm}
+            iconProps={{ iconName: 'Forward' }}
+          />
+          <DefaultButton 
+            text="Resize to Fit" 
+            onClick={handleResizeInstead}
+            iconProps={{ iconName: 'FitPage' }}
+          />
+        </DialogFooter>
+      </Dialog>
     </Stack>
   );
 };

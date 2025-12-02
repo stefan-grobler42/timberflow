@@ -6,13 +6,15 @@ export interface StagedJobData {
   plannedDurationMinutes: number | null;
   customDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  parentProductionId?: string | null;
+  rolloverSequence?: number;
 }
 
 export interface StagedJob {
   id: string;
   originalData: StagedJobData;
   pendingData: Partial<StagedJobData>;
-  changeType: 'allocate' | 'unallocate' | 'resize' | 'move' | 'reorder';
+  changeType: 'allocate' | 'unallocate' | 'resize' | 'move' | 'reorder' | 'cascade' | 'rollover';
   isPrimary: boolean;
 }
 
