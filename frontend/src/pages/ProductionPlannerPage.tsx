@@ -229,43 +229,47 @@ export const ProductionPlannerPage = () => {
     const job = baseJobs.find(j => j.id === jobId);
     if (!job) return;
     
-    // If already staged, do nothing (user can continue editing)
-    if (isJobStaged(globalStaging, jobId)) {
-      console.log('[PLANNER] Job already staged:', jobId);
-      return;
-    }
-    
-    // Find affected jobs (those that would be impacted by this job's changes)
-    const affectedJobIds = job.plannedEndTime && job.jigId && job.plannedDateStr
-      ? findAffectedJobs(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr, baseJobs)
-      : [];
-    
-    const affectedJobs = affectedJobIds
-      .map(id => baseJobs.find(j => j.id === id))
-      .filter((j): j is Job => j !== undefined);
-    
-    console.log('[PLANNER] Staging job:', jobId, 'with', affectedJobs.length, 'affected jobs');
-    
-    setGlobalStaging(prev => stageMultipleJobs(prev, job, affectedJobs, 'move'));
-  }, [baseJobs, globalStaging]);
+    // Use functional updater to check latest staging state and avoid stale closures
+    setGlobalStaging(prev => {
+      // If already staged, return unchanged
+      if (isJobStaged(prev, jobId)) {
+        console.log('[PLANNER] Job already staged:', jobId);
+        return prev;
+      }
+      
+      // Find affected jobs (those that would be impacted by this job's changes)
+      const affectedJobIds = job.plannedEndTime && job.jigId && job.plannedDateStr
+        ? findAffectedJobs(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr, baseJobs)
+        : [];
+      
+      const affectedJobs = affectedJobIds
+        .map(id => baseJobs.find(j => j.id === id))
+        .filter((j): j is Job => j !== undefined);
+      
+      console.log('[PLANNER] Staging job:', jobId, 'with', affectedJobs.length, 'affected jobs');
+      
+      return stageMultipleJobs(prev, job, affectedJobs, 'move');
+    });
+  }, [baseJobs]);
 
   // Stage a change to a job (for resize, move, etc.)
   const stageJobUpdate = useCallback((jobId: string, updates: Partial<Job>, changeType: StagedJob['changeType'] = 'move') => {
     const job = baseJobs.find(j => j.id === jobId);
     if (!job) return;
     
-    // If not staged yet, stage it first
-    if (!isJobStaged(globalStaging, jobId)) {
-      setGlobalStaging(prev => {
+    // Use functional updater to check latest staging state and avoid stale closures
+    setGlobalStaging(prev => {
+      // If not staged yet, stage it first then update
+      if (!isJobStaged(prev, jobId)) {
         const withJob = stageJob(prev, job, true, changeType);
+        console.log('[PLANNER] Staged new job:', jobId, updates);
         return updateStagedJob(withJob, jobId, updates, changeType);
-      });
-    } else {
-      setGlobalStaging(prev => updateStagedJob(prev, jobId, updates, changeType));
-    }
-    
-    console.log('[PLANNER] Updated staged job:', jobId, updates);
-  }, [baseJobs, globalStaging]);
+      } else {
+        console.log('[PLANNER] Updated staged job:', jobId, updates);
+        return updateStagedJob(prev, jobId, updates, changeType);
+      }
+    });
+  }, [baseJobs]);
 
   // Global Accept - persist ALL staged changes
   const acceptAllChanges = async () => {
