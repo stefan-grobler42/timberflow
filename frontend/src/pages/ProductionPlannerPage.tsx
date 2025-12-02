@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
@@ -160,50 +160,73 @@ export const ProductionPlannerPage = () => {
     loadData();
   }, []);
 
-  // Track staged job IDs for efficient lookup
-  const stagedJobIds = useMemo(() => {
-    return new Set(globalStaging.stagedJobs.keys());
-  }, [globalStaging.stagedJobs]);
+  // Stable base jobs array - only changes when jobs/unallocatedOrders change
+  const baseJobs = useMemo(() => {
+    return [...jobs, ...unallocatedOrders];
+  }, [jobs, unallocatedOrders]);
 
-  // Cache for merged job objects - only recreate when staging changes for that job
-  const stagedJobCache = useRef<Map<string, Job>>(new Map());
+  // Cache the complete result array to avoid recreating on every render
+  const allJobsCache = useRef<Job[]>([]);
+  const lastBaseJobsRef = useRef<Job[]>([]);
+  const lastStagingMapRef = useRef<Map<string, any>>(new Map());
 
-  // Merge unallocated orders into jobs array - preserve object references for non-staged jobs
+  // Compute allJobs with maximum stability
   const allJobs = useMemo(() => {
-    const baseJobs = [...jobs, ...unallocatedOrders];
-    
-    // If no staging, return base jobs directly (preserves references)
-    if (stagedJobIds.size === 0) {
-      stagedJobCache.current.clear();
+    // Fast path: if base jobs haven't changed and no staging, return cached
+    if (baseJobs === lastBaseJobsRef.current && globalStaging.stagedJobs.size === 0) {
+      if (allJobsCache.current.length === baseJobs.length) {
+        return allJobsCache.current;
+      }
+    }
+
+    // Fast path: no staging changes, return baseJobs directly
+    if (globalStaging.stagedJobs.size === 0) {
+      lastBaseJobsRef.current = baseJobs;
+      lastStagingMapRef.current = new Map();
+      allJobsCache.current = baseJobs;
       return baseJobs;
     }
+
+    // Check if staging has actually changed
+    const stagingChanged = globalStaging.stagedJobs !== lastStagingMapRef.current;
+    const baseChanged = baseJobs !== lastBaseJobsRef.current;
     
-    // Only create new objects for staged jobs
-    return baseJobs.map(job => {
-      if (!stagedJobIds.has(job.id)) {
-        return job; // Preserve original reference
-      }
-      
+    if (!stagingChanged && !baseChanged && allJobsCache.current.length > 0) {
+      return allJobsCache.current;
+    }
+
+    // Only rebuild if something actually changed
+    const result: Job[] = new Array(baseJobs.length);
+    
+    for (let i = 0; i < baseJobs.length; i++) {
+      const job = baseJobs[i];
       const staged = globalStaging.stagedJobs.get(job.id);
-      if (!staged) return job;
       
-      // Create merged object for staged job
-      return { 
-        ...job,
-        jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
-        plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
-        plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
-        plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
-        plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
-        customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
-        breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
-      };
-    });
-  }, [jobs, unallocatedOrders, globalStaging, stagedJobIds]);
+      if (!staged) {
+        result[i] = job;
+      } else {
+        result[i] = { 
+          ...job,
+          jigId: getEffectiveValue(staged, 'jigId') ?? job.jigId,
+          plannedDateStr: getEffectiveValue(staged, 'plannedDateStr') ?? job.plannedDateStr,
+          plannedStartTime: getEffectiveValue(staged, 'plannedStartTime') ?? job.plannedStartTime,
+          plannedEndTime: getEffectiveValue(staged, 'plannedEndTime') ?? job.plannedEndTime,
+          plannedDurationMinutes: getEffectiveValue(staged, 'plannedDurationMinutes') ?? job.plannedDurationMinutes,
+          customDurationMinutes: getEffectiveValue(staged, 'customDurationMinutes') ?? job.customDurationMinutes,
+          breakAdjustmentMinutes: getEffectiveValue(staged, 'breakAdjustmentMinutes') ?? job.breakAdjustmentMinutes
+        };
+      }
+    }
+
+    lastBaseJobsRef.current = baseJobs;
+    lastStagingMapRef.current = globalStaging.stagedJobs;
+    allJobsCache.current = result;
+    return result;
+  }, [baseJobs, globalStaging]);
   
   // Stage a job click - adds job + affected jobs to global staging
-  const handleJobClick = (jobId: string) => {
-    const job = [...jobs, ...unallocatedOrders].find(j => j.id === jobId);
+  const handleJobClick = useCallback((jobId: string) => {
+    const job = baseJobs.find(j => j.id === jobId);
     if (!job) return;
     
     // If already staged, do nothing (user can continue editing)
@@ -214,21 +237,21 @@ export const ProductionPlannerPage = () => {
     
     // Find affected jobs (those that would be impacted by this job's changes)
     const affectedJobIds = job.plannedEndTime && job.jigId && job.plannedDateStr
-      ? findAffectedJobs(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr, [...jobs, ...unallocatedOrders])
+      ? findAffectedJobs(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr, baseJobs)
       : [];
     
     const affectedJobs = affectedJobIds
-      .map(id => [...jobs, ...unallocatedOrders].find(j => j.id === id))
+      .map(id => baseJobs.find(j => j.id === id))
       .filter((j): j is Job => j !== undefined);
     
     console.log('[PLANNER] Staging job:', jobId, 'with', affectedJobs.length, 'affected jobs');
     
     setGlobalStaging(prev => stageMultipleJobs(prev, job, affectedJobs, 'move'));
-  };
+  }, [baseJobs, globalStaging]);
 
   // Stage a change to a job (for resize, move, etc.)
-  const stageJobUpdate = (jobId: string, updates: Partial<Job>, changeType: StagedJob['changeType'] = 'move') => {
-    const job = [...jobs, ...unallocatedOrders].find(j => j.id === jobId);
+  const stageJobUpdate = useCallback((jobId: string, updates: Partial<Job>, changeType: StagedJob['changeType'] = 'move') => {
+    const job = baseJobs.find(j => j.id === jobId);
     if (!job) return;
     
     // If not staged yet, stage it first
@@ -242,7 +265,7 @@ export const ProductionPlannerPage = () => {
     }
     
     console.log('[PLANNER] Updated staged job:', jobId, updates);
-  };
+  }, [baseJobs, globalStaging]);
 
   // Global Accept - persist ALL staged changes
   const acceptAllChanges = async () => {
@@ -329,13 +352,13 @@ export const ProductionPlannerPage = () => {
     }
   }, [currentDateStr, viewMode]);
 
-  const handleDragStart = (jobId: string) => {
+  const handleDragStart = useCallback((jobId: string) => {
     setDraggedJobId(jobId);
-  };
+  }, []);
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-  };
+  }, []);
 
   // Drop to a team/day column - assign jig, date, and calculate time
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
