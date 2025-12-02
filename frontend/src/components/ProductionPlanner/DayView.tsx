@@ -70,6 +70,7 @@ interface DayViewProps {
   jobs: Job[];
   allJobs: Job[];
   jigTeams: Jig[];
+  chainJobsMap: Map<string, Job[]>;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string, jigId: string | null) => void;
@@ -93,8 +94,9 @@ const MIN_BLOCK_HEIGHT = 20;
 const DayViewComponent: React.FC<DayViewProps> = ({
   dayStr,
   jobs,
-  allJobs,
+  allJobs: _allJobs,
   jigTeams,
+  chainJobsMap,
   onDragStart,
   onDragOver,
   onDrop,
@@ -401,16 +403,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId);
   }, [jobs, dayStr]);
 
-  const chainJobsMap = useMemo(() => {
-    const map = new Map<string, Job[]>();
-    for (const job of allJobs) {
-      const rootId = job.parentProductionId || job.id;
-      const existing = map.get(rootId) || [];
-      existing.push(job);
-      map.set(rootId, existing);
-    }
-    return map;
-  }, [allJobs]);
+  // chainJobsMap is now passed from parent (computed from baseJobs for stability)
 
   const getJobsForDateAndJig = (_dateStr: string, jigId: string) => {
     return jobsByJig.get(jigId) || [];
@@ -667,7 +660,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
 
     return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations, allJobs]);
+  }, [workingHours, breakSlots, customDurations]);
 
   useEffect(() => {
     if (!workingHours) return;

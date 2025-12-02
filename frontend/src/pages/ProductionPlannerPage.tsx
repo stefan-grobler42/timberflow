@@ -164,6 +164,19 @@ export const ProductionPlannerPage = () => {
     return [...jobs, ...unallocatedOrders];
   }, [jobs, unallocatedOrders]);
 
+  // Chain jobs map - stable, only changes when baseJobs changes (not on staging updates)
+  // This is used for rollover chain detection and doesn't need staging overlays
+  const chainJobsMap = useMemo(() => {
+    const map = new Map<string, Job[]>();
+    for (const job of baseJobs) {
+      const rootId = job.parentProductionId || job.id;
+      const existing = map.get(rootId) || [];
+      existing.push(job);
+      map.set(rootId, existing);
+    }
+    return map;
+  }, [baseJobs]);
+
   // Cache for allJobs to avoid unnecessary recreations
   const allJobsCache = useRef<Job[]>([]);
   const lastBaseJobsRef = useRef<Job[]>([]);
@@ -1125,6 +1138,7 @@ export const ProductionPlannerPage = () => {
               jobs={allJobs}
               allJobs={allJobs}
               jigTeams={filteredJigTeams}
+              chainJobsMap={chainJobsMap}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={(dateStr, jigId) => handleDrop(dateStr, jigId)}
