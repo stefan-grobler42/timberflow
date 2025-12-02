@@ -9,14 +9,30 @@ namespace MillenniumERP.Infrastructure.Data.Converters
 
         private static TimeZoneInfo GetSouthAfricaTimeZone()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            // Try multiple timezone identifiers
+            string[] tzIds = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? new[] { "South Africa Standard Time" }
+                : new[] { "Africa/Johannesburg", "Etc/GMT-2" };
+
+            foreach (var tzId in tzIds)
             {
-                return TimeZoneInfo.FindSystemTimeZoneById("South Africa Standard Time");
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    continue;
+                }
             }
-            else
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById("Africa/Johannesburg");
-            }
+
+            // Fallback: Create a custom timezone for SAST (UTC+2, no daylight saving)
+            return TimeZoneInfo.CreateCustomTimeZone(
+                "SAST",
+                TimeSpan.FromHours(2),
+                "South Africa Standard Time",
+                "South Africa Standard Time"
+            );
         }
 
         public UtcDateTimeConverter()
@@ -37,14 +53,30 @@ namespace MillenniumERP.Infrastructure.Data.Converters
 
         private static TimeZoneInfo GetSouthAfricaTimeZone()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            // Try multiple timezone identifiers
+            string[] tzIds = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? new[] { "South Africa Standard Time" }
+                : new[] { "Africa/Johannesburg", "Etc/GMT-2" };
+
+            foreach (var tzId in tzIds)
             {
-                return TimeZoneInfo.FindSystemTimeZoneById("South Africa Standard Time");
+                try
+                {
+                    return TimeZoneInfo.FindSystemTimeZoneById(tzId);
+                }
+                catch (TimeZoneNotFoundException)
+                {
+                    continue;
+                }
             }
-            else
-            {
-                return TimeZoneInfo.FindSystemTimeZoneById("Africa/Johannesburg");
-            }
+
+            // Fallback: Create a custom timezone for SAST (UTC+2, no daylight saving)
+            return TimeZoneInfo.CreateCustomTimeZone(
+                "SAST",
+                TimeSpan.FromHours(2),
+                "South Africa Standard Time",
+                "South Africa Standard Time"
+            );
         }
 
         public NullableUtcDateTimeConverter()

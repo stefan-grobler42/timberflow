@@ -416,10 +416,14 @@ export const ProductionPlannerPage = () => {
   // Drop to a team/day column - assign jig, date, and calculate time
   // SIMPLIFIED: Only updates the moved job, no cascading. Defaults to 07:00 start.
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
+    console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId });
+    
     if (!draggedJobId) return;
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
+    
+    console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
     // Check if this is a sales order needing production (prefixed with 'order-')
     const isSalesOrder = job.id.startsWith('order-');

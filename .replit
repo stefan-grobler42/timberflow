@@ -2,7 +2,7 @@ modules = ["nodejs-20", "python-3.11", "python3", "dotnet-8", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["dotnet-sdk_8", "glibcLocales", "sqlite"]
+packages = ["dotnet-sdk_8", "glibcLocales", "sqlite", "tzdata"]
 
 [workflows]
 runButton = "Project"
@@ -87,6 +87,10 @@ externalPort = 3002
 [[ports]]
 localPort = 45249
 externalPort = 5173
+
+[[ports]]
+localPort = 45567
+externalPort = 8080
 
 [[ports]]
 localPort = 46561
