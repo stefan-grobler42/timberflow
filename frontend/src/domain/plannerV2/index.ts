@@ -7,9 +7,13 @@
  * - Duration calculations based on E-Finks
  * - Shift configuration and break management
  * - Visual sizing calculations
+ * - Cascade scheduling and overflow handling
+ * - Change staging and persistence management
  */
 
 export * from './types';
 export * from './constants';
 export * from './durationCalculator';
 export * from './shiftCalendar';
+export * from './schedulerEngine';
+export * from './stagingManager';
