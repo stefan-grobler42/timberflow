@@ -305,18 +305,18 @@ export function createRolloverSegment(
  * 
  * @param overflows - Initial overflow entries to process
  * @param allJobs - All existing jobs across all days (for reference)
- * @param overtimeByDay - Overtime settings keyed by date string
+ * @param overtimeByTeamDay - Overtime settings keyed by date string, then by team ID
  * @returns Multi-day cascade result
  * 
  * @example
- * const result = processMultiDayOverflows(overflows, allJobs, overtimeSettings);
+ * const result = processMultiDayOverflows(overflows, allJobs, overtimeByTeamDay);
  * // result.affectedDays shows which days were modified
  * // result.newRollovers contains created rollover segments
  */
 export function processMultiDayOverflows(
   overflows: OverflowEntry[],
   allJobs: ScheduledJob[],
-  overtimeByDay: Record<string, OvertimeSettings>
+  overtimeByTeamDay: Record<string, Record<string, OvertimeSettings>>
 ): MultiDayCascadeResult {
   const affectedDays = new Set<string>();
   const newRollovers: ScheduledJob[] = [];
@@ -360,8 +360,9 @@ export function processMultiDayOverflows(
       nextSequence
     );
     
-    const dayOvertime = overtimeByDay[targetDate] || { enabled: false, closeTime: 1020 };
-    const dayShift = getShiftConfig(dayOvertime.enabled, dayOvertime.closeTime);
+    const teamId = rollover.jigId || '';
+    const dayTeamOvertime = overtimeByTeamDay[targetDate]?.[teamId] || { enabled: false, closeTime: 1020 };
+    const dayShift = getShiftConfig(dayTeamOvertime.enabled, dayTeamOvertime.closeTime);
     
     const dayJobs = scheduledJobs
       .filter(j => j.plannedDateStr === targetDate && j.jigId === rollover.jigId)

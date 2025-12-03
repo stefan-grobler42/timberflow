@@ -57,7 +57,7 @@ export const ProductionPlannerPage = () => {
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const [overtimeByDay, setOvertimeByDay] = useState<Record<string, { enabled: boolean; closeTime: string }>>({});
+  const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: string }>>>({});
   const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   
@@ -419,8 +419,8 @@ export const ProductionPlannerPage = () => {
 
     try {
       if (updatedJigId) {
-        const overtime = overtimeByDay[dateStr];
-        const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
+        const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
+        const shift = PlannerV2.getShiftConfig(teamOvertimeSettings?.enabled, teamOvertimeSettings?.closeTime);
         
         const existingJobsOnDay = allJobs.filter(
           j => j.plannedDateStr === dateStr && 
@@ -477,7 +477,7 @@ export const ProductionPlannerPage = () => {
           const multiDayResult = PlannerV2.processMultiDayOverflows(
             cascadeResult.overflows,
             allScheduledJobs,
-            overtimeByDay
+            overtimeByTeamDay
           );
           
           console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected,', multiDayResult.newRollovers.length, 'rollovers');
@@ -630,8 +630,8 @@ export const ProductionPlannerPage = () => {
     
     // Calculate new end time based on the resized duration
     if (job.plannedStartTime != null && jigId && dateStr) {
-      const overtime = overtimeByDay[dateStr];
-      const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
+      const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
+      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
       
       // Calculate new end time and break adjustments
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
@@ -664,8 +664,8 @@ export const ProductionPlannerPage = () => {
     const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
     
     if (job.plannedStartTime != null && jigId && dateStr) {
-      const overtime = overtimeByDay[dateStr];
-      const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
+      const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
+      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
       
       // Calculate end time using default duration
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, defaultDuration, shift);
@@ -687,14 +687,19 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleOvertimeChange = async (dayStr: string, enabled: boolean, closeTime: string, _additionalMinutes?: number) => {
-    // SIMPLIFIED: For now, overtime is UI-only state
-    // Future: Can persist to Production or separate settings table
-    setOvertimeByDay(prev => ({
+  const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: string, _additionalMinutes?: number) => {
+    setOvertimeByTeamDay(prev => ({
       ...prev,
-      [dayStr]: { enabled, closeTime }
+      [dayStr]: {
+        ...(prev[dayStr] || {}),
+        [teamId]: { enabled, closeTime }
+      }
     }));
-    console.log(`[PLANNER] Overtime for ${dayStr}: enabled=${enabled}, closeTime=${closeTime}`);
+    console.log(`[PLANNER] Team overtime for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
+  };
+
+  const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: string }> => {
+    return overtimeByTeamDay[dayStr] || {};
   };
 
   const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
@@ -847,7 +852,7 @@ export const ProductionPlannerPage = () => {
 
       console.log('[DELETE] Deleting rollover segment:', jobId);
       
-      const result = deleteRolloverSegment(jobId, allJobs as ScheduledJob[], overtimeByDay);
+      const result = deleteRolloverSegment(jobId, allJobs as ScheduledJob[], overtimeByTeamDay);
       
       for (const updatedJob of result.updatedJobs) {
         stageJobUpdate(updatedJob.id, {
@@ -1238,8 +1243,8 @@ export const ProductionPlannerPage = () => {
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
-              overtimeSettings={overtimeByDay[currentDateStr]}
-              onOvertimeChange={handleOvertimeChange}
+              overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}
+              onTeamOvertimeChange={handleTeamOvertimeChange}
               globalStaging={globalStaging}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
               isDragging={!!draggedJobId}

@@ -61,6 +61,11 @@ interface OverflowInfo {
   jigName: string;
 }
 
+interface TeamOvertimeSettings {
+  enabled: boolean;
+  closeTime: string;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -76,8 +81,8 @@ interface DayViewProps {
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
-  overtimeSettings?: { enabled: boolean; closeTime: string };
-  onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
+  overtimeByTeam?: Record<string, TeamOvertimeSettings>;
+  onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
   globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
@@ -101,8 +106,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover,
-  overtimeSettings,
-  onOvertimeChange,
+  overtimeByTeam = {},
+  onTeamOvertimeChange,
   globalStaging,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
   isDragging = false
@@ -124,9 +129,32 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
   const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
 
-  // Use parent-provided overtime settings if available, otherwise default
-  const overtimeEnabled = overtimeSettings?.enabled ?? false;
-  const overtimeCloseTime = overtimeSettings?.closeTime ?? '21:00';
+  // Helper to get overtime settings for a specific team
+  const getTeamOvertime = useCallback((teamId: string): TeamOvertimeSettings => {
+    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: '19:00' };
+  }, [overtimeByTeam]);
+
+  // Check if ANY team has overtime enabled (for timeline rendering)
+  const anyTeamHasOvertime = useMemo(() => {
+    return Object.values(overtimeByTeam).some(settings => settings.enabled);
+  }, [overtimeByTeam]);
+
+  // Get the maximum close time across all teams for timeline display
+  const maxOvertimeCloseTime = useMemo(() => {
+    const enabledTeams = Object.values(overtimeByTeam).filter(s => s.enabled);
+    if (enabledTeams.length === 0) return '17:00';
+    
+    let maxMinutes = 0;
+    enabledTeams.forEach(s => {
+      const [h, m] = s.closeTime.split(':').map(Number);
+      const mins = h * 60 + m;
+      if (mins > maxMinutes) maxMinutes = mins;
+    });
+    
+    const h = Math.floor(maxMinutes / 60);
+    const m = maxMinutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  }, [overtimeByTeam]);
 
   // Check if job is staged (in pending changes)
   const isJobStaged = (jobId: string) => globalStaging ? PlannerV2.hasJobChanges(globalStaging, jobId) : false;
@@ -152,19 +180,19 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return (overtimeMinutes - dinnerBreak) - baseMinutes;
   }, [baseWorkingHours]);
   
-  const handleOvertimeToggle = (checked: boolean) => {
-    if (onOvertimeChange) {
-      // When enabling overtime, calculate and pass the additional minutes
-      const deltaMinutes = checked ? calculateOvertimeDelta(overtimeCloseTime) : 0;
-      onOvertimeChange(dayStr, checked, overtimeCloseTime, deltaMinutes);
+  const handleTeamOvertimeToggle = (teamId: string, checked: boolean) => {
+    if (onTeamOvertimeChange) {
+      const currentSettings = getTeamOvertime(teamId);
+      const deltaMinutes = checked ? calculateOvertimeDelta(currentSettings.closeTime) : 0;
+      onTeamOvertimeChange(dayStr, teamId, checked, currentSettings.closeTime, deltaMinutes);
     }
   };
 
-  const handleOvertimeCloseTimeChange = (newTime: string) => {
-    if (onOvertimeChange) {
-      // Calculate new delta when close time changes
-      const deltaMinutes = overtimeEnabled ? calculateOvertimeDelta(newTime) : 0;
-      onOvertimeChange(dayStr, overtimeEnabled, newTime, deltaMinutes);
+  const handleTeamOvertimeCloseTimeChange = (teamId: string, newTime: string) => {
+    if (onTeamOvertimeChange) {
+      const currentSettings = getTeamOvertime(teamId);
+      const deltaMinutes = currentSettings.enabled ? calculateOvertimeDelta(newTime) : 0;
+      onTeamOvertimeChange(dayStr, teamId, currentSettings.enabled, newTime, deltaMinutes);
     }
   };
 
@@ -175,8 +203,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   useEffect(() => {
     if (!baseWorkingHours) return;
     
-    if (overtimeEnabled) {
-      const [hourStr, minStr] = overtimeCloseTime.split(':');
+    // For timeline display, use the max overtime close time across all teams
+    if (anyTeamHasOvertime) {
+      const [hourStr, minStr] = maxOvertimeCloseTime.split(':');
       const hour = parseInt(hourStr) || baseWorkingHours.end;
       const minutes = parseInt(minStr) || 0;
       const overtimeEndHour = minutes > 0 ? hour + 1 : hour;
@@ -184,18 +213,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     } else {
       setWorkingHours(baseWorkingHours);
     }
-  }, [overtimeEnabled, overtimeCloseTime, baseWorkingHours]);
+  }, [anyTeamHasOvertime, maxOvertimeCloseTime, baseWorkingHours]);
 
-  // Dynamically add/remove dinner break based on overtime state
+  // Dynamically add/remove dinner break based on overtime state (any team)
   useEffect(() => {
-    if (overtimeEnabled && dinnerBreakSlot) {
-      // Add dinner break when overtime is enabled
+    if (anyTeamHasOvertime && dinnerBreakSlot) {
+      // Add dinner break when any team has overtime enabled
       setBreakSlots([...baseBreakSlots, dinnerBreakSlot]);
     } else {
-      // Remove dinner break when overtime is disabled
+      // Remove dinner break when no team has overtime
       setBreakSlots(baseBreakSlots);
     }
-  }, [overtimeEnabled, baseBreakSlots, dinnerBreakSlot]);
+  }, [anyTeamHasOvertime, baseBreakSlots, dinnerBreakSlot]);
 
   // NOTE: The automatic redistribution effect was removed as it caused an infinite loop
   // Redistribution is now ONLY triggered when the user explicitly toggles overtime
@@ -816,47 +845,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           {formatDate(dayStr)}
         </Text>
         <Text variant="small" styles={{ root: { color: '#666', backgroundColor: '#f3f2f1', padding: '4px 8px', borderRadius: 4 } }}>
-          80 E-Finks = 8h 45m (standard day) | Drag bottom edge to resize blocks
+          80 E-Finks = 8h 45m (standard day) | Drag bottom edge to resize blocks | Toggle overtime per team below
         </Text>
-        
-        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }} styles={{ root: { marginLeft: 'auto' } }}>
-          <Toggle
-            label="Plan for overtime"
-            inlineLabel
-            checked={overtimeEnabled}
-            onChange={(_, checked) => handleOvertimeToggle(!!checked)}
-            styles={{ 
-              root: { marginBottom: 0 },
-              label: { fontWeight: 600, color: '#333' }
-            }}
-          />
-          {overtimeEnabled && baseWorkingHours && (
-            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-              <Text variant="small" styles={{ root: { fontWeight: 500 } }}>Close time:</Text>
-              <Dropdown
-                selectedKey={overtimeCloseTime}
-                onChange={(_, option) => option && handleOvertimeCloseTimeChange(option.key as string)}
-                options={(() => {
-                  const options: IDropdownOption[] = [];
-                  for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
-                    if (hour === baseWorkingHours.end) {
-                      options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
-                    } else {
-                      options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
-                      options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
-                    }
-                  }
-                  options.push({ key: '00:00', text: '00:00 (midnight)' });
-                  return options;
-                })()}
-                styles={{ 
-                  root: { width: 120 },
-                  dropdown: { minWidth: 120 }
-                }}
-              />
-            </Stack>
-          )}
-        </Stack>
       </Stack>
 
 
@@ -1104,29 +1094,86 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
           const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
           const totalMinutes = jigJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
+          const teamOvertime = getTeamOvertime(jig.id);
 
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
-              {/* Jig header */}
+              {/* Jig header with overtime controls */}
               <Stack
-                onDoubleClick={() => onTeamDoubleClick(jig.id)}
                 styles={{
                   root: {
-                    height: 50,
-                    padding: '8px 15px',
-                    backgroundColor: '#0078d4',
+                    minHeight: 70,
+                    padding: '6px 12px',
+                    backgroundColor: teamOvertime.enabled ? '#005a9e' : '#0078d4',
                     color: 'white',
-                    borderBottom: '1px solid #ddd',
-                    cursor: 'pointer'
+                    borderBottom: '1px solid #ddd'
                   }
                 }}
               >
-                <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                  {jig.name}
-                </Text>
-                <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                  {jigEFinks} E-Finks | {formatDuration(totalMinutes)}
-                </Text>
+                <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
+                  <Stack 
+                    onClick={() => onTeamDoubleClick(jig.id)}
+                    styles={{ root: { cursor: 'pointer', flex: 1 } }}
+                  >
+                    <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                      {jig.name}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                      {jigEFinks} E-Finks | {formatDuration(totalMinutes)}
+                    </Text>
+                  </Stack>
+                </Stack>
+                {/* Per-team overtime toggle */}
+                <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }} styles={{ root: { marginTop: 4 } }}>
+                  <Toggle
+                    checked={teamOvertime.enabled}
+                    onChange={(_, checked) => handleTeamOvertimeToggle(jig.id, !!checked)}
+                    styles={{
+                      root: { marginBottom: 0 },
+                      pill: { 
+                        backgroundColor: teamOvertime.enabled ? '#ffc107' : 'rgba(255,255,255,0.3)',
+                        border: 'none'
+                      },
+                      thumb: { backgroundColor: 'white' }
+                    }}
+                  />
+                  <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
+                    OT
+                  </Text>
+                  {teamOvertime.enabled && baseWorkingHours && (
+                    <Dropdown
+                      selectedKey={teamOvertime.closeTime}
+                      onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
+                      options={(() => {
+                        const options: IDropdownOption[] = [];
+                        for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
+                          if (hour === baseWorkingHours.end) {
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                          } else {
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                          }
+                        }
+                        options.push({ key: '00:00', text: '00:00' });
+                        return options;
+                      })()}
+                      styles={{
+                        root: { minWidth: 70 },
+                        title: { 
+                          backgroundColor: 'rgba(255,255,255,0.2)', 
+                          color: 'white', 
+                          border: 'none',
+                          fontSize: 11,
+                          padding: '2px 6px',
+                          height: 24,
+                          lineHeight: '20px'
+                        },
+                        caretDown: { color: 'white' },
+                        dropdown: { minWidth: 70 }
+                      }}
+                    />
+                  )}
+                </Stack>
               </Stack>
 
               {/* Timeline background with break slots */}
