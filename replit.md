@@ -38,6 +38,13 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
     -   **Global Staging**: All changes (allocations, cascades, rollovers) are staged in-memory using plannerV2.StagingState before persistence. Accept button persists all staged changes across all affected days/weeks/months with batch API calls and comprehensive audit logging.
     -   **Chain Management**: Rollover chains have parent-child relationships; segment deletion redistributes time to previous segment.
     -   **Overtime Toggle**: Per-day overtime setting extends working hours; scheduling engine dynamically adjusts available capacity.
+    -   **Schedule Blocks**: Non-job time blocking system for comprehensive schedule management:
+        -   Block Types: PublicHoliday, Breakdown, Maintenance, MaterialShortage, GeneralDelay
+        -   Visual display on DayView timeline with type-specific colors (light blue for holidays, red for breakdowns, purple for maintenance, yellow for material shortages, gray for delays)
+        -   Team-specific blocks (teamId set) or all-teams blocks (teamId null for public holidays)
+        -   Full-day toggle for public holidays that auto-sets working hours range
+        -   Command bar dropdown with block type pre-selection for quick creation
+        -   Click-to-edit with ScheduleBlockPanel form
 -   **System Settings**: Configuration module for Financial Year, Working Hours (Office/Factory Staff), and Timezone management.
 -   **Order Form Summary**: Reactive workflow timeline (Quote Created to Order Complete) dynamically updating based on form data, responsive two-column layout.
 -   **Form Enhancements**: `cleanFormData` function for robust handling of nullable fields and team allocations.
