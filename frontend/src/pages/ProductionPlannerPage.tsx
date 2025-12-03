@@ -26,7 +26,8 @@ import {
   calculatePlannedTimes,
   getJobDurationMinutes,
   roundUpToQuarterHour,
-  getDefaultEfinksDuration
+  getDefaultEfinksDuration,
+  BUFFER_MINUTES
 } from '../utils/scheduleUtils';
 import {
   type ScheduledJob,
@@ -432,7 +433,7 @@ export const ProductionPlannerPage = () => {
   } | null>(null);
 
   // Drop to a team/day column - assign jig, date, and calculate time
-  // Uses sequential scheduling: first job at 07:00, subsequent jobs after previous end + 15-min gap
+  // Uses sequential scheduling: first job at 07:00, subsequent jobs after previous end + 30-min gap
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
     
@@ -483,7 +484,7 @@ export const ProductionPlannerPage = () => {
           } else {
             const prevJob = existingJobsOnDay[insertIndex - 1];
             const prevEnd = prevJob.plannedEndTime ?? (prevJob.plannedStartTime ?? WORKING_START) + getJobDurationMinutes(prevJob);
-            plannedStartTime = prevEnd + 15;
+            plannedStartTime = prevEnd + BUFFER_MINUTES;
           }
         }
         
@@ -582,7 +583,7 @@ export const ProductionPlannerPage = () => {
         
         // Only cascade if there are jobs after the insert position AND the end time is valid
         if (insertIndex < existingJobsOnDay.length && timing.plannedEndTime < WORKING_END) {
-          let cascadeStartTime = timing.plannedEndTime + 15;
+          let cascadeStartTime = timing.plannedEndTime + BUFFER_MINUTES;
           
           // Limit cascade iterations to prevent infinite loops
           const maxCascadeIterations = existingJobsOnDay.length - insertIndex;
@@ -611,7 +612,7 @@ export const ProductionPlannerPage = () => {
               }, 'cascade');
             }
             
-            cascadeStartTime = cascadeTiming.plannedEndTime + 15;
+            cascadeStartTime = cascadeTiming.plannedEndTime + BUFFER_MINUTES;
           }
         }
         

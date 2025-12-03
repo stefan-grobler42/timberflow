@@ -24,7 +24,7 @@ export interface GlobalStagingState {
   primaryJobId: string | null;
 }
 
-const BUFFER_MINUTES = 15;
+import { BUFFER_MINUTES } from './scheduleUtils';
 const MINUTES_PER_EFINK = 6.5625;
 
 export function createEmptyStagingState(): GlobalStagingState {

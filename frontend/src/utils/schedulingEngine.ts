@@ -2,7 +2,8 @@ import {
   getShiftConfig,
   calculatePlannedTimes,
   getJobDurationMinutes,
-  getShiftTotalMinutes
+  getShiftTotalMinutes,
+  BUFFER_MINUTES
 } from './scheduleUtils';
 
 export interface ScheduledJob {
@@ -58,8 +59,6 @@ export interface RolloverChain {
   segments: ScheduledJob[];
   totalDurationMinutes: number;
 }
-
-const BUFFER_MINUTES = 15;
 
 export function getAvailableMinutesForDay(
   dateStr: string,
@@ -489,7 +488,7 @@ export function recalculateChain(
 }
 
 export function findInsertPosition(
-  dropY: number,
+  dropTimeMinutes: number,
   existingJobs: ScheduledJob[],
   dateStr: string,
   jigId: string,
@@ -509,16 +508,20 @@ export function findInsertPosition(
   
   if (jobsOnDay.length === 0) return 0;
   
-  const dropMinutes = dropY + WORKING_START;
+  // dropTimeMinutes is already in absolute minutes from midnight (e.g., 420 for 07:00)
+  // DayView passes the snapped position which is in absolute time
+  const dropMinutes = dropTimeMinutes;
   
   for (let i = 0; i < jobsOnDay.length; i++) {
     const job = jobsOnDay[i];
     const jobStart = job.plannedStartTime ?? WORKING_START;
     
-    if (dropMinutes < jobStart) {
+    // If dropping before this job's start time, insert at this position
+    if (dropMinutes <= jobStart) {
       return i;
     }
     
+    // For completed jobs, check if dropping after them
     if (job.productionComplete) {
       const jobEnd = job.plannedEndTime ?? jobStart;
       if (dropMinutes > jobEnd) {

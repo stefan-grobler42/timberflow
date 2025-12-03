@@ -91,6 +91,7 @@ const MINUTES_PER_EFINK = 6.5625;
 const PIXELS_PER_MINUTE = 1;
 const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
+const BUFFER_MINUTES = 30; // Mandatory 30-minute gap between jobs
 
 const DayViewComponent: React.FC<DayViewProps> = ({
   dayStr,
@@ -690,7 +691,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       const jobEnd = jobStart + baseDuration + totalBreakMinutes;
       
-      dropZones.push({ position: jobEnd + 15, afterJobId: job.id });
+      dropZones.push({ position: jobEnd + BUFFER_MINUTES, afterJobId: job.id });
     }
     
     return dropZones;

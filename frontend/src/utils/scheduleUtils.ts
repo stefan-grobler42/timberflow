@@ -12,7 +12,7 @@ interface ShiftConfig {
 }
 
 const MINUTES_PER_EFINK = 6.5625;
-const BUFFER_MINUTES = 15; // Buffer between jobs for paperwork
+export const BUFFER_MINUTES = 30; // Mandatory 30-minute gap between jobs for paperwork
 
 /**
  * Round up to nearest 15-minute increment
@@ -30,7 +30,7 @@ export function snapToQuarterHour(minutes: number): number {
 }
 
 /**
- * Calculate the next job start time with 15-minute buffer
+ * Calculate the next job start time with mandatory 30-minute buffer
  * No automatic break proximity snapping - manual booking control
  */
 export function calculateBufferedStartTime(
