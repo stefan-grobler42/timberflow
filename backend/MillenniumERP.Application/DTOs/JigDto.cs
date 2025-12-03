@@ -9,6 +9,7 @@ public class JigDto
     public string? Proficiency { get; set; }
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
+    public decimal AverageEfinks { get; set; } = 80;
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -23,6 +24,7 @@ public class CreateJigDto
     public string? Proficiency { get; set; }
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
+    public decimal AverageEfinks { get; set; } = 80;
 }
 
 public class UpdateJigDto
@@ -33,4 +35,5 @@ public class UpdateJigDto
     public string? Proficiency { get; set; }
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
+    public decimal? AverageEfinks { get; set; }
 }

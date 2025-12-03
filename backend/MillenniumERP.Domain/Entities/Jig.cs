@@ -34,6 +34,10 @@ namespace MillenniumERP.Domain.Entities
         [Column("strengths")]
         public string? Strengths { get; set; }
 
+        /// <summary>Average E-Finks capacity per day for this team (default: 80)</summary>
+        [Column("average_efinks")]
+        public decimal AverageEfinks { get; set; } = 80;
+
         // Audit fields
         [Column("created_on")]
         public DateTime? CreatedOn { get; set; }

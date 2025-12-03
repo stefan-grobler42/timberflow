@@ -55,6 +55,7 @@ public class JigsController : ControllerBase
             Proficiency = createDto.Proficiency,
             ReliabilityScore = createDto.ReliabilityScore,
             Strengths = createDto.Strengths,
+            AverageEfinks = createDto.AverageEfinks,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -82,6 +83,7 @@ public class JigsController : ControllerBase
         if (updateDto.Proficiency != null) jig.Proficiency = updateDto.Proficiency;
         if (updateDto.ReliabilityScore.HasValue) jig.ReliabilityScore = updateDto.ReliabilityScore;
         if (updateDto.Strengths != null) jig.Strengths = updateDto.Strengths;
+        if (updateDto.AverageEfinks.HasValue) jig.AverageEfinks = updateDto.AverageEfinks.Value;
 
         jig.ModifiedOn = DateTime.UtcNow;
 
@@ -121,6 +123,7 @@ public class JigsController : ControllerBase
             Proficiency = jig.Proficiency,
             ReliabilityScore = jig.ReliabilityScore,
             Strengths = jig.Strengths,
+            AverageEfinks = jig.AverageEfinks,
             CreatedOn = jig.CreatedOn,
             CreatedBy = jig.CreatedBy,
             ModifiedOn = jig.ModifiedOn,
