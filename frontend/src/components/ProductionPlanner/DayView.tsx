@@ -941,6 +941,49 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   backgroundColor: '#ffebee'
                 }}
               >
+                {/* Hour lines - within working hours */}
+                {workingHours && Array.from({ length: workingHours.end - workingHours.start + 1 }, (_, idx) => {
+                  const hour = workingHours.start + idx;
+                  const minutes = hour * 60;
+                  return (
+                    <div
+                      key={`unalloc-hour-${hour}`}
+                      style={{
+                        position: 'absolute',
+                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        left: 0,
+                        right: 0,
+                        height: 1,
+                        backgroundColor: '#ccc',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                })}
+
+                {/* 15-minute interval lines - within working hours */}
+                {workingHours && Array.from({ length: (workingHours.end - workingHours.start) * 4 }, (_, idx) => {
+                  const minutes = workingHours.start * 60 + (idx + 1) * 15;
+                  if (minutes % 60 === 0) return null;
+                  if (minutes > workingHours.end * 60) return null;
+                  return (
+                    <div
+                      key={`unalloc-quarter-${idx}`}
+                      style={{
+                        position: 'absolute',
+                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        left: 0,
+                        right: 0,
+                        height: 1,
+                        borderTop: '1px dashed rgba(0, 0, 0, 0.08)',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                })}
+
                 {/* Job blocks */}
                 {calculateJobPositions(unallocatedJobs, false).map(({ job, top, height, baseHeight }) => (
                   <div
@@ -950,7 +993,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     onDoubleClick={() => onJobDoubleClick(job.id)}
                     style={{
                       position: 'absolute',
-                      top: top + 4,
+                      top: top * PlannerV2.PIXELS_PER_MINUTE + 4,
                       left: 4,
                       right: 4,
                       height: height,
@@ -1113,6 +1156,49 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   />
                 ))}
 
+                {/* Hour lines - solid lines at each hour within working hours */}
+                {workingHours && Array.from({ length: workingHours.end - workingHours.start + 1 }, (_, idx) => {
+                  const hour = workingHours.start + idx;
+                  const minutes = hour * 60;
+                  return (
+                    <div
+                      key={`${jig.id}-hour-${hour}`}
+                      style={{
+                        position: 'absolute',
+                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        left: 0,
+                        right: 0,
+                        height: 1,
+                        backgroundColor: '#ccc',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                })}
+
+                {/* 15-minute interval lines - light dashed lines within working hours */}
+                {workingHours && Array.from({ length: (workingHours.end - workingHours.start) * 4 }, (_, idx) => {
+                  const minutes = workingHours.start * 60 + (idx + 1) * 15;
+                  if (minutes % 60 === 0) return null;
+                  if (minutes > workingHours.end * 60) return null;
+                  return (
+                    <div
+                      key={`${jig.id}-quarter-${idx}`}
+                      style={{
+                        position: 'absolute',
+                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        left: 0,
+                        right: 0,
+                        height: 1,
+                        borderTop: '1px dashed rgba(0, 0, 0, 0.08)',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                      }}
+                    />
+                  );
+                })}
+
                 {/* Drop zone indicators - shown when dragging */}
                 {isDragging && dropHoverJigId === jig.id && (() => {
                   const dropZones = calculateDropZones(jig.id);
@@ -1175,7 +1261,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isOverflowing = overflowingJobs.has(job.id);
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
-                    const maxHeight = Math.max(0, workingEnd * PlannerV2.PIXELS_PER_MINUTE - top - 4);
+                    const maxHeight = Math.max(0, (workingEnd - top) * PlannerV2.PIXELS_PER_MINUTE - 4);
                     const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
                     const jobIsStaged = isJobStaged(job.id);
                     const jobIsPrimary = isPrimaryStaged(job.id);
@@ -1219,7 +1305,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         }}
                         style={{
                           position: 'absolute',
-                          top: top + 4,
+                          top: top * PlannerV2.PIXELS_PER_MINUTE + 4,
                           left: 4,
                           right: 4,
                           height: clampedHeight,
