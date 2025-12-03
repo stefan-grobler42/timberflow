@@ -581,38 +581,364 @@ export const ProductionPlannerPage = () => {
           breakAdjustmentMinutes: timing.breakAdjustmentMinutes
         }, 'allocate');
         
-        // Only cascade if there are jobs after the insert position AND the end time is valid
-        if (insertIndex < existingJobsOnDay.length && timing.plannedEndTime < WORKING_END) {
-          let cascadeStartTime = timing.plannedEndTime + BUFFER_MINUTES;
+        // Cascade all subsequent jobs forward, handling overflows with rollovers
+        if (insertIndex < existingJobsOnDay.length) {
+          // Track jobs that need rollover to next day
+          interface CascadeOverflow {
+            job: typeof existingJobsOnDay[0];
+            overflowMinutes: number;
+          }
+          const cascadeOverflows: CascadeOverflow[] = [];
           
-          // Limit cascade iterations to prevent infinite loops
-          const maxCascadeIterations = existingJobsOnDay.length - insertIndex;
-          let cascadeCount = 0;
+          // Use the inserted job's end time (clamped to working hours) as cascade start
+          let cascadeStartTime = Math.min(timing.plannedEndTime, WORKING_END) + BUFFER_MINUTES;
           
-          for (let i = insertIndex; i < existingJobsOnDay.length && cascadeCount < maxCascadeIterations; i++) {
-            cascadeCount++;
+          console.log('[PLANNER] Starting cascade from position', insertIndex, 'at time', cascadeStartTime);
+          
+          for (let i = insertIndex; i < existingJobsOnDay.length; i++) {
             const cascadeJob = existingJobsOnDay[i];
             const cascadeDuration = getJobDurationMinutes(cascadeJob);
             
-            // GUARD: Stop cascading if we've exceeded working hours
+            // If cascade start is at or past end of day, this job and all remaining jobs overflow completely
             if (cascadeStartTime >= WORKING_END) {
-              console.log('[PLANNER] Cascade reached end of day, stopping');
-              break;
+              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'pushed entirely to next day');
+              cascadeOverflows.push({ job: cascadeJob, overflowMinutes: cascadeDuration });
+              
+              // Clear this job from current day - stage it with null times
+              stageJobUpdate(cascadeJob.id, {
+                plannedDateStr: null,
+                plannedStartTime: null,
+                plannedEndTime: null,
+                plannedDurationMinutes: cascadeDuration,
+                breakAdjustmentMinutes: null
+              }, 'cascade');
+              
+              continue;
             }
             
             const cascadeTiming = calculatePlannedTimes(cascadeStartTime, cascadeDuration, shift);
             
-            const originalStart = cascadeJob.plannedStartTime ?? WORKING_START;
-            if (cascadeStartTime !== originalStart) {
+            // Calculate workable minutes from cascade start to end of day
+            const availableFromStart = WORKING_END - cascadeStartTime;
+            let workableMinutes = availableFromStart;
+            for (const brk of shift.breaks) {
+              if (brk.start >= cascadeStartTime && brk.end <= WORKING_END) {
+                workableMinutes -= brk.duration;
+              }
+            }
+            workableMinutes = Math.max(0, workableMinutes);
+            
+            const jobOverflows = cascadeTiming.overflowMinutes > 0 || (cascadeStartTime + cascadeDuration + cascadeTiming.breakAdjustmentMinutes) > WORKING_END;
+            
+            if (jobOverflows && workableMinutes >= 15) {
+              // Job partially fits - truncate and create overflow entry
+              const fittingDuration = Math.min(workableMinutes, cascadeDuration);
+              const overflowAmount = cascadeDuration - fittingDuration;
+              
+              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'overflows by', overflowAmount, 'minutes');
+              
+              const truncatedTiming = calculatePlannedTimes(cascadeStartTime, fittingDuration, shift);
+              
               stageJobUpdate(cascadeJob.id, {
                 plannedStartTime: cascadeStartTime,
-                plannedEndTime: Math.min(cascadeTiming.plannedEndTime, WORKING_END),
-                plannedDurationMinutes: cascadeDuration,
-                breakAdjustmentMinutes: cascadeTiming.breakAdjustmentMinutes
+                plannedEndTime: Math.min(truncatedTiming.plannedEndTime, WORKING_END),
+                plannedDurationMinutes: fittingDuration,
+                customDurationMinutes: fittingDuration,
+                breakAdjustmentMinutes: truncatedTiming.breakAdjustmentMinutes
               }, 'cascade');
+              
+              if (overflowAmount > 0) {
+                cascadeOverflows.push({ job: cascadeJob, overflowMinutes: overflowAmount });
+              }
+              
+              // Next job starts after end of day (will be handled as full overflow)
+              cascadeStartTime = WORKING_END + BUFFER_MINUTES;
+            } else if (jobOverflows && workableMinutes < 15) {
+              // Job doesn't fit at all - entire job overflows
+              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'pushed entirely to next day (no room)');
+              cascadeOverflows.push({ job: cascadeJob, overflowMinutes: cascadeDuration });
+              
+              // Clear this job from current day
+              stageJobUpdate(cascadeJob.id, {
+                plannedDateStr: null,
+                plannedStartTime: null,
+                plannedEndTime: null,
+                plannedDurationMinutes: cascadeDuration,
+                breakAdjustmentMinutes: null
+              }, 'cascade');
+            } else {
+              // Job fits completely
+              const originalStart = cascadeJob.plannedStartTime ?? WORKING_START;
+              if (cascadeStartTime !== originalStart) {
+                stageJobUpdate(cascadeJob.id, {
+                  plannedStartTime: cascadeStartTime,
+                  plannedEndTime: cascadeTiming.plannedEndTime,
+                  plannedDurationMinutes: cascadeDuration,
+                  breakAdjustmentMinutes: cascadeTiming.breakAdjustmentMinutes
+                }, 'cascade');
+              }
+              
+              cascadeStartTime = cascadeTiming.plannedEndTime + BUFFER_MINUTES;
+            }
+          }
+          
+          // Process cascade overflows - schedule on subsequent days
+          if (cascadeOverflows.length > 0) {
+            console.log('[PLANNER] Processing', cascadeOverflows.length, 'cascade overflows');
+            
+            let nextDayStr = getNextWorkingDay(dateStr, overtimeByDay);
+            let nextDayStartTime = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime).startTime;
+            
+            // Get existing jobs on next day (excluding the ones we're moving)
+            const movedJobIds = new Set(cascadeOverflows.map(o => o.job.id));
+            let nextDayJobs = allJobs.filter(
+              j => j.plannedDateStr === nextDayStr && 
+                   j.jigId === updatedJigId && 
+                   !j.productionComplete &&
+                   !movedJobIds.has(j.id)
+            ).sort((a, b) => (a.plannedStartTime ?? nextDayStartTime) - (b.plannedStartTime ?? nextDayStartTime));
+            
+            // Track if we need to cascade existing jobs on next day
+            let nextDayCascadeNeeded = nextDayJobs.length > 0;
+            let nextDayCurrentTime = nextDayStartTime;
+            
+            // Iterations guard to prevent infinite loops
+            let dayIterations = 0;
+            const maxDayIterations = 30;
+            
+            // Queue of jobs to schedule (overflows from cascade + newly created rollovers)
+            let pendingOverflows = [...cascadeOverflows];
+            
+            while (pendingOverflows.length > 0 && dayIterations < maxDayIterations) {
+              dayIterations++;
+              
+              const nextDayShift = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime);
+              const NEXT_DAY_START = nextDayShift.startTime;
+              const NEXT_DAY_END = nextDayShift.endTime;
+              
+              const dayOverflows: CascadeOverflow[] = [];
+              
+              // If there are existing jobs on this day, we need to insert at the beginning and cascade them
+              if (nextDayCascadeNeeded && nextDayJobs.length > 0) {
+                console.log('[PLANNER] Cascading', pendingOverflows.length, 'overflows into day', nextDayStr, 'with', nextDayJobs.length, 'existing jobs');
+                
+                // Schedule overflow jobs first, then cascade existing jobs
+                for (const overflow of pendingOverflows) {
+                  if (nextDayCurrentTime >= NEXT_DAY_END) {
+                    // This overflow doesn't fit, push to next day
+                    dayOverflows.push(overflow);
+                    continue;
+                  }
+                  
+                  const overflowTiming = calculatePlannedTimes(nextDayCurrentTime, overflow.overflowMinutes, nextDayShift);
+                  
+                  // Calculate workable minutes
+                  const availableFromStart = NEXT_DAY_END - nextDayCurrentTime;
+                  let workableMinutes = availableFromStart;
+                  for (const brk of nextDayShift.breaks) {
+                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
+                      workableMinutes -= brk.duration;
+                    }
+                  }
+                  workableMinutes = Math.max(0, workableMinutes);
+                  
+                  if (overflowTiming.overflowMinutes > 0 || workableMinutes < overflow.overflowMinutes) {
+                    // Overflow still doesn't fully fit
+                    const fittingDuration = Math.min(workableMinutes, overflow.overflowMinutes);
+                    const stillOverflows = overflow.overflowMinutes - fittingDuration;
+                    
+                    if (fittingDuration >= 15) {
+                      const truncTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDuration, nextDayShift);
+                      
+                      // For original job that was split, update with new times
+                      // The job was either cleared or partially staged - update it for next day
+                      stageJobUpdate(overflow.job.id, {
+                        plannedDateStr: nextDayStr,
+                        jigId: updatedJigId,
+                        plannedStartTime: nextDayCurrentTime,
+                        plannedEndTime: Math.min(truncTiming.plannedEndTime, NEXT_DAY_END),
+                        plannedDurationMinutes: fittingDuration,
+                        customDurationMinutes: fittingDuration,
+                        breakAdjustmentMinutes: truncTiming.breakAdjustmentMinutes
+                      }, 'cascade');
+                      
+                      nextDayCurrentTime = Math.min(truncTiming.plannedEndTime, NEXT_DAY_END) + BUFFER_MINUTES;
+                    }
+                    
+                    if (stillOverflows > 0) {
+                      dayOverflows.push({ job: overflow.job, overflowMinutes: stillOverflows });
+                    }
+                  } else {
+                    // Overflow fits completely on this day
+                    stageJobUpdate(overflow.job.id, {
+                      plannedDateStr: nextDayStr,
+                      jigId: updatedJigId,
+                      plannedStartTime: nextDayCurrentTime,
+                      plannedEndTime: overflowTiming.plannedEndTime,
+                      plannedDurationMinutes: overflow.overflowMinutes,
+                      customDurationMinutes: overflow.overflowMinutes,
+                      breakAdjustmentMinutes: overflowTiming.breakAdjustmentMinutes
+                    }, 'cascade');
+                    
+                    nextDayCurrentTime = overflowTiming.plannedEndTime + BUFFER_MINUTES;
+                  }
+                }
+                
+                // Now cascade existing jobs on this day
+                for (const existingJob of nextDayJobs) {
+                  const existingDuration = getJobDurationMinutes(existingJob);
+                  
+                  if (nextDayCurrentTime >= NEXT_DAY_END) {
+                    // Push to next day
+                    dayOverflows.push({ job: existingJob, overflowMinutes: existingDuration });
+                    stageJobUpdate(existingJob.id, {
+                      plannedDateStr: null,
+                      plannedStartTime: null,
+                      plannedEndTime: null,
+                      plannedDurationMinutes: existingDuration,
+                      breakAdjustmentMinutes: null
+                    }, 'cascade');
+                    continue;
+                  }
+                  
+                  const existingTiming = calculatePlannedTimes(nextDayCurrentTime, existingDuration, nextDayShift);
+                  const originalStart = existingJob.plannedStartTime ?? NEXT_DAY_START;
+                  
+                  // Calculate workable time
+                  const availFromTime = NEXT_DAY_END - nextDayCurrentTime;
+                  let workableTime = availFromTime;
+                  for (const brk of nextDayShift.breaks) {
+                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
+                      workableTime -= brk.duration;
+                    }
+                  }
+                  workableTime = Math.max(0, workableTime);
+                  
+                  if (existingTiming.overflowMinutes > 0 || workableTime < existingDuration) {
+                    // This existing job overflows when pushed
+                    const fittingDur = Math.min(workableTime, existingDuration);
+                    const overflowAmt = existingDuration - fittingDur;
+                    
+                    if (fittingDur >= 15) {
+                      const truncExistTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDur, nextDayShift);
+                      stageJobUpdate(existingJob.id, {
+                        plannedStartTime: nextDayCurrentTime,
+                        plannedEndTime: Math.min(truncExistTiming.plannedEndTime, NEXT_DAY_END),
+                        plannedDurationMinutes: fittingDur,
+                        customDurationMinutes: fittingDur,
+                        breakAdjustmentMinutes: truncExistTiming.breakAdjustmentMinutes
+                      }, 'cascade');
+                      nextDayCurrentTime = NEXT_DAY_END + BUFFER_MINUTES;
+                    } else {
+                      // Entire job pushed
+                      stageJobUpdate(existingJob.id, {
+                        plannedDateStr: null,
+                        plannedStartTime: null,
+                        plannedEndTime: null,
+                        plannedDurationMinutes: existingDuration,
+                        breakAdjustmentMinutes: null
+                      }, 'cascade');
+                    }
+                    
+                    if (overflowAmt > 0 || fittingDur < 15) {
+                      dayOverflows.push({ job: existingJob, overflowMinutes: fittingDur < 15 ? existingDuration : overflowAmt });
+                    }
+                  } else {
+                    // Fits completely
+                    if (nextDayCurrentTime !== originalStart) {
+                      stageJobUpdate(existingJob.id, {
+                        plannedStartTime: nextDayCurrentTime,
+                        plannedEndTime: existingTiming.plannedEndTime,
+                        plannedDurationMinutes: existingDuration,
+                        breakAdjustmentMinutes: existingTiming.breakAdjustmentMinutes
+                      }, 'cascade');
+                    }
+                    nextDayCurrentTime = existingTiming.plannedEndTime + BUFFER_MINUTES;
+                  }
+                }
+              } else {
+                // No existing jobs on this day, just schedule the overflows
+                console.log('[PLANNER] Scheduling', pendingOverflows.length, 'overflows on empty day', nextDayStr);
+                
+                for (const overflow of pendingOverflows) {
+                  if (nextDayCurrentTime >= NEXT_DAY_END) {
+                    dayOverflows.push(overflow);
+                    continue;
+                  }
+                  
+                  const overflowTiming = calculatePlannedTimes(nextDayCurrentTime, overflow.overflowMinutes, nextDayShift);
+                  
+                  // Calculate workable minutes
+                  const availableFromStart = NEXT_DAY_END - nextDayCurrentTime;
+                  let workableMinutes = availableFromStart;
+                  for (const brk of nextDayShift.breaks) {
+                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
+                      workableMinutes -= brk.duration;
+                    }
+                  }
+                  workableMinutes = Math.max(0, workableMinutes);
+                  
+                  if (overflowTiming.overflowMinutes > 0 || workableMinutes < overflow.overflowMinutes) {
+                    const fittingDuration = Math.min(workableMinutes, overflow.overflowMinutes);
+                    const stillOverflows = overflow.overflowMinutes - fittingDuration;
+                    
+                    if (fittingDuration >= 15) {
+                      const truncTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDuration, nextDayShift);
+                      stageJobUpdate(overflow.job.id, {
+                        plannedDateStr: nextDayStr,
+                        jigId: updatedJigId,
+                        plannedStartTime: nextDayCurrentTime,
+                        plannedEndTime: Math.min(truncTiming.plannedEndTime, NEXT_DAY_END),
+                        plannedDurationMinutes: fittingDuration,
+                        customDurationMinutes: fittingDuration,
+                        breakAdjustmentMinutes: truncTiming.breakAdjustmentMinutes
+                      }, 'cascade');
+                      nextDayCurrentTime = Math.min(truncTiming.plannedEndTime, NEXT_DAY_END) + BUFFER_MINUTES;
+                    }
+                    
+                    if (stillOverflows > 0) {
+                      dayOverflows.push({ job: overflow.job, overflowMinutes: stillOverflows });
+                    }
+                  } else {
+                    stageJobUpdate(overflow.job.id, {
+                      plannedDateStr: nextDayStr,
+                      jigId: updatedJigId,
+                      plannedStartTime: nextDayCurrentTime,
+                      plannedEndTime: overflowTiming.plannedEndTime,
+                      plannedDurationMinutes: overflow.overflowMinutes,
+                      customDurationMinutes: overflow.overflowMinutes,
+                      breakAdjustmentMinutes: overflowTiming.breakAdjustmentMinutes
+                    }, 'cascade');
+                    nextDayCurrentTime = overflowTiming.plannedEndTime + BUFFER_MINUTES;
+                  }
+                }
+              }
+              
+              // Prepare for next day if there are still overflows
+              if (dayOverflows.length > 0) {
+                pendingOverflows = dayOverflows;
+                nextDayStr = getNextWorkingDay(nextDayStr, overtimeByDay);
+                const nextShift = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime);
+                nextDayStartTime = nextShift.startTime;
+                nextDayCurrentTime = nextDayStartTime;
+                
+                // Get jobs on the new next day
+                const newMovedIds = new Set(dayOverflows.map(o => o.job.id));
+                nextDayJobs = allJobs.filter(
+                  j => j.plannedDateStr === nextDayStr && 
+                       j.jigId === updatedJigId && 
+                       !j.productionComplete &&
+                       !newMovedIds.has(j.id)
+                ).sort((a, b) => (a.plannedStartTime ?? nextDayStartTime) - (b.plannedStartTime ?? nextDayStartTime));
+                nextDayCascadeNeeded = nextDayJobs.length > 0;
+              } else {
+                pendingOverflows = [];
+              }
             }
             
-            cascadeStartTime = cascadeTiming.plannedEndTime + BUFFER_MINUTES;
+            if (dayIterations >= maxDayIterations) {
+              console.warn('[PLANNER] Cascade reached maximum day iterations, some jobs may not be scheduled');
+            }
           }
         }
         
