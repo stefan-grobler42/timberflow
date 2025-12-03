@@ -122,7 +122,18 @@ export function calculateBreakAdjustment(
   let remainingWork = baseDurationMinutes;
   let breakAdjustment = 0;
   
-  while (remainingWork > 0) {
+  // GUARD: Prevent infinite loop - limit iterations
+  const maxIterations = 100;
+  let iterations = 0;
+  
+  while (remainingWork > 0 && iterations < maxIterations) {
+    iterations++;
+    
+    // GUARD: If we've reached or passed end of day, stop calculating
+    if (currentTime >= shift.endTime) {
+      break;
+    }
+    
     // Check if we're inside a break
     let inBreak = false;
     for (const brk of shift.breaks) {
@@ -145,6 +156,12 @@ export function calculateBreakAdjustment(
     }
     
     const workableTime = nextBreakStart - currentTime;
+    
+    // GUARD: If no workable time available, we've reached capacity
+    if (workableTime <= 0) {
+      break;
+    }
+    
     const workDone = Math.min(workableTime, remainingWork);
     currentTime += workDone;
     remainingWork -= workDone;
@@ -175,10 +192,32 @@ export function calculatePlannedTimes(
   // Use the actual end time (including overtime if enabled)
   const effectiveEndTime = shift.endTime;
   
+  // GUARD: If starting at or past end of day, entire job overflows
+  if (startTimeMinutes >= effectiveEndTime) {
+    return {
+      plannedStartTime: startTimeMinutes,
+      plannedEndTime: effectiveEndTime,
+      plannedDurationMinutes: durationMinutes,
+      breakAdjustmentMinutes: 0,
+      overflowMinutes: durationMinutes
+    };
+  }
+  
   // Calculate break adjustment for this job
   const breakAdjustmentMinutes = calculateBreakAdjustment(startTimeMinutes, durationMinutes, shift);
   
-  while (remainingDuration > 0) {
+  // GUARD: Prevent infinite loop - limit iterations
+  const maxIterations = 100;
+  let iterations = 0;
+  
+  while (remainingDuration > 0 && iterations < maxIterations) {
+    iterations++;
+    
+    // GUARD: If we've reached end of day, stop
+    if (currentTime >= effectiveEndTime) {
+      break;
+    }
+    
     let inBreak = false;
     for (const brk of shift.breaks) {
       if (currentTime >= brk.start && currentTime < brk.end) {
@@ -198,13 +237,15 @@ export function calculatePlannedTimes(
     }
     
     const workableTime = nextBreakStart - currentTime;
+    
+    // GUARD: If no workable time, we've hit end of day
+    if (workableTime <= 0) {
+      break;
+    }
+    
     const workDone = Math.min(workableTime, remainingDuration);
     currentTime += workDone;
     remainingDuration -= workDone;
-    
-    if (currentTime >= effectiveEndTime) {
-      break;
-    }
   }
   
   // Calculate overflow if job extends beyond shift end
@@ -212,7 +253,7 @@ export function calculatePlannedTimes(
   
   return {
     plannedStartTime: startTimeMinutes,
-    plannedEndTime: currentTime,
+    plannedEndTime: Math.min(currentTime, effectiveEndTime),
     plannedDurationMinutes: durationMinutes,
     breakAdjustmentMinutes,
     overflowMinutes
