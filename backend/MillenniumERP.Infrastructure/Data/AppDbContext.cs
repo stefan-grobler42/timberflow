@@ -50,6 +50,9 @@ public class AppDbContext : DbContext
     // Production audit trail
     public DbSet<ProductionAudit> ProductionAudits { get; set; }
     
+    // Schedule blocks for non-job time blocks
+    public DbSet<ScheduleBlock> ScheduleBlocks { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
@@ -528,6 +531,24 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.NewJig)
                   .WithMany()
                   .HasForeignKey(e => e.NewJigId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ScheduleBlock configuration
+        modelBuilder.Entity<ScheduleBlock>(entity =>
+        {
+            entity.ToTable("schedule_blocks");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.DateStr);
+
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.RelatedProduction)
+                  .WithMany()
+                  .HasForeignKey(e => e.RelatedProductionId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
