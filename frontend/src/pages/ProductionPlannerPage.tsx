@@ -1199,6 +1199,7 @@ export const ProductionPlannerPage = () => {
             <MonthView
               daysInView={getDaysInView}
               jobs={allJobs}
+              jigTeams={filteredJigTeams}
               currentMonth={currentDateStr}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}

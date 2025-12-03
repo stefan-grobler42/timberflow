@@ -32,6 +32,7 @@ export const JigForm = ({
     proficiency: '',
     reliabilityScore: undefined,
     strengths: '',
+    averageEfinks: 80,
   });
   const [_employees, setEmployees] = useState<Employee[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<IDropdownOption[]>([]);
@@ -52,6 +53,7 @@ export const JigForm = ({
         proficiency: jig.proficiency || '',
         reliabilityScore: jig.reliabilityScore,
         strengths: jig.strengths || '',
+        averageEfinks: jig.averageEfinks ?? 80,
       });
     }
     setError(null);
@@ -123,6 +125,7 @@ export const JigForm = ({
         proficiency: '',
         reliabilityScore: undefined,
         strengths: '',
+        averageEfinks: 80,
       });
       setSaving(false);
     } catch (err) {
@@ -229,6 +232,15 @@ export const JigForm = ({
             rows={4}
             value={formData.strengths}
             onChange={(_, value) => setFormData({ ...formData, strengths: value })}
+            disabled={saving}
+          />
+
+          <TextField
+            label="Average E-Finks per Day"
+            type="number"
+            description="The average E-Finks capacity this team can complete in a day. Used for capacity planning."
+            value={formData.averageEfinks?.toString() || '80'}
+            onChange={(_, value) => setFormData({ ...formData, averageEfinks: value ? parseFloat(value) : 80 })}
             disabled={saving}
           />
         </Stack>

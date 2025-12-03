@@ -125,6 +125,7 @@ export interface Jig {
   proficiency?: string;
   reliabilityScore?: number;
   strengths?: string;
+  averageEfinks?: number;
   createdOn?: string;
   createdBy?: string;
   modifiedOn?: string;

@@ -26,6 +26,7 @@ interface Job {
 interface Jig {
   id: string;
   name: string;
+  averageEfinks?: number;
 }
 
 interface BreakSlot {

@@ -12,9 +12,16 @@ interface Job {
   productionComplete: boolean;
 }
 
+interface Jig {
+  id: string;
+  name: string;
+  averageEfinks?: number;
+}
+
 interface MonthViewProps {
   daysInView: string[];
   jobs: Job[];
+  jigTeams: Jig[];
   currentMonth: string;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -27,6 +34,7 @@ interface MonthViewProps {
 const MonthViewComponent: React.FC<MonthViewProps> = ({
   daysInView,
   jobs,
+  jigTeams,
   currentMonth,
   onDragStart,
   onDragOver,
@@ -158,8 +166,8 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
               {weekDays.map(dateStr => {
                 const dayJobs = getJobsForDate(dateStr);
                 const totalEFinks = getTotalEFinksForDate(dateStr);
-                const capacity = 90 * 3; // 3 teams
-                const utilizationPercent = (totalEFinks / capacity) * 100;
+                const capacity = jigTeams.reduce((sum, team) => sum + (team.averageEfinks || 80), 0);
+                const utilizationPercent = capacity > 0 ? (totalEFinks / capacity) * 100 : 0;
                 const isFullyBooked = utilizationPercent >= 90;
                 
                 const date = new Date(dateStr + 'T00:00:00Z');

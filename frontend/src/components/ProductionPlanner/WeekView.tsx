@@ -15,6 +15,7 @@ interface Job {
 interface Jig {
   id: string;
   name: string;
+  averageEfinks?: number;
 }
 
 interface WeekViewProps {
@@ -112,8 +113,8 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
 
   const renderDayCard = (dateStr: string) => {
     const totalEFinks = getTotalEFinksForDate(dateStr);
-    const capacity = 90 * jigTeams.length;
-    const utilizationPercent = (totalEFinks / capacity) * 100;
+    const capacity = jigTeams.reduce((sum, team) => sum + (team.averageEfinks || 80), 0);
+    const utilizationPercent = capacity > 0 ? (totalEFinks / capacity) * 100 : 0;
     const isFullyBooked = utilizationPercent >= 90;
     const isNearlyFull = utilizationPercent >= 75;
     
