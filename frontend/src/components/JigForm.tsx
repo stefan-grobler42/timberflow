@@ -238,9 +238,14 @@ export const JigForm = ({
           <TextField
             label="Average E-Finks per Day"
             type="number"
-            description="The average E-Finks capacity this team can complete in a day. Used for capacity planning."
-            value={formData.averageEfinks?.toString() || '80'}
-            onChange={(_, value) => setFormData({ ...formData, averageEfinks: value ? parseFloat(value) : 80 })}
+            min={1}
+            step={0.01}
+            description="The average E-Finks capacity this team can complete in a day (default: 80). Used for capacity planning."
+            value={formData.averageEfinks !== undefined ? formData.averageEfinks.toFixed(2) : '80.00'}
+            onChange={(_, value) => {
+              const parsed = value ? parseFloat(value) : 80;
+              setFormData({ ...formData, averageEfinks: Math.max(1, parsed) });
+            }}
             disabled={saving}
           />
         </Stack>
