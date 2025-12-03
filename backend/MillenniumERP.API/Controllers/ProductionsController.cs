@@ -20,7 +20,12 @@ public class ProductionsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<ProductionDto>>> GetAll([FromQuery] bool? completeOnly = null, [FromQuery] Guid? orderNo = null)
+    public async Task<ActionResult<IEnumerable<ProductionDto>>> GetAll(
+        [FromQuery] bool? completeOnly = null, 
+        [FromQuery] Guid? orderNo = null,
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null,
+        [FromQuery] bool? plannerView = null)
     {
         var query = _context.Productions
             .Include(p => p.Order)
@@ -37,10 +42,79 @@ public class ProductionsController : ControllerBase
             query = query.Where(p => p.Orderno == orderNo.Value);
         }
 
+        if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var fromDate))
+        {
+            query = query.Where(p => p.Productionplanneddate >= fromDate);
+        }
+
+        if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var toDate))
+        {
+            query = query.Where(p => p.Productionplanneddate <= toDate);
+        }
+
+        if (plannerView == true)
+        {
+            query = query.Where(p => p.Productioncomplete != true || 
+                (p.JigId != null && p.Productionplanneddate != null));
+        }
+
         var productions = await query.ToListAsync();
 
         var productionDtos = productions.Select(p => MapToDto(p, p.Order?.OrderNumber, p.CustomerAccount?.Name)).ToList();
         return Ok(productionDtos);
+    }
+
+    [HttpGet("planner")]
+    public async Task<ActionResult<IEnumerable<ProductionPlannerDto>>> GetForPlanner(
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null)
+    {
+        // Default date range: 3 months back, 9 months forward
+        var fromDate = DateTime.UtcNow.AddMonths(-3);
+        var toDate = DateTime.UtcNow.AddMonths(9);
+
+        if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var parsedFromDate))
+        {
+            fromDate = parsedFromDate;
+        }
+
+        if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var parsedToDate))
+        {
+            toDate = parsedToDate;
+        }
+
+        // Get productions with planned dates in range OR any incomplete productions (for scheduling)
+        var plannerData = await _context.Productions
+            .AsNoTracking()
+            .Include(p => p.Order)
+            .Include(p => p.CustomerAccount)
+            .Where(p => 
+                (p.Productionplanneddate >= fromDate && p.Productionplanneddate <= toDate) ||
+                (p.Productioncomplete != true))
+            .Select(p => new ProductionPlannerDto
+            {
+                Id = p.Id,
+                Name = p.Name ?? string.Empty,
+                CustomerName = p.CustomerAccount != null ? p.CustomerAccount.Name : null,
+                OrderNo = p.Orderno,
+                OrderNumber = p.Order != null ? p.Order.OrderNumber : null,
+                ProductionComplete = p.Productioncomplete,
+                ProductionPlannedDate = p.Productionplanneddate,
+                NewEstimateDefinks = p.NewEstimatedefinks,
+                CustomDurationMinutes = p.CustomDurationMinutes,
+                ParentProductionId = p.ParentProductionId,
+                RolloverSequence = p.RolloverSequence,
+                JigId = p.JigId,
+                PlannedStartTime = p.PlannedStartTime,
+                PlannedEndTime = p.PlannedEndTime,
+                PlannedDurationMinutes = p.PlannedDurationMinutes,
+                BreakAdjustmentMinutes = p.BreakAdjustmentMinutes,
+                CreatedOn = p.CreatedOn
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Planner endpoint returned {Count} productions", plannerData.Count);
+        return Ok(plannerData);
     }
 
     [HttpGet("{id}")]

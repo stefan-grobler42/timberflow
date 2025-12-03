@@ -30,6 +30,33 @@ public class D365OrdersController : ControllerBase
         return Ok(orderDtos);
     }
 
+    [HttpGet("planner")]
+    public async Task<ActionResult<IEnumerable<object>>> GetForPlanner()
+    {
+        // Only return orders that need production and aren't yet completed
+        // Slimmed DTO with only essential fields for the planner
+        var plannerOrders = await _context.D365Orders
+            .AsNoTracking()
+            .Where(o => o.ProductionRequired == true)
+            .Select(o => new 
+            {
+                o.Id,
+                o.OrderNumber,
+                o.Name,
+                CustomerName = _context.Accounts
+                    .Where(a => a.Id == o.CustomerId)
+                    .Select(a => a.Name)
+                    .FirstOrDefault(),
+                o.ProductionRequired,
+                EstimatedEFinks = (decimal?)null // Placeholder - add if field exists
+            })
+            .OrderBy(o => o.Name)
+            .ToListAsync();
+
+        _logger.LogInformation("Planner orders endpoint returned {Count} orders", plannerOrders.Count);
+        return Ok(plannerOrders);
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<D365OrderDto>> GetById(Guid id)
     {

@@ -48,6 +48,7 @@ export const d365QuoteDetailService = {
 
 export const d365OrderService = {
   getAll: () => api.get<D365Order[]>('/d365orders'),
+  getForPlanner: () => api.get<OrderPlannerData[]>('/d365orders/planner'),
   getById: (id: string) => api.get<D365Order>(`/d365orders/${id}`),
   create: (data: Partial<D365Order>) => api.post<D365Order>('/d365orders', data),
   update: (id: string, data: Partial<D365Order>) => api.put<D365Order>(`/d365orders/${id}`, data),
@@ -116,8 +117,51 @@ export const logisticsService = {
   delete: (id: string) => api.delete(`/logistics/${id}`),
 };
 
+export interface ProductionPlannerData {
+  id: string;
+  name: string;
+  customerName?: string;
+  orderNo?: string;
+  orderNumber?: string;
+  productionComplete?: boolean;
+  productionPlannedDate?: string;
+  newEstimateDefinks?: number;
+  customDurationMinutes?: number;
+  parentProductionId?: string;
+  rolloverSequence?: number;
+  jigId?: string;
+  plannedStartTime?: number;
+  plannedEndTime?: number;
+  plannedDurationMinutes?: number;
+  breakAdjustmentMinutes?: number;
+  createdOn?: string;
+}
+
+export interface OrderPlannerData {
+  id: string;
+  orderNumber?: string;
+  name?: string;
+  customerName?: string;
+  productionRequired?: boolean;
+  estimatedEFinks?: number;
+}
+
 export const productionService = {
-  getAll: () => api.get<Production[]>('/productions'),
+  getAll: (params?: { dateFrom?: string; dateTo?: string; plannerView?: boolean }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) searchParams.append('dateTo', params.dateTo);
+    if (params?.plannerView) searchParams.append('plannerView', 'true');
+    const queryString = searchParams.toString();
+    return api.get<Production[]>(`/productions${queryString ? '?' + queryString : ''}`);
+  },
+  getForPlanner: (params?: { dateFrom?: string; dateTo?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) searchParams.append('dateTo', params.dateTo);
+    const queryString = searchParams.toString();
+    return api.get<ProductionPlannerData[]>(`/productions/planner${queryString ? '?' + queryString : ''}`);
+  },
   getById: (id: string) => api.get<Production>(`/productions/${id}`),
   create: (data: Partial<Production>) => api.post<Production>('/productions', data),
   update: (id: string, data: Partial<Production>) => api.put<Production>(`/productions/${id}`, data),

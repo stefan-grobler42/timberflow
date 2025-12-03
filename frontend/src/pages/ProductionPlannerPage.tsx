@@ -6,12 +6,13 @@ import {
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
-import { jigService, productionAuditService } from '../services/millenniumServices';
-import type { CreateProductionAuditDto } from '../services/millenniumServices';
+import { jigService, productionAuditService, scheduleBlockService } from '../services/millenniumServices';
+import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView } from '../components/ProductionPlanner/DayView';
+import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
 import { 
   startOfMonthUtc, 
   startOfWeekUtc, 
@@ -60,6 +61,10 @@ export const ProductionPlannerPage = () => {
   const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: string }>>>({});
   const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
+  const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
+  const [blockPanelOpen, setBlockPanelOpen] = useState(false);
+  const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
+  const [selectedBlockType, setSelectedBlockType] = useState<'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay' | undefined>(undefined);
   
 
   const loadData = async () => {
@@ -67,17 +72,38 @@ export const ProductionPlannerPage = () => {
     setLoading(true);
     setError(null);
     try {
-      // SIMPLIFIED: Load productions, jigs, and orders only
+      // Load productions, jigs, orders, and schedule blocks
       // Production.jigId is the source of truth for team assignment
-      const [productions, jigs, orders] = await Promise.all([
-        productionService.getAll(),
-        jigService.getAll(),
-        d365OrderService.getAll()
+      console.log('[PLANNER] Starting API calls using optimized planner endpoints...');
+      const startTime = Date.now();
+      
+      // Use optimized planner endpoints with slimmed DTOs for better performance
+      const productionsPromise = productionService.getForPlanner().then(r => { 
+        console.log('[PLANNER] productions loaded in', Date.now() - startTime, 'ms, count:', r.length); 
+        return r; 
+      });
+      const jigsPromise = jigService.getAll().then(r => { 
+        console.log('[PLANNER] jigs loaded in', Date.now() - startTime, 'ms'); 
+        return r; 
+      });
+      const ordersPromise = d365OrderService.getForPlanner().then(r => { 
+        console.log('[PLANNER] orders loaded in', Date.now() - startTime, 'ms, count:', r.length); 
+        return r; 
+      });
+      const blocksPromise = scheduleBlockService.getAll().then(r => { 
+        console.log('[PLANNER] blocks loaded in', Date.now() - startTime, 'ms'); 
+        return r; 
+      });
+      
+      const [productions, jigs, orders, blocks] = await Promise.all([
+        productionsPromise,
+        jigsPromise,
+        ordersPromise,
+        blocksPromise
       ]);
       
-      console.log(`[PLANNER] ✓ Loaded ${productions.length} productions`);
-      console.log(`[PLANNER] ✓ Loaded ${jigs.length} jig teams`);
-      console.log(`[PLANNER] ✓ Loaded ${orders.length} sales orders`);
+      console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
+      console.log(`[PLANNER] ✓ ${productions.length} productions, ${jigs.length} jig teams, ${orders.length} orders, ${blocks.length} blocks`);
       
       // Map productions to jobs using Production.jigId as source of truth
       const jobList: Job[] = productions.map((p: any) => ({
@@ -104,8 +130,8 @@ export const ProductionPlannerPage = () => {
       // Find sales orders that require production but don't have production records yet
       const productionOrderIds = new Set(productions.map((p: any) => p.orderNo).filter(Boolean));
       const ordersNeedingProduction = orders
-        .filter((o: D365Order) => o.productionRequired === true && !productionOrderIds.has(o.id))
-        .map((o: D365Order) => ({
+        .filter((o: any) => o.productionRequired === true && !productionOrderIds.has(o.id))
+        .map((o: any) => ({
           id: `order-${o.id}`,
           name: o.name || '',
           orderNumber: o.orderNumber || o.name || 'N/A',
@@ -121,6 +147,7 @@ export const ProductionPlannerPage = () => {
       setJobs(jobList);
       setUnallocatedOrders(ordersNeedingProduction);
       setJigTeams(jigs);
+      setScheduleBlocks(blocks);
       if (selectedJigIds.length === 0) {
         setSelectedJigIds(jigs.map(j => j.id));
       }
@@ -978,12 +1005,80 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const handleAddScheduleBlock = () => {
+    setEditingBlock(null);
+    setBlockPanelOpen(true);
+  };
+
+  const handleBlockSave = () => {
+    loadData();
+  };
+
   const commandItems: ICommandBarItemProps[] = [
     {
       key: 'refresh',
       text: 'Refresh',
       iconProps: { iconName: 'Refresh' },
       onClick: loadData
+    },
+    {
+      key: 'addBlock',
+      text: 'Add Block',
+      iconProps: { iconName: 'Add' },
+      subMenuProps: {
+        items: [
+          {
+            key: 'publicHoliday',
+            text: 'Public Holiday',
+            iconProps: { iconName: 'Calendar' },
+            onClick: () => {
+              setEditingBlock(null);
+              setSelectedBlockType('PublicHoliday');
+              setBlockPanelOpen(true);
+            }
+          },
+          {
+            key: 'breakdown',
+            text: 'Breakdown',
+            iconProps: { iconName: 'Warning' },
+            onClick: () => {
+              setEditingBlock(null);
+              setSelectedBlockType('Breakdown');
+              setBlockPanelOpen(true);
+            }
+          },
+          {
+            key: 'maintenance',
+            text: 'Maintenance',
+            iconProps: { iconName: 'Settings' },
+            onClick: () => {
+              setEditingBlock(null);
+              setSelectedBlockType('Maintenance');
+              setBlockPanelOpen(true);
+            }
+          },
+          {
+            key: 'materialShortage',
+            text: 'Material Shortage',
+            iconProps: { iconName: 'Package' },
+            onClick: () => {
+              setEditingBlock(null);
+              setSelectedBlockType('MaterialShortage');
+              setBlockPanelOpen(true);
+            }
+          },
+          {
+            key: 'generalDelay',
+            text: 'General Delay',
+            iconProps: { iconName: 'Clock' },
+            onClick: () => {
+              setEditingBlock(null);
+              setSelectedBlockType('GeneralDelay');
+              setBlockPanelOpen(true);
+            }
+          }
+        ]
+      }
     },
     {
       key: 'prev',
@@ -1253,6 +1348,18 @@ export const ProductionPlannerPage = () => {
         </Stack>
       </Stack>
 
+      <ScheduleBlockPanel
+        isOpen={blockPanelOpen}
+        onDismiss={() => {
+          setBlockPanelOpen(false);
+          setSelectedBlockType(undefined);
+        }}
+        onSave={handleBlockSave}
+        block={editingBlock}
+        teams={jigTeams}
+        defaultDate={viewMode === 'day' ? currentDateStr : undefined}
+        defaultBlockType={selectedBlockType}
+      />
     </Stack>
   );
 };

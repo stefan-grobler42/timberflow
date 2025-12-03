@@ -212,3 +212,56 @@ export const productionAuditService = {
   create: (data: CreateProductionAuditDto) => api.post<ProductionAudit>('/productionaudits', data),
   createBatch: (data: CreateProductionAuditDto[]) => api.post<ProductionAudit[]>('/productionaudits/batch', data),
 };
+
+export type ScheduleBlockType = 'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay';
+
+export interface ScheduleBlock {
+  id: string;
+  blockType: ScheduleBlockType;
+  dateStr: string;
+  teamId?: string | null;
+  teamName?: string | null;
+  startTimeMinutes: number;
+  endTimeMinutes: number;
+  description?: string | null;
+  relatedProductionId?: string | null;
+  relatedProductionName?: string | null;
+  createdOn?: string;
+  createdBy?: string;
+  modifiedOn?: string;
+  modifiedBy?: string;
+}
+
+export interface CreateScheduleBlockDto {
+  blockType: ScheduleBlockType;
+  dateStr: string;
+  teamId?: string | null;
+  startTimeMinutes: number;
+  endTimeMinutes: number;
+  description?: string | null;
+  relatedProductionId?: string | null;
+}
+
+export interface UpdateScheduleBlockDto {
+  blockType?: ScheduleBlockType;
+  dateStr?: string;
+  teamId?: string | null;
+  startTimeMinutes?: number;
+  endTimeMinutes?: number;
+  description?: string | null;
+  relatedProductionId?: string | null;
+}
+
+export const scheduleBlockService = {
+  getAll: (params?: { dateFrom?: string; dateTo?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.dateFrom) searchParams.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) searchParams.append('dateTo', params.dateTo);
+    const queryString = searchParams.toString();
+    return api.get<ScheduleBlock[]>(`/scheduleblocks${queryString ? '?' + queryString : ''}`);
+  },
+  getById: (id: string) => api.get<ScheduleBlock>(`/scheduleblocks/${id}`),
+  create: (data: CreateScheduleBlockDto) => api.post<ScheduleBlock>('/scheduleblocks', data),
+  update: (id: string, data: UpdateScheduleBlockDto) => api.put<ScheduleBlock>(`/scheduleblocks/${id}`, data),
+  delete: (id: string) => api.delete(`/scheduleblocks/${id}`),
+};
