@@ -2,6 +2,7 @@ import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFoote
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
+import * as PlannerV2 from '../../domain/plannerV2';
 
 interface Job {
   id: string;
@@ -59,12 +60,6 @@ interface OverflowInfo {
   jigName: string;
 }
 
-interface GlobalStagingState {
-  stagedJobs: Map<string, any>;
-  affectedDays: Set<string>;
-  primaryJobId: string | null;
-}
-
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -82,16 +77,13 @@ interface DayViewProps {
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeSettings?: { enabled: boolean; closeTime: string };
   onOvertimeChange?: (dayStr: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
-  globalStaging?: GlobalStagingState;
+  globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
 }
 
-const MINUTES_PER_EFINK = 6.5625;
-const PIXELS_PER_MINUTE = 1;
 const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
-const BUFFER_MINUTES = 30; // Mandatory 30-minute gap between jobs
 
 const DayViewComponent: React.FC<DayViewProps> = ({
   dayStr,
@@ -136,7 +128,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const overtimeCloseTime = overtimeSettings?.closeTime ?? '21:00';
 
   // Check if job is staged (in pending changes)
-  const isJobStaged = (jobId: string) => globalStaging?.stagedJobs.has(jobId) ?? false;
+  const isJobStaged = (jobId: string) => globalStaging ? PlannerV2.hasJobChanges(globalStaging, jobId) : false;
   
   // Check if job is the primary staged job
   const isPrimaryStaged = (jobId: string) => globalStaging?.primaryJobId === jobId;
@@ -346,47 +338,24 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return additions;
   };
 
-  const roundUpTo15Minutes = (minutes: number): number => {
-    return Math.ceil(minutes / 15) * 15;
-  };
-
   const hasManualResize = useCallback((job: Job): boolean => {
-    // Reset icon should only show when:
-    // 1. User is actively resizing this job (customDurations has entry with a positive value), OR
-    // 2. Job has customDurationMinutes set with a positive value (meaning it was previously manually resized and saved)
-    // It should NOT show just because plannedDurationMinutes differs from EFinks calculation
-    const customDuration = customDurations[job.id];
-    if (customDuration != null && customDuration > 0) {
-      return true;
-    }
-    if (job.customDurationMinutes != null && job.customDurationMinutes > 0) {
-      return true;
-    }
-    return false;
+    return PlannerV2.isManuallyAltered({
+      customDurationMinutes: customDurations[job.id] ?? job.customDurationMinutes,
+      estimatedEFinks: job.estimatedEFinks
+    });
   }, [customDurations]);
 
   const getBaseDuration = useCallback((job: Job): number => {
-    // Get the BASE duration (without breaks):
-    // 1. Active resize state (user is currently resizing)
-    // 2. Stored custom duration (user previously manually resized)
-    // 3. Stored planned duration (EFinks-derived base)
-    // 4. EFinks calculation as fallback (for new/unscheduled jobs) - rounded UP to nearest 15 min
     if (customDurations[job.id]) {
-      return customDurations[job.id];
+      return PlannerV2.roundToQuarterHour(customDurations[job.id]);
     }
-    if (job.customDurationMinutes) {
-      return job.customDurationMinutes;
-    }
-    if (job.plannedDurationMinutes) {
-      return job.plannedDurationMinutes;
-    }
-    // Calculate from EFinks and round UP to nearest 15 minutes
-    const rawMinutes = job.estimatedEFinks * MINUTES_PER_EFINK;
-    return Math.max(MIN_BLOCK_HEIGHT, roundUpTo15Minutes(rawMinutes));
+    return PlannerV2.getJobDuration({
+      customDurationMinutes: job.customDurationMinutes,
+      estimatedEFinks: job.estimatedEFinks
+    });
   }, [customDurations]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {
-    // Final Duration = baseDuration + breakAdjustments
     const baseDuration = getBaseDuration(job);
     const breakAdjustment = job.breakAdjustmentMinutes || 0;
     return baseDuration + breakAdjustment;
@@ -452,14 +421,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     setResizingJob(jobId);
     resizeStartY.current = e.clientY;
     resizeStartHeight.current = currentHeight;
-    currentResizeDuration.current = Math.round(currentHeight / PIXELS_PER_MINUTE);
+    currentResizeDuration.current = Math.round(currentHeight / PlannerV2.PIXELS_PER_MINUTE);
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const delta = moveEvent.clientY - resizeStartY.current;
       const newHeight = Math.max(MIN_BLOCK_HEIGHT, resizeStartHeight.current + delta);
-      const rawDuration = newHeight / PIXELS_PER_MINUTE;
-      // Snap to 15-minute increments (round up)
-      const newDuration = Math.max(15, Math.ceil(rawDuration / 15) * 15);
+      const newDuration = PlannerV2.pixelsToDuration(newHeight);
       currentResizeDuration.current = newDuration;
       setCustomDurations(prev => ({ ...prev, [jobId]: newDuration }));
     };
@@ -524,15 +491,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
-    const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0; // 07:00 = 420 minutes
+    const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     
-    // CALENDAR-STYLE: Each job uses its stored plannedStartTime for positioning
-    // No sequential recalculation - allows overlaps which user can resolve manually
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
-      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, baseDuration * PIXELS_PER_MINUTE);
+      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(baseDuration));
       
-      // Use stored plannedStartTime if available, otherwise default to shift start
       const jobTop = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
       
       let breakAdditions: BreakAddition[] = [];
@@ -543,7 +507,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
-      const totalHeight = baseHeight + (totalBreakMinutes * PIXELS_PER_MINUTE);
+      const totalHeight = baseHeight + PlannerV2.calculateJobHeight(totalBreakMinutes);
       
       positions.push({ 
         job, 
@@ -555,7 +519,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       });
     }
 
-    // Sort by top position for consistent rendering order
     positions.sort((a, b) => a.top - b.top);
 
     return positions;
@@ -664,7 +627,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const job = jobs.find(j => j.id === currentOverflow.jobId);
       if (job && onJobDurationChange) {
         const currentDuration = getBaseDurationMinutes(job);
-        const reducedDuration = Math.max(MIN_BLOCK_HEIGHT, currentDuration - currentOverflow.overflowMinutes);
+        const reducedDuration = Math.max(PlannerV2.MIN_DURATION, currentDuration - currentOverflow.overflowMinutes);
         onJobDurationChange(currentOverflow.jobId, reducedDuration);
       }
     }
@@ -691,7 +654,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       const jobEnd = jobStart + baseDuration + totalBreakMinutes;
       
-      dropZones.push({ position: jobEnd + BUFFER_MINUTES, afterJobId: job.id });
+      dropZones.push({ position: jobEnd + PlannerV2.BUFFER_MINUTES, afterJobId: job.id });
     }
     
     return dropZones;
@@ -704,7 +667,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const dropMinutes = Math.round(y / PIXELS_PER_MINUTE);
+    const dropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE);
     
     setDropHoverJigId(jigId);
     setDropHoverPosition(dropMinutes);
@@ -719,7 +682,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const rawDropMinutes = Math.round(y / PIXELS_PER_MINUTE);
+    const rawDropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE);
     
     let snappedPosition = rawDropMinutes;
     
@@ -843,7 +806,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   }
 
   const timelineSegments = generateTimelineSegments();
-  const totalTimelineHeight = HOURS_IN_DAY * 60 * PIXELS_PER_MINUTE;
+  const totalTimelineHeight = HOURS_IN_DAY * 60 * PlannerV2.PIXELS_PER_MINUTE;
 
   return (
     <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
@@ -907,10 +870,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 styles={{
                   root: {
                     position: 'absolute',
-                    top: segment.startMinutes * PIXELS_PER_MINUTE,
+                    top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
                     left: 0,
                     right: 0,
-                    height: segment.durationMinutes * PIXELS_PER_MINUTE,
+                    height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
                     borderBottom: '1px solid #ddd',
                     padding: '4px 10px',
                     backgroundColor: segment.backgroundColor,
@@ -1140,10 +1103,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     key={`${jig.id}-bg-${idx}-${segment.startMinutes}`}
                     style={{
                       position: 'absolute',
-                      top: segment.startMinutes * PIXELS_PER_MINUTE,
+                      top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
                       left: 0,
                       right: 0,
-                      height: segment.durationMinutes * PIXELS_PER_MINUTE,
+                      height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
                       borderBottom: segment.isWorking || segment.isBreak ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
                       backgroundColor: segment.backgroundColor
                     }}
@@ -1171,7 +1134,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       key="drop-indicator"
                       style={{
                         position: 'absolute',
-                        top: nearestZone.position * PIXELS_PER_MINUTE - 2,
+                        top: nearestZone.position * PlannerV2.PIXELS_PER_MINUTE - 2,
                         left: 4,
                         right: 4,
                         height: 4,
@@ -1212,7 +1175,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isOverflowing = overflowingJobs.has(job.id);
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
-                    const maxHeight = Math.max(0, workingEnd * PIXELS_PER_MINUTE - top - 4);
+                    const maxHeight = Math.max(0, workingEnd * PlannerV2.PIXELS_PER_MINUTE - top - 4);
                     const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
                     const jobIsStaged = isJobStaged(job.id);
                     const jobIsPrimary = isPrimaryStaged(job.id);

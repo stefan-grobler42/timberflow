@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
-  PrimaryButton, DefaultButton, Icon, Dialog, DialogType, DialogFooter
+  PrimaryButton, DefaultButton, Icon
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
@@ -21,37 +21,7 @@ import {
   getDaysInMonth, 
   getDaysInWeek 
 } from '../utils/dateUtils';
-import {
-  getShiftConfig,
-  calculatePlannedTimes,
-  getJobDurationMinutes,
-  roundUpToQuarterHour,
-  getDefaultEfinksDuration,
-  BUFFER_MINUTES
-} from '../utils/scheduleUtils';
-import {
-  type ScheduledJob,
-  type OverflowInfo,
-  scheduleJobsSequentially,
-  createRolloverJob,
-  findInsertPosition,
-  getNextWorkingDay,
-  canDeleteRolloverSegment,
-  deleteRolloverSegment
-} from '../utils/schedulingEngine';
-import {
-  type GlobalStagingState,
-  type StagedJob,
-  createEmptyStagingState,
-  stageJob,
-  stageMultipleJobs,
-  updateStagedJob,
-  hasStagedChanges,
-  getStagedJobCount,
-  isJobStaged,
-  buildBatchUpdatePayloads,
-  buildAuditRecords
-} from '../utils/pendingChangesUtils';
+import * as PlannerV2 from '../domain/plannerV2';
 
 interface Job {
   id: string;
@@ -88,7 +58,7 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByDay, setOvertimeByDay] = useState<Record<string, { enabled: boolean; closeTime: string }>>({});
-  const [globalStaging, setGlobalStaging] = useState<GlobalStagingState>(createEmptyStagingState());
+  const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   
 
@@ -194,7 +164,7 @@ export const ProductionPlannerPage = () => {
   // Compute allJobs with staging overlay - stable references when unchanged
   const allJobs = useMemo(() => {
     // Fast path: no staging changes, return baseJobs directly
-    if (globalStaging.stagedJobs.size === 0) {
+    if (globalStaging.stagedChanges.size === 0) {
       if (baseJobs !== lastBaseJobsRef.current) {
         lastBaseJobsRef.current = baseJobs;
         allJobsCache.current = baseJobs;
@@ -203,7 +173,7 @@ export const ProductionPlannerPage = () => {
     }
 
     // Check if anything actually changed
-    const stagingChanged = globalStaging.stagedJobs !== lastStagingMapRef.current;
+    const stagingChanged = globalStaging.stagedChanges !== lastStagingMapRef.current;
     const baseChanged = baseJobs !== lastBaseJobsRef.current;
     
     if (!stagingChanged && !baseChanged && allJobsCache.current.length > 0) {
@@ -212,27 +182,27 @@ export const ProductionPlannerPage = () => {
 
     // Build result with staging overlays
     const result: Job[] = baseJobs.map(job => {
-      const staged = globalStaging.stagedJobs.get(job.id);
+      const staged = globalStaging.stagedChanges.get(job.id);
       if (!staged) return job;
       
       return { 
         ...job,
-        jigId: staged.pendingData.jigId !== undefined ? staged.pendingData.jigId : job.jigId,
-        plannedDateStr: staged.pendingData.plannedDateStr !== undefined ? staged.pendingData.plannedDateStr : job.plannedDateStr,
-        plannedStartTime: staged.pendingData.plannedStartTime !== undefined ? staged.pendingData.plannedStartTime : job.plannedStartTime,
-        plannedEndTime: staged.pendingData.plannedEndTime !== undefined ? staged.pendingData.plannedEndTime : job.plannedEndTime,
-        plannedDurationMinutes: staged.pendingData.plannedDurationMinutes !== undefined ? staged.pendingData.plannedDurationMinutes : job.plannedDurationMinutes,
-        customDurationMinutes: staged.pendingData.customDurationMinutes !== undefined 
-          ? (staged.pendingData.customDurationMinutes === null ? undefined : staged.pendingData.customDurationMinutes) 
+        jigId: staged.newValues.jigId !== undefined ? staged.newValues.jigId : job.jigId,
+        plannedDateStr: staged.newValues.plannedDateStr !== undefined ? staged.newValues.plannedDateStr : job.plannedDateStr,
+        plannedStartTime: staged.newValues.plannedStartTime !== undefined ? staged.newValues.plannedStartTime : job.plannedStartTime,
+        plannedEndTime: staged.newValues.plannedEndTime !== undefined ? staged.newValues.plannedEndTime : job.plannedEndTime,
+        plannedDurationMinutes: staged.newValues.plannedDurationMinutes !== undefined ? staged.newValues.plannedDurationMinutes : job.plannedDurationMinutes,
+        customDurationMinutes: staged.newValues.customDurationMinutes !== undefined 
+          ? (staged.newValues.customDurationMinutes === null ? undefined : staged.newValues.customDurationMinutes) 
           : job.customDurationMinutes,
-        breakAdjustmentMinutes: staged.pendingData.breakAdjustmentMinutes !== undefined 
-          ? (staged.pendingData.breakAdjustmentMinutes === null ? undefined : staged.pendingData.breakAdjustmentMinutes)
+        breakAdjustmentMinutes: staged.newValues.breakAdjustmentMinutes !== undefined 
+          ? (staged.newValues.breakAdjustmentMinutes === null ? undefined : staged.newValues.breakAdjustmentMinutes)
           : job.breakAdjustmentMinutes
       };
     });
 
     lastBaseJobsRef.current = baseJobs;
-    lastStagingMapRef.current = globalStaging.stagedJobs;
+    lastStagingMapRef.current = globalStaging.stagedChanges;
     allJobsCache.current = result;
     return result;
   }, [baseJobs, globalStaging]);
@@ -281,7 +251,25 @@ export const ProductionPlannerPage = () => {
     );
   }, [jobsByDateAndTeam]);
 
-  // Stage a job click - adds job + affected jobs to global staging
+  // Convert Job to ScheduledJob for plannerV2
+  const toScheduledJob = useCallback((job: Job): PlannerV2.ScheduledJob => ({
+    id: job.id,
+    orderNumber: job.orderNumber,
+    customer: job.customer,
+    estimatedEFinks: job.estimatedEFinks,
+    plannedDateStr: job.plannedDateStr,
+    jigId: job.jigId,
+    plannedStartTime: job.plannedStartTime ?? null,
+    plannedEndTime: job.plannedEndTime ?? null,
+    plannedDurationMinutes: job.plannedDurationMinutes ?? null,
+    customDurationMinutes: job.customDurationMinutes ?? null,
+    breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
+    parentProductionId: job.parentProductionId ?? null,
+    rolloverSequence: job.rolloverSequence ?? 0,
+    productionComplete: job.productionComplete
+  }), []);
+
+  // Stage a job click - adds job to global staging
   const handleJobClick = useCallback((jobId: string) => {
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
@@ -295,85 +283,76 @@ export const ProductionPlannerPage = () => {
     // Use functional updater to check latest staging state and avoid stale closures
     setGlobalStaging(prev => {
       // If already staged, return unchanged
-      if (isJobStaged(prev, jobId)) {
+      if (PlannerV2.hasJobChanges(prev, jobId)) {
         console.log('[PLANNER] Job already staged:', jobId);
         return prev;
       }
       
-      // Find affected jobs using optimized lookup (only jobs on same date/team)
-      const affectedJobs = job.plannedEndTime && job.jigId && job.plannedDateStr
-        ? findAffectedJobsOptimized(jobId, job.plannedEndTime, job.jigId, job.plannedDateStr)
-        : [];
-      
-      console.log('[PLANNER] Staging job:', jobId, 'with', affectedJobs.length, 'affected jobs');
-      
-      return stageMultipleJobs(prev, job, affectedJobs, 'move');
+      console.log('[PLANNER] Staging job:', jobId);
+      return PlannerV2.stageChange(prev, jobId, toScheduledJob(job), {}, 'allocate');
     });
-  }, [allJobs, findAffectedJobsOptimized]);
+  }, [allJobs, toScheduledJob]);
 
   // Stage a change to a job (for resize, move, etc.)
-  const stageJobUpdate = useCallback((jobId: string, updates: Partial<Job>, changeType: StagedJob['changeType'] = 'move') => {
+  const stageJobUpdate = useCallback((jobId: string, updates: Partial<PlannerV2.ScheduledJob>, changeType: PlannerV2.ChangeType = 'allocate') => {
     const job = baseJobs.find(j => j.id === jobId);
     if (!job) return;
     
-    // Use functional updater to check latest staging state and avoid stale closures
-    setGlobalStaging(prev => {
-      // If not staged yet, stage it first then update
-      if (!isJobStaged(prev, jobId)) {
-        const withJob = stageJob(prev, job, true, changeType);
-        console.log('[PLANNER] Staged new job:', jobId, updates);
-        return updateStagedJob(withJob, jobId, updates, changeType);
-      } else {
-        console.log('[PLANNER] Updated staged job:', jobId, updates);
-        return updateStagedJob(prev, jobId, updates, changeType);
-      }
-    });
-  }, [baseJobs]);
+    console.log('[PLANNER] Staging job update:', jobId, updates, changeType);
+    setGlobalStaging(prev => PlannerV2.stageChange(prev, jobId, toScheduledJob(job), updates, changeType));
+  }, [baseJobs, toScheduledJob]);
 
   // Global Accept - persist ALL staged changes
   const acceptAllChanges = async () => {
-    if (!hasStagedChanges(globalStaging)) return;
+    if (!PlannerV2.hasChanges(globalStaging)) return;
     
     setIsSaving(true);
-    console.log('[PLANNER] Accepting all staged changes:', getStagedJobCount(globalStaging), 'jobs');
+    console.log('[PLANNER] Accepting all staged changes:', PlannerV2.getChangeCount(globalStaging), 'jobs');
     
     try {
-      const updates = buildBatchUpdatePayloads(globalStaging);
+      const payloads = PlannerV2.buildPersistencePayloads(globalStaging);
       
       // Build job details map for audit records
-      const jobDetailsMap = new Map<string, { orderNumber?: string; customer?: string }>();
+      const jobDetailsMap = new Map<string, PlannerV2.JobDetails>();
       for (const job of [...jobs, ...unallocatedOrders]) {
         jobDetailsMap.set(job.id, { orderNumber: job.orderNumber, customer: job.customer });
       }
       
       // Build audit records before persisting
-      const auditRecords = buildAuditRecords(globalStaging, jobDetailsMap);
+      const auditRecords = PlannerV2.buildAuditRecords(globalStaging, jobDetailsMap);
       console.log('[PLANNER] Creating', auditRecords.length, 'audit records');
       
       // Persist all production changes
-      for (const { id, payload } of updates) {
-        console.log('[PLANNER] Persisting job:', id, payload);
-        await productionService.update(id, payload);
+      for (const payload of payloads) {
+        const apiPayload: Record<string, any> = {};
+        if (payload.updates.jigId !== undefined) apiPayload.jigId = payload.updates.jigId;
+        if (payload.updates.plannedDateStr !== undefined) apiPayload.productionPlannedDate = payload.updates.plannedDateStr;
+        if (payload.updates.plannedStartTime !== undefined) apiPayload.plannedStartTime = payload.updates.plannedStartTime;
+        if (payload.updates.plannedEndTime !== undefined) apiPayload.plannedEndTime = payload.updates.plannedEndTime;
+        if (payload.updates.plannedDurationMinutes !== undefined) apiPayload.plannedDurationMinutes = payload.updates.plannedDurationMinutes;
+        if (payload.updates.customDurationMinutes !== undefined) apiPayload.customDurationMinutes = payload.updates.customDurationMinutes;
+        if (payload.updates.breakAdjustmentMinutes !== undefined) apiPayload.breakAdjustmentMinutes = payload.updates.breakAdjustmentMinutes;
+        
+        console.log('[PLANNER] Persisting job:', payload.jobId, apiPayload);
+        await productionService.update(payload.jobId, apiPayload);
       }
       
       // Send audit records to backend
       if (auditRecords.length > 0) {
         const auditDtos: CreateProductionAuditDto[] = auditRecords.map(record => ({
-          productionId: record.productionId,
+          productionId: record.jobId,
           changeType: record.changeType,
-          oldJigId: record.oldJigId,
-          newJigId: record.newJigId,
-          oldPlannedDate: record.oldPlannedDate,
-          newPlannedDate: record.newPlannedDate,
-          oldStartTime: record.oldStartTime,
-          newStartTime: record.newStartTime,
-          oldEndTime: record.oldEndTime,
-          newEndTime: record.newEndTime,
-          oldDurationMinutes: record.oldDurationMinutes,
-          newDurationMinutes: record.newDurationMinutes,
+          oldJigId: record.previousValues.jigId,
+          newJigId: record.newValues.jigId,
+          oldPlannedDate: record.previousValues.plannedDateStr,
+          newPlannedDate: record.newValues.plannedDateStr,
+          oldStartTime: record.previousValues.plannedStartTime,
+          newStartTime: record.newValues.plannedStartTime,
+          oldEndTime: record.previousValues.plannedEndTime,
+          newEndTime: record.newValues.plannedEndTime,
           orderNumber: record.orderNumber,
-          customerName: record.customerName,
-          notes: record.notes
+          customerName: record.customer,
+          notes: record.isPrimary ? 'Primary job change' : 'Affected by cascade'
         }));
         
         await productionAuditService.createBatch(auditDtos);
@@ -383,7 +362,7 @@ export const ProductionPlannerPage = () => {
       console.log('[PLANNER] ✓ All changes persisted');
       
       // Clear staging and reload data
-      setGlobalStaging(createEmptyStagingState());
+      setGlobalStaging(PlannerV2.createEmptyStaging());
       await loadData();
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist changes:', err);
@@ -396,7 +375,7 @@ export const ProductionPlannerPage = () => {
   // Global Discard - clear all staged changes
   const discardAllChanges = () => {
     console.log('[PLANNER] Discarding all staged changes');
-    setGlobalStaging(createEmptyStagingState());
+    setGlobalStaging(PlannerV2.createEmptyStaging());
   };
 
   // Unallocated basket: all production without planned date + orders needing production
@@ -423,17 +402,8 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   }, []);
 
-  // State for rollover dialog
-  const [rolloverDialogOpen, setRolloverDialogOpen] = useState(false);
-  const [pendingRollover, setPendingRollover] = useState<{
-    job: Job;
-    overflow: OverflowInfo;
-    dateStr: string;
-    jigId: string;
-  } | null>(null);
-
   // Drop to a team/day column - assign jig, date, and calculate time
-  // Uses sequential scheduling: first job at 07:00, subsequent jobs after previous end + 30-min gap
+  // Uses sequential scheduling with cascade and multi-day overflow handling via plannerV2
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
     
@@ -445,521 +415,109 @@ export const ProductionPlannerPage = () => {
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
     const isSalesOrder = job.id.startsWith('order-');
-
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
 
     try {
       if (updatedJigId) {
         const overtime = overtimeByDay[dateStr];
-        const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
-        const WORKING_START = shift.startTime;
-        const WORKING_END = shift.endTime;
+        const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
         
         const existingJobsOnDay = allJobs.filter(
           j => j.plannedDateStr === dateStr && 
                j.jigId === updatedJigId && 
                j.id !== job.id &&
                !j.productionComplete
-        ).sort((a, b) => (a.plannedStartTime ?? WORKING_START) - (b.plannedStartTime ?? WORKING_START));
+        ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
+         .map(j => toScheduledJob(j));
         
-        const jobDuration = getJobDurationMinutes(job);
+        const insertIndex = existingJobsOnDay.length === 0 
+          ? 0 
+          : PlannerV2.findInsertPosition(existingJobsOnDay, dropTimeMinutes ?? (shift.endTime - 60));
         
-        let plannedStartTime: number;
-        let insertIndex: number;
+        console.log('[PLANNER] Insert index:', insertIndex, 'out of', existingJobsOnDay.length, 'existing jobs');
         
-        if (existingJobsOnDay.length === 0) {
-          plannedStartTime = WORKING_START;
-          insertIndex = 0;
-        } else {
-          insertIndex = findInsertPosition(
-            dropTimeMinutes ?? (WORKING_END - 60), 
-            allJobs as ScheduledJob[], 
-            dateStr, 
-            updatedJigId, 
+        const droppedJob: PlannerV2.ScheduledJob = {
+          ...toScheduledJob(job),
+          plannedDateStr: dateStr,
+          jigId: updatedJigId
+        };
+        
+        const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
+        
+        console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled,', cascadeResult.overflows.length, 'overflows');
+        
+        setGlobalStaging(prev => {
+          let newStaging = prev;
+          
+          for (const scheduledJob of cascadeResult.scheduledJobs) {
+            const isDroppedJob = scheduledJob.id === job.id;
+            const originalJob = isDroppedJob ? job : allJobs.find(j => j.id === scheduledJob.id);
+            
+            if (originalJob) {
+              const changeType: PlannerV2.ChangeType = isDroppedJob ? 'allocate' : 'cascade';
+              newStaging = PlannerV2.stageChange(newStaging, scheduledJob.id, toScheduledJob(originalJob), {
+                plannedDateStr: dateStr,
+                jigId: updatedJigId,
+                plannedStartTime: scheduledJob.plannedStartTime,
+                plannedEndTime: scheduledJob.plannedEndTime,
+                plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
+                breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes
+              }, changeType);
+            }
+          }
+          
+          return newStaging;
+        });
+        
+        if (cascadeResult.overflows.length > 0) {
+          console.log('[PLANNER] Processing', cascadeResult.overflows.length, 'multi-day overflows');
+          
+          const allScheduledJobs = allJobs.map(j => toScheduledJob(j));
+          
+          const multiDayResult = PlannerV2.processMultiDayOverflows(
+            cascadeResult.overflows,
+            allScheduledJobs,
             overtimeByDay
           );
           
-          if (insertIndex === 0) {
-            plannedStartTime = WORKING_START;
-          } else {
-            const prevJob = existingJobsOnDay[insertIndex - 1];
-            const prevEnd = prevJob.plannedEndTime ?? (prevJob.plannedStartTime ?? WORKING_START) + getJobDurationMinutes(prevJob);
-            plannedStartTime = prevEnd + BUFFER_MINUTES;
-          }
-        }
-        
-        // GUARD: Check if the day is already saturated (no room to even start the job)
-        if (plannedStartTime >= WORKING_END) {
-          console.log('[PLANNER] Day is fully saturated, showing overflow dialog');
+          console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected,', multiDayResult.newRollovers.length, 'rollovers');
           
-          const overflowInfo: OverflowInfo = {
-            jobId: job.id,
-            jobName: job.name,
-            orderNumber: job.orderNumber,
-            overflowMinutes: jobDuration,
-            jigId: updatedJigId,
-            availableMinutesOnDay: WORKING_END - WORKING_START,
-            usedMinutesOnDay: WORKING_END - WORKING_START
-          };
-          
-          setPendingRollover({
-            job,
-            overflow: overflowInfo,
-            dateStr,
-            jigId: updatedJigId
-          });
-          setRolloverDialogOpen(true);
-          setDraggedJobId(null);
-          
-          if (viewMode !== 'day') {
-            setViewMode('day');
-            setCurrentDateStr(dateStr);
-          }
-          return;
-        }
-        
-        const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
-        
-        // GUARD: Calculate actual workable minutes on this day from the insertion point
-        const availableFromStart = WORKING_END - plannedStartTime;
-        let workableMinutes = availableFromStart;
-        for (const brk of shift.breaks) {
-          if (brk.start >= plannedStartTime && brk.end <= WORKING_END) {
-            workableMinutes -= brk.duration;
-          }
-        }
-        workableMinutes = Math.max(0, workableMinutes);
-        
-        // If no workable minutes available, entire job overflows
-        if (workableMinutes < 15) {
-          console.log('[PLANNER] No workable minutes available, showing overflow dialog');
-          
-          const overflowInfo: OverflowInfo = {
-            jobId: job.id,
-            jobName: job.name,
-            orderNumber: job.orderNumber,
-            overflowMinutes: jobDuration,
-            jigId: updatedJigId,
-            availableMinutesOnDay: WORKING_END - WORKING_START,
-            usedMinutesOnDay: WORKING_END - WORKING_START
-          };
-          
-          setPendingRollover({
-            job,
-            overflow: overflowInfo,
-            dateStr,
-            jigId: updatedJigId
-          });
-          setRolloverDialogOpen(true);
-          setDraggedJobId(null);
-          
-          if (viewMode !== 'day') {
-            setViewMode('day');
-            setCurrentDateStr(dateStr);
-          }
-          return;
-        }
-        
-        console.log('[PLANNER] Calculated timing:', {
-          insertIndex,
-          plannedStartTime,
-          plannedEndTime: timing.plannedEndTime,
-          duration: jobDuration,
-          overflowMinutes: timing.overflowMinutes,
-          workableMinutes
-        });
-        
-        // Stage the job with the portion that fits
-        const actualDurationOnDay = timing.overflowMinutes > 0 ? Math.min(workableMinutes, jobDuration - timing.overflowMinutes) : jobDuration;
-        
-        stageJobUpdate(job.id, {
-          plannedDateStr: dateStr,
-          jigId: updatedJigId,
-          plannedStartTime,
-          plannedEndTime: Math.min(timing.plannedEndTime, WORKING_END),
-          plannedDurationMinutes: actualDurationOnDay,
-          breakAdjustmentMinutes: timing.breakAdjustmentMinutes
-        }, 'allocate');
-        
-        // Cascade all subsequent jobs forward, handling overflows with rollovers
-        if (insertIndex < existingJobsOnDay.length) {
-          // Track jobs that need rollover to next day
-          interface CascadeOverflow {
-            job: typeof existingJobsOnDay[0];
-            overflowMinutes: number;
-          }
-          const cascadeOverflows: CascadeOverflow[] = [];
-          
-          // Use the inserted job's end time (clamped to working hours) as cascade start
-          let cascadeStartTime = Math.min(timing.plannedEndTime, WORKING_END) + BUFFER_MINUTES;
-          
-          console.log('[PLANNER] Starting cascade from position', insertIndex, 'at time', cascadeStartTime);
-          
-          for (let i = insertIndex; i < existingJobsOnDay.length; i++) {
-            const cascadeJob = existingJobsOnDay[i];
-            const cascadeDuration = getJobDurationMinutes(cascadeJob);
+          setGlobalStaging(prev => {
+            let newStaging = prev;
             
-            // If cascade start is at or past end of day, this job and all remaining jobs overflow completely
-            if (cascadeStartTime >= WORKING_END) {
-              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'pushed entirely to next day');
-              cascadeOverflows.push({ job: cascadeJob, overflowMinutes: cascadeDuration });
+            for (const scheduledJob of multiDayResult.scheduledJobs) {
+              const originalJob = allJobs.find(j => j.id === scheduledJob.id);
               
-              // Clear this job from current day - stage it with null times
-              stageJobUpdate(cascadeJob.id, {
-                plannedDateStr: null,
-                plannedStartTime: null,
-                plannedEndTime: null,
-                plannedDurationMinutes: cascadeDuration,
-                breakAdjustmentMinutes: null
-              }, 'cascade');
-              
-              continue;
-            }
-            
-            const cascadeTiming = calculatePlannedTimes(cascadeStartTime, cascadeDuration, shift);
-            
-            // Calculate workable minutes from cascade start to end of day
-            const availableFromStart = WORKING_END - cascadeStartTime;
-            let workableMinutes = availableFromStart;
-            for (const brk of shift.breaks) {
-              if (brk.start >= cascadeStartTime && brk.end <= WORKING_END) {
-                workableMinutes -= brk.duration;
-              }
-            }
-            workableMinutes = Math.max(0, workableMinutes);
-            
-            const jobOverflows = cascadeTiming.overflowMinutes > 0 || (cascadeStartTime + cascadeDuration + cascadeTiming.breakAdjustmentMinutes) > WORKING_END;
-            
-            if (jobOverflows && workableMinutes >= 15) {
-              // Job partially fits - truncate and create overflow entry
-              const fittingDuration = Math.min(workableMinutes, cascadeDuration);
-              const overflowAmount = cascadeDuration - fittingDuration;
-              
-              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'overflows by', overflowAmount, 'minutes');
-              
-              const truncatedTiming = calculatePlannedTimes(cascadeStartTime, fittingDuration, shift);
-              
-              stageJobUpdate(cascadeJob.id, {
-                plannedStartTime: cascadeStartTime,
-                plannedEndTime: Math.min(truncatedTiming.plannedEndTime, WORKING_END),
-                plannedDurationMinutes: fittingDuration,
-                customDurationMinutes: fittingDuration,
-                breakAdjustmentMinutes: truncatedTiming.breakAdjustmentMinutes
-              }, 'cascade');
-              
-              if (overflowAmount > 0) {
-                cascadeOverflows.push({ job: cascadeJob, overflowMinutes: overflowAmount });
-              }
-              
-              // Next job starts after end of day (will be handled as full overflow)
-              cascadeStartTime = WORKING_END + BUFFER_MINUTES;
-            } else if (jobOverflows && workableMinutes < 15) {
-              // Job doesn't fit at all - entire job overflows
-              console.log('[PLANNER] Job', cascadeJob.orderNumber, 'pushed entirely to next day (no room)');
-              cascadeOverflows.push({ job: cascadeJob, overflowMinutes: cascadeDuration });
-              
-              // Clear this job from current day
-              stageJobUpdate(cascadeJob.id, {
-                plannedDateStr: null,
-                plannedStartTime: null,
-                plannedEndTime: null,
-                plannedDurationMinutes: cascadeDuration,
-                breakAdjustmentMinutes: null
-              }, 'cascade');
-            } else {
-              // Job fits completely
-              const originalStart = cascadeJob.plannedStartTime ?? WORKING_START;
-              if (cascadeStartTime !== originalStart) {
-                stageJobUpdate(cascadeJob.id, {
-                  plannedStartTime: cascadeStartTime,
-                  plannedEndTime: cascadeTiming.plannedEndTime,
-                  plannedDurationMinutes: cascadeDuration,
-                  breakAdjustmentMinutes: cascadeTiming.breakAdjustmentMinutes
+              if (originalJob && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
+                newStaging = PlannerV2.stageChange(newStaging, scheduledJob.id, toScheduledJob(originalJob), {
+                  plannedDateStr: scheduledJob.plannedDateStr,
+                  jigId: scheduledJob.jigId,
+                  plannedStartTime: scheduledJob.plannedStartTime,
+                  plannedEndTime: scheduledJob.plannedEndTime,
+                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
+                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes
                 }, 'cascade');
               }
-              
-              cascadeStartTime = cascadeTiming.plannedEndTime + BUFFER_MINUTES;
             }
-          }
-          
-          // Process cascade overflows - schedule on subsequent days
-          if (cascadeOverflows.length > 0) {
-            console.log('[PLANNER] Processing', cascadeOverflows.length, 'cascade overflows');
             
-            let nextDayStr = getNextWorkingDay(dateStr, overtimeByDay);
-            let nextDayStartTime = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime).startTime;
-            
-            // Get existing jobs on next day (excluding the ones we're moving)
-            const movedJobIds = new Set(cascadeOverflows.map(o => o.job.id));
-            let nextDayJobs = allJobs.filter(
-              j => j.plannedDateStr === nextDayStr && 
-                   j.jigId === updatedJigId && 
-                   !j.productionComplete &&
-                   !movedJobIds.has(j.id)
-            ).sort((a, b) => (a.plannedStartTime ?? nextDayStartTime) - (b.plannedStartTime ?? nextDayStartTime));
-            
-            // Track if we need to cascade existing jobs on next day
-            let nextDayCascadeNeeded = nextDayJobs.length > 0;
-            let nextDayCurrentTime = nextDayStartTime;
-            
-            // Iterations guard to prevent infinite loops
-            let dayIterations = 0;
-            const maxDayIterations = 30;
-            
-            // Queue of jobs to schedule (overflows from cascade + newly created rollovers)
-            let pendingOverflows = [...cascadeOverflows];
-            
-            while (pendingOverflows.length > 0 && dayIterations < maxDayIterations) {
-              dayIterations++;
-              
-              const nextDayShift = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime);
-              const NEXT_DAY_START = nextDayShift.startTime;
-              const NEXT_DAY_END = nextDayShift.endTime;
-              
-              const dayOverflows: CascadeOverflow[] = [];
-              
-              // If there are existing jobs on this day, we need to insert at the beginning and cascade them
-              if (nextDayCascadeNeeded && nextDayJobs.length > 0) {
-                console.log('[PLANNER] Cascading', pendingOverflows.length, 'overflows into day', nextDayStr, 'with', nextDayJobs.length, 'existing jobs');
-                
-                // Schedule overflow jobs first, then cascade existing jobs
-                for (const overflow of pendingOverflows) {
-                  if (nextDayCurrentTime >= NEXT_DAY_END) {
-                    // This overflow doesn't fit, push to next day
-                    dayOverflows.push(overflow);
-                    continue;
-                  }
-                  
-                  const overflowTiming = calculatePlannedTimes(nextDayCurrentTime, overflow.overflowMinutes, nextDayShift);
-                  
-                  // Calculate workable minutes
-                  const availableFromStart = NEXT_DAY_END - nextDayCurrentTime;
-                  let workableMinutes = availableFromStart;
-                  for (const brk of nextDayShift.breaks) {
-                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
-                      workableMinutes -= brk.duration;
-                    }
-                  }
-                  workableMinutes = Math.max(0, workableMinutes);
-                  
-                  if (overflowTiming.overflowMinutes > 0 || workableMinutes < overflow.overflowMinutes) {
-                    // Overflow still doesn't fully fit
-                    const fittingDuration = Math.min(workableMinutes, overflow.overflowMinutes);
-                    const stillOverflows = overflow.overflowMinutes - fittingDuration;
-                    
-                    if (fittingDuration >= 15) {
-                      const truncTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDuration, nextDayShift);
-                      
-                      // For original job that was split, update with new times
-                      // The job was either cleared or partially staged - update it for next day
-                      stageJobUpdate(overflow.job.id, {
-                        plannedDateStr: nextDayStr,
-                        jigId: updatedJigId,
-                        plannedStartTime: nextDayCurrentTime,
-                        plannedEndTime: Math.min(truncTiming.plannedEndTime, NEXT_DAY_END),
-                        plannedDurationMinutes: fittingDuration,
-                        customDurationMinutes: fittingDuration,
-                        breakAdjustmentMinutes: truncTiming.breakAdjustmentMinutes
-                      }, 'cascade');
-                      
-                      nextDayCurrentTime = Math.min(truncTiming.plannedEndTime, NEXT_DAY_END) + BUFFER_MINUTES;
-                    }
-                    
-                    if (stillOverflows > 0) {
-                      dayOverflows.push({ job: overflow.job, overflowMinutes: stillOverflows });
-                    }
-                  } else {
-                    // Overflow fits completely on this day
-                    stageJobUpdate(overflow.job.id, {
-                      plannedDateStr: nextDayStr,
-                      jigId: updatedJigId,
-                      plannedStartTime: nextDayCurrentTime,
-                      plannedEndTime: overflowTiming.plannedEndTime,
-                      plannedDurationMinutes: overflow.overflowMinutes,
-                      customDurationMinutes: overflow.overflowMinutes,
-                      breakAdjustmentMinutes: overflowTiming.breakAdjustmentMinutes
-                    }, 'cascade');
-                    
-                    nextDayCurrentTime = overflowTiming.plannedEndTime + BUFFER_MINUTES;
-                  }
-                }
-                
-                // Now cascade existing jobs on this day
-                for (const existingJob of nextDayJobs) {
-                  const existingDuration = getJobDurationMinutes(existingJob);
-                  
-                  if (nextDayCurrentTime >= NEXT_DAY_END) {
-                    // Push to next day
-                    dayOverflows.push({ job: existingJob, overflowMinutes: existingDuration });
-                    stageJobUpdate(existingJob.id, {
-                      plannedDateStr: null,
-                      plannedStartTime: null,
-                      plannedEndTime: null,
-                      plannedDurationMinutes: existingDuration,
-                      breakAdjustmentMinutes: null
-                    }, 'cascade');
-                    continue;
-                  }
-                  
-                  const existingTiming = calculatePlannedTimes(nextDayCurrentTime, existingDuration, nextDayShift);
-                  const originalStart = existingJob.plannedStartTime ?? NEXT_DAY_START;
-                  
-                  // Calculate workable time
-                  const availFromTime = NEXT_DAY_END - nextDayCurrentTime;
-                  let workableTime = availFromTime;
-                  for (const brk of nextDayShift.breaks) {
-                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
-                      workableTime -= brk.duration;
-                    }
-                  }
-                  workableTime = Math.max(0, workableTime);
-                  
-                  if (existingTiming.overflowMinutes > 0 || workableTime < existingDuration) {
-                    // This existing job overflows when pushed
-                    const fittingDur = Math.min(workableTime, existingDuration);
-                    const overflowAmt = existingDuration - fittingDur;
-                    
-                    if (fittingDur >= 15) {
-                      const truncExistTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDur, nextDayShift);
-                      stageJobUpdate(existingJob.id, {
-                        plannedStartTime: nextDayCurrentTime,
-                        plannedEndTime: Math.min(truncExistTiming.plannedEndTime, NEXT_DAY_END),
-                        plannedDurationMinutes: fittingDur,
-                        customDurationMinutes: fittingDur,
-                        breakAdjustmentMinutes: truncExistTiming.breakAdjustmentMinutes
-                      }, 'cascade');
-                      nextDayCurrentTime = NEXT_DAY_END + BUFFER_MINUTES;
-                    } else {
-                      // Entire job pushed
-                      stageJobUpdate(existingJob.id, {
-                        plannedDateStr: null,
-                        plannedStartTime: null,
-                        plannedEndTime: null,
-                        plannedDurationMinutes: existingDuration,
-                        breakAdjustmentMinutes: null
-                      }, 'cascade');
-                    }
-                    
-                    if (overflowAmt > 0 || fittingDur < 15) {
-                      dayOverflows.push({ job: existingJob, overflowMinutes: fittingDur < 15 ? existingDuration : overflowAmt });
-                    }
-                  } else {
-                    // Fits completely
-                    if (nextDayCurrentTime !== originalStart) {
-                      stageJobUpdate(existingJob.id, {
-                        plannedStartTime: nextDayCurrentTime,
-                        plannedEndTime: existingTiming.plannedEndTime,
-                        plannedDurationMinutes: existingDuration,
-                        breakAdjustmentMinutes: existingTiming.breakAdjustmentMinutes
-                      }, 'cascade');
-                    }
-                    nextDayCurrentTime = existingTiming.plannedEndTime + BUFFER_MINUTES;
-                  }
-                }
-              } else {
-                // No existing jobs on this day, just schedule the overflows
-                console.log('[PLANNER] Scheduling', pendingOverflows.length, 'overflows on empty day', nextDayStr);
-                
-                for (const overflow of pendingOverflows) {
-                  if (nextDayCurrentTime >= NEXT_DAY_END) {
-                    dayOverflows.push(overflow);
-                    continue;
-                  }
-                  
-                  const overflowTiming = calculatePlannedTimes(nextDayCurrentTime, overflow.overflowMinutes, nextDayShift);
-                  
-                  // Calculate workable minutes
-                  const availableFromStart = NEXT_DAY_END - nextDayCurrentTime;
-                  let workableMinutes = availableFromStart;
-                  for (const brk of nextDayShift.breaks) {
-                    if (brk.start >= nextDayCurrentTime && brk.end <= NEXT_DAY_END) {
-                      workableMinutes -= brk.duration;
-                    }
-                  }
-                  workableMinutes = Math.max(0, workableMinutes);
-                  
-                  if (overflowTiming.overflowMinutes > 0 || workableMinutes < overflow.overflowMinutes) {
-                    const fittingDuration = Math.min(workableMinutes, overflow.overflowMinutes);
-                    const stillOverflows = overflow.overflowMinutes - fittingDuration;
-                    
-                    if (fittingDuration >= 15) {
-                      const truncTiming = calculatePlannedTimes(nextDayCurrentTime, fittingDuration, nextDayShift);
-                      stageJobUpdate(overflow.job.id, {
-                        plannedDateStr: nextDayStr,
-                        jigId: updatedJigId,
-                        plannedStartTime: nextDayCurrentTime,
-                        plannedEndTime: Math.min(truncTiming.plannedEndTime, NEXT_DAY_END),
-                        plannedDurationMinutes: fittingDuration,
-                        customDurationMinutes: fittingDuration,
-                        breakAdjustmentMinutes: truncTiming.breakAdjustmentMinutes
-                      }, 'cascade');
-                      nextDayCurrentTime = Math.min(truncTiming.plannedEndTime, NEXT_DAY_END) + BUFFER_MINUTES;
-                    }
-                    
-                    if (stillOverflows > 0) {
-                      dayOverflows.push({ job: overflow.job, overflowMinutes: stillOverflows });
-                    }
-                  } else {
-                    stageJobUpdate(overflow.job.id, {
-                      plannedDateStr: nextDayStr,
-                      jigId: updatedJigId,
-                      plannedStartTime: nextDayCurrentTime,
-                      plannedEndTime: overflowTiming.plannedEndTime,
-                      plannedDurationMinutes: overflow.overflowMinutes,
-                      customDurationMinutes: overflow.overflowMinutes,
-                      breakAdjustmentMinutes: overflowTiming.breakAdjustmentMinutes
-                    }, 'cascade');
-                    nextDayCurrentTime = overflowTiming.plannedEndTime + BUFFER_MINUTES;
-                  }
-                }
-              }
-              
-              // Prepare for next day if there are still overflows
-              if (dayOverflows.length > 0) {
-                pendingOverflows = dayOverflows;
-                nextDayStr = getNextWorkingDay(nextDayStr, overtimeByDay);
-                const nextShift = getShiftConfig(overtimeByDay[nextDayStr]?.enabled, overtimeByDay[nextDayStr]?.closeTime);
-                nextDayStartTime = nextShift.startTime;
-                nextDayCurrentTime = nextDayStartTime;
-                
-                // Get jobs on the new next day
-                const newMovedIds = new Set(dayOverflows.map(o => o.job.id));
-                nextDayJobs = allJobs.filter(
-                  j => j.plannedDateStr === nextDayStr && 
-                       j.jigId === updatedJigId && 
-                       !j.productionComplete &&
-                       !newMovedIds.has(j.id)
-                ).sort((a, b) => (a.plannedStartTime ?? nextDayStartTime) - (b.plannedStartTime ?? nextDayStartTime));
-                nextDayCascadeNeeded = nextDayJobs.length > 0;
-              } else {
-                pendingOverflows = [];
+            for (const rollover of multiDayResult.newRollovers) {
+              const parentJob = allJobs.find(j => j.id === rollover.parentProductionId);
+              if (parentJob) {
+                newStaging = PlannerV2.stageChange(newStaging, rollover.id, rollover, {
+                  plannedDateStr: rollover.plannedDateStr,
+                  jigId: rollover.jigId,
+                  plannedStartTime: rollover.plannedStartTime,
+                  plannedEndTime: rollover.plannedEndTime,
+                  plannedDurationMinutes: rollover.plannedDurationMinutes,
+                  breakAdjustmentMinutes: rollover.breakAdjustmentMinutes,
+                  parentProductionId: rollover.parentProductionId,
+                  rolloverSequence: rollover.rolloverSequence
+                }, 'rollover');
               }
             }
             
-            if (dayIterations >= maxDayIterations) {
-              console.warn('[PLANNER] Cascade reached maximum day iterations, some jobs may not be scheduled');
-            }
-          }
-        }
-        
-        if (timing.overflowMinutes > 0) {
-          const overflowInfo: OverflowInfo = {
-            jobId: job.id,
-            jobName: job.name,
-            orderNumber: job.orderNumber,
-            overflowMinutes: timing.overflowMinutes,
-            jigId: updatedJigId,
-            availableMinutesOnDay: WORKING_END - WORKING_START,
-            usedMinutesOnDay: WORKING_END - plannedStartTime
-          };
-          
-          setPendingRollover({
-            job,
-            overflow: overflowInfo,
-            dateStr,
-            jigId: updatedJigId
+            return newStaging;
           });
-          setRolloverDialogOpen(true);
         }
         
         if (viewMode !== 'day') {
@@ -967,12 +525,13 @@ export const ProductionPlannerPage = () => {
           setCurrentDateStr(dateStr);
         }
       } else {
+        const jobDuration = PlannerV2.getJobDuration(toScheduledJob(job));
         stageJobUpdate(job.id, {
           plannedDateStr: dateStr,
           jigId: null,
           plannedStartTime: null,
           plannedEndTime: null,
-          plannedDurationMinutes: getJobDurationMinutes(job),
+          plannedDurationMinutes: jobDuration,
           breakAdjustmentMinutes: null
         }, 'allocate');
         
@@ -993,85 +552,6 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleRolloverConfirm = () => {
-    if (!pendingRollover) return;
-    
-    const { job, overflow, dateStr, jigId } = pendingRollover;
-    const nextDateStr = getNextWorkingDay(dateStr, overtimeByDay);
-    
-    console.log('[PLANNER] Creating rollover to:', nextDateStr, 'for', overflow.overflowMinutes, 'minutes');
-    
-    const rolloverJob = createRolloverJob(
-      job as ScheduledJob,
-      overflow.overflowMinutes,
-      nextDateStr,
-      (job.rolloverSequence || 0) + 1
-    );
-    
-    const existingNextDay = allJobs.filter(
-      j => j.plannedDateStr === nextDateStr && j.jigId === jigId && !j.productionComplete
-    );
-    
-    const nextDayResult = scheduleJobsSequentially(
-      [...existingNextDay] as ScheduledJob[],
-      nextDateStr,
-      jigId,
-      overtimeByDay,
-      { job: rolloverJob, index: 0 }
-    );
-    
-    for (const scheduledJob of nextDayResult.jobs) {
-      const isRollover = scheduledJob.id === rolloverJob.id;
-      stageJobUpdate(scheduledJob.id, {
-        plannedDateStr: nextDateStr,
-        jigId,
-        plannedStartTime: scheduledJob.plannedStartTime,
-        plannedEndTime: scheduledJob.plannedEndTime,
-        plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
-        breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes,
-        parentProductionId: isRollover ? (job.parentProductionId || job.id) : undefined,
-        rolloverSequence: isRollover ? rolloverJob.rolloverSequence : undefined
-      }, isRollover ? 'rollover' : 'cascade');
-    }
-    
-    if (nextDayResult.requiresRollover && nextDayResult.overflows.length > 0) {
-      const nextOverflow = nextDayResult.overflows[0];
-      if (nextOverflow.jobId === rolloverJob.id) {
-        setPendingRollover({
-          job: { ...rolloverJob } as Job,
-          overflow: nextOverflow,
-          dateStr: nextDateStr,
-          jigId
-        });
-        return;
-      }
-    }
-    
-    setRolloverDialogOpen(false);
-    setPendingRollover(null);
-  };
-
-  const handleResizeInstead = () => {
-    if (!pendingRollover) return;
-    
-    const { overflow } = pendingRollover;
-    const job = allJobs.find(j => j.id === overflow.jobId);
-    if (!job) return;
-    
-    const currentDuration = job.plannedDurationMinutes || getJobDurationMinutes(job);
-    const reducedDuration = Math.max(15, currentDuration - overflow.overflowMinutes);
-    
-    console.log('[PLANNER] Resizing job to fit:', reducedDuration, 'minutes');
-    
-    stageJobUpdate(overflow.jobId, {
-      customDurationMinutes: reducedDuration,
-      plannedDurationMinutes: reducedDuration
-    }, 'resize');
-    
-    setRolloverDialogOpen(false);
-    setPendingRollover(null);
-  };
-
   // Drop to global unallocated basket - reset to EFinks and clear assignment
   const handleDropToUnallocated = () => {
     if (!draggedJobId) return;
@@ -1087,7 +567,7 @@ export const ProductionPlannerPage = () => {
     }
 
     // Reset to EFinks default when moving to unallocated
-    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
     
     // Stage the unallocate - resets to EFinks default
     stageJobUpdate(job.id, {
@@ -1118,7 +598,7 @@ export const ProductionPlannerPage = () => {
     }
 
     // Reset to EFinks default when moving to team unallocated
-    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
     
     stageJobUpdate(job.id, {
       jigId: jigId,
@@ -1146,22 +626,22 @@ export const ProductionPlannerPage = () => {
     const jigId = job.jigId;
     
     // Round duration to 15-minute increment
-    const roundedDuration = roundUpToQuarterHour(durationMinutes);
+    const roundedDuration = PlannerV2.roundToQuarterHour(durationMinutes);
     
     // Calculate new end time based on the resized duration
     if (job.plannedStartTime != null && jigId && dateStr) {
       const overtime = overtimeByDay[dateStr];
-      const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+      const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
       // Calculate new end time and break adjustments
-      const timing = calculatePlannedTimes(job.plannedStartTime, roundedDuration, shift);
+      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
       
       // Stage the resize - no cascading, overlaps allowed during staging
       stageJobUpdate(jobId, {
         customDurationMinutes: roundedDuration,
         plannedDurationMinutes: roundedDuration,
-        plannedEndTime: timing.plannedEndTime,
-        breakAdjustmentMinutes: timing.breakAdjustmentMinutes
+        plannedEndTime: timing.endTime,
+        breakAdjustmentMinutes: timing.breakMinutes
       }, 'resize');
       
       console.log('[PLANNER] Staged resize for job:', jobId, 'duration:', roundedDuration, 'minutes');
@@ -1181,21 +661,21 @@ export const ProductionPlannerPage = () => {
     const jigId = job.jigId;
     
     // Calculate default duration from EFinks
-    const defaultDuration = getDefaultEfinksDuration(job.estimatedEFinks);
+    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
     
     if (job.plannedStartTime != null && jigId && dateStr) {
       const overtime = overtimeByDay[dateStr];
-      const shift = getShiftConfig(overtime?.enabled, overtime?.closeTime);
+      const shift = PlannerV2.getShiftConfig(overtime?.enabled, overtime?.closeTime);
       
       // Calculate end time using default duration
-      const timing = calculatePlannedTimes(job.plannedStartTime, defaultDuration, shift);
+      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, defaultDuration, shift);
       
       // Stage the reset - clears customDurationMinutes
       stageJobUpdate(jobId, {
         customDurationMinutes: undefined,
         plannedDurationMinutes: defaultDuration,
-        plannedEndTime: timing.plannedEndTime,
-        breakAdjustmentMinutes: timing.breakAdjustmentMinutes
+        plannedEndTime: timing.endTime,
+        breakAdjustmentMinutes: timing.breakMinutes
       }, 'resize');
       
       console.log('[PLANNER] Staged reset for job:', jobId, 'duration:', defaultDuration, 'minutes');
@@ -1594,7 +1074,7 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      {hasStagedChanges(globalStaging) && (
+      {PlannerV2.hasChanges(globalStaging) && (
         <Stack 
           horizontal 
           verticalAlign="center" 
@@ -1611,7 +1091,7 @@ export const ProductionPlannerPage = () => {
         >
           <Icon iconName="Edit" styles={{ root: { color: '#ffb900', fontSize: 18 } }} />
           <Text styles={{ root: { fontWeight: 600, color: '#323130' } }}>
-            {getStagedJobCount(globalStaging)} job{getStagedJobCount(globalStaging) !== 1 ? 's' : ''} staged for changes
+            {PlannerV2.getChangeCount(globalStaging)} job{PlannerV2.getChangeCount(globalStaging) !== 1 ? 's' : ''} staged for changes
           </Text>
           <Stack horizontal tokens={{ childrenGap: 10 }} styles={{ root: { marginLeft: 'auto' } }}>
             <DefaultButton
@@ -1767,37 +1247,6 @@ export const ProductionPlannerPage = () => {
         </Stack>
       </Stack>
 
-      {/* Rollover Dialog */}
-      <Dialog
-        hidden={!rolloverDialogOpen}
-        onDismiss={() => {
-          setRolloverDialogOpen(false);
-          setPendingRollover(null);
-        }}
-        dialogContentProps={{
-          type: DialogType.normal,
-          title: 'Job Exceeds Available Time',
-          subText: pendingRollover 
-            ? `The job "${pendingRollover.job.name}" requires ${Math.round(pendingRollover.overflow.overflowMinutes)} more minutes than available on this day. Would you like to roll over the remaining time to the next working day, or resize the job to fit?`
-            : ''
-        }}
-        modalProps={{
-          isBlocking: true
-        }}
-      >
-        <DialogFooter>
-          <PrimaryButton 
-            text="Roll Over to Next Day" 
-            onClick={handleRolloverConfirm}
-            iconProps={{ iconName: 'Forward' }}
-          />
-          <DefaultButton 
-            text="Resize to Fit" 
-            onClick={handleResizeInstead}
-            iconProps={{ iconName: 'FitPage' }}
-          />
-        </DialogFooter>
-      </Dialog>
     </Stack>
   );
 };
