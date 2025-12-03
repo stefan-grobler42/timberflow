@@ -36,8 +36,7 @@ import {
   findInsertPosition,
   getNextWorkingDay,
   canDeleteRolloverSegment,
-  deleteRolloverSegment,
-  getRolloverChain
+  deleteRolloverSegment
 } from '../utils/schedulingEngine';
 import {
   type GlobalStagingState,
@@ -488,38 +487,125 @@ export const ProductionPlannerPage = () => {
           }
         }
         
+        // GUARD: Check if the day is already saturated (no room to even start the job)
+        if (plannedStartTime >= WORKING_END) {
+          console.log('[PLANNER] Day is fully saturated, showing overflow dialog');
+          
+          const overflowInfo: OverflowInfo = {
+            jobId: job.id,
+            jobName: job.name,
+            orderNumber: job.orderNumber,
+            overflowMinutes: jobDuration,
+            jigId: updatedJigId,
+            availableMinutesOnDay: WORKING_END - WORKING_START,
+            usedMinutesOnDay: WORKING_END - WORKING_START
+          };
+          
+          setPendingRollover({
+            job,
+            overflow: overflowInfo,
+            dateStr,
+            jigId: updatedJigId
+          });
+          setRolloverDialogOpen(true);
+          setDraggedJobId(null);
+          
+          if (viewMode !== 'day') {
+            setViewMode('day');
+            setCurrentDateStr(dateStr);
+          }
+          return;
+        }
+        
         const timing = calculatePlannedTimes(plannedStartTime, jobDuration, shift);
+        
+        // GUARD: Calculate actual workable minutes on this day from the insertion point
+        const availableFromStart = WORKING_END - plannedStartTime;
+        let workableMinutes = availableFromStart;
+        for (const brk of shift.breaks) {
+          if (brk.start >= plannedStartTime && brk.end <= WORKING_END) {
+            workableMinutes -= brk.duration;
+          }
+        }
+        workableMinutes = Math.max(0, workableMinutes);
+        
+        // If no workable minutes available, entire job overflows
+        if (workableMinutes < 15) {
+          console.log('[PLANNER] No workable minutes available, showing overflow dialog');
+          
+          const overflowInfo: OverflowInfo = {
+            jobId: job.id,
+            jobName: job.name,
+            orderNumber: job.orderNumber,
+            overflowMinutes: jobDuration,
+            jigId: updatedJigId,
+            availableMinutesOnDay: WORKING_END - WORKING_START,
+            usedMinutesOnDay: WORKING_END - WORKING_START
+          };
+          
+          setPendingRollover({
+            job,
+            overflow: overflowInfo,
+            dateStr,
+            jigId: updatedJigId
+          });
+          setRolloverDialogOpen(true);
+          setDraggedJobId(null);
+          
+          if (viewMode !== 'day') {
+            setViewMode('day');
+            setCurrentDateStr(dateStr);
+          }
+          return;
+        }
         
         console.log('[PLANNER] Calculated timing:', {
           insertIndex,
           plannedStartTime,
           plannedEndTime: timing.plannedEndTime,
           duration: jobDuration,
-          overflowMinutes: timing.overflowMinutes
+          overflowMinutes: timing.overflowMinutes,
+          workableMinutes
         });
+        
+        // Stage the job with the portion that fits
+        const actualDurationOnDay = timing.overflowMinutes > 0 ? Math.min(workableMinutes, jobDuration - timing.overflowMinutes) : jobDuration;
         
         stageJobUpdate(job.id, {
           plannedDateStr: dateStr,
           jigId: updatedJigId,
           plannedStartTime,
           plannedEndTime: Math.min(timing.plannedEndTime, WORKING_END),
-          plannedDurationMinutes: timing.overflowMinutes > 0 ? jobDuration - timing.overflowMinutes : jobDuration,
+          plannedDurationMinutes: actualDurationOnDay,
           breakAdjustmentMinutes: timing.breakAdjustmentMinutes
         }, 'allocate');
         
-        if (insertIndex < existingJobsOnDay.length) {
+        // Only cascade if there are jobs after the insert position AND the end time is valid
+        if (insertIndex < existingJobsOnDay.length && timing.plannedEndTime < WORKING_END) {
           let cascadeStartTime = timing.plannedEndTime + 15;
           
-          for (let i = insertIndex; i < existingJobsOnDay.length; i++) {
+          // Limit cascade iterations to prevent infinite loops
+          const maxCascadeIterations = existingJobsOnDay.length - insertIndex;
+          let cascadeCount = 0;
+          
+          for (let i = insertIndex; i < existingJobsOnDay.length && cascadeCount < maxCascadeIterations; i++) {
+            cascadeCount++;
             const cascadeJob = existingJobsOnDay[i];
             const cascadeDuration = getJobDurationMinutes(cascadeJob);
+            
+            // GUARD: Stop cascading if we've exceeded working hours
+            if (cascadeStartTime >= WORKING_END) {
+              console.log('[PLANNER] Cascade reached end of day, stopping');
+              break;
+            }
+            
             const cascadeTiming = calculatePlannedTimes(cascadeStartTime, cascadeDuration, shift);
             
             const originalStart = cascadeJob.plannedStartTime ?? WORKING_START;
             if (cascadeStartTime !== originalStart) {
               stageJobUpdate(cascadeJob.id, {
                 plannedStartTime: cascadeStartTime,
-                plannedEndTime: cascadeTiming.plannedEndTime,
+                plannedEndTime: Math.min(cascadeTiming.plannedEndTime, WORKING_END),
                 plannedDurationMinutes: cascadeDuration,
                 breakAdjustmentMinutes: cascadeTiming.breakAdjustmentMinutes
               }, 'cascade');
@@ -973,11 +1059,11 @@ export const ProductionPlannerPage = () => {
       
       for (const updatedJob of result.updatedJobs) {
         await productionService.update(updatedJob.id, {
-          plannedStartTime: updatedJob.plannedStartTime,
-          plannedEndTime: updatedJob.plannedEndTime,
-          plannedDurationMinutes: updatedJob.plannedDurationMinutes,
+          plannedStartTime: updatedJob.plannedStartTime ?? undefined,
+          plannedEndTime: updatedJob.plannedEndTime ?? undefined,
+          plannedDurationMinutes: updatedJob.plannedDurationMinutes ?? undefined,
           customDurationMinutes: updatedJob.customDurationMinutes,
-          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes
+          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes ?? undefined
         });
       }
       
@@ -989,6 +1075,9 @@ export const ProductionPlannerPage = () => {
       setError(`Failed to delete segment: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
+
+  // Suppress unused variable warning - function will be connected to DayView component
+  void handleDeleteRolloverSegment;
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
