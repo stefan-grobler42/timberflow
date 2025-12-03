@@ -2,7 +2,24 @@ import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFoote
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
+import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
+
+const SCHEDULE_BLOCK_COLORS: Record<ScheduleBlockType, string> = {
+  PublicHoliday: '#B3E5FC',
+  Breakdown: '#F28B82',
+  Maintenance: '#C58AF9',
+  MaterialShortage: '#FDD663',
+  GeneralDelay: '#9AA0A6'
+};
+
+const SCHEDULE_BLOCK_LABELS: Record<ScheduleBlockType, string> = {
+  PublicHoliday: 'Public Holiday',
+  Breakdown: 'Breakdown',
+  Maintenance: 'Maintenance',
+  MaterialShortage: 'Material Shortage',
+  GeneralDelay: 'General Delay'
+};
 
 interface Job {
   id: string;
@@ -86,6 +103,8 @@ interface DayViewProps {
   globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
+  scheduleBlocks?: ScheduleBlock[];
+  onBlockClick?: (block: ScheduleBlock) => void;
 }
 
 const HOURS_IN_DAY = 24;
@@ -110,7 +129,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onTeamOvertimeChange,
   globalStaging,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
-  isDragging = false
+  isDragging = false,
+  scheduleBlocks = [],
+  onBlockClick
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -1300,6 +1321,65 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     </div>
                   );
                 })()}
+
+                {/* Schedule blocks - rendered below jobs */}
+                {workingHours && scheduleBlocks
+                  .filter(block => block.teamId === null || block.teamId === jig.id)
+                  .map(block => {
+                    const workingHoursStartMinutes = workingHours.start * 60;
+                    const adjustedStartMinutes = Math.max(0, block.startTimeMinutes - workingHoursStartMinutes);
+                    const adjustedEndMinutes = block.endTimeMinutes - workingHoursStartMinutes;
+                    const blockTop = adjustedStartMinutes * PlannerV2.PIXELS_PER_MINUTE;
+                    const blockHeight = (adjustedEndMinutes - adjustedStartMinutes) * PlannerV2.PIXELS_PER_MINUTE;
+                    const blockColor = SCHEDULE_BLOCK_COLORS[block.blockType];
+                    const blockLabel = SCHEDULE_BLOCK_LABELS[block.blockType];
+                    
+                    const formatBlockTime = (minutes: number): string => {
+                      const hours = Math.floor(minutes / 60);
+                      const mins = minutes % 60;
+                      return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+                    };
+                    
+                    return (
+                      <div
+                        key={`block-${block.id}`}
+                        onClick={() => onBlockClick?.(block)}
+                        style={{
+                          position: 'absolute',
+                          top: blockTop,
+                          left: 2,
+                          right: 2,
+                          height: Math.max(blockHeight, 20),
+                          backgroundColor: blockColor,
+                          opacity: 0.85,
+                          borderRadius: 4,
+                          border: `1px solid ${blockColor}`,
+                          cursor: onBlockClick ? 'pointer' : 'default',
+                          zIndex: 5,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          padding: '4px 6px',
+                          overflow: 'hidden',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+                        }}
+                        title={`${blockLabel}${block.description ? `: ${block.description}` : ''}\n${formatBlockTime(block.startTimeMinutes)} - ${formatBlockTime(block.endTimeMinutes)}`}
+                      >
+                        <Text variant="tiny" styles={{ root: { fontWeight: 600, color: '#333', lineHeight: 1.2 } }}>
+                          {blockLabel}
+                        </Text>
+                        {blockHeight > 30 && (
+                          <Text variant="tiny" styles={{ root: { color: '#555', fontSize: 10 } }}>
+                            {formatBlockTime(block.startTimeMinutes)} - {formatBlockTime(block.endTimeMinutes)}
+                          </Text>
+                        )}
+                        {blockHeight > 50 && block.description && (
+                          <Text variant="tiny" styles={{ root: { color: '#666', fontSize: 10, marginTop: 2 } }}>
+                            {block.description}
+                          </Text>
+                        )}
+                      </div>
+                    );
+                  })}
 
                 {/* Job blocks */}
                 {(() => {

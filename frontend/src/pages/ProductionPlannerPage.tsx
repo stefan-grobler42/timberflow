@@ -1343,6 +1343,11 @@ export const ProductionPlannerPage = () => {
               globalStaging={globalStaging}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
               isDragging={!!draggedJobId}
+              scheduleBlocks={scheduleBlocks.filter(block => block.dateStr === currentDateStr)}
+              onBlockClick={(block) => {
+                setEditingBlock(block);
+                setBlockPanelOpen(true);
+              }}
             />
           )}
         </Stack>
