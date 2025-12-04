@@ -1250,39 +1250,32 @@ export const ProductionPlannerPage = () => {
                 </Text>
               </Stack>
 
-              <Stack styles={{ root: { marginTop: 15, gap: 8 } }}>
+              <Stack styles={{ root: { marginTop: 10, gap: 4, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' } }}>
                 {unallocated.map(job => (
-                  <Stack
+                  <div
                     key={job.id}
                     draggable
                     onDragStart={() => handleDragStart(job.id)}
                     onDoubleClick={() => handleJobDoubleClick(job.id)}
-                    styles={{
-                      root: {
-                        padding: 10,
-                        backgroundColor: 'white',
-                        borderRadius: 4,
-                        cursor: 'grab',
-                        border: '1px solid #ddd',
-                        ':hover': {
-                          backgroundColor: '#f8f8f8'
-                        }
-                      }
+                    style={{
+                      padding: '5px 8px',
+                      backgroundColor: 'white',
+                      borderRadius: 3,
+                      cursor: 'grab',
+                      border: '1px solid #ddd',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
                     }}
                   >
-                    <Text variant="small" styles={{ root: { fontWeight: 600 } }}>
+                    <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333' } }}>
                       {job.orderNumber}
                     </Text>
-                    <Text variant="small" block>
+                    <Text variant="tiny" styles={{ root: { fontSize: 10, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' } }}>
                       {job.customer}
                     </Text>
-                    <Text variant="tiny" block styles={{ root: { color: '#666' } }}>
-                      {job.name}
-                    </Text>
-                    <Text variant="tiny" block styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
+                    <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#0078d4', fontWeight: 500 } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>
-                  </Stack>
+                  </div>
                 ))}
                 {unallocated.length === 0 && (
                   <Text variant="small" styles={{ root: { color: '#666', textAlign: 'center', marginTop: 20 } }}>

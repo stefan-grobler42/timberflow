@@ -942,169 +942,50 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 </Text>
               </Stack>
 
-              {/* Unallocated timeline */}
+              {/* Unallocated jobs - stacked compact cards (no duration calculations) */}
               <div
                 onDragOver={onDragOver}
                 onDrop={() => onDrop(dayStr, null)}
                 style={{
-                  position: 'relative',
                   height: totalTimelineHeight,
                   borderBottom: '1px solid #ddd',
-                  backgroundColor: '#ffebee'
+                  backgroundColor: '#ffebee',
+                  overflowY: 'auto',
+                  padding: 6
                 }}
               >
-                {/* Hour lines - within working hours */}
-                {workingHours && Array.from({ length: workingHours.end - workingHours.start + 1 }, (_, idx) => {
-                  const hour = workingHours.start + idx;
-                  const minutes = hour * 60;
-                  return (
+                <Stack tokens={{ childrenGap: 4 }}>
+                  {unallocatedJobs.map(job => (
                     <div
-                      key={`unalloc-hour-${hour}`}
+                      key={job.id}
+                      draggable
+                      onDragStart={() => onDragStart(job.id)}
+                      onDoubleClick={() => onJobDoubleClick(job.id)}
                       style={{
-                        position: 'absolute',
-                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
-                        left: 0,
-                        right: 0,
-                        height: 1,
-                        backgroundColor: '#ccc',
-                        zIndex: 1,
-                        pointerEvents: 'none'
+                        padding: '6px 8px',
+                        background: job.productionComplete 
+                          ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.9), rgba(200, 200, 200, 0.85))' 
+                          : 'linear-gradient(135deg, rgba(198, 40, 40, 0.9), rgba(160, 30, 30, 0.85))',
+                        color: job.productionComplete ? '#555' : 'white',
+                        borderRadius: 4,
+                        border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
+                        cursor: 'grab',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        opacity: job.productionComplete ? 0.7 : 1
                       }}
-                    />
-                  );
-                })}
-
-                {/* 15-minute interval lines - within working hours */}
-                {workingHours && Array.from({ length: (workingHours.end - workingHours.start) * 4 }, (_, idx) => {
-                  const minutes = workingHours.start * 60 + (idx + 1) * 15;
-                  if (minutes % 60 === 0) return null;
-                  if (minutes > workingHours.end * 60) return null;
-                  return (
-                    <div
-                      key={`unalloc-quarter-${idx}`}
-                      style={{
-                        position: 'absolute',
-                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
-                        left: 0,
-                        right: 0,
-                        height: 1,
-                        borderTop: '1px dashed rgba(0, 0, 0, 0.08)',
-                        zIndex: 1,
-                        pointerEvents: 'none'
-                      }}
-                    />
-                  );
-                })}
-
-                {/* Job blocks */}
-                {calculateJobPositions(unallocatedJobs, false).map(({ job, top, height, baseHeight }) => (
-                  <div
-                    key={job.id}
-                    draggable={!resizingJob}
-                    onDragStart={() => !resizingJob && onDragStart(job.id)}
-                    onDoubleClick={() => onJobDoubleClick(job.id)}
-                    style={{
-                      position: 'absolute',
-                      top: top * PlannerV2.PIXELS_PER_MINUTE + 4,
-                      left: 4,
-                      right: 4,
-                      height: height,
-                      padding: 8,
-                      background: job.productionComplete 
-                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
-                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))',
-                      color: job.productionComplete ? '#555' : 'white',
-                      borderRadius: 6,
-                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
-                      cursor: resizingJob ? 'ns-resize' : 'grab',
-                      zIndex: resizingJob === job.id ? 100 : 10,
-                      boxShadow: job.productionComplete 
-                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
-                        : '0 4px 12px rgba(198, 40, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
-                      opacity: job.productionComplete ? 0.7 : 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(4px)'
-                    }}
-                  >
-                    {/* Refresh button - only show when manually resized */}
-                    {hasManualResize(job) && onJobDurationReset && (
-                      <IconButton
-                        iconProps={{ iconName: 'Refresh' }}
-                        title="Reset to calculated size"
-                        ariaLabel="Reset to calculated size"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          // Clear local custom duration state first
-                          setCustomDurations(prev => {
-                            const next = { ...prev };
-                            delete next[job.id];
-                            return next;
-                          });
-                          // Then call parent handler to persist the reset
-                          onJobDurationReset(job.id);
-                        }}
-                        styles={{
-                          root: {
-                            position: 'absolute',
-                            top: 2,
-                            right: 2,
-                            width: 20,
-                            height: 20,
-                            minWidth: 20,
-                            backgroundColor: 'rgba(255,255,255,0.2)',
-                            borderRadius: 4
-                          },
-                          icon: { fontSize: 10, color: 'white' },
-                          rootHovered: { backgroundColor: 'rgba(255,255,255,0.4)' }
-                        }}
-                      />
-                    )}
-                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
-                    </Text>
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
-                      {job.customer}
-                    </Text>
-                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
+                    >
+                      <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 11 } }}>
+                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' ✓' : ''}
+                      </Text>
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                        {job.customer}
+                      </Text>
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: 500 } }}>
                         {job.estimatedEFinks} E-Finks
                       </Text>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
-                        ({formatDuration(getBaseDurationMinutes(job))})
-                      </Text>
-                    </Stack>
-                    {/* Resize handle - only show if job is last in chain or not part of a chain */}
-                    {isLastInChain(job) && (
-                      <div
-                        onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
-                        style={{
-                          position: 'absolute',
-                          bottom: 0,
-                          left: 0,
-                          right: 0,
-                          height: 10,
-                          cursor: 'ns-resize',
-                          backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
-                          borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
-                        }}
-                        title="Drag to resize"
-                      >
-                        <div style={{
-                          position: 'absolute',
-                          bottom: 2,
-                          left: '50%',
-                          transform: 'translateX(-50%)',
-                          width: 30,
-                          height: 3,
-                          backgroundColor: 'rgba(255,255,255,0.4)',
-                          borderRadius: 2
-                        }} />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </Stack>
               </div>
             </Stack>
           );
