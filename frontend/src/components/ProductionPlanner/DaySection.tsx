@@ -218,6 +218,12 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
     if (customDurations[job.id]) {
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
     }
+    
+    if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
+      const breakAdjustment = job.breakAdjustmentMinutes || 0;
+      return job.plannedDurationMinutes - breakAdjustment;
+    }
+    
     return PlannerV2.getJobDuration({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks

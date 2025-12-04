@@ -9,7 +9,7 @@ import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService, productionAuditService, scheduleBlockService } from '../services/millenniumServices';
 import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
-import { teamWorkItemService, type CreateTeamWorkItemDto } from '../services/teamWorkItemService';
+import { teamWorkItemService, type CreateTeamWorkItemDto, type UpdateTeamWorkItemDto } from '../services/teamWorkItemService';
 import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -44,6 +44,10 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  wipId?: string;
+  dayStartMinutes?: number;
+  dayEndMinutes?: number;
+  overtimeEnabled?: boolean;
 }
 
 
@@ -112,6 +116,17 @@ export const ProductionPlannerPage = () => {
         throw e;
       });
       
+      const wipItemsPromise = teamWorkItemService.getForPlanner({
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo
+      }).then(r => {
+        console.log('[PLANNER] WIP items loaded in', Date.now() - startTime, 'ms, count:', r.length);
+        return r;
+      }).catch(e => {
+        console.error('[PLANNER] ✗ WIP items FAILED:', e);
+        throw e;
+      });
+      
       const jigsPromise = jigService.getAll().then(r => { 
         console.log('[PLANNER] jigs loaded in', Date.now() - startTime, 'ms'); 
         return r; 
@@ -136,44 +151,81 @@ export const ProductionPlannerPage = () => {
         throw e;
       });
       
-      const [productions, jigs, unallocated, blocks] = await Promise.all([
+      const [productions, wipItems, jigs, unallocated, blocks] = await Promise.all([
         productionsPromise,
+        wipItemsPromise,
         jigsPromise,
         unallocatedPromise,
         blocksPromise
       ]);
       
       console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
-      console.log(`[PLANNER] ✓ ${productions.length} productions, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
+      console.log(`[PLANNER] ✓ ${productions.length} productions, ${wipItems.length} WIP items, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
+      
+      const wipByProductionId = new Map<string, typeof wipItems[0]>();
+      for (const wip of wipItems) {
+        wipByProductionId.set(wip.productionId, wip);
+      }
+      console.log(`[PLANNER] ✓ Built WIP lookup map with ${wipByProductionId.size} entries`);
       
       let jobList: Job[];
       try {
-        console.log('[PLANNER] Starting job mapping...');
-        jobList = productions.map((p: any) => ({
-          id: p.id,
-          name: p.name || '',
-          orderNumber: p.orderNumber || p.name || 'N/A',
-          customer: p.customerName || 'Unknown',
-          estimatedEFinks: p.newEstimateDefinks || 0,
-          customDurationMinutes: p.customDurationMinutes || undefined,
-          plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
-          jigId: p.jigId || null,
-          productionComplete: p.productionComplete === true,
-          parentProductionId: p.parentProductionId || undefined,
-          rolloverSequence: p.rolloverSequence || undefined,
-          createdOn: p.createdOn || undefined,
-          plannedStartTime: p.plannedStartTime ?? null,
-          plannedEndTime: p.plannedEndTime ?? null,
-          plannedDurationMinutes: p.plannedDurationMinutes ?? null,
-          breakAdjustmentMinutes: p.breakAdjustmentMinutes ?? null
-        }));
-        console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
+        console.log('[PLANNER] Starting job mapping with WIP overlay...');
+        jobList = productions.map((p: any) => {
+          const wipData = wipByProductionId.get(p.id);
+          
+          if (wipData) {
+            return {
+              id: p.id,
+              name: p.name || '',
+              orderNumber: wipData.orderNumber || p.orderNumber || p.name || 'N/A',
+              customer: wipData.customerName || p.customerName || 'Unknown',
+              estimatedEFinks: wipData.estimatedEfinks || p.newEstimateDefinks || 0,
+              customDurationMinutes: p.customDurationMinutes || undefined,
+              plannedDateStr: formatIsoDateLocal(wipData.workDate),
+              jigId: wipData.teamId || null,
+              productionComplete: p.productionComplete === true,
+              parentProductionId: p.parentProductionId || undefined,
+              rolloverSequence: wipData.rolloverSequence || p.rolloverSequence || undefined,
+              createdOn: p.createdOn || undefined,
+              plannedStartTime: wipData.plannedStartMinutes !== undefined ? wipData.plannedStartMinutes : null,
+              plannedEndTime: wipData.plannedEndMinutes !== undefined ? wipData.plannedEndMinutes : null,
+              plannedDurationMinutes: wipData.plannedDurationMinutes !== undefined ? wipData.plannedDurationMinutes : null,
+              breakAdjustmentMinutes: wipData.breakAdjustmentMinutes !== undefined ? wipData.breakAdjustmentMinutes : null,
+              wipId: wipData.id,
+              dayStartMinutes: wipData.dayStartMinutes !== undefined ? wipData.dayStartMinutes : undefined,
+              dayEndMinutes: wipData.dayEndMinutes !== undefined ? wipData.dayEndMinutes : undefined,
+              overtimeEnabled: wipData.overtimeEnabled !== undefined ? wipData.overtimeEnabled : undefined
+            };
+          }
+          
+          return {
+            id: p.id,
+            name: p.name || '',
+            orderNumber: p.orderNumber || p.name || 'N/A',
+            customer: p.customerName || 'Unknown',
+            estimatedEFinks: p.newEstimateDefinks || 0,
+            customDurationMinutes: p.customDurationMinutes || undefined,
+            plannedDateStr: null,
+            jigId: null,
+            productionComplete: p.productionComplete === true,
+            parentProductionId: p.parentProductionId || undefined,
+            rolloverSequence: p.rolloverSequence || undefined,
+            createdOn: p.createdOn || undefined,
+            plannedStartTime: null,
+            plannedEndTime: null,
+            plannedDurationMinutes: null,
+            breakAdjustmentMinutes: null
+          };
+        });
+        
+        const allocatedCount = jobList.filter(j => j.wipId).length;
+        console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${allocatedCount} allocated via WIP, ${jobList.filter(j => j.productionComplete).length} completed)`);
       } catch (mapErr) {
         console.error('[PLANNER] ✗ Job mapping FAILED:', mapErr);
         throw mapErr;
       }
       
-      // Map unallocated orders (already filtered at database level)
       const ordersNeedingProduction = unallocated.map((o: any) => ({
         id: `order-${o.id}`,
         name: o.name || '',
@@ -382,19 +434,33 @@ export const ProductionPlannerPage = () => {
       console.log('[PLANNER] Creating', auditRecords.length, 'audit records');
       
       // Build WIP allocations for batch save
+      // NOTE: dayStartMinutes/dayEndMinutes are intentionally NOT set here.
+      // These fields should only be populated when there's a true user override
+      // (e.g., user explicitly toggled overtime). Leaving them null allows the
+      // planner to use ShiftConfig defaults at runtime.
       const wipAllocations: CreateTeamWorkItemDto[] = payloads
         .filter(p => p.updates.jigId && p.updates.plannedDateStr)
-        .map((payload, idx) => ({
-          productionId: payload.jobId,
-          teamId: payload.updates.jigId!,
-          workDate: payload.updates.plannedDateStr!,
-          sequence: idx,
-          plannedStartMinutes: payload.updates.plannedStartTime ?? 420,
-          plannedEndMinutes: payload.updates.plannedEndTime ?? 1020,
-          plannedDurationMinutes: payload.updates.plannedDurationMinutes ?? 60,
-          breakAdjustmentMinutes: payload.updates.breakAdjustmentMinutes ?? 0,
-          status: 'scheduled'
-        }));
+        .map((payload, idx) => {
+          const existingJob = allJobs.find(j => j.id === payload.jobId);
+          const allocation: CreateTeamWorkItemDto = {
+            productionId: payload.jobId,
+            teamId: payload.updates.jigId!,
+            workDate: payload.updates.plannedDateStr!,
+            sequence: idx,
+            plannedStartMinutes: payload.updates.plannedStartTime ?? 420,
+            plannedEndMinutes: payload.updates.plannedEndTime ?? 1020,
+            plannedDurationMinutes: payload.updates.plannedDurationMinutes ?? 60,
+            breakAdjustmentMinutes: payload.updates.breakAdjustmentMinutes ?? 0,
+            status: 'scheduled',
+            overtimeEnabled: existingJob?.overtimeEnabled ?? false
+          };
+          // Only set dayEndMinutes when overtime is explicitly enabled by user
+          // This represents a true user override, not a ShiftConfig default
+          if (existingJob?.overtimeEnabled === true && existingJob?.dayEndMinutes !== undefined) {
+            allocation.dayEndMinutes = existingJob.dayEndMinutes;
+          }
+          return allocation;
+        });
       
       // Batch save WIP entries (this also syncs to Production table)
       if (wipAllocations.length > 0) {
@@ -770,6 +836,9 @@ export const ProductionPlannerPage = () => {
   };
 
   const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: number, _additionalMinutes?: number) => {
+    console.log(`[PLANNER] Team overtime change for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
+    
+    // Update local state immediately for UI responsiveness
     setOvertimeByTeamDay(prev => ({
       ...prev,
       [dayStr]: {
@@ -777,7 +846,111 @@ export const ProductionPlannerPage = () => {
         [teamId]: { enabled, closeTime }
       }
     }));
-    console.log(`[PLANNER] Team overtime for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
+    
+    // Find all jobs for this team-day that have WIP records
+    const affectedJobs = allJobs.filter(
+      j => j.plannedDateStr === dayStr && 
+           j.jigId === teamId && 
+           j.wipId
+    );
+    
+    if (affectedJobs.length === 0) {
+      console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+      return;
+    }
+    
+    console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with overtime=${enabled}, closeTime=${closeTime}`);
+    
+    try {
+      // Get the new shift configuration based on overtime settings
+      const newShift = PlannerV2.getShiftConfig(enabled, closeTime);
+      
+      // Convert affected jobs to ScheduledJob format for the scheduler
+      const scheduledJobs: PlannerV2.ScheduledJob[] = affectedJobs.map(job => ({
+        id: job.id,
+        orderNumber: job.orderNumber,
+        customer: job.customer,
+        estimatedEFinks: job.estimatedEFinks,
+        plannedDateStr: job.plannedDateStr,
+        jigId: job.jigId,
+        plannedStartTime: job.plannedStartTime ?? null,
+        plannedEndTime: job.plannedEndTime ?? null,
+        plannedDurationMinutes: job.plannedDurationMinutes ?? null,
+        customDurationMinutes: job.customDurationMinutes ?? null,
+        breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
+        parentProductionId: job.parentProductionId ?? null,
+        rolloverSequence: job.rolloverSequence ?? 0,
+        productionComplete: job.productionComplete
+      }));
+      
+      // Recalculate job positions with the new shift configuration
+      const { scheduledJobs: rescheduledJobs } = PlannerV2.rescheduleDay(scheduledJobs, newShift);
+      console.log(`[PLANNER] ✓ Recalculated ${rescheduledJobs.length} job positions with new shift config`);
+      
+      // Build a map of job ID to rescheduled timing
+      const rescheduledMap = new Map<string, PlannerV2.ScheduledJob>();
+      for (const rj of rescheduledJobs) {
+        rescheduledMap.set(rj.id, rj);
+      }
+      
+      // Build batch update for WIP records with recalculated times
+      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => {
+        const rescheduled = rescheduledMap.get(job.id);
+        return {
+          id: job.wipId!,
+          data: {
+            overtimeEnabled: enabled,
+            // When disabling overtime, explicitly send null to clear the override
+            dayEndMinutes: enabled ? closeTime : null,
+            plannedStartMinutes: rescheduled?.plannedStartTime !== undefined 
+              ? rescheduled.plannedStartTime 
+              : (job.plannedStartTime ?? undefined),
+            plannedEndMinutes: rescheduled?.plannedEndTime !== undefined 
+              ? rescheduled.plannedEndTime 
+              : (job.plannedEndTime ?? undefined),
+            plannedDurationMinutes: rescheduled?.plannedDurationMinutes !== undefined 
+              ? rescheduled.plannedDurationMinutes 
+              : job.plannedDurationMinutes,  // Keep existing WIP value - don't recalculate from E-Finks
+            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes !== undefined 
+              ? rescheduled.breakAdjustmentMinutes 
+              : (job.breakAdjustmentMinutes ?? 0)
+          }
+        };
+      });
+      
+      // Persist to WIP table
+      await teamWorkItemService.batchUpdate(updates);
+      console.log(`[PLANNER] ✓ WIP overtime settings and recalculated times persisted for ${affectedJobs.length} jobs`);
+      
+      // Update local job state to reflect all changes (use explicit undefined checks to preserve zero values)
+      setJobs(prevJobs => prevJobs.map(job => {
+        if (job.plannedDateStr === dayStr && job.jigId === teamId && job.wipId) {
+          const rescheduled = rescheduledMap.get(job.id);
+          return {
+            ...job,
+            overtimeEnabled: enabled,
+            // When disabling overtime, explicitly clear the override to revert to shift defaults
+            dayEndMinutes: enabled ? closeTime : undefined,
+            plannedStartTime: rescheduled?.plannedStartTime !== undefined ? rescheduled.plannedStartTime : job.plannedStartTime,
+            plannedEndTime: rescheduled?.plannedEndTime !== undefined ? rescheduled.plannedEndTime : job.plannedEndTime,
+            plannedDurationMinutes: rescheduled?.plannedDurationMinutes !== undefined ? rescheduled.plannedDurationMinutes : job.plannedDurationMinutes,
+            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes !== undefined ? rescheduled.breakAdjustmentMinutes : job.breakAdjustmentMinutes
+          };
+        }
+        return job;
+      }));
+      
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
+      // Revert local state on error
+      setOvertimeByTeamDay(prev => ({
+        ...prev,
+        [dayStr]: {
+          ...(prev[dayStr] || {}),
+          [teamId]: { enabled: !enabled, closeTime }
+        }
+      }));
+    }
   };
 
   const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: number }> => {

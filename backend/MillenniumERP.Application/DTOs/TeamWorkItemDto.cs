@@ -79,6 +79,15 @@ public class TeamWorkItemDto
     [JsonPropertyName("needsVerification")]
     public bool NeedsVerification { get; set; }
 
+    [JsonPropertyName("dayStartMinutes")]
+    public int? DayStartMinutes { get; set; }
+
+    [JsonPropertyName("dayEndMinutes")]
+    public int? DayEndMinutes { get; set; }
+
+    [JsonPropertyName("breakDefinitions")]
+    public string? BreakDefinitions { get; set; }
+
     [JsonPropertyName("createdOn")]
     public DateTime CreatedOn { get; set; }
 
@@ -156,6 +165,15 @@ public class CreateTeamWorkItemDto
 
     [JsonPropertyName("totalCuts")]
     public int? TotalCuts { get; set; }
+
+    [JsonPropertyName("dayStartMinutes")]
+    public int? DayStartMinutes { get; set; }
+
+    [JsonPropertyName("dayEndMinutes")]
+    public int? DayEndMinutes { get; set; }
+
+    [JsonPropertyName("breakDefinitions")]
+    public string? BreakDefinitions { get; set; }
 }
 
 public class UpdateTeamWorkItemDto
@@ -228,6 +246,15 @@ public class UpdateTeamWorkItemDto
 
     [JsonPropertyName("needsVerification")]
     public bool? NeedsVerification { get; set; }
+
+    [JsonPropertyName("dayStartMinutes")]
+    public int? DayStartMinutes { get; set; }
+
+    [JsonPropertyName("dayEndMinutes")]
+    public int? DayEndMinutes { get; set; }
+
+    [JsonPropertyName("breakDefinitions")]
+    public string? BreakDefinitions { get; set; }
 }
 
 public class CompleteTeamWorkItemDto

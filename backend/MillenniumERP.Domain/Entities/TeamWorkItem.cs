@@ -87,6 +87,15 @@ namespace MillenniumERP.Domain.Entities
         [Column("needs_verification")]
         public bool NeedsVerification { get; set; } = false;
 
+        [Column("day_start_minutes")]
+        public int? DayStartMinutes { get; set; }
+
+        [Column("day_end_minutes")]
+        public int? DayEndMinutes { get; set; }
+
+        [Column("break_definitions")]
+        public string? BreakDefinitions { get; set; }
+
         [Column("created_on")]
         public DateTime CreatedOn { get; set; }
 

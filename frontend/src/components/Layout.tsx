@@ -121,6 +121,12 @@ export const Layout = ({ children }: LayoutProps) => {
           url: '/production-planner',
           icon: 'Calendar',
         },
+        {
+          key: 'schedule-blocks',
+          name: 'Schedule Blocks',
+          url: '/schedule-blocks',
+          icon: 'CalendarWorkWeek',
+        },
       ],
     },
     {

@@ -62,28 +62,15 @@ export interface TimezoneSettings {
 }
 
 export interface BreakTimesSettings {
-  weekday?: WeekdayBreaks;
-  weekdayOvertime?: OvertimeBreaks;
-  weekendOvertime?: WeekendOvertime;
+  teaMorning?: BreakTimeRange;
+  lunch?: BreakTimeRange;
+  teaAfternoon?: BreakTimeRange;
+  dinnerOvertime?: BreakTimeRange;
 }
 
-export interface WeekdayBreaks {
-  teaStart: string;
-  teaEnd: string;
-  lunchStart: string;
-  lunchEnd: string;
-}
-
-export interface OvertimeBreaks {
-  dinnerStart: string;
-  dinnerEnd: string;
-}
-
-export interface WeekendOvertime {
-  workingHoursStart: string;
-  workingHoursEnd: string;
-  lunchStart: string;
-  lunchEnd: string;
+export interface BreakTimeRange {
+  start: string;
+  end: string;
 }
 
 class SystemSettingsService {

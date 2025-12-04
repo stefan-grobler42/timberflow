@@ -5,6 +5,9 @@
 
 import { MINUTES_PER_EFINK, MIN_DURATION, PIXELS_PER_MINUTE, QUARTER_HOUR } from './constants';
 
+/** Default team E-Finks capacity per day (baseline for efficiency calculations) */
+const DEFAULT_TEAM_EFINKS = 80;
+
 /**
  * Rounds a number UP to the nearest quarter hour (15 minutes).
  * 
@@ -26,26 +29,50 @@ export function roundToQuarterHour(minutes: number): number {
 }
 
 /**
+ * Calculates the team efficiency factor based on their average E-Finks capacity.
+ * Teams with higher capacity complete work faster.
+ * 
+ * @param teamAverageEfinks - The team's average E-Finks capacity per day (default: 80)
+ * @returns Efficiency factor (1.0 = baseline, >1 = faster, <1 = slower)
+ * 
+ * @example
+ * getTeamEfficiencyFactor(80)   // returns 1.0 (baseline)
+ * getTeamEfficiencyFactor(100)  // returns 1.25 (25% faster)
+ * getTeamEfficiencyFactor(60)   // returns 0.75 (25% slower)
+ */
+export function getTeamEfficiencyFactor(teamAverageEfinks?: number | null): number {
+  if (!teamAverageEfinks || teamAverageEfinks <= 0) {
+    return 1.0;
+  }
+  return teamAverageEfinks / DEFAULT_TEAM_EFINKS;
+}
+
+/**
  * Calculates the work duration based on E-Finks estimate.
  * Multiplies by the conversion factor, rounds UP to nearest 15 minutes,
  * and ensures a minimum duration.
  * 
  * @param efinks - The estimated E-Finks value for the job
+ * @param teamAverageEfinks - Optional team's average E-Finks capacity (for team-specific efficiency)
  * @returns Duration in minutes, minimum 15, rounded to quarter hour
  * 
  * @example
- * calculateEfinksDuration(0)    // returns 15 (minimum)
- * calculateEfinksDuration(1)    // returns 15 (6.5625 rounds up to 15)
- * calculateEfinksDuration(3)    // returns 30 (19.6875 rounds up to 30)
- * calculateEfinksDuration(10)   // returns 75 (65.625 rounds up to 75)
+ * calculateEfinksDuration(0)           // returns 15 (minimum)
+ * calculateEfinksDuration(1)           // returns 15 (6.5625 rounds up to 15)
+ * calculateEfinksDuration(3)           // returns 30 (19.6875 rounds up to 30)
+ * calculateEfinksDuration(10)          // returns 75 (65.625 rounds up to 75)
+ * calculateEfinksDuration(10, 100)     // returns 60 (65.625 / 1.25 = 52.5, rounds up to 60)
+ * calculateEfinksDuration(10, 60)      // returns 90 (65.625 / 0.75 = 87.5, rounds up to 90)
  */
-export function calculateEfinksDuration(efinks: number): number {
+export function calculateEfinksDuration(efinks: number, teamAverageEfinks?: number | null): number {
   if (!efinks || efinks <= 0) {
     return MIN_DURATION;
   }
   
   const rawMinutes = efinks * MINUTES_PER_EFINK;
-  const rounded = roundToQuarterHour(rawMinutes);
+  const efficiencyFactor = getTeamEfficiencyFactor(teamAverageEfinks);
+  const adjustedMinutes = efficiencyFactor > 0 ? rawMinutes / efficiencyFactor : rawMinutes;
+  const rounded = roundToQuarterHour(adjustedMinutes);
   
   return Math.max(MIN_DURATION, rounded);
 }
@@ -55,6 +82,7 @@ export function calculateEfinksDuration(efinks: number): number {
  * otherwise calculating from E-Finks.
  * 
  * @param job - Object containing customDurationMinutes and/or estimatedEFinks
+ * @param teamAverageEfinks - Optional team's average E-Finks capacity (for team-specific efficiency)
  * @returns Duration in minutes, always rounded to quarter hour
  * 
  * @example
@@ -62,16 +90,17 @@ export function calculateEfinksDuration(efinks: number): number {
  * getJobDuration({ estimatedEFinks: 5 })                  // returns 45 (32.8125 -> 45)
  * getJobDuration({ customDurationMinutes: 60, estimatedEFinks: 5 })  // returns 60 (custom takes precedence)
  * getJobDuration({})                                       // returns 15 (minimum)
+ * getJobDuration({ estimatedEFinks: 10 }, 100)            // returns 60 (team is 25% faster)
  */
 export function getJobDuration(job: {
   customDurationMinutes?: number | null;
   estimatedEFinks?: number | null;
-}): number {
+}, teamAverageEfinks?: number | null): number {
   if (job.customDurationMinutes && job.customDurationMinutes > 0) {
     return roundToQuarterHour(job.customDurationMinutes);
   }
   
-  return calculateEfinksDuration(job.estimatedEFinks || 0);
+  return calculateEfinksDuration(job.estimatedEFinks || 0, teamAverageEfinks);
 }
 
 /**

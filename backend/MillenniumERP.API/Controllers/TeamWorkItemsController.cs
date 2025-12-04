@@ -116,6 +116,49 @@ public class TeamWorkItemsController : ControllerBase
         return Ok(dtos);
     }
 
+    [HttpGet("planner")]
+    public async Task<ActionResult<IEnumerable<TeamWorkItemDto>>> GetPlanner(
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null,
+        [FromQuery] Guid? teamId = null)
+    {
+        var query = _context.TeamWorkItems
+            .AsNoTracking()
+            .Include(w => w.Production)
+                .ThenInclude(p => p!.CustomerAccount)
+            .Include(w => w.Production)
+                .ThenInclude(p => p!.Order)
+            .Include(w => w.Team)
+            .Where(w => w.Status == null || (w.Status != "completed" && w.Status != "cancelled"))
+            .AsQueryable();
+
+        if (teamId.HasValue)
+        {
+            query = query.Where(w => w.TeamId == teamId.Value);
+        }
+
+        if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var fromDate))
+        {
+            query = query.Where(w => w.WorkDate >= fromDate.Date);
+        }
+
+        if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var toDate))
+        {
+            query = query.Where(w => w.WorkDate < toDate.Date.AddDays(1));
+        }
+
+        var items = await query
+            .OrderBy(w => w.WorkDate)
+            .ThenBy(w => w.TeamId)
+            .ThenBy(w => w.Sequence)
+            .ToListAsync();
+
+        var dtos = items.Select(MapToDto).ToList();
+
+        _logger.LogInformation("Planner endpoint returned {Count} allocated jobs from WIP", dtos.Count);
+        return Ok(dtos);
+    }
+
     [HttpGet("unallocated")]
     public async Task<ActionResult<IEnumerable<ProductionPlannerDto>>> GetUnallocated(
         [FromQuery] string? dateFrom = null,
@@ -204,6 +247,9 @@ public class TeamWorkItemsController : ControllerBase
             EarlyOvertimeEnabled = createDto.EarlyOvertimeEnabled,
             TimberCubes = createDto.TimberCubes,
             TotalCuts = createDto.TotalCuts,
+            DayStartMinutes = createDto.DayStartMinutes,
+            DayEndMinutes = createDto.DayEndMinutes,
+            BreakDefinitions = createDto.BreakDefinitions,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -257,7 +303,15 @@ public class TeamWorkItemsController : ControllerBase
         if (updateDto.ParentWipId.HasValue) item.ParentWipId = updateDto.ParentWipId;
         if (updateDto.RolloverSequence.HasValue) item.RolloverSequence = updateDto.RolloverSequence.Value;
         if (updateDto.SpilloverMinutes.HasValue) item.SpilloverMinutes = updateDto.SpilloverMinutes;
-        if (updateDto.OvertimeEnabled.HasValue) item.OvertimeEnabled = updateDto.OvertimeEnabled.Value;
+        if (updateDto.OvertimeEnabled.HasValue)
+        {
+            item.OvertimeEnabled = updateDto.OvertimeEnabled.Value;
+            // When overtime is explicitly disabled, clear DayEndMinutes to revert to shift defaults
+            if (!updateDto.OvertimeEnabled.Value)
+            {
+                item.DayEndMinutes = null;
+            }
+        }
         if (updateDto.EarlyOvertimeEnabled.HasValue) item.EarlyOvertimeEnabled = updateDto.EarlyOvertimeEnabled.Value;
         if (updateDto.TimberCubes.HasValue) item.TimberCubes = updateDto.TimberCubes;
         if (updateDto.TotalCuts.HasValue) item.TotalCuts = updateDto.TotalCuts;
@@ -266,6 +320,13 @@ public class TeamWorkItemsController : ControllerBase
         if (updateDto.SawingComplete.HasValue) item.SawingComplete = updateDto.SawingComplete.Value;
         if (updateDto.JiggingComplete.HasValue) item.JiggingComplete = updateDto.JiggingComplete.Value;
         if (updateDto.NeedsVerification.HasValue) item.NeedsVerification = updateDto.NeedsVerification.Value;
+        if (updateDto.DayStartMinutes.HasValue) item.DayStartMinutes = updateDto.DayStartMinutes.Value;
+        
+        // Always update DayEndMinutes when it's part of the request (including null to clear override)
+        // This allows the frontend to explicitly clear dayEndMinutes by sending null
+        item.DayEndMinutes = updateDto.DayEndMinutes;
+        
+        if (updateDto.BreakDefinitions != null) item.BreakDefinitions = updateDto.BreakDefinitions;
 
         item.ModifiedOn = DateTime.UtcNow;
 
@@ -336,6 +397,9 @@ public class TeamWorkItemsController : ControllerBase
                 existingItem.BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes;
                 existingItem.OvertimeEnabled = createDto.OvertimeEnabled;
                 existingItem.EarlyOvertimeEnabled = createDto.EarlyOvertimeEnabled;
+                existingItem.DayStartMinutes = createDto.DayStartMinutes;
+                existingItem.DayEndMinutes = createDto.DayEndMinutes;
+                existingItem.BreakDefinitions = createDto.BreakDefinitions;
                 existingItem.ModifiedOn = DateTime.UtcNow;
                 results.Add(existingItem);
             }
@@ -360,6 +424,9 @@ public class TeamWorkItemsController : ControllerBase
                     EarlyOvertimeEnabled = createDto.EarlyOvertimeEnabled,
                     TimberCubes = createDto.TimberCubes,
                     TotalCuts = createDto.TotalCuts,
+                    DayStartMinutes = createDto.DayStartMinutes,
+                    DayEndMinutes = createDto.DayEndMinutes,
+                    BreakDefinitions = createDto.BreakDefinitions,
                     CreatedOn = DateTime.UtcNow
                 };
                 _context.TeamWorkItems.Add(item);
@@ -523,6 +590,9 @@ public class TeamWorkItemsController : ControllerBase
             PlannedEndMinutes = item.PlannedEndMinutes,
             PlannedDurationMinutes = item.PlannedDurationMinutes,
             BreakAdjustmentMinutes = item.BreakAdjustmentMinutes,
+            DayStartMinutes = item.DayStartMinutes,
+            DayEndMinutes = item.DayEndMinutes,
+            BreakDefinitions = item.BreakDefinitions,
             ActualStartTime = item.ActualStartTime,
             ActualEndTime = item.ActualEndTime,
             ActualDurationMinutes = item.ActualDurationMinutes,

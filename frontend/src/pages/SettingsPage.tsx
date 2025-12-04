@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, Pivot, PivotItem, Toggle } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { systemSettingsService } from '../services/systemSettingsService';
-import type { SystemSettings, StaffWorkingHours } from '../services/systemSettingsService';
+import type { SystemSettings, StaffWorkingHours, BreakTimeRange } from '../services/systemSettingsService';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({});
@@ -289,6 +289,177 @@ export const SettingsPage: React.FC = () => {
                   placeholder="(not working)"
                 />
               </Stack>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }} styles={{ root: { marginTop: 20 } }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                Break Times
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Define standard break times for the factory. Format: HH:MM (24-hour time).
+              </Text>
+
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Tea Break (Morning) - Start" 
+                    value={settings.breakTimes?.teaMorning?.start || '09:00'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          teaMorning: {
+                            start: value || '09:00',
+                            end: prev.breakTimes?.teaMorning?.end || '09:15'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="09:00"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimes?.teaMorning?.end || '09:15'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          teaMorning: {
+                            start: prev.breakTimes?.teaMorning?.start || '09:00',
+                            end: value || '09:15'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="09:15"
+                  />
+                </Stack>
+
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Lunch Break - Start" 
+                    value={settings.breakTimes?.lunch?.start || '12:00'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          lunch: {
+                            start: value || '12:00',
+                            end: prev.breakTimes?.lunch?.end || '12:30'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="12:00"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimes?.lunch?.end || '12:30'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          lunch: {
+                            start: prev.breakTimes?.lunch?.start || '12:00',
+                            end: value || '12:30'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="12:30"
+                  />
+                </Stack>
+
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Tea Break (Afternoon) - Start" 
+                    value={settings.breakTimes?.teaAfternoon?.start || '14:30'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          teaAfternoon: {
+                            start: value || '14:30',
+                            end: prev.breakTimes?.teaAfternoon?.end || '14:45'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="14:30"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimes?.teaAfternoon?.end || '14:45'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          teaAfternoon: {
+                            start: prev.breakTimes?.teaAfternoon?.start || '14:30',
+                            end: value || '14:45'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="14:45"
+                  />
+                </Stack>
+
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Dinner Break (Overtime only) - Start" 
+                    value={settings.breakTimes?.dinnerOvertime?.start || '17:00'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          dinnerOvertime: {
+                            start: value || '17:00',
+                            end: prev.breakTimes?.dinnerOvertime?.end || '17:30'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="17:00"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimes?.dinnerOvertime?.end || '17:30'}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimes: {
+                          ...prev.breakTimes,
+                          dinnerOvertime: {
+                            start: prev.breakTimes?.dinnerOvertime?.start || '17:00',
+                            end: value || '17:30'
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="17:30"
+                  />
+                </Stack>
+              </Stack>
+
+              <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
+                Note: Dinner break only applies during overtime hours. Standard working hours end at 17:00.
+              </MessageBar>
             </Stack>
           </Stack>
         </PivotItem>

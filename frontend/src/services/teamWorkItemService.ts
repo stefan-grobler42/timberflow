@@ -26,6 +26,9 @@ export interface TeamWorkItemDto {
   sawingComplete: boolean;
   jiggingComplete: boolean;
   needsVerification: boolean;
+  dayStartMinutes?: number;
+  dayEndMinutes?: number;
+  breakDefinitions?: string;
   createdOn: string;
   createdBy?: string;
   modifiedOn?: string;
@@ -54,6 +57,9 @@ export interface CreateTeamWorkItemDto {
   earlyOvertimeEnabled?: boolean;
   timberCubes?: number;
   totalCuts?: number;
+  dayStartMinutes?: number;
+  dayEndMinutes?: number;
+  breakDefinitions?: string;
 }
 
 export interface UpdateTeamWorkItemDto {
@@ -80,6 +86,9 @@ export interface UpdateTeamWorkItemDto {
   sawingComplete?: boolean;
   jiggingComplete?: boolean;
   needsVerification?: boolean;
+  dayStartMinutes?: number;
+  dayEndMinutes?: number;
+  breakDefinitions?: string;
 }
 
 export interface CompleteTeamWorkItemDto {
@@ -117,6 +126,20 @@ class TeamWorkItemService {
     
     const queryStr = query.toString();
     return api.get<TeamWorkItemDto[]>(`/TeamWorkItems${queryStr ? `?${queryStr}` : ''}`);
+  }
+
+  async getForPlanner(params?: {
+    dateFrom?: string;
+    dateTo?: string;
+    teamId?: string;
+  }): Promise<TeamWorkItemDto[]> {
+    const query = new URLSearchParams();
+    if (params?.dateFrom) query.append('dateFrom', params.dateFrom);
+    if (params?.dateTo) query.append('dateTo', params.dateTo);
+    if (params?.teamId) query.append('teamId', params.teamId);
+    
+    const queryStr = query.toString();
+    return api.get<TeamWorkItemDto[]>(`/TeamWorkItems/planner${queryStr ? `?${queryStr}` : ''}`);
   }
 
   async getById(id: string): Promise<TeamWorkItemDto> {

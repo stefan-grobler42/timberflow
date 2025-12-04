@@ -172,24 +172,25 @@ public class SystemSettingsController : ControllerBase
 
         var defaultBreakTimes = new BreakTimesSettingsDto
         {
-            Weekday = new WeekdayBreaksDto
+            TeaMorning = new BreakTimeRangeDto
             {
-                TeaStart = "09:00",
-                TeaEnd = "09:30",
-                LunchStart = "12:00",
-                LunchEnd = "12:45"
+                Start = "09:00",
+                End = "09:15"
             },
-            WeekdayOvertime = new OvertimeBreaksDto
+            Lunch = new BreakTimeRangeDto
             {
-                DinnerStart = "18:00",
-                DinnerEnd = "18:30"
+                Start = "12:00",
+                End = "12:30"
             },
-            WeekendOvertime = new WeekendOvertimeDto
+            TeaAfternoon = new BreakTimeRangeDto
             {
-                WorkingHoursStart = "07:00",
-                WorkingHoursEnd = "15:00",
-                LunchStart = "10:00",
-                LunchEnd = "11:00"
+                Start = "14:30",
+                End = "14:45"
+            },
+            DinnerOvertime = new BreakTimeRangeDto
+            {
+                Start = "17:00",
+                End = "17:30"
             }
         };
 
