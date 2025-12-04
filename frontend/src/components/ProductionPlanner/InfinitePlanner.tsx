@@ -1,5 +1,4 @@
 import { useRef, useEffect, useMemo, useCallback, useState, memo } from 'react';
-import { VariableSizeList as List } from 'react-window';
 import { Stack, IconButton, Text } from '@fluentui/react';
 import type { ScheduleBlock } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
@@ -62,11 +61,8 @@ export interface InfinitePlannerProps {
   onDayOvertimeChange?: (dateStr: string, config: Partial<DayOvertimeConfig>) => void;
 }
 
-const DAY_HEADER_HEIGHT = 60;
-const STANDARD_WORKING_HOURS = 10;
-const PIXELS_PER_MINUTE = PlannerV2.PIXELS_PER_MINUTE;
-const BUFFER_HOURS = 1;
 const SCROLL_THRESHOLD_DAYS = 5;
+const VISIBLE_DAYS_BUFFER = 7;
 
 function generateDateArray(dateFrom: string, dateTo: string): string[] {
   const dates: string[] = [];
@@ -86,17 +82,6 @@ function getTodayIndex(dates: string[]): number {
   const today = new Date().toISOString().split('T')[0];
   const index = dates.indexOf(today);
   return index >= 0 ? index : Math.floor(dates.length / 2);
-}
-
-function calculateDayHeight(hasLateOt: boolean, hasEarlyOt: boolean): number {
-  let workingHours = STANDARD_WORKING_HOURS;
-  if (hasLateOt) workingHours += 2;
-  if (hasEarlyOt) workingHours += 1;
-  
-  const timelineMinutes = workingHours * 60 + (BUFFER_HOURS * 2 * 60);
-  const timelineHeight = timelineMinutes * PIXELS_PER_MINUTE;
-  
-  return DAY_HEADER_HEIGHT + timelineHeight;
 }
 
 const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
@@ -119,9 +104,10 @@ const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
   overtimeByDay = {},
   onDayOvertimeChange
 }) => {
-  const listRef = useRef<List>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const [visibleStartIndex, setVisibleStartIndex] = useState(0);
   const extendingRef = useRef<{ past: boolean; future: boolean }>({ past: false, future: false });
   
   const dates = useMemo(() => 
@@ -164,53 +150,42 @@ const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
     return map;
   }, [scheduleBlocks]);
   
-  const getItemSize = useCallback((index: number): number => {
-    const dateStr = dates[index];
-    const config = overtimeByDay[dateStr];
-    const hasLateOt = config?.lateOt || Object.values(config?.overtimeByTeam || {}).some(t => t.enabled);
-    const hasEarlyOt = config?.earlyOt || false;
-    return calculateDayHeight(hasLateOt, hasEarlyOt);
-  }, [dates, overtimeByDay]);
-  
+  const visibleDates = useMemo(() => {
+    const start = Math.max(0, visibleStartIndex - VISIBLE_DAYS_BUFFER);
+    const end = Math.min(dates.length, visibleStartIndex + VISIBLE_DAYS_BUFFER * 3);
+    return dates.slice(start, end);
+  }, [dates, visibleStartIndex]);
+
   useEffect(() => {
-    if (listRef.current && !hasInitialized && dates.length > 0) {
-      setTimeout(() => {
-        listRef.current?.scrollToItem(todayIndex, 'center');
-        setHasInitialized(true);
-      }, 100);
+    if (!hasInitialized && dates.length > 0) {
+      setVisibleStartIndex(Math.max(0, todayIndex - VISIBLE_DAYS_BUFFER));
+      setHasInitialized(true);
     }
   }, [dates, todayIndex, hasInitialized]);
-  
-  const handleScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }: { scrollOffset: number; scrollUpdateWasRequested: boolean }) => {
-    if (scrollUpdateWasRequested || !hasInitialized) return;
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const container = e.currentTarget;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
     
-    let currentOffset = 0;
-    let visibleStartIndex = 0;
-    for (let i = 0; i < dates.length; i++) {
-      const height = getItemSize(i);
-      if (currentOffset + height > scrollOffset) {
-        visibleStartIndex = i;
-        break;
-      }
-      currentOffset += height;
-    }
-    
-    if (visibleStartIndex < SCROLL_THRESHOLD_DAYS && !extendingRef.current.past) {
+    if (scrollTop < 500 && !extendingRef.current.past) {
       extendingRef.current.past = true;
       onDateRangeExtend('past');
       setTimeout(() => { extendingRef.current.past = false; }, 1000);
     }
     
-    if (visibleStartIndex > dates.length - SCROLL_THRESHOLD_DAYS && !extendingRef.current.future) {
+    if (scrollTop + clientHeight > scrollHeight - 500 && !extendingRef.current.future) {
       extendingRef.current.future = true;
       onDateRangeExtend('future');
       setTimeout(() => { extendingRef.current.future = false; }, 1000);
     }
-  }, [dates, getItemSize, hasInitialized, onDateRangeExtend]);
+  }, [onDateRangeExtend]);
   
   const handleScrollToToday = useCallback(() => {
-    if (listRef.current) {
-      listRef.current.scrollToItem(todayIndex, 'center');
+    setVisibleStartIndex(Math.max(0, todayIndex - VISIBLE_DAYS_BUFFER));
+    if (containerRef.current) {
+      containerRef.current.scrollTop = 0;
     }
   }, [todayIndex]);
   
@@ -225,13 +200,11 @@ const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
   
   const handleEarlyOtToggle = useCallback((dateStr: string, enabled: boolean) => {
     onDayOvertimeChange?.(dateStr, { earlyOt: enabled });
-    listRef.current?.resetAfterIndex(dates.indexOf(dateStr));
-  }, [dates, onDayOvertimeChange]);
+  }, [onDayOvertimeChange]);
   
   const handleLateOtToggle = useCallback((dateStr: string, enabled: boolean) => {
     onDayOvertimeChange?.(dateStr, { lateOt: enabled });
-    listRef.current?.resetAfterIndex(dates.indexOf(dateStr));
-  }, [dates, onDayOvertimeChange]);
+  }, [onDayOvertimeChange]);
   
   const handleTeamOvertimeChange = useCallback((
     dateStr: string, 
@@ -245,87 +218,61 @@ const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
       [teamId]: { enabled, closeTime }
     };
     onDayOvertimeChange?.(dateStr, { overtimeByTeam: newOvertimeByTeam });
-    listRef.current?.resetAfterIndex(dates.indexOf(dateStr));
-  }, [dates, overtimeByDay, onDayOvertimeChange]);
+  }, [overtimeByDay, onDayOvertimeChange]);
 
-  const Row = useCallback(({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const dateStr = dates[index];
-    const dayJobs = jobsByDate.get(dateStr) || [];
-    const dayBlocks = blocksByDate.get(dateStr) || [];
-    const dayConfig = overtimeByDay[dateStr] || { earlyOt: false, lateOt: false, overtimeByTeam: {} };
-    
-    return (
-      <div style={style} onDragEnd={handleDragEnd}>
-        <DaySection
-          dateStr={dateStr}
-          jobs={dayJobs}
-          allJobs={jobs}
-          jigTeams={jigTeams}
-          chainJobsMap={chainJobsMap}
-          onDragStart={handleDragStartWrapper}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-          onJobDoubleClick={onJobDoubleClick}
-          onJobClick={onJobClick}
-          onJobDurationChange={onJobDurationChange}
-          onJobDurationReset={onJobDurationReset}
-          onTeamDoubleClick={onTeamDoubleClick}
-          onJobRollover={onJobRollover}
-          globalStaging={globalStaging}
-          scheduleBlocks={dayBlocks}
-          onBlockClick={onBlockClick}
-          isDragging={!!draggedJobId}
-          earlyOtEnabled={dayConfig.earlyOt}
-          lateOtEnabled={dayConfig.lateOt}
-          overtimeByTeam={dayConfig.overtimeByTeam}
-          onEarlyOtToggle={(enabled) => handleEarlyOtToggle(dateStr, enabled)}
-          onLateOtToggle={(enabled) => handleLateOtToggle(dateStr, enabled)}
-          onTeamOvertimeChange={(teamId, enabled, closeTime) => 
-            handleTeamOvertimeChange(dateStr, teamId, enabled, closeTime)
-          }
-        />
-      </div>
-    );
-  }, [
-    dates, 
-    jobsByDate, 
-    blocksByDate, 
-    overtimeByDay, 
-    jobs, 
-    jigTeams, 
-    chainJobsMap,
-    handleDragStartWrapper,
-    handleDragEnd,
-    onDragOver,
-    onDrop,
-    onJobDoubleClick,
-    onJobClick,
-    onJobDurationChange,
-    onJobDurationReset,
-    onTeamDoubleClick,
-    onJobRollover,
-    globalStaging,
-    onBlockClick,
-    draggedJobId,
-    handleEarlyOtToggle,
-    handleLateOtToggle,
-    handleTeamOvertimeChange
-  ]);
+  console.log('[InfinitePlanner] Rendering with', visibleDates.length, 'visible dates out of', dates.length, 'total');
 
   return (
     <Stack styles={{ root: { position: 'relative', height: '100%', width: '100%' } }}>
-      <List
-        ref={listRef}
-        height={window.innerHeight - 180}
-        width="100%"
-        itemCount={dates.length}
-        itemSize={getItemSize}
+      <div
+        ref={containerRef}
         onScroll={handleScroll}
-        overscanCount={2}
-        style={{ outline: 'none' }}
+        onDragEnd={handleDragEnd}
+        style={{
+          height: 'calc(100vh - 180px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          outline: 'none'
+        }}
       >
-        {Row}
-      </List>
+        {visibleDates.map((dateStr) => {
+          const dayJobs = jobsByDate.get(dateStr) || [];
+          const dayBlocks = blocksByDate.get(dateStr) || [];
+          const dayConfig = overtimeByDay[dateStr] || { earlyOt: false, lateOt: false, overtimeByTeam: {} };
+          
+          return (
+            <DaySection
+              key={dateStr}
+              dateStr={dateStr}
+              jobs={dayJobs}
+              allJobs={jobs}
+              jigTeams={jigTeams}
+              chainJobsMap={chainJobsMap}
+              onDragStart={handleDragStartWrapper}
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              onJobDoubleClick={onJobDoubleClick}
+              onJobClick={onJobClick}
+              onJobDurationChange={onJobDurationChange}
+              onJobDurationReset={onJobDurationReset}
+              onTeamDoubleClick={onTeamDoubleClick}
+              onJobRollover={onJobRollover}
+              globalStaging={globalStaging}
+              scheduleBlocks={dayBlocks}
+              onBlockClick={onBlockClick}
+              isDragging={!!draggedJobId}
+              earlyOtEnabled={dayConfig.earlyOt}
+              lateOtEnabled={dayConfig.lateOt}
+              overtimeByTeam={dayConfig.overtimeByTeam}
+              onEarlyOtToggle={(enabled) => handleEarlyOtToggle(dateStr, enabled)}
+              onLateOtToggle={(enabled) => handleLateOtToggle(dateStr, enabled)}
+              onTeamOvertimeChange={(teamId, enabled, closeTime) => 
+                handleTeamOvertimeChange(dateStr, teamId, enabled, closeTime)
+              }
+            />
+          );
+        })}
+      </div>
       
       <IconButton
         iconProps={{ iconName: 'GotoToday' }}
@@ -373,7 +320,7 @@ const InfinitePlannerComponent: React.FC<InfinitePlannerProps> = ({
         }}
       >
         <Text variant="tiny" styles={{ root: { color: '#666' } }}>
-          {dates.length} days loaded ({dateRange.dateFrom} to {dateRange.dateTo})
+          Showing {visibleDates.length} days ({dateRange.dateFrom} to {dateRange.dateTo})
         </Text>
       </Stack>
     </Stack>

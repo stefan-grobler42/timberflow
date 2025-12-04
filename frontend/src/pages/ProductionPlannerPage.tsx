@@ -13,6 +13,7 @@ import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView } from '../components/ProductionPlanner/DayView';
+import { InfinitePlanner } from '../components/ProductionPlanner/InfinitePlanner';
 import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
 import { 
   startOfMonthUtc, 
@@ -53,13 +54,22 @@ export const ProductionPlannerPage = () => {
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
   const [unallocatedOrders, setUnallocatedOrders] = useState<Job[]>([]);
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'infinite'>('infinite');
   const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: string }>>>({});
+  const [infinitePlannerOvertimeByDay, setInfinitePlannerOvertimeByDay] = useState<Record<string, { earlyOt: boolean; lateOt: boolean; overtimeByTeam: Record<string, { enabled: boolean; closeTime: string }> }>>({});
+  const [infiniteDateRange, setInfiniteDateRange] = useState(() => {
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(from.getDate() - 15);
+    const to = new Date(today);
+    to.setDate(to.getDate() + 15);
+    return { dateFrom: from.toISOString().split('T')[0], dateTo: to.toISOString().split('T')[0] };
+  });
   const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
@@ -1032,11 +1042,48 @@ export const ProductionPlannerPage = () => {
     _setSelectedDayStr(null);
   };
 
+  const navigateToInfiniteView = () => {
+    setViewMode('infinite');
+    setSelectedWeekStart(null);
+    _setSelectedDayStr(null);
+  };
+
+  const handleInfiniteDateRangeExtend = (direction: 'past' | 'future') => {
+    setInfiniteDateRange(prev => {
+      if (direction === 'past') {
+        const newFrom = new Date(prev.dateFrom);
+        newFrom.setDate(newFrom.getDate() - 14);
+        return { ...prev, dateFrom: newFrom.toISOString().split('T')[0] };
+      } else {
+        const newTo = new Date(prev.dateTo);
+        newTo.setDate(newTo.getDate() + 14);
+        return { ...prev, dateTo: newTo.toISOString().split('T')[0] };
+      }
+    });
+  };
+
+  const handleInfiniteDayOvertimeChange = (dateStr: string, config: Partial<{ earlyOt: boolean; lateOt: boolean; overtimeByTeam: Record<string, { enabled: boolean; closeTime: string }> }>) => {
+    setInfinitePlannerOvertimeByDay(prev => {
+      const current = prev[dateStr] || { earlyOt: false, lateOt: false, overtimeByTeam: {} };
+      return {
+        ...prev,
+        [dateStr]: {
+          earlyOt: config.earlyOt ?? current.earlyOt,
+          lateOt: config.lateOt ?? current.lateOt,
+          overtimeByTeam: config.overtimeByTeam ?? current.overtimeByTeam
+        }
+      };
+    });
+  };
+
   const handleTeamDoubleClick = (teamId: string) => {
     navigate(`/jigs/${teamId}`);
   };
 
   const getCurrentViewTitle = (): string => {
+    if (viewMode === 'infinite') {
+      return 'Infinite Scroll View';
+    }
     const date = new Date(currentDateStr);
     if (viewMode === 'month') {
       const months = ['January', 'February', 'March', 'April', 'May', 'June', 
@@ -1280,12 +1327,20 @@ export const ProductionPlannerPage = () => {
       <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 10 }} styles={{ root: { marginTop: 10 } }}>
         <Text 
           variant="medium" 
+          styles={{ root: { cursor: 'pointer', color: viewMode === 'infinite' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'infinite' ? 600 : 400 } }}
+          onClick={navigateToInfiniteView}
+        >
+          Planner
+        </Text>
+        <Text variant="medium" styles={{ root: { color: '#d0d0d0' } }}>|</Text>
+        <Text 
+          variant="medium" 
           styles={{ root: { cursor: 'pointer', color: viewMode === 'month' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'month' ? 600 : 400 } }}
           onClick={navigateToMonthView}
         >
-          Month View
+          Month
         </Text>
-        {viewMode !== 'month' && (
+        {(viewMode === 'week' || viewMode === 'day') && (
           <>
             <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>/</Text>
             <Text 
@@ -1293,7 +1348,7 @@ export const ProductionPlannerPage = () => {
               styles={{ root: { cursor: 'pointer', color: viewMode === 'week' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'week' ? 600 : 400 } }}
               onClick={navigateToWeekView}
             >
-              Week View
+              Week
             </Text>
           </>
         )}
@@ -1301,13 +1356,15 @@ export const ProductionPlannerPage = () => {
           <>
             <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>/</Text>
             <Text variant="medium" styles={{ root: { color: '#0078d4', fontWeight: 600 } }}>
-              Day View
+              Day
             </Text>
           </>
         )}
-        <Text variant="medium" styles={{ root: { marginLeft: 20, color: '#323130', fontWeight: 600 } }}>
-          {getCurrentViewTitle()}
-        </Text>
+        {viewMode !== 'infinite' && (
+          <Text variant="medium" styles={{ root: { marginLeft: 20, color: '#323130', fontWeight: 600 } }}>
+            {getCurrentViewTitle()}
+          </Text>
+        )}
       </Stack>
 
       <CommandBar items={commandItems} />
@@ -1481,6 +1538,39 @@ export const ProductionPlannerPage = () => {
               }}
             />
           )}
+          {viewMode === 'infinite' && (() => {
+            console.log('[PLANNER] Rendering InfinitePlanner component');
+            try {
+              return (
+                <InfinitePlanner
+                  jobs={allJobs}
+                  jigTeams={filteredJigTeams}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
+                  onJobDoubleClick={handleJobDoubleClick}
+                  onJobClick={handleJobClick}
+                  onJobDurationChange={handleJobDurationChange}
+                  onJobDurationReset={handleJobDurationReset}
+                  onTeamDoubleClick={handleTeamDoubleClick}
+                  onJobRollover={handleJobRollover}
+                  globalStaging={globalStaging}
+                  scheduleBlocks={scheduleBlocks}
+                  onBlockClick={(block) => {
+                    setEditingBlock(block);
+                    setBlockPanelOpen(true);
+                  }}
+                  dateRange={infiniteDateRange}
+                  onDateRangeExtend={handleInfiniteDateRangeExtend}
+                  overtimeByDay={infinitePlannerOvertimeByDay}
+                  onDayOvertimeChange={handleInfiniteDayOvertimeChange}
+                />
+              );
+            } catch (err) {
+              console.error('[PLANNER] InfinitePlanner render error:', err);
+              return <Text>Error rendering planner: {String(err)}</Text>;
+            }
+          })()}
         </Stack>
       </Stack>
 
