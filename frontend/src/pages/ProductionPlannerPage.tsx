@@ -26,6 +26,7 @@ import {
   getDaysInWeek 
 } from '../utils/dateUtils';
 import * as PlannerV2 from '../domain/plannerV2';
+import { ShiftConfigProvider } from '../contexts/ShiftConfigContext';
 
 interface Job {
   id: string;
@@ -1317,6 +1318,7 @@ export const ProductionPlannerPage = () => {
   console.log('[PLANNER] ✓✓✓ RENDERING MAIN CONTENT - ViewMode:', viewMode, 'Jobs:', jobs.length);
   
   return (
+    <ShiftConfigProvider>
     <Stack styles={{ root: { minHeight: '100%' } }}>
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
         <Text variant="xxLarge">
@@ -1611,5 +1613,6 @@ export const ProductionPlannerPage = () => {
         defaultBlockType={selectedBlockType}
       />
     </Stack>
+    </ShiftConfigProvider>
   );
 };

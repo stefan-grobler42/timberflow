@@ -1,7 +1,7 @@
 import { Stack, Text, Toggle, Dropdown, IconButton, Spinner } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
-import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
+import { useDayShiftConfig, type BreakSlot } from '../../contexts/ShiftConfigContext';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
 
@@ -46,14 +46,6 @@ interface Jig {
   averageEfinks?: number;
 }
 
-interface BreakSlot {
-  startHour: number;
-  startMinute: number;
-  endHour: number;
-  endMinute: number;
-  label: string;
-  color: string;
-}
 
 interface BreakAddition {
   label: string;
@@ -129,12 +121,8 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
   onLateOtToggle,
   onTeamOvertimeChange
 }) => {
-  const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
-  const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
-  const [breakSlots, setBreakSlots] = useState<BreakSlot[]>([]);
-  const [baseBreakSlots, setBaseBreakSlots] = useState<BreakSlot[]>([]);
-  const [dinnerBreakSlot, setDinnerBreakSlot] = useState<BreakSlot | null>(null);
-  const [loading, setLoading] = useState(true);
+  const shiftConfig = useDayShiftConfig(dateStr);
+  
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
   const [overflowingJobs, setOverflowingJobs] = useState<Set<string>>(new Set());
@@ -151,110 +139,18 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
   const isJobStaged = (jobId: string) => globalStaging ? PlannerV2.hasJobChanges(globalStaging, jobId) : false;
   const isPrimaryStaged = (jobId: string) => globalStaging?.primaryJobId === jobId;
 
-  useEffect(() => {
+  const baseWorkingHours = shiftConfig.workingHours;
+  const workingHours = baseWorkingHours;
+  const baseBreakSlots = shiftConfig.baseBreakSlots;
+  const dinnerBreakSlot = shiftConfig.dinnerBreakSlot;
+  const loading = shiftConfig.loading;
+
+  const breakSlots = useMemo(() => {
     if (anyTeamHasOvertime && dinnerBreakSlot) {
-      setBreakSlots([...baseBreakSlots, dinnerBreakSlot]);
-    } else {
-      setBreakSlots(baseBreakSlots);
+      return [...baseBreakSlots, dinnerBreakSlot];
     }
+    return baseBreakSlots;
   }, [anyTeamHasOvertime, baseBreakSlots, dinnerBreakSlot]);
-
-  const parseTime = (timeStr: string): { hour: number; minute: number } => {
-    const [hour, minute] = timeStr.split(':').map(Number);
-    return { hour, minute: minute || 0 };
-  };
-
-  useEffect(() => {
-    loadSettings();
-  }, [dateStr]);
-
-  const loadSettings = async () => {
-    try {
-      const settings: SystemSettings = await systemSettingsService.getSettings();
-      const date = new Date(dateStr);
-      const dayOfWeek = date.getDay();
-      const weekend = dayOfWeek === 0 || dayOfWeek === 6;
-      
-      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek] as 
-        'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
-      
-      const factoryHours = settings.workingHours?.factoryStaff?.[dayName];
-      
-      let hours = { start: 7, end: 17 };
-      if (factoryHours) {
-        const [start, end] = factoryHours.split('-');
-        const startHour = parseInt(start.split(':')[0]);
-        const endHour = parseInt(end.split(':')[0]);
-        hours = { start: startHour, end: endHour };
-      } else if (weekend && settings.breakTimes?.weekendOvertime) {
-        const startTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursStart);
-        const endTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursEnd);
-        hours = { start: startTime.hour, end: endTime.hour };
-      }
-      setBaseWorkingHours(hours);
-      setWorkingHours(hours);
-
-      const breaks: BreakSlot[] = [];
-      const breakTimes = settings.breakTimes;
-
-      if (weekend && breakTimes?.weekendOvertime) {
-        const lunchStart = parseTime(breakTimes.weekendOvertime.lunchStart);
-        const lunchEnd = parseTime(breakTimes.weekendOvertime.lunchEnd);
-        breaks.push({
-          startHour: lunchStart.hour,
-          startMinute: lunchStart.minute,
-          endHour: lunchEnd.hour,
-          endMinute: lunchEnd.minute,
-          label: 'Lunch',
-          color: '#fff3cd'
-        });
-      } else if (breakTimes?.weekday) {
-        const teaStart = parseTime(breakTimes.weekday.teaStart);
-        const teaEnd = parseTime(breakTimes.weekday.teaEnd);
-        breaks.push({
-          startHour: teaStart.hour,
-          startMinute: teaStart.minute,
-          endHour: teaEnd.hour,
-          endMinute: teaEnd.minute,
-          label: 'Tea',
-          color: '#d4edda'
-        });
-
-        const lunchStart = parseTime(breakTimes.weekday.lunchStart);
-        const lunchEnd = parseTime(breakTimes.weekday.lunchEnd);
-        breaks.push({
-          startHour: lunchStart.hour,
-          startMinute: lunchStart.minute,
-          endHour: lunchEnd.hour,
-          endMinute: lunchEnd.minute,
-          label: 'Lunch',
-          color: '#fff3cd'
-        });
-
-        if (breakTimes.weekdayOvertime) {
-          const dinnerStart = parseTime(breakTimes.weekdayOvertime.dinnerStart);
-          const dinnerEnd = parseTime(breakTimes.weekdayOvertime.dinnerEnd);
-          setDinnerBreakSlot({
-            startHour: dinnerStart.hour,
-            startMinute: dinnerStart.minute,
-            endHour: dinnerEnd.hour,
-            endMinute: dinnerEnd.minute,
-            label: 'Dinner (OT)',
-            color: '#f8d7da'
-          });
-        }
-      }
-
-      setBaseBreakSlots(breaks);
-      setBreakSlots(breaks);
-      setLoading(false);
-    } catch (err) {
-      console.error('Error loading settings:', err);
-      setWorkingHours({ start: 7, end: 17 });
-      setBreakSlots([]);
-      setLoading(false);
-    }
-  };
 
   const getBreakDurationMinutes = (breakSlot: BreakSlot): number => {
     const startMinutes = breakSlot.startHour * 60 + breakSlot.startMinute;
