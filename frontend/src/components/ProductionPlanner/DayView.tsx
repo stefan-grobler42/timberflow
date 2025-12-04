@@ -160,23 +160,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return Object.values(overtimeByTeam).some(settings => settings.enabled);
   }, [overtimeByTeam]);
 
-  // Get the maximum close time across all teams for timeline display
-  const maxOvertimeCloseTime = useMemo(() => {
-    const enabledTeams = Object.values(overtimeByTeam).filter(s => s.enabled);
-    if (enabledTeams.length === 0) return '17:00';
-    
-    let maxMinutes = 0;
-    enabledTeams.forEach(s => {
-      const [h, m] = s.closeTime.split(':').map(Number);
-      const mins = h * 60 + m;
-      if (mins > maxMinutes) maxMinutes = mins;
-    });
-    
-    const h = Math.floor(maxMinutes / 60);
-    const m = maxMinutes % 60;
-    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
-  }, [overtimeByTeam]);
-
   // Check if job is staged (in pending changes)
   const isJobStaged = (jobId: string) => globalStaging ? PlannerV2.hasJobChanges(globalStaging, jobId) : false;
   
@@ -767,8 +750,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     breakSlot?: BreakSlot;
   }
 
-  const generateTimelineSegments = (): TimelineSegment[] => {
+  const generateTimelineSegments = (forWorkingHours?: { start: number; end: number }): TimelineSegment[] => {
     const segments: TimelineSegment[] = [];
+    const effectiveWorkingHours = forWorkingHours || workingHours;
     const sortedBreaks = [...breakSlots].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
@@ -818,7 +802,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const segmentDuration = segmentEnd - currentMinute;
       const hour = Math.floor(currentMinute / 60);
       const minute = currentMinute % 60;
-      const isWorking = workingHours ? (hour >= workingHours.start && hour < workingHours.end) : false;
+      const isWorking = effectiveWorkingHours ? (hour >= effectiveWorkingHours.start && hour < effectiveWorkingHours.end) : false;
       
       segments.push({
         startMinutes: currentMinute,
@@ -1003,6 +987,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
               : baseWorkingHours.end
           } : workingHours;
           const teamTimelineHeight = HOURS_IN_DAY * 60 * PlannerV2.PIXELS_PER_MINUTE;
+          
+          // Generate team-specific timeline segments with overtime hours lit up
+          const teamTimelineSegments = generateTimelineSegments(teamWorkingHours ?? undefined);
 
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
@@ -1107,8 +1094,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   backgroundColor: isDragging && dropHoverJigId === jig.id ? 'rgba(0, 120, 212, 0.05)' : undefined
                 }}
               >
-                {/* Timeline segments background */}
-                {timelineSegments.map((segment, idx) => (
+                {/* Timeline segments background - uses team-specific segments for overtime */}
+                {teamTimelineSegments.map((segment, idx) => (
                   <div
                     key={`${jig.id}-bg-${idx}-${segment.startMinutes}`}
                     style={{
