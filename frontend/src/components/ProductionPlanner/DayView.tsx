@@ -836,7 +836,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   // Calculate unallocated job totals for the separate panel
   const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
-  const unallocatedMinutes = unallocatedJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
 
   return (
     <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
@@ -849,8 +848,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         </Text>
       </Stack>
 
-      {/* Main layout: Planner grid on left, Unallocated panel on right */}
-      <div style={{ display: 'flex', gap: 20 }}>
+      {/* Main layout: Planner grid + Unallocated column attached on right */}
+      <div style={{ display: 'flex', gap: 0 }}>
         {/* Planner grid (time column + team columns) */}
         <div style={{ display: 'flex', flex: 1, minWidth: 0 }}>
           {/* Time header column */}
@@ -1390,48 +1389,45 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         })}
         </div>
 
-        {/* Unallocated panel - separate block on the right */}
+        {/* Unallocated column - attached to the right with small gap, headers aligned */}
         {unallocatedJobs.length > 0 && (
-          <div style={{ 
-            width: 240, 
-            flexShrink: 0,
-            backgroundColor: '#fff',
-            border: '1px solid #c62828',
-            borderRadius: 8,
-            overflow: 'hidden',
-            boxShadow: '0 2px 8px rgba(198, 40, 40, 0.15)',
-            alignSelf: 'flex-start'
-          }}>
-            {/* Unallocated header */}
+          <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
+            {/* Spacer to align with overtime row */}
+            <div style={{ height: 26, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc' }}></div>
+            
+            {/* Unallocated header - aligned with team headers (50px) */}
             <Stack
               styles={{
                 root: {
-                  padding: '12px 15px',
+                  height: 50,
+                  padding: '8px 12px',
                   backgroundColor: '#c62828',
-                  color: 'white'
+                  color: 'white',
+                  borderBottom: '1px solid #ddd'
                 }
               }}
             >
               <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                Unallocated Jobs
+                Unallocated
               </Text>
               <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                {unallocatedJobs.length} jobs | {unallocatedEFinks} E-Finks | {formatDuration(unallocatedMinutes)}
+                {unallocatedJobs.length} | {unallocatedEFinks} E-Finks
               </Text>
             </Stack>
 
-            {/* Unallocated jobs - stacked compact cards */}
+            {/* Unallocated jobs - stacked compact cards with same timeline height */}
             <div
               onDragOver={onDragOver}
               onDrop={() => onDrop(dayStr, null)}
               style={{
-                maxHeight: 500,
+                height: totalTimelineHeight,
                 overflowY: 'auto',
                 backgroundColor: '#ffebee',
-                padding: 8
+                padding: 6,
+                borderBottom: '1px solid #ddd'
               }}
             >
-              <Stack tokens={{ childrenGap: 6 }}>
+              <Stack tokens={{ childrenGap: 4 }}>
                 {unallocatedJobs.map(job => (
                   <div
                     key={job.id}
@@ -1439,32 +1435,32 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     onDragStart={() => onDragStart(job.id)}
                     onDoubleClick={() => onJobDoubleClick(job.id)}
                     style={{
-                      padding: '8px 10px',
+                      padding: '6px 8px',
                       background: job.productionComplete 
                         ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.9), rgba(200, 200, 200, 0.85))' 
                         : 'linear-gradient(135deg, rgba(198, 40, 40, 0.9), rgba(160, 30, 30, 0.85))',
                       color: job.productionComplete ? '#555' : 'white',
-                      borderRadius: 6,
+                      borderRadius: 4,
                       border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
                       cursor: 'grab',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
                       opacity: job.productionComplete ? 0.7 : 1
                     }}
                   >
-                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 12 } }}>
+                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 11 } }}>
                       {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' ✓' : ''}
                     </Text>
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
                       {job.customer}
                     </Text>
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 500 } }}>
-                      {job.estimatedEFinks} E-Finks | {formatDuration(getJobDurationMinutes(job))}
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: 500 } }}>
+                      {job.estimatedEFinks} E-Finks
                     </Text>
                   </div>
                 ))}
               </Stack>
             </div>
-          </div>
+          </Stack>
         )}
       </div>
 
