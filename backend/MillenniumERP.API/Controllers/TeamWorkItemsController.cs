@@ -303,6 +303,151 @@ public class TeamWorkItemsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("batch")]
+    public async Task<ActionResult<IEnumerable<TeamWorkItemDto>>> BatchCreate([FromBody] List<CreateTeamWorkItemDto> createDtos)
+    {
+        var results = new List<TeamWorkItem>();
+        
+        foreach (var createDto in createDtos)
+        {
+            var production = await _context.Productions.FindAsync(createDto.ProductionId);
+            if (production == null)
+            {
+                return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+            }
+
+            var team = await _context.Jigs.FindAsync(createDto.TeamId);
+            if (team == null)
+            {
+                return BadRequest(new { message = $"Team (Jig) with ID {createDto.TeamId} not found" });
+            }
+
+            var existingItem = await _context.TeamWorkItems
+                .FirstOrDefaultAsync(w => w.ProductionId == createDto.ProductionId && 
+                                         w.WorkDate.Date == createDto.WorkDate.Date &&
+                                         w.TeamId == createDto.TeamId);
+
+            if (existingItem != null)
+            {
+                existingItem.Sequence = createDto.Sequence;
+                existingItem.PlannedStartMinutes = createDto.PlannedStartMinutes;
+                existingItem.PlannedEndMinutes = createDto.PlannedEndMinutes;
+                existingItem.PlannedDurationMinutes = createDto.PlannedDurationMinutes;
+                existingItem.BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes;
+                existingItem.OvertimeEnabled = createDto.OvertimeEnabled;
+                existingItem.EarlyOvertimeEnabled = createDto.EarlyOvertimeEnabled;
+                existingItem.ModifiedOn = DateTime.UtcNow;
+                results.Add(existingItem);
+            }
+            else
+            {
+                var item = new TeamWorkItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductionId = createDto.ProductionId,
+                    TeamId = createDto.TeamId,
+                    WorkDate = createDto.WorkDate,
+                    Sequence = createDto.Sequence,
+                    PlannedStartMinutes = createDto.PlannedStartMinutes,
+                    PlannedEndMinutes = createDto.PlannedEndMinutes,
+                    PlannedDurationMinutes = createDto.PlannedDurationMinutes,
+                    BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes,
+                    Status = createDto.Status ?? "scheduled",
+                    ParentWipId = createDto.ParentWipId,
+                    RolloverSequence = createDto.RolloverSequence,
+                    SpilloverMinutes = createDto.SpilloverMinutes,
+                    OvertimeEnabled = createDto.OvertimeEnabled,
+                    EarlyOvertimeEnabled = createDto.EarlyOvertimeEnabled,
+                    TimberCubes = createDto.TimberCubes,
+                    TotalCuts = createDto.TotalCuts,
+                    CreatedOn = DateTime.UtcNow
+                };
+                _context.TeamWorkItems.Add(item);
+                results.Add(item);
+            }
+
+            production.JigId = createDto.TeamId;
+            production.Productionplanneddate = createDto.WorkDate;
+            production.PlannedStartTime = createDto.PlannedStartMinutes;
+            production.PlannedEndTime = createDto.PlannedEndMinutes;
+            production.PlannedDurationMinutes = createDto.PlannedDurationMinutes;
+            production.BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes;
+            production.ModifiedOn = DateTime.UtcNow;
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Batch created/updated {Count} TeamWorkItems", results.Count);
+
+        var dtos = results.Select(MapToDto).ToList();
+        return Ok(dtos);
+    }
+
+    [HttpPost("sync-from-productions")]
+    public async Task<ActionResult<object>> SyncFromProductions([FromQuery] string? dateFrom = null, [FromQuery] string? dateTo = null)
+    {
+        var query = _context.Productions
+            .Where(p => p.JigId != null && p.Productionplanneddate != null)
+            .Where(p => p.Productioncomplete != true);
+
+        if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var fromDate))
+        {
+            query = query.Where(p => p.Productionplanneddate >= fromDate);
+        }
+
+        if (!string.IsNullOrEmpty(dateTo) && DateTime.TryParse(dateTo, out var toDate))
+        {
+            query = query.Where(p => p.Productionplanneddate <= toDate);
+        }
+
+        var productions = await query.ToListAsync();
+        var created = 0;
+        var updated = 0;
+
+        foreach (var production in productions)
+        {
+            var existingItem = await _context.TeamWorkItems
+                .FirstOrDefaultAsync(w => w.ProductionId == production.Id);
+
+            if (existingItem != null)
+            {
+                existingItem.TeamId = production.JigId!.Value;
+                existingItem.WorkDate = production.Productionplanneddate!.Value;
+                existingItem.PlannedStartMinutes = production.PlannedStartTime ?? 420;
+                existingItem.PlannedEndMinutes = production.PlannedEndTime ?? 1020;
+                existingItem.PlannedDurationMinutes = production.PlannedDurationMinutes ?? 60;
+                existingItem.BreakAdjustmentMinutes = production.BreakAdjustmentMinutes ?? 0;
+                existingItem.ModifiedOn = DateTime.UtcNow;
+                updated++;
+            }
+            else
+            {
+                var item = new TeamWorkItem
+                {
+                    Id = Guid.NewGuid(),
+                    ProductionId = production.Id,
+                    TeamId = production.JigId!.Value,
+                    WorkDate = production.Productionplanneddate!.Value,
+                    Sequence = 0,
+                    PlannedStartMinutes = production.PlannedStartTime ?? 420,
+                    PlannedEndMinutes = production.PlannedEndTime ?? 1020,
+                    PlannedDurationMinutes = production.PlannedDurationMinutes ?? 60,
+                    BreakAdjustmentMinutes = production.BreakAdjustmentMinutes ?? 0,
+                    Status = "scheduled",
+                    CreatedOn = DateTime.UtcNow
+                };
+                _context.TeamWorkItems.Add(item);
+                created++;
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Synced productions to WIP: {Created} created, {Updated} updated", created, updated);
+
+        return Ok(new { created, updated, total = created + updated });
+    }
+
     [HttpPost("{id}/complete")]
     public async Task<ActionResult<TeamWorkItemDto>> Complete(Guid id, [FromBody] CompleteTeamWorkItemDto completeDto)
     {

@@ -9,6 +9,7 @@ import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService, productionAuditService, scheduleBlockService } from '../services/millenniumServices';
 import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
+import { teamWorkItemService, type CreateTeamWorkItemDto } from '../services/teamWorkItemService';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -433,8 +434,31 @@ export const ProductionPlannerPage = () => {
       const auditRecords = PlannerV2.buildAuditRecords(globalStaging, jobDetailsMap);
       console.log('[PLANNER] Creating', auditRecords.length, 'audit records');
       
-      // Persist all production changes
-      for (const payload of payloads) {
+      // Build WIP allocations for batch save
+      const wipAllocations: CreateTeamWorkItemDto[] = payloads
+        .filter(p => p.updates.jigId && p.updates.plannedDateStr)
+        .map((payload, idx) => ({
+          productionId: payload.jobId,
+          teamId: payload.updates.jigId!,
+          workDate: payload.updates.plannedDateStr!,
+          sequence: idx,
+          plannedStartMinutes: payload.updates.plannedStartTime ?? 420,
+          plannedEndMinutes: payload.updates.plannedEndTime ?? 1020,
+          plannedDurationMinutes: payload.updates.plannedDurationMinutes ?? 60,
+          breakAdjustmentMinutes: payload.updates.breakAdjustmentMinutes ?? 0,
+          status: 'scheduled'
+        }));
+      
+      // Batch save WIP entries (this also syncs to Production table)
+      if (wipAllocations.length > 0) {
+        console.log('[PLANNER] Saving', wipAllocations.length, 'WIP allocations via batch API');
+        await teamWorkItemService.batchAllocate(wipAllocations);
+        console.log('[PLANNER] ✓ WIP allocations saved');
+      }
+      
+      // Also persist any jobs that don't have team assignment (just updates)
+      const jobsWithoutTeam = payloads.filter(p => !p.updates.jigId || !p.updates.plannedDateStr);
+      for (const payload of jobsWithoutTeam) {
         const apiPayload: Record<string, any> = {};
         if (payload.updates.jigId !== undefined) apiPayload.jigId = payload.updates.jigId;
         if (payload.updates.plannedDateStr !== undefined) apiPayload.productionPlannedDate = payload.updates.plannedDateStr;
@@ -444,7 +468,7 @@ export const ProductionPlannerPage = () => {
         if (payload.updates.customDurationMinutes !== undefined) apiPayload.customDurationMinutes = payload.updates.customDurationMinutes;
         if (payload.updates.breakAdjustmentMinutes !== undefined) apiPayload.breakAdjustmentMinutes = payload.updates.breakAdjustmentMinutes;
         
-        console.log('[PLANNER] Persisting job:', payload.jobId, apiPayload);
+        console.log('[PLANNER] Persisting job directly:', payload.jobId, apiPayload);
         await productionService.update(payload.jobId, apiPayload);
       }
       
