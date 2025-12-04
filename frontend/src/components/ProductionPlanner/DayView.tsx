@@ -849,9 +849,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       </Stack>
 
       {/* Main layout: Planner grid + Unallocated column attached on right */}
-      <div style={{ display: 'flex', gap: 0 }}>
+      <div style={{ display: 'inline-flex' }}>
         {/* Planner grid (time column + team columns) */}
-        <div style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex' }}>
           {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
             <div style={{ height: 26, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
