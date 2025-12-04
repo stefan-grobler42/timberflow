@@ -834,6 +834,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const timelineSegments = generateTimelineSegments();
   const totalTimelineHeight = HOURS_IN_DAY * 60 * PlannerV2.PIXELS_PER_MINUTE;
 
+  // Calculate unallocated job totals for the separate panel
+  const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
+  const unallocatedMinutes = unallocatedJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
+
   return (
     <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
       <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 20 }} styles={{ root: { marginBottom: 20 } }}>
@@ -841,135 +845,56 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           {formatDate(dayStr)}
         </Text>
         <Text variant="small" styles={{ root: { color: '#666', backgroundColor: '#f3f2f1', padding: '4px 8px', borderRadius: 4 } }}>
-          80 E-Finks = 8h 45m (standard day) | Drag bottom edge to resize blocks | Toggle overtime per team below
+          80 E-Finks = 8h 45m (standard day) | Drag bottom edge to resize blocks | Toggle overtime per team
         </Text>
       </Stack>
 
-
-      <div style={{ display: 'flex' }}>
-        {/* Time header column */}
-        <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-          <div style={{ height: 26, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
-          <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
-          <div style={{ position: 'relative', height: totalTimelineHeight }}>
-            {timelineSegments.map((segment, idx) => (
-              <Stack
-                key={`time-${idx}-${segment.startMinutes}`}
-                styles={{
-                  root: {
-                    position: 'absolute',
-                    top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
-                    left: 0,
-                    right: 0,
-                    height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
-                    borderBottom: '1px solid #ddd',
-                    padding: '4px 10px',
-                    backgroundColor: segment.backgroundColor,
-                    opacity: segment.isWorking || segment.isBreak ? 1 : 0.7,
-                    boxSizing: 'border-box'
-                  }
-                }}
-              >
-                <Text variant="small" styles={{ root: { fontWeight: 600, color: segment.isWorking || segment.isBreak ? '#333' : '#888' } }}>
-                  {segment.label}
-                </Text>
-                {segment.isBreak && segment.breakSlot && (
-                  <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
-                    {segment.breakSlot.label} ({segment.durationMinutes}m)
+      {/* Main layout: Planner grid on left, Unallocated panel on right */}
+      <div style={{ display: 'flex', gap: 20 }}>
+        {/* Planner grid (time column + team columns) */}
+        <div style={{ display: 'flex', flex: 1, minWidth: 0 }}>
+          {/* Time header column */}
+          <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
+            <div style={{ height: 26, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
+            <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
+            <div style={{ position: 'relative', height: totalTimelineHeight }}>
+              {timelineSegments.map((segment, idx) => (
+                <Stack
+                  key={`time-${idx}-${segment.startMinutes}`}
+                  styles={{
+                    root: {
+                      position: 'absolute',
+                      top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
+                      left: 0,
+                      right: 0,
+                      height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
+                      borderBottom: '1px solid #ddd',
+                      padding: '4px 10px',
+                      backgroundColor: segment.backgroundColor,
+                      opacity: segment.isWorking || segment.isBreak ? 1 : 0.7,
+                      boxSizing: 'border-box'
+                    }
+                  }}
+                >
+                  <Text variant="small" styles={{ root: { fontWeight: 600, color: segment.isWorking || segment.isBreak ? '#333' : '#888' } }}>
+                    {segment.label}
                   </Text>
-                )}
-                {!segment.isWorking && !segment.isBreak && (
-                  <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
-                    Non-working
-                  </Text>
-                )}
-              </Stack>
-            ))}
-          </div>
-        </Stack>
-
-        {/* Unallocated column - only shown if there are unallocated jobs for this day */}
-        {(() => {
-          const unallocatedJobs = getUnallocatedJobsForDate(dayStr);
-          if (unallocatedJobs.length === 0) return null;
-          
-          const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
-          const unallocatedMinutes = unallocatedJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
-
-          return (
-            <Stack styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
-              {/* Spacer to align with overtime row */}
-              <div style={{ height: 26, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc' }}></div>
-              {/* Unallocated header */}
-              <Stack
-                styles={{
-                  root: {
-                    height: 50,
-                    padding: '8px 15px',
-                    backgroundColor: '#c62828',
-                    color: 'white',
-                    borderBottom: '1px solid #ddd'
-                  }
-                }}
-              >
-                <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                  Unallocated
-                </Text>
-                <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                  {unallocatedEFinks} E-Finks | {formatDuration(unallocatedMinutes)}
-                </Text>
-              </Stack>
-
-              {/* Unallocated jobs - stacked compact cards (no duration calculations) */}
-              <div
-                onDragOver={onDragOver}
-                onDrop={() => onDrop(dayStr, null)}
-                style={{
-                  height: totalTimelineHeight,
-                  borderBottom: '1px solid #ddd',
-                  backgroundColor: '#ffebee',
-                  overflowY: 'auto',
-                  padding: 6
-                }}
-              >
-                <Stack tokens={{ childrenGap: 4 }}>
-                  {unallocatedJobs.map(job => (
-                    <div
-                      key={job.id}
-                      draggable
-                      onDragStart={() => onDragStart(job.id)}
-                      onDoubleClick={() => onJobDoubleClick(job.id)}
-                      style={{
-                        padding: '6px 8px',
-                        background: job.productionComplete 
-                          ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.9), rgba(200, 200, 200, 0.85))' 
-                          : 'linear-gradient(135deg, rgba(198, 40, 40, 0.9), rgba(160, 30, 30, 0.85))',
-                        color: job.productionComplete ? '#555' : 'white',
-                        borderRadius: 4,
-                        border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
-                        cursor: 'grab',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                        opacity: job.productionComplete ? 0.7 : 1
-                      }}
-                    >
-                      <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 11 } }}>
-                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' ✓' : ''}
-                      </Text>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
-                        {job.customer}
-                      </Text>
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: 500 } }}>
-                        {job.estimatedEFinks} E-Finks
-                      </Text>
-                    </div>
-                  ))}
+                  {segment.isBreak && segment.breakSlot && (
+                    <Text variant="tiny" styles={{ root: { color: '#666', fontStyle: 'italic' } }}>
+                      {segment.breakSlot.label} ({segment.durationMinutes}m)
+                    </Text>
+                  )}
+                  {!segment.isWorking && !segment.isBreak && (
+                    <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic' } }}>
+                      Non-working
+                    </Text>
+                  )}
                 </Stack>
-              </div>
-            </Stack>
-          );
-        })()}
+              ))}
+            </div>
+          </Stack>
 
-        {/* Jig team columns */}
+          {/* Jig team columns */}
         {jigTeams.map(jig => {
           const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
           const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
@@ -1463,6 +1388,84 @@ const DayViewComponent: React.FC<DayViewProps> = ({
             </Stack>
           );
         })}
+        </div>
+
+        {/* Unallocated panel - separate block on the right */}
+        {unallocatedJobs.length > 0 && (
+          <div style={{ 
+            width: 240, 
+            flexShrink: 0,
+            backgroundColor: '#fff',
+            border: '1px solid #c62828',
+            borderRadius: 8,
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(198, 40, 40, 0.15)',
+            alignSelf: 'flex-start'
+          }}>
+            {/* Unallocated header */}
+            <Stack
+              styles={{
+                root: {
+                  padding: '12px 15px',
+                  backgroundColor: '#c62828',
+                  color: 'white'
+                }
+              }}
+            >
+              <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+                Unallocated Jobs
+              </Text>
+              <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                {unallocatedJobs.length} jobs | {unallocatedEFinks} E-Finks | {formatDuration(unallocatedMinutes)}
+              </Text>
+            </Stack>
+
+            {/* Unallocated jobs - stacked compact cards */}
+            <div
+              onDragOver={onDragOver}
+              onDrop={() => onDrop(dayStr, null)}
+              style={{
+                maxHeight: 500,
+                overflowY: 'auto',
+                backgroundColor: '#ffebee',
+                padding: 8
+              }}
+            >
+              <Stack tokens={{ childrenGap: 6 }}>
+                {unallocatedJobs.map(job => (
+                  <div
+                    key={job.id}
+                    draggable
+                    onDragStart={() => onDragStart(job.id)}
+                    onDoubleClick={() => onJobDoubleClick(job.id)}
+                    style={{
+                      padding: '8px 10px',
+                      background: job.productionComplete 
+                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.9), rgba(200, 200, 200, 0.85))' 
+                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.9), rgba(160, 30, 30, 0.85))',
+                      color: job.productionComplete ? '#555' : 'white',
+                      borderRadius: 6,
+                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
+                      cursor: 'grab',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                      opacity: job.productionComplete ? 0.7 : 1
+                    }}
+                  >
+                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 12 } }}>
+                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' ✓' : ''}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                      {job.customer}
+                    </Text>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 500 } }}>
+                      {job.estimatedEFinks} E-Finks | {formatDuration(getJobDurationMinutes(job))}
+                    </Text>
+                  </div>
+                ))}
+              </Stack>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Overflow Dialog */}
