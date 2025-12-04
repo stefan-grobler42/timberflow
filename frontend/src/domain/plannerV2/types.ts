@@ -76,7 +76,7 @@ export interface OvertimeSettings {
 /**
  * Enum for types of changes that can be staged.
  */
-export type ChangeType = 'allocate' | 'cascade' | 'rollover' | 'unallocate';
+export type ChangeType = 'allocate' | 'cascade' | 'rollover' | 'unallocate' | 'resize';
 
 /**
  * Represents a staged change to a job before it's committed.

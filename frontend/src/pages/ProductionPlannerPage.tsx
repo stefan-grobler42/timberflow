@@ -697,9 +697,9 @@ export const ProductionPlannerPage = () => {
       // Calculate end time using default duration
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, defaultDuration, shift);
       
-      // Stage the reset - clears customDurationMinutes
+      // Stage the reset - clears customDurationMinutes (use null, not undefined, to properly clear)
       stageJobUpdate(jobId, {
-        customDurationMinutes: undefined,
+        customDurationMinutes: null,
         plannedDurationMinutes: defaultDuration,
         plannedEndTime: timing.endTime,
         breakAdjustmentMinutes: timing.breakMinutes
@@ -708,7 +708,7 @@ export const ProductionPlannerPage = () => {
       console.log('[PLANNER] Staged reset for job:', jobId, 'duration:', defaultDuration, 'minutes');
     } else {
       stageJobUpdate(jobId, {
-        customDurationMinutes: undefined,
+        customDurationMinutes: null,
         plannedDurationMinutes: defaultDuration
       }, 'resize');
     }
