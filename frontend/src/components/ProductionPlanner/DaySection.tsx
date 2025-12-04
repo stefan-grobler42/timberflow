@@ -21,6 +21,17 @@ const SCHEDULE_BLOCK_LABELS: Record<ScheduleBlockType, string> = {
   GeneralDelay: 'General Delay'
 };
 
+const minutesToTimeString = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
+
+const timeStringToMinutes = (timeStr: string): number => {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + (m || 0);
+};
+
 interface Job {
   id: string;
   name: string;
@@ -63,7 +74,7 @@ interface JobPositionInfo {
 
 interface TeamOvertimeSettings {
   enabled: boolean;
-  closeTime: string;
+  closeTime: number;
 }
 
 interface DaySectionProps {
@@ -90,7 +101,7 @@ interface DaySectionProps {
   overtimeByTeam: Record<string, TeamOvertimeSettings>;
   onEarlyOtToggle: (enabled: boolean) => void;
   onLateOtToggle: (enabled: boolean) => void;
-  onTeamOvertimeChange: (teamId: string, enabled: boolean, closeTime: string) => void;
+  onTeamOvertimeChange: (teamId: string, enabled: boolean, closeTime: number) => void;
 }
 
 const MIN_BLOCK_HEIGHT = 20;
@@ -582,7 +593,7 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
         <div style={{ display: 'flex', flexDirection: 'row', flexGrow: 1 }}>
           {jigTeams.map(jig => {
             const jigJobs = jobsByJig.get(jig.id) || [];
-            const teamOvertime = overtimeByTeam[jig.id] ?? { enabled: false, closeTime: '19:00' };
+            const teamOvertime = overtimeByTeam[jig.id] ?? { enabled: false, closeTime: 1140 };
             const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
             const teamTotalMinutes = jigJobs.reduce((sum, j) => sum + getBaseDurationMinutes(j), 0);
 
@@ -621,9 +632,9 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                   />
                   {teamOvertime.enabled && (
                     <Dropdown
-                      selectedKey={teamOvertime.closeTime}
+                      selectedKey={minutesToTimeString(teamOvertime.closeTime)}
                       options={overtimeOptions}
-                      onChange={(_, option) => option && onTeamOvertimeChange(jig.id, true, option.key as string)}
+                      onChange={(_, option) => option && onTeamOvertimeChange(jig.id, true, timeStringToMinutes(option.key as string))}
                       styles={{
                         root: { width: 80 },
                         title: { fontSize: 10, padding: '1px 4px', height: 20, lineHeight: '18px' },

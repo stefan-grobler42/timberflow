@@ -10,11 +10,10 @@ import { jigService, productionAuditService, scheduleBlockService } from '../ser
 import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
 import { teamWorkItemService, type CreateTeamWorkItemDto } from '../services/teamWorkItemService';
-import type { Jig, D365Order } from '../types/millennium';
+import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView } from '../components/ProductionPlanner/DayView';
-import { InfinitePlanner } from '../components/ProductionPlanner/InfinitePlanner';
 import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
 import { 
   startOfMonthUtc, 
@@ -56,22 +55,13 @@ export const ProductionPlannerPage = () => {
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
   const [unallocatedOrders, setUnallocatedOrders] = useState<Job[]>([]);
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'infinite'>('infinite');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: string }>>>({});
-  const [infinitePlannerOvertimeByDay, setInfinitePlannerOvertimeByDay] = useState<Record<string, { earlyOt: boolean; lateOt: boolean; overtimeByTeam: Record<string, { enabled: boolean; closeTime: string }> }>>({});
-  const [infiniteDateRange, setInfiniteDateRange] = useState(() => {
-    const today = new Date();
-    const from = new Date(today);
-    from.setDate(from.getDate() - 15);
-    const to = new Date(today);
-    to.setDate(to.getDate() + 15);
-    return { dateFrom: from.toISOString().split('T')[0], dateTo: to.toISOString().split('T')[0] };
-  });
+  const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number }>>>({});
   const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
@@ -319,50 +309,6 @@ export const ProductionPlannerPage = () => {
     allJobsCache.current = result;
     return result;
   }, [baseJobs, globalStaging]);
-
-  // Memoized map of jobs by date and team for efficient lookups (excludes unallocated jobs)
-  const jobsByDateAndTeam = useMemo(() => {
-    const map = new Map<string, Map<string, Job[]>>();
-    
-    for (const job of allJobs) {
-      // Skip unallocated jobs - they don't follow scheduling rules
-      if (!job.plannedDateStr || !job.jigId) continue;
-      
-      if (!map.has(job.plannedDateStr)) {
-        map.set(job.plannedDateStr, new Map());
-      }
-      const dayMap = map.get(job.plannedDateStr)!;
-      if (!dayMap.has(job.jigId)) {
-        dayMap.set(job.jigId, []);
-      }
-      dayMap.get(job.jigId)!.push(job);
-    }
-    
-    return map;
-  }, [allJobs]);
-  
-  // Helper to find affected jobs using efficient map lookup
-  const findAffectedJobsOptimized = useCallback((
-    sourceJobId: string,
-    sourceEndTime: number,
-    jigId: string,
-    dateStr: string
-  ): Job[] => {
-    // Get jobs for this specific date and team only (fast O(1) lookup)
-    const dayMap = jobsByDateAndTeam.get(dateStr);
-    if (!dayMap) return [];
-    
-    const teamJobs = dayMap.get(jigId);
-    if (!teamJobs) return [];
-    
-    // Filter to jobs that start at or after the source job's end time
-    return teamJobs.filter(job => 
-      job.id !== sourceJobId && 
-      job.plannedStartTime !== null && 
-      job.plannedStartTime !== undefined &&
-      job.plannedStartTime >= sourceEndTime
-    );
-  }, [jobsByDateAndTeam]);
 
   // Convert Job to ScheduledJob for plannerV2
   const toScheduledJob = useCallback((job: Job): PlannerV2.ScheduledJob => ({
@@ -823,7 +769,7 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: string, _additionalMinutes?: number) => {
+  const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: number, _additionalMinutes?: number) => {
     setOvertimeByTeamDay(prev => ({
       ...prev,
       [dayStr]: {
@@ -834,7 +780,7 @@ export const ProductionPlannerPage = () => {
     console.log(`[PLANNER] Team overtime for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
   };
 
-  const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: string }> => {
+  const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: number }> => {
     return overtimeByTeamDay[dayStr] || {};
   };
 
@@ -972,61 +918,6 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const handleDeleteRolloverSegment = async (jobId: string) => {
-    try {
-      const job = allJobs.find(j => j.id === jobId);
-      if (!job) {
-        console.log('[DELETE] Job not found:', jobId);
-        return;
-      }
-
-      const { canDelete, reason } = canDeleteRolloverSegment(jobId, allJobs as ScheduledJob[]);
-      if (!canDelete) {
-        setError(reason || 'Cannot delete this segment');
-        return;
-      }
-
-      console.log('[DELETE] Deleting rollover segment:', jobId);
-      
-      const result = deleteRolloverSegment(jobId, allJobs as ScheduledJob[], overtimeByTeamDay);
-      
-      for (const updatedJob of result.updatedJobs) {
-        stageJobUpdate(updatedJob.id, {
-          plannedStartTime: updatedJob.plannedStartTime,
-          plannedEndTime: updatedJob.plannedEndTime,
-          plannedDurationMinutes: updatedJob.plannedDurationMinutes,
-          customDurationMinutes: updatedJob.customDurationMinutes,
-          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes
-        }, 'cascade');
-      }
-      
-      for (const deletedId of result.deletedJobIds) {
-        await productionService.delete(deletedId);
-        console.log('[DELETE] Deleted segment:', deletedId);
-      }
-      
-      for (const updatedJob of result.updatedJobs) {
-        await productionService.update(updatedJob.id, {
-          plannedStartTime: updatedJob.plannedStartTime ?? undefined,
-          plannedEndTime: updatedJob.plannedEndTime ?? undefined,
-          plannedDurationMinutes: updatedJob.plannedDurationMinutes ?? undefined,
-          customDurationMinutes: updatedJob.customDurationMinutes,
-          breakAdjustmentMinutes: updatedJob.breakAdjustmentMinutes ?? undefined
-        });
-      }
-      
-      console.log('[DELETE] Segment deleted successfully, updated', result.updatedJobs.length, 'related jobs');
-      
-      await loadData();
-    } catch (err) {
-      console.error('[DELETE] Failed to delete segment:', err);
-      setError(`Failed to delete segment: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    }
-  };
-
-  // Suppress unused variable warning - function will be connected to DayView component
-  void handleDeleteRolloverSegment;
-
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1067,48 +958,11 @@ export const ProductionPlannerPage = () => {
     _setSelectedDayStr(null);
   };
 
-  const navigateToInfiniteView = () => {
-    setViewMode('infinite');
-    setSelectedWeekStart(null);
-    _setSelectedDayStr(null);
-  };
-
-  const handleInfiniteDateRangeExtend = (direction: 'past' | 'future') => {
-    setInfiniteDateRange(prev => {
-      if (direction === 'past') {
-        const newFrom = new Date(prev.dateFrom);
-        newFrom.setDate(newFrom.getDate() - 14);
-        return { ...prev, dateFrom: newFrom.toISOString().split('T')[0] };
-      } else {
-        const newTo = new Date(prev.dateTo);
-        newTo.setDate(newTo.getDate() + 14);
-        return { ...prev, dateTo: newTo.toISOString().split('T')[0] };
-      }
-    });
-  };
-
-  const handleInfiniteDayOvertimeChange = (dateStr: string, config: Partial<{ earlyOt: boolean; lateOt: boolean; overtimeByTeam: Record<string, { enabled: boolean; closeTime: string }> }>) => {
-    setInfinitePlannerOvertimeByDay(prev => {
-      const current = prev[dateStr] || { earlyOt: false, lateOt: false, overtimeByTeam: {} };
-      return {
-        ...prev,
-        [dateStr]: {
-          earlyOt: config.earlyOt ?? current.earlyOt,
-          lateOt: config.lateOt ?? current.lateOt,
-          overtimeByTeam: config.overtimeByTeam ?? current.overtimeByTeam
-        }
-      };
-    });
-  };
-
   const handleTeamDoubleClick = (teamId: string) => {
     navigate(`/jigs/${teamId}`);
   };
 
   const getCurrentViewTitle = (): string => {
-    if (viewMode === 'infinite') {
-      return 'Infinite Scroll View';
-    }
     const date = new Date(currentDateStr);
     if (viewMode === 'month') {
       const months = ['January', 'February', 'March', 'April', 'May', 'June', 
@@ -1149,11 +1003,6 @@ export const ProductionPlannerPage = () => {
         setSelectedJigIds([...selectedJigIds, jigId]);
       }
     }
-  };
-
-  const handleAddScheduleBlock = () => {
-    setEditingBlock(null);
-    setBlockPanelOpen(true);
   };
 
   const handleBlockSave = () => {
@@ -1353,14 +1202,6 @@ export const ProductionPlannerPage = () => {
       <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 10 }} styles={{ root: { marginTop: 10 } }}>
         <Text 
           variant="medium" 
-          styles={{ root: { cursor: 'pointer', color: viewMode === 'infinite' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'infinite' ? 600 : 400 } }}
-          onClick={navigateToInfiniteView}
-        >
-          Planner
-        </Text>
-        <Text variant="medium" styles={{ root: { color: '#d0d0d0' } }}>|</Text>
-        <Text 
-          variant="medium" 
           styles={{ root: { cursor: 'pointer', color: viewMode === 'month' ? '#0078d4' : '#605e5c', fontWeight: viewMode === 'month' ? 600 : 400 } }}
           onClick={navigateToMonthView}
         >
@@ -1386,11 +1227,9 @@ export const ProductionPlannerPage = () => {
             </Text>
           </>
         )}
-        {viewMode !== 'infinite' && (
-          <Text variant="medium" styles={{ root: { marginLeft: 20, color: '#323130', fontWeight: 600 } }}>
-            {getCurrentViewTitle()}
-          </Text>
-        )}
+        <Text variant="medium" styles={{ root: { marginLeft: 20, color: '#323130', fontWeight: 600 } }}>
+          {getCurrentViewTitle()}
+        </Text>
       </Stack>
 
       <CommandBar items={commandItems} />
@@ -1564,39 +1403,6 @@ export const ProductionPlannerPage = () => {
               }}
             />
           )}
-          {viewMode === 'infinite' && (() => {
-            console.log('[PLANNER] Rendering InfinitePlanner component');
-            try {
-              return (
-                <InfinitePlanner
-                  jobs={allJobs}
-                  jigTeams={filteredJigTeams}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
-                  onJobDoubleClick={handleJobDoubleClick}
-                  onJobClick={handleJobClick}
-                  onJobDurationChange={handleJobDurationChange}
-                  onJobDurationReset={handleJobDurationReset}
-                  onTeamDoubleClick={handleTeamDoubleClick}
-                  onJobRollover={handleJobRollover}
-                  globalStaging={globalStaging}
-                  scheduleBlocks={scheduleBlocks}
-                  onBlockClick={(block) => {
-                    setEditingBlock(block);
-                    setBlockPanelOpen(true);
-                  }}
-                  dateRange={infiniteDateRange}
-                  onDateRangeExtend={handleInfiniteDateRangeExtend}
-                  overtimeByDay={infinitePlannerOvertimeByDay}
-                  onDayOvertimeChange={handleInfiniteDayOvertimeChange}
-                />
-              );
-            } catch (err) {
-              console.error('[PLANNER] InfinitePlanner render error:', err);
-              return <Text>Error rendering planner: {String(err)}</Text>;
-            }
-          })()}
         </Stack>
       </Stack>
 

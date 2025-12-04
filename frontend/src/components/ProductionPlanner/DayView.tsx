@@ -80,7 +80,7 @@ interface OverflowInfo {
 
 interface TeamOvertimeSettings {
   enabled: boolean;
-  closeTime: string;
+  closeTime: number;
 }
 
 interface DayViewProps {
@@ -99,7 +99,7 @@ interface DayViewProps {
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
-  onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: string, additionalMinutes?: number) => void;
+  onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: number, additionalMinutes?: number) => void;
   globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
@@ -150,9 +150,22 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
   const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
 
+  // Helper to convert minutes to HH:MM format
+  const minutesToTimeString = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  // Helper to convert HH:MM format to minutes
+  const timeStringToMinutes = (timeStr: string): number => {
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + (m || 0);
+  };
+
   // Helper to get overtime settings for a specific team
   const getTeamOvertime = useCallback((teamId: string): TeamOvertimeSettings => {
-    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: '19:00' };
+    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: 1140 };
   }, [overtimeByTeam]);
 
   // Check if ANY team has overtime enabled (for timeline rendering)
@@ -167,12 +180,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const isPrimaryStaged = (jobId: string) => globalStaging?.primaryJobId === jobId;
 
   // Calculate additional working minutes for overtime
-  const calculateOvertimeDelta = useCallback((newCloseTime: string) => {
+  const calculateOvertimeDelta = useCallback((closeTimeMinutes: number) => {
     if (!baseWorkingHours) return 0;
     
-    const [hourStr, minStr] = newCloseTime.split(':');
-    const hour = parseInt(hourStr) || baseWorkingHours.end;
-    const minutes = parseInt(minStr) || 0;
+    const hour = Math.floor(closeTimeMinutes / 60);
+    const minutes = closeTimeMinutes % 60;
     const overtimeEndHour = minutes > 0 ? hour + 1 : hour;
     
     const baseMinutes = (baseWorkingHours.end - baseWorkingHours.start) * 60;
@@ -192,11 +204,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
   };
 
-  const handleTeamOvertimeCloseTimeChange = (teamId: string, newTime: string) => {
+  const handleTeamOvertimeCloseTimeChange = (teamId: string, newTimeStr: string) => {
     if (onTeamOvertimeChange) {
       const currentSettings = getTeamOvertime(teamId);
-      const deltaMinutes = currentSettings.enabled ? calculateOvertimeDelta(newTime) : 0;
-      onTeamOvertimeChange(dayStr, teamId, currentSettings.enabled, newTime, deltaMinutes);
+      const newTimeMinutes = timeStringToMinutes(newTimeStr);
+      const deltaMinutes = currentSettings.enabled ? calculateOvertimeDelta(newTimeMinutes) : 0;
+      onTeamOvertimeChange(dayStr, teamId, currentSettings.enabled, newTimeMinutes, deltaMinutes);
     }
   };
 
@@ -905,7 +918,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
             start: baseWorkingHours.start,
             end: teamOvertime.enabled
               ? (() => {
-                  const [h, m] = teamOvertime.closeTime.split(':').map(Number);
+                  const h = Math.floor(teamOvertime.closeTime / 60);
+                  const m = teamOvertime.closeTime % 60;
                   return m > 0 ? h + 1 : h;
                 })()
               : baseWorkingHours.end
@@ -951,7 +965,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 </Text>
                 {teamOvertime.enabled && baseWorkingHours && (
                   <Dropdown
-                    selectedKey={teamOvertime.closeTime}
+                    selectedKey={minutesToTimeString(teamOvertime.closeTime)}
                     onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
                     options={(() => {
                       const options: IDropdownOption[] = [];
