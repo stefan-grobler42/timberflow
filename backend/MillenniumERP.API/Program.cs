@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using MillenniumERP.API.Services;
 using MillenniumERP.Infrastructure.Data;
 using Npgsql;
 
@@ -88,6 +89,8 @@ builder.Services.AddCors(options =>
 // TODO: Add Authentication when implementing JWT (Task 5)
 // builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 //     .AddJwtBearer(options => { /* JWT config */ });
+
+builder.Services.AddHostedService<DynamicsSyncScheduler>();
 
 var app = builder.Build();
 

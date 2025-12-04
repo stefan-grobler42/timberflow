@@ -43,6 +43,9 @@ public class AppDbContext : DbContext
     // System configuration
     public DbSet<SystemSetting> SystemSettings { get; set; }
     
+    // D365 Sync tracking
+    public DbSet<SyncHistory> SyncHistories { get; set; }
+    
     // Production Planner allocation tables
     public DbSet<TeamDay> TeamDays { get; set; }
     public DbSet<TeamDayAllocation> TeamDayAllocations { get; set; }
@@ -550,6 +553,16 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.RelatedProductionId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // SyncHistory configuration
+        modelBuilder.Entity<SyncHistory>(entity =>
+        {
+            entity.ToTable("sync_history");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.EntityName).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.LastAttemptStatus).HasMaxLength(50).IsRequired();
+            entity.HasIndex(e => e.EntityName);
         });
 
         // Apply UTC DateTime converter to all DateTime and DateTime? properties

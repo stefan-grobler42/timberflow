@@ -172,6 +172,64 @@ public class D365OrdersController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("bulk")]
+    public async Task<ActionResult<object>> BulkImport([FromBody] List<D365OrderImportDto> orders)
+    {
+        var imported = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+
+        foreach (var order in orders)
+        {
+            try
+            {
+                var exists = await _context.D365Orders.AnyAsync(o => o.Id == order.Id);
+                if (exists)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var entity = new D365Order
+                {
+                    Id = order.Id,
+                    OrderNumber = order.OrderNumber,
+                    Name = order.Name,
+                    CustomerId = order.CustomerId,
+                    QuoteId = order.QuoteId,
+                    DateFulfilled = order.DateFulfilled,
+                    RequestDeliveryBy = order.RequestDeliveryBy,
+                    TotalAmount = order.TotalAmount,
+                    TotalDiscountAmount = order.TotalDiscountAmount,
+                    TotalLineItemAmount = order.TotalLineItemAmount,
+                    StateCode = order.StateCode,
+                    StatusCode = order.StatusCode,
+                    Description = order.Description,
+                    OwnerId = order.OwnerId,
+                    ProductionRequired = order.ProductionRequired,
+                    CreatedOn = order.CreatedOn ?? DateTime.UtcNow,
+                    ModifiedOn = order.ModifiedOn,
+                    CreatedBy = order.CreatedBy,
+                    ModifiedBy = order.ModifiedBy
+                };
+
+                _context.D365Orders.Add(entity);
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{order.Id}: {ex.Message}");
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped, {Errors} errors", 
+            imported, skipped, errors.Count);
+
+        return Ok(new { imported, skipped, errors = errors.Count, errorDetails = errors });
+    }
+
     private D365OrderDto MapToDto(D365Order order)
     {
         return new D365OrderDto

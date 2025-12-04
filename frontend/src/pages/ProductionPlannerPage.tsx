@@ -8,6 +8,7 @@ import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService, productionAuditService, scheduleBlockService } from '../services/millenniumServices';
 import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
+import { syncService } from '../services/syncService';
 import type { Jig, D365Order } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -65,6 +66,8 @@ export const ProductionPlannerPage = () => {
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [selectedBlockType, setSelectedBlockType] = useState<'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay' | undefined>(undefined);
+  const [syncInProgress, setSyncInProgress] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   
   // Date range for loading productions - default: 12 months back, 3 months forward
   const getDefaultDateRange = () => {
@@ -210,6 +213,31 @@ export const ProductionPlannerPage = () => {
     console.log('[PLANNER] Loading data for date range:', dateRange.dateFrom, 'to', dateRange.dateTo);
     loadData();
   }, [dateRange]);
+
+  const handleSyncFromDynamics = async () => {
+    if (syncInProgress) return;
+    setSyncInProgress(true);
+    setSyncMessage(null);
+    try {
+      const result = await syncService.triggerManualSync();
+      const ordersResult = result.results.find(r => r.entity === 'salesorder');
+      const productionsResult = result.results.find(r => r.entity === 'cr694_production');
+      const ordersCount = ordersResult?.recordsImported || 0;
+      const productionsCount = productionsResult?.recordsImported || 0;
+      setSyncMessage({
+        type: 'success',
+        text: `Synced ${ordersCount} orders and ${productionsCount} productions`
+      });
+      await loadData();
+    } catch (err) {
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Sync failed'
+      });
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
 
   // Stable base jobs array - only changes when jobs/unallocatedOrders change
   const baseJobs = useMemo(() => {
@@ -1065,7 +1093,14 @@ export const ProductionPlannerPage = () => {
       key: 'refresh',
       text: 'Refresh',
       iconProps: { iconName: 'Refresh' },
-      onClick: loadData
+      onClick: () => { loadData(); }
+    },
+    {
+      key: 'syncDynamics',
+      text: syncInProgress ? 'Syncing...' : 'Refresh from Dynamics',
+      iconProps: { iconName: syncInProgress ? 'ProgressRingDots' : 'Sync' },
+      disabled: syncInProgress,
+      onClick: () => { handleSyncFromDynamics(); }
     },
     {
       key: 'addBlock',
@@ -1229,6 +1264,16 @@ export const ProductionPlannerPage = () => {
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
           {error}
+        </MessageBar>
+      )}
+
+      {syncMessage && (
+        <MessageBar
+          messageBarType={syncMessage.type === 'success' ? MessageBarType.success : MessageBarType.error}
+          onDismiss={() => setSyncMessage(null)}
+          styles={{ root: { marginBottom: 10 } }}
+        >
+          {syncMessage.text}
         </MessageBar>
       )}
 

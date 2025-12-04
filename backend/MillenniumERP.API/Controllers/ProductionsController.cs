@@ -294,6 +294,79 @@ public class ProductionsController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("bulk")]
+    public async Task<ActionResult<object>> BulkImport([FromBody] List<ProductionImportDto> productions)
+    {
+        var imported = 0;
+        var skipped = 0;
+        var errors = new List<string>();
+
+        foreach (var prod in productions)
+        {
+            try
+            {
+                var exists = await _context.Productions.AnyAsync(p => p.Id == prod.Id);
+                if (exists)
+                {
+                    skipped++;
+                    continue;
+                }
+
+                var entity = new Production
+                {
+                    Id = prod.Id,
+                    Name = prod.Name,
+                    Customer = prod.Customer,
+                    Orderno = prod.Orderno,
+                    Jigstart = prod.Jigstart,
+                    Jigend = prod.Jigend,
+                    Jigleader = prod.Jigleader,
+                    Jighelper1 = prod.Jighelper1,
+                    Jighelper2 = prod.Jighelper2,
+                    Jighelper3 = prod.Jighelper3,
+                    Jighelper4 = prod.Jighelper4,
+                    Pickstart = prod.Pickstart,
+                    Pickend = prod.Pickend,
+                    Pickingmaster = prod.Pickingmaster,
+                    Pickinghelper1 = prod.Pickinghelper1,
+                    Pickinghelper2 = prod.Pickinghelper2,
+                    Pickinghelper3 = prod.Pickinghelper3,
+                    Sawstart = prod.Sawstart,
+                    Sawend = prod.Sawend,
+                    Sawoperator = prod.Sawoperator,
+                    Sawhelper1 = prod.Sawhelper1,
+                    Sawhelper2 = prod.Sawhelper2,
+                    Productioncomplete = prod.Productioncomplete,
+                    Productionplanneddate = prod.Productionplanneddate,
+                    Totalcuts = prod.Totalcuts,
+                    Totaltimbercubes = prod.Totaltimbercubes,
+                    Trusscost = prod.Trusscost,
+                    Trussselling = prod.Trussselling,
+                    Workunitsefinks = prod.Workunitsefinks,
+                    NewEstimatedefinks = prod.Newestimatedefinks,
+                    CreatedOn = prod.CreatedOn ?? DateTime.UtcNow,
+                    CreatedBy = prod.CreatedBy,
+                    ModifiedOn = prod.ModifiedOn,
+                    ModifiedBy = prod.ModifiedBy
+                };
+
+                _context.Productions.Add(entity);
+                imported++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{prod.Id}: {ex.Message}");
+            }
+        }
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped, {Errors} errors", 
+            imported, skipped, errors.Count);
+
+        return Ok(new { imported, skipped, errors = errors.Count, errorDetails = errors });
+    }
+
     private ProductionDto MapToDto(Production production, string? orderNumber = null, string? customerName = null)
     {
         return new ProductionDto
