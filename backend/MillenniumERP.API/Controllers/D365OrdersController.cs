@@ -57,6 +57,34 @@ public class D365OrdersController : ControllerBase
         return Ok(plannerOrders);
     }
 
+    [HttpGet("unallocated")]
+    public async Task<ActionResult<IEnumerable<object>>> GetUnallocated()
+    {
+        // Find sales orders with production_required = true that have NO production record
+        // This comparison is done at the database level for accuracy
+        var unallocatedOrders = await _context.D365Orders
+            .AsNoTracking()
+            .Where(o => o.ProductionRequired == true)
+            .Where(o => !_context.Productions.Any(p => p.Orderno == o.Id))
+            .Select(o => new 
+            {
+                o.Id,
+                o.OrderNumber,
+                o.Name,
+                CustomerName = _context.Accounts
+                    .Where(a => a.Id == o.CustomerId)
+                    .Select(a => a.Name)
+                    .FirstOrDefault(),
+                o.ProductionRequired,
+                EstimatedEFinks = (decimal?)null
+            })
+            .OrderBy(o => o.Name)
+            .ToListAsync();
+
+        _logger.LogInformation("Unallocated orders endpoint returned {Count} orders", unallocatedOrders.Count);
+        return Ok(unallocatedOrders);
+    }
+
     [HttpGet("{id}")]
     public async Task<ActionResult<D365OrderDto>> GetById(Guid id)
     {

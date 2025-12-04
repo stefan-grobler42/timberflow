@@ -69,9 +69,9 @@ public class ProductionsController : ControllerBase
         [FromQuery] string? dateFrom = null,
         [FromQuery] string? dateTo = null)
     {
-        // Default date range: 3 months back, 9 months forward
-        var fromDate = DateTime.UtcNow.AddMonths(-3);
-        var toDate = DateTime.UtcNow.AddMonths(9);
+        // Default date range: 12 months back, 3 months forward
+        var fromDate = DateTime.UtcNow.AddMonths(-12);
+        var toDate = DateTime.UtcNow.AddMonths(3);
 
         if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var parsedFromDate))
         {

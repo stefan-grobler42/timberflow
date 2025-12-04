@@ -46,7 +46,7 @@ interface Job {
 
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
@@ -66,104 +66,150 @@ export const ProductionPlannerPage = () => {
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [selectedBlockType, setSelectedBlockType] = useState<'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay' | undefined>(undefined);
   
+  // Date range for loading productions - default: 12 months back, 3 months forward
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const fromDate = new Date(today);
+    fromDate.setMonth(fromDate.getMonth() - 12);
+    const toDate = new Date(today);
+    toDate.setMonth(toDate.getMonth() + 3);
+    return {
+      dateFrom: fromDate.toISOString().split('T')[0],
+      dateTo: toDate.toISOString().split('T')[0]
+    };
+  };
+  const [dateRange, setDateRange] = useState(getDefaultDateRange);
 
+  const loadingRef = useRef(false);
+  
   const loadData = async () => {
+    if (loadingRef.current) {
+      console.log('[PLANNER] Already loading, skipping duplicate call');
+      return;
+    }
+    loadingRef.current = true;
     console.log('[PLANNER] Starting to load data...');
+    console.log(`[PLANNER] Date range: ${dateRange.dateFrom} to ${dateRange.dateTo}`);
     setLoading(true);
     setError(null);
     try {
-      // Load productions, jigs, orders, and schedule blocks
-      // Production.jigId is the source of truth for team assignment
       console.log('[PLANNER] Starting API calls using optimized planner endpoints...');
       const startTime = Date.now();
       
-      // Use optimized planner endpoints with slimmed DTOs for better performance
-      const productionsPromise = productionService.getForPlanner().then(r => { 
+      const productionsPromise = productionService.getForPlanner({ 
+        dateFrom: dateRange.dateFrom, 
+        dateTo: dateRange.dateTo 
+      }).then(r => { 
         console.log('[PLANNER] productions loaded in', Date.now() - startTime, 'ms, count:', r.length); 
         return r; 
+      }).catch(e => {
+        console.error('[PLANNER] ✗ productions FAILED:', e);
+        throw e;
       });
+      
       const jigsPromise = jigService.getAll().then(r => { 
         console.log('[PLANNER] jigs loaded in', Date.now() - startTime, 'ms'); 
         return r; 
+      }).catch(e => {
+        console.error('[PLANNER] ✗ jigs FAILED:', e);
+        throw e;
       });
-      const ordersPromise = d365OrderService.getForPlanner().then(r => { 
-        console.log('[PLANNER] orders loaded in', Date.now() - startTime, 'ms, count:', r.length); 
+      
+      const unallocatedPromise = d365OrderService.getUnallocated().then(r => { 
+        console.log('[PLANNER] unallocated orders loaded in', Date.now() - startTime, 'ms, count:', r.length); 
         return r; 
+      }).catch(e => {
+        console.error('[PLANNER] ✗ unallocated FAILED:', e);
+        throw e;
       });
+      
       const blocksPromise = scheduleBlockService.getAll().then(r => { 
         console.log('[PLANNER] blocks loaded in', Date.now() - startTime, 'ms'); 
         return r; 
+      }).catch(e => {
+        console.error('[PLANNER] ✗ blocks FAILED:', e);
+        throw e;
       });
       
-      const [productions, jigs, orders, blocks] = await Promise.all([
+      const [productions, jigs, unallocated, blocks] = await Promise.all([
         productionsPromise,
         jigsPromise,
-        ordersPromise,
+        unallocatedPromise,
         blocksPromise
       ]);
       
       console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
-      console.log(`[PLANNER] ✓ ${productions.length} productions, ${jigs.length} jig teams, ${orders.length} orders, ${blocks.length} blocks`);
+      console.log(`[PLANNER] ✓ ${productions.length} productions, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
       
-      // Map productions to jobs using Production.jigId as source of truth
-      const jobList: Job[] = productions.map((p: any) => ({
-        id: p.id,
-        name: p.name || '',
-        orderNumber: p.orderNumber || p.name || 'N/A',
-        customer: p.customerName || 'Unknown',
-        estimatedEFinks: p.newEstimateDefinks || 0,
-        customDurationMinutes: p.customDurationMinutes || undefined,
-        plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
-        jigId: p.jigId || null, // Direct from Production record
-        productionComplete: p.productionComplete === true,
-        parentProductionId: p.parentProductionId || undefined,
-        rolloverSequence: p.rolloverSequence || undefined,
-        createdOn: p.createdOn || undefined,
-        plannedStartTime: p.plannedStartTime ?? null,
-        plannedEndTime: p.plannedEndTime ?? null,
-        plannedDurationMinutes: p.plannedDurationMinutes ?? null,
-        breakAdjustmentMinutes: p.breakAdjustmentMinutes ?? null
+      let jobList: Job[];
+      try {
+        console.log('[PLANNER] Starting job mapping...');
+        jobList = productions.map((p: any) => ({
+          id: p.id,
+          name: p.name || '',
+          orderNumber: p.orderNumber || p.name || 'N/A',
+          customer: p.customerName || 'Unknown',
+          estimatedEFinks: p.newEstimateDefinks || 0,
+          customDurationMinutes: p.customDurationMinutes || undefined,
+          plannedDateStr: formatIsoDateLocal(p.productionPlannedDate),
+          jigId: p.jigId || null,
+          productionComplete: p.productionComplete === true,
+          parentProductionId: p.parentProductionId || undefined,
+          rolloverSequence: p.rolloverSequence || undefined,
+          createdOn: p.createdOn || undefined,
+          plannedStartTime: p.plannedStartTime ?? null,
+          plannedEndTime: p.plannedEndTime ?? null,
+          plannedDurationMinutes: p.plannedDurationMinutes ?? null,
+          breakAdjustmentMinutes: p.breakAdjustmentMinutes ?? null
+        }));
+        console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
+      } catch (mapErr) {
+        console.error('[PLANNER] ✗ Job mapping FAILED:', mapErr);
+        throw mapErr;
+      }
+      
+      // Map unallocated orders (already filtered at database level)
+      const ordersNeedingProduction = unallocated.map((o: any) => ({
+        id: `order-${o.id}`,
+        name: o.name || '',
+        orderNumber: o.orderNumber || o.name || 'N/A',
+        customer: o.customerName || 'Unknown',
+        estimatedEFinks: o.estimatedEFinks || 0,
+        plannedDateStr: null,
+        jigId: null,
+        productionComplete: false
       }));
       
-      console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${jobList.filter(j => j.productionComplete).length} completed)`);
+      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} truly unallocated sales orders (checked at database level)`);
       
-      // Find sales orders that require production but don't have production records yet
-      const productionOrderIds = new Set(productions.map((p: any) => p.orderNo).filter(Boolean));
-      const ordersNeedingProduction = orders
-        .filter((o: any) => o.productionRequired === true && !productionOrderIds.has(o.id))
-        .map((o: any) => ({
-          id: `order-${o.id}`,
-          name: o.name || '',
-          orderNumber: o.orderNumber || o.name || 'N/A',
-          customer: o.customerName || 'Unknown',
-          estimatedEFinks: o.estimatedEFinks || 0,
-          plannedDateStr: null,
-          jigId: null,
-          productionComplete: false
-        }));
-      
-      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} sales orders without production records`);
-      
-      setJobs(jobList);
-      setUnallocatedOrders(ordersNeedingProduction);
-      setJigTeams(jigs);
-      setScheduleBlocks(blocks);
-      if (selectedJigIds.length === 0) {
-        setSelectedJigIds(jigs.map(j => j.id));
+      try {
+        console.log('[PLANNER] Updating state...');
+        setJobs(jobList);
+        setUnallocatedOrders(ordersNeedingProduction);
+        setJigTeams(jigs);
+        setScheduleBlocks(blocks);
+        if (selectedJigIds.length === 0) {
+          setSelectedJigIds(jigs.map(j => j.id));
+        }
+        setLoading(false);
+        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
+      } catch (stateErr) {
+        console.error('[PLANNER] ✗ State update FAILED:', stateErr);
+        throw stateErr;
       }
-      setLoading(false);
-      console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
     } catch (err) {
       console.error('[PLANNER] ✗ Error loading:', err);
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
       setLoading(false);
+    } finally {
+      loadingRef.current = false;
     }
   };
 
   useEffect(() => {
-    console.log('[PLANNER] Component mounted, calling loadData()');
+    console.log('[PLANNER] Loading data for date range:', dateRange.dateFrom, 'to', dateRange.dateTo);
     loadData();
-  }, []);
+  }, [dateRange]);
 
   // Stable base jobs array - only changes when jobs/unallocatedOrders change
   const baseJobs = useMemo(() => {
@@ -1097,6 +1143,53 @@ export const ProductionPlannerPage = () => {
       text: 'Next',
       iconProps: { iconName: 'ChevronRight' },
       onClick: () => navigateDate('next')
+    },
+    {
+      key: 'divider',
+      text: '|',
+      disabled: true
+    },
+    {
+      key: 'dateRange',
+      text: `Range: ${dateRange.dateFrom} to ${dateRange.dateTo}`,
+      iconProps: { iconName: 'DateTimeMirrored' },
+      subMenuProps: {
+        items: [
+          {
+            key: 'lastYear',
+            text: 'Last 12 Months + 3 Months Forward',
+            onClick: () => {
+              const range = getDefaultDateRange();
+              setDateRange(range);
+            }
+          },
+          {
+            key: 'last2Years',
+            text: 'Last 24 Months + 3 Months Forward',
+            onClick: () => {
+              const today = new Date();
+              const fromDate = new Date(today);
+              fromDate.setMonth(fromDate.getMonth() - 24);
+              const toDate = new Date(today);
+              toDate.setMonth(toDate.getMonth() + 3);
+              setDateRange({
+                dateFrom: fromDate.toISOString().split('T')[0],
+                dateTo: toDate.toISOString().split('T')[0]
+              });
+            }
+          },
+          {
+            key: 'allTime',
+            text: 'All Time (May be slow)',
+            onClick: () => {
+              setDateRange({
+                dateFrom: '2020-01-01',
+                dateTo: '2030-12-31'
+              });
+            }
+          }
+        ]
+      }
     }
   ];
 

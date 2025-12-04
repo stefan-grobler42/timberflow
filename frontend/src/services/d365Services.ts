@@ -49,6 +49,7 @@ export const d365QuoteDetailService = {
 export const d365OrderService = {
   getAll: () => api.get<D365Order[]>('/d365orders'),
   getForPlanner: () => api.get<OrderPlannerData[]>('/d365orders/planner'),
+  getUnallocated: () => api.get<OrderPlannerData[]>('/d365orders/unallocated'),
   getById: (id: string) => api.get<D365Order>(`/d365orders/${id}`),
   create: (data: Partial<D365Order>) => api.post<D365Order>('/d365orders', data),
   update: (id: string, data: Partial<D365Order>) => api.put<D365Order>(`/d365orders/${id}`, data),
