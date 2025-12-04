@@ -22,7 +22,8 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 ### Technical Implementations
 -   **Backend**: ASP.NET Core 8 Web API, layered structure (Controllers → Services → Data), separate DTOs, PostgreSQL with Entity Framework Core (Npgsql driver).
 -   **Database**: PostgreSQL is the primary database, replacing SQLite for production persistence.
--   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs. Uses dedicated TeamDay and TeamDayAllocation tables for stable allocation persistence.
+-   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs.
+    -   **WIP Architecture**: TeamWorkItem table is the single source of truth for all allocated jobs. The planner reads from WIP joined with Production metadata via `GET /api/TeamWorkItems/planner` endpoint. Key WIP fields include: `plannedStartMinutes`, `plannedEndMinutes`, `plannedDurationMinutes`, `breakAdjustmentMinutes`, `dayStartMinutes` (nullable), `dayEndMinutes` (nullable), and `overtimeEnabled`. Nullable day fields allow shift config defaults to apply when not explicitly overridden by user.
     -   **PlannerV2 Domain Module** (`frontend/src/domain/plannerV2/`): Clean, isolated architecture with single-responsibility utilities:
         -   `types.ts`: Core type definitions (JobData, StagedChange, StagingState, ScheduleResult)
         -   `constants.ts`: Centralized BUFFER_MINUTES (30), working hours, break definitions
