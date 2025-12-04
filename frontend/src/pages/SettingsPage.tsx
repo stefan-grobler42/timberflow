@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, Pivot, PivotItem } from '@fluentui/react';
+import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, Pivot, PivotItem, Toggle } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { systemSettingsService } from '../services/systemSettingsService';
 import type { SystemSettings, StaffWorkingHours } from '../services/systemSettingsService';
@@ -328,6 +328,261 @@ export const SettingsPage: React.FC = () => {
               Important: Changing the timezone will affect how all dates and times are displayed throughout the system. 
               Existing data will not be modified, only the display format will change.
             </MessageBar>
+          </Stack>
+        </PivotItem>
+
+        <PivotItem headerText="Production Scheduling">
+          <Stack styles={{ root: { marginTop: 20 } }} tokens={{ childrenGap: 30 }}>
+            <Stack tokens={{ childrenGap: 15 }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                General Settings
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Configure general production scheduling parameters.
+              </Text>
+
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap>
+                <TextField 
+                  label="Buffer Between Jobs (minutes)" 
+                  type="number"
+                  value={settings.productionScheduling?.general?.bufferMinutes?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        general: {
+                          ...prev.productionScheduling?.general,
+                          bufferMinutes: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="Minimum Job Duration (minutes)" 
+                  type="number"
+                  value={settings.productionScheduling?.general?.minJobDuration?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        general: {
+                          ...prev.productionScheduling?.general,
+                          minJobDuration: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="Duration Rounding (minutes)" 
+                  type="number"
+                  value={settings.productionScheduling?.general?.durationRoundingIncrement?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        general: {
+                          ...prev.productionScheduling?.general,
+                          durationRoundingIncrement: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="E-Fink Multiplier" 
+                  type="number"
+                  step="0.1"
+                  value={settings.productionScheduling?.general?.eFinkMultiplier?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        general: {
+                          ...prev.productionScheduling?.general,
+                          eFinkMultiplier: parseFloat(value || '0')
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+              </Stack>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                Overtime Defaults
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Configure default overtime settings for production scheduling.
+              </Text>
+
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap verticalAlign="end">
+                <Toggle
+                  label="Default OT Enabled"
+                  checked={settings.productionScheduling?.overtimeDefaults?.defaultOvertimeEnabled || false}
+                  onChange={(_, checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        overtimeDefaults: {
+                          ...prev.productionScheduling?.overtimeDefaults,
+                          defaultOvertimeEnabled: checked || false
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { marginBottom: 5 } }}
+                />
+                <TextField 
+                  label="Late OT End Time" 
+                  value={settings.productionScheduling?.overtimeDefaults?.defaultLateOtEndTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        overtimeDefaults: {
+                          ...prev.productionScheduling?.overtimeDefaults,
+                          defaultLateOtEndTime: value || ''
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="HH:MM"
+                />
+                <Toggle
+                  label="Allow Early Start OT"
+                  checked={settings.productionScheduling?.overtimeDefaults?.allowEarlyStartOt || false}
+                  onChange={(_, checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        overtimeDefaults: {
+                          ...prev.productionScheduling?.overtimeDefaults,
+                          allowEarlyStartOt: checked || false
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { marginBottom: 5 } }}
+                />
+                <TextField 
+                  label="Early Start Time" 
+                  value={settings.productionScheduling?.overtimeDefaults?.defaultEarlyStartTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        overtimeDefaults: {
+                          ...prev.productionScheduling?.overtimeDefaults,
+                          defaultEarlyStartTime: value || ''
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="HH:MM"
+                />
+              </Stack>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                UI/Display Settings
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Configure display settings for the production planner interface.
+              </Text>
+
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap>
+                <TextField 
+                  label="Pixels Per Minute" 
+                  type="number"
+                  value={settings.productionScheduling?.uiDisplay?.pixelsPerMinute?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        uiDisplay: {
+                          ...prev.productionScheduling?.uiDisplay,
+                          pixelsPerMinute: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="Visible Hours Before Shift" 
+                  type="number"
+                  value={settings.productionScheduling?.uiDisplay?.visibleHoursBeforeShift?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        uiDisplay: {
+                          ...prev.productionScheduling?.uiDisplay,
+                          visibleHoursBeforeShift: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="Visible Hours After Shift" 
+                  type="number"
+                  value={settings.productionScheduling?.uiDisplay?.visibleHoursAfterShift?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        uiDisplay: {
+                          ...prev.productionScheduling?.uiDisplay,
+                          visibleHoursAfterShift: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+                <TextField 
+                  label="Day Header Height (pixels)" 
+                  type="number"
+                  value={settings.productionScheduling?.uiDisplay?.dayHeaderHeight?.toString() || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      productionScheduling: {
+                        ...prev.productionScheduling,
+                        uiDisplay: {
+                          ...prev.productionScheduling?.uiDisplay,
+                          dayHeaderHeight: parseInt(value || '0', 10)
+                        } as any
+                      }
+                    }));
+                  }}
+                  styles={{ root: { width: 200 } }}
+                />
+              </Stack>
+            </Stack>
           </Stack>
         </PivotItem>
       </Pivot>

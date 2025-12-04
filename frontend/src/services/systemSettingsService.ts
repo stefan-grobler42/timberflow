@@ -5,6 +5,34 @@ export interface SystemSettings {
   workingHours?: WorkingHoursSettings;
   timezone?: TimezoneSettings;
   breakTimes?: BreakTimesSettings;
+  productionScheduling?: ProductionSchedulingSettings;
+}
+
+export interface ProductionSchedulingSettings {
+  general?: GeneralSchedulingSettings;
+  overtimeDefaults?: OvertimeDefaultsSettings;
+  uiDisplay?: UiDisplaySettings;
+}
+
+export interface GeneralSchedulingSettings {
+  bufferMinutes: number;
+  minJobDuration: number;
+  durationRoundingIncrement: number;
+  eFinkMultiplier: number;
+}
+
+export interface OvertimeDefaultsSettings {
+  defaultOvertimeEnabled: boolean;
+  defaultLateOtEndTime: string;
+  allowEarlyStartOt: boolean;
+  defaultEarlyStartTime: string;
+}
+
+export interface UiDisplaySettings {
+  pixelsPerMinute: number;
+  visibleHoursBeforeShift: number;
+  visibleHoursAfterShift: number;
+  dayHeaderHeight: number;
 }
 
 export interface FinancialYearSettings {

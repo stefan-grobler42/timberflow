@@ -38,6 +38,15 @@ namespace MillenniumERP.Domain.Entities
         [Column("average_efinks")]
         public decimal AverageEfinks { get; set; } = 80;
 
+        /// <summary>Display order for sorting in planner</summary>
+        [Column("display_order")]
+        public int DisplayOrder { get; set; } = 0;
+
+        /// <summary>Colour for visual identification in planner (hex code)</summary>
+        [Column("colour")]
+        [MaxLength(7)]
+        public string? Colour { get; set; }
+
         // Audit fields
         [Column("created_on")]
         public DateTime? CreatedOn { get; set; }

@@ -10,6 +10,8 @@ public class JigDto
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
     public decimal AverageEfinks { get; set; } = 80;
+    public int DisplayOrder { get; set; } = 0;
+    public string? Colour { get; set; }
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }
@@ -25,6 +27,8 @@ public class CreateJigDto
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
     public decimal AverageEfinks { get; set; } = 80;
+    public int DisplayOrder { get; set; } = 0;
+    public string? Colour { get; set; }
 }
 
 public class UpdateJigDto
@@ -36,4 +40,6 @@ public class UpdateJigDto
     public decimal? ReliabilityScore { get; set; }
     public string? Strengths { get; set; }
     public decimal? AverageEfinks { get; set; }
+    public int? DisplayOrder { get; set; }
+    public string? Colour { get; set; }
 }

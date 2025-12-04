@@ -56,6 +56,8 @@ public class JigsController : ControllerBase
             ReliabilityScore = createDto.ReliabilityScore,
             Strengths = createDto.Strengths,
             AverageEfinks = createDto.AverageEfinks,
+            DisplayOrder = createDto.DisplayOrder,
+            Colour = createDto.Colour,
             CreatedOn = DateTime.UtcNow
         };
 
@@ -84,6 +86,8 @@ public class JigsController : ControllerBase
         if (updateDto.ReliabilityScore.HasValue) jig.ReliabilityScore = updateDto.ReliabilityScore;
         if (updateDto.Strengths != null) jig.Strengths = updateDto.Strengths;
         if (updateDto.AverageEfinks.HasValue) jig.AverageEfinks = updateDto.AverageEfinks.Value;
+        if (updateDto.DisplayOrder.HasValue) jig.DisplayOrder = updateDto.DisplayOrder.Value;
+        if (updateDto.Colour != null) jig.Colour = updateDto.Colour;
 
         jig.ModifiedOn = DateTime.UtcNow;
 
@@ -124,6 +128,8 @@ public class JigsController : ControllerBase
             ReliabilityScore = jig.ReliabilityScore,
             Strengths = jig.Strengths,
             AverageEfinks = jig.AverageEfinks,
+            DisplayOrder = jig.DisplayOrder,
+            Colour = jig.Colour,
             CreatedOn = jig.CreatedOn,
             CreatedBy = jig.CreatedBy,
             ModifiedOn = jig.ModifiedOn,

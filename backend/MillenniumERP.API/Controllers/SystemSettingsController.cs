@@ -32,7 +32,8 @@ public class SystemSettingsController : ControllerBase
                 FinancialYear = GetFinancialYearSettings(settings),
                 WorkingHours = GetWorkingHoursSettings(settings),
                 Timezone = GetTimezoneSettings(settings),
-                BreakTimes = GetBreakTimesSettings(settings)
+                BreakTimes = GetBreakTimesSettings(settings),
+                ProductionScheduling = GetProductionSchedulingSettings(settings)
             };
 
             return Ok(dto);
@@ -53,6 +54,7 @@ public class SystemSettingsController : ControllerBase
             await SaveWorkingHoursSettings(dto.WorkingHours);
             await SaveTimezoneSettings(dto.Timezone);
             await SaveBreakTimesSettings(dto.BreakTimes);
+            await SaveProductionSchedulingSettings(dto.ProductionScheduling);
             
             await _context.SaveChangesAsync();
 
@@ -202,6 +204,73 @@ public class SystemSettingsController : ControllerBase
 
         var json = JsonSerializer.Serialize(dto);
         await UpsertSetting("BreakTimes.Settings", json, "Break Times", "Tea, lunch, and overtime break schedules");
+    }
+
+    private ProductionSchedulingSettingsDto GetProductionSchedulingSettings(List<SystemSetting> settings)
+    {
+        var generalSetting = settings.FirstOrDefault(s => s.SettingKey == "ProductionScheduling.General");
+        var overtimeDefaultsSetting = settings.FirstOrDefault(s => s.SettingKey == "ProductionScheduling.OvertimeDefaults");
+        var uiDisplaySetting = settings.FirstOrDefault(s => s.SettingKey == "ProductionScheduling.UiDisplay");
+
+        var defaultGeneral = new GeneralSchedulingDto
+        {
+            BufferMinutes = 30,
+            MinJobDuration = 15,
+            DurationRoundingIncrement = 15,
+            EFinkMultiplier = 6.5625m
+        };
+
+        var defaultOvertimeDefaults = new OvertimeDefaultsDto
+        {
+            DefaultOvertimeEnabled = false,
+            DefaultLateOtEndTime = "19:00",
+            AllowEarlyStartOt = false,
+            DefaultEarlyStartTime = "06:00"
+        };
+
+        var defaultUiDisplay = new UiDisplayDto
+        {
+            PixelsPerMinute = 1.5m,
+            VisibleHoursBeforeShift = 1,
+            VisibleHoursAfterShift = 1,
+            DayHeaderHeight = 40
+        };
+
+        return new ProductionSchedulingSettingsDto
+        {
+            General = generalSetting != null ?
+                JsonSerializer.Deserialize<GeneralSchedulingDto>(generalSetting.SettingValue ?? "{}") ?? defaultGeneral :
+                defaultGeneral,
+            OvertimeDefaults = overtimeDefaultsSetting != null ?
+                JsonSerializer.Deserialize<OvertimeDefaultsDto>(overtimeDefaultsSetting.SettingValue ?? "{}") ?? defaultOvertimeDefaults :
+                defaultOvertimeDefaults,
+            UiDisplay = uiDisplaySetting != null ?
+                JsonSerializer.Deserialize<UiDisplayDto>(uiDisplaySetting.SettingValue ?? "{}") ?? defaultUiDisplay :
+                defaultUiDisplay
+        };
+    }
+
+    private async Task SaveProductionSchedulingSettings(ProductionSchedulingSettingsDto? dto)
+    {
+        if (dto == null) return;
+
+        if (dto.General != null)
+        {
+            var json = JsonSerializer.Serialize(dto.General);
+            await UpsertSetting("ProductionScheduling.General", json, "Production Scheduling", "General scheduling configuration");
+        }
+
+        if (dto.OvertimeDefaults != null)
+        {
+            var json = JsonSerializer.Serialize(dto.OvertimeDefaults);
+            await UpsertSetting("ProductionScheduling.OvertimeDefaults", json, "Production Scheduling", "Overtime defaults configuration");
+        }
+
+        if (dto.UiDisplay != null)
+        {
+            var json = JsonSerializer.Serialize(dto.UiDisplay);
+            await UpsertSetting("ProductionScheduling.UiDisplay", json, "Production Scheduling", "UI display configuration");
+        }
     }
 
     private async Task UpsertSetting(string key, string value, string category, string description)

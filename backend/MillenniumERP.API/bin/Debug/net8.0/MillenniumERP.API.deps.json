@@ -816,7 +816,8 @@
       "MillenniumERP.Infrastructure/1.0.0": {
         "dependencies": {
           "Microsoft.EntityFrameworkCore.Sqlite": "8.0.0",
-          "MillenniumERP.Application": "1.0.0"
+          "MillenniumERP.Application": "1.0.0",
+          "Npgsql.EntityFrameworkCore.PostgreSQL": "8.0.0"
         },
         "runtime": {
           "MillenniumERP.Infrastructure.dll": {
