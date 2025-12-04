@@ -1,0 +1,36 @@
+I want to create a plan for phase 2 to keep that in mind when developing so that we stay on track.
+
+We are currently only building the scheduling side of the planner, we then need to introduce functionality to capture the actuals.
+
+The following production record fields are actually Date&Time fields in dynamics, we need to update them accordingly in the database and on the forms.
+Pick Start
+Pick End
+Saw Start
+Saw End
+Jig Start
+Jig End
+
+Functionality to be added:
+I want to add right click functionality on the job blocks so the user can right click and select add actuals. 
+
+It should then ask the user to enter the Total Timber Cubes, Total Cuts & Work Units (E-Finks) (The work units they enter here become the actual work units and should trigger a block resize based on the new E-Finks and adjust the schedule either increasing the block or decreasing it). These three variables form the basis of the three processes that are to follow namely, picking, sawing & Jigging.
+
+Upon right clicking again it should open a dialog to start a timer on the Picking process. 
+when the picking process completes the user can once again right click and see a stop process dialog.
+
+Right Clicking again would reveal a start manufacture dialog this would then request the user to confirm the desired process. "Start Sawing", "Start Sawing & Jigging". Based on the selection the system should start a timber either for sawing or start two timers one for sawing and one for jigging.
+
+Right clicking again should reveal a stop Sawing in the case that the sawing timer is running or stop jigging if the jigging timer is running or in the case where the sawing is running you could stop the sawing and start jigging These can interchange however required until the timer has been started and stopped for all three processes.
+
+Because all roll over jobs create a clone in the next day the timers should only run for the day that they are started on and terminate automatically at the end of the available hours for that day unless manually stopped. In the case where the timer automatically terminated there should be an already on the card that can only be cleared by a user going into the card and verifying the time.
+
+   
+Its important for the company to track all three processes for reporting purposes and to ensure that the staff are performing in all those area's however the block size and schedule only represents the Jigging process. For that reason users might go to a job booked in 2 days time and start the timer for picking, complete it and start the timer for sawing and complete ie. pre planning for manufacture, but not start the jigging until the schedule date arrives for that Job/block. 
+
+For the Picking and Sawing I would like to see a small visual in the right corner of the card, This should not overlap with the reset size icon or the ! Icon this visual would then signify the completion of the three processes. some kind of colour visual so that at a glance I can see if the picking, sawing or jigging is done for that order. 
+
+For the Jigging / Manufacture process it must be more impactful the colour can show completion but the block should resize based on the times captured. if the job was finished before the allotted time then it should dilate the bottom of the card ie. showing the full card size and darkening the portion saved in a darker colour on the card with a visual of the time saved "Production Ahead of schedule by 0:30' as an example. If the job took longer than what was planned it should cascade all the jobs down the line by increasing the size of the block. This increase however should be dilated in a darker colour on the card so that you can see at a glance where the job should have ended versus where it actually ended add visual "Production Behind schedule by 1:00" as an example. This behaviour may cause rollovers in the case where the timer runs and automatically terminates then the system should create a new clone child record in the next day still in the darker colour and then the user can once again start and stop on that record until its actually finished. If the user forgot the timer then they would have to manually delete the record created in the next day and go back into the record on the first day and correct the time which would then again adjust everything down the line.
+
+This functionality id deadly important and must be easily visible as this should immediate trigger the user to call the clients whose jobs were moved to tell them to expect a delay.
+
+Once the process is completed and verified the user can right click and select complete which would then mark the order as complete and grey it out to match the other completed orders. even after completion I want to be able to see the dilated portion of the card to see whether it was ahead or behind schedule.
