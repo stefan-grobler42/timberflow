@@ -33,6 +33,7 @@ import { Pagination } from '../components/Pagination';
 import { useLookupData, resolveLookup } from '../hooks/useLookupData';
 import { usePagination } from '../hooks/usePagination';
 import * as XLSX from 'xlsx';
+import { syncService } from '../services/syncService';
 
 export const ProductionPage = () => {
   const [production, setProduction] = useState<Production[]>([]);
@@ -47,6 +48,8 @@ export const ProductionPage = () => {
   const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
+  const [syncInProgress, setSyncInProgress] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [sortColumn, setSortColumn] = useState<string>('orderNumber');
   const [isSortedDescending, setIsSortedDescending] = useState(true);
   const lookupData = useLookupData();
@@ -580,6 +583,34 @@ export const ProductionPage = () => {
   const orderedColumns = currentView.columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
   const columns = orderedColumns.filter((col) => currentView.columnVisibility[col.key]);
 
+  const handleSyncFromDynamics = async () => {
+    if (syncInProgress) return;
+    
+    try {
+      setSyncInProgress(true);
+      setSyncMessage(null);
+      
+      const response = await syncService.triggerManualSync();
+      
+      const productionResult = response.results?.find((r: any) => r.entity === 'cr694_production');
+      const productionCount = productionResult?.recordsImported || 0;
+      
+      setSyncMessage({
+        type: 'success',
+        text: `Synced ${productionCount} productions from Dynamics 365`
+      });
+      
+      loadProduction();
+    } catch (err) {
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to sync from Dynamics'
+      });
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
+
   const commandBarItems: ICommandBarItemProps[] = [
     {
       key: 'new',
@@ -606,6 +637,13 @@ export const ProductionPage = () => {
       text: 'Refresh',
       iconProps: { iconName: 'Refresh' },
       onClick: loadProduction,
+    },
+    {
+      key: 'syncDynamics',
+      text: syncInProgress ? 'Syncing...' : 'Refresh from Dynamics',
+      iconProps: { iconName: syncInProgress ? 'ProgressRingDots' : 'Sync' },
+      disabled: syncInProgress,
+      onClick: () => { handleSyncFromDynamics(); }
     },
     {
       key: 'export',
@@ -682,6 +720,15 @@ export const ProductionPage = () => {
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
           {error}
+        </MessageBar>
+      )}
+
+      {syncMessage && (
+        <MessageBar
+          messageBarType={syncMessage.type === 'success' ? MessageBarType.success : MessageBarType.error}
+          onDismiss={() => setSyncMessage(null)}
+        >
+          {syncMessage.text}
         </MessageBar>
       )}
 

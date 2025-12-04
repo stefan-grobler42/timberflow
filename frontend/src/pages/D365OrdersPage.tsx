@@ -19,6 +19,7 @@ import {
 } from '@fluentui/react';
 import type { IColumn, ICommandBarItemProps } from '@fluentui/react';
 import { d365OrderService } from '../services/d365Services';
+import { syncService } from '../services/syncService';
 import type { D365Order } from '../types/millennium';
 import type { GridView, GridFilter } from '../types/gridView';
 import { D365OrderForm } from '../components/D365OrderForm';
@@ -44,6 +45,8 @@ export const D365OrdersPage = () => {
   const [isFilterBuilderOpen, setIsFilterBuilderOpen] = useState(false);
   const [sortColumn, setSortColumn] = useState<string>('');
   const [isSortedDescending, setIsSortedDescending] = useState(false);
+  const [syncInProgress, setSyncInProgress] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const {
     currentPage,
@@ -502,6 +505,34 @@ export const D365OrdersPage = () => {
   const orderedColumns = currentView.columnOrder.map(key => allColumns.find(col => col.key === key)).filter(Boolean) as IColumn[];
   const columns = orderedColumns.filter((col) => currentView.columnVisibility[col.key]);
 
+  const handleSyncFromDynamics = async () => {
+    if (syncInProgress) return;
+    
+    try {
+      setSyncInProgress(true);
+      setSyncMessage(null);
+      
+      const response = await syncService.triggerManualSync();
+      
+      const ordersResult = response.results?.find((r: any) => r.entity === 'salesorder');
+      const ordersCount = ordersResult?.recordsImported || 0;
+      
+      setSyncMessage({
+        type: 'success',
+        text: `Synced ${ordersCount} orders from Dynamics 365`
+      });
+      
+      loadOrders();
+    } catch (err) {
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to sync from Dynamics'
+      });
+    } finally {
+      setSyncInProgress(false);
+    }
+  };
+
   const commandBarItems: ICommandBarItemProps[] = [
     {
       key: 'new',
@@ -528,6 +559,13 @@ export const D365OrdersPage = () => {
       text: 'Refresh',
       iconProps: { iconName: 'Refresh' },
       onClick: loadOrders,
+    },
+    {
+      key: 'syncDynamics',
+      text: syncInProgress ? 'Syncing...' : 'Refresh from Dynamics',
+      iconProps: { iconName: syncInProgress ? 'ProgressRingDots' : 'Sync' },
+      disabled: syncInProgress,
+      onClick: () => { handleSyncFromDynamics(); }
     },
     {
       key: 'export',
@@ -598,6 +636,15 @@ export const D365OrdersPage = () => {
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError(null)}>
           {error}
+        </MessageBar>
+      )}
+
+      {syncMessage && (
+        <MessageBar
+          messageBarType={syncMessage.type === 'success' ? MessageBarType.success : MessageBarType.error}
+          onDismiss={() => setSyncMessage(null)}
+        >
+          {syncMessage.text}
         </MessageBar>
       )}
 
