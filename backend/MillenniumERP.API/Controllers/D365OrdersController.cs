@@ -176,17 +176,36 @@ public class D365OrdersController : ControllerBase
     public async Task<ActionResult<object>> BulkImport([FromBody] List<D365OrderImportDto> orders)
     {
         var imported = 0;
-        var skipped = 0;
+        var skippedById = 0;
+        var skippedByOrderNumber = 0;
         var errors = new List<string>();
+
+        var existingOrderNumbers = await _context.D365Orders
+            .Where(o => o.OrderNumber != null)
+            .Select(o => o.OrderNumber!)
+            .ToListAsync();
+        var existingOrderNumberSet = new HashSet<string>(existingOrderNumbers, StringComparer.OrdinalIgnoreCase);
+
+        var existingIds = await _context.D365Orders
+            .Select(o => o.Id)
+            .ToListAsync();
+        var existingIdSet = new HashSet<Guid>(existingIds);
 
         foreach (var order in orders)
         {
             try
             {
-                var exists = await _context.D365Orders.AnyAsync(o => o.Id == order.Id);
-                if (exists)
+                if (existingIdSet.Contains(order.Id))
                 {
-                    skipped++;
+                    _logger.LogDebug("Skipping order {OrderNumber} - ID {Id} already exists", order.OrderNumber, order.Id);
+                    skippedById++;
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(order.OrderNumber) && existingOrderNumberSet.Contains(order.OrderNumber))
+                {
+                    _logger.LogDebug("Skipping order {OrderNumber} - Order number already exists in database", order.OrderNumber);
+                    skippedByOrderNumber++;
                     continue;
                 }
 
@@ -214,20 +233,34 @@ public class D365OrdersController : ControllerBase
                 };
 
                 _context.D365Orders.Add(entity);
+                existingIdSet.Add(order.Id);
+                if (!string.IsNullOrEmpty(order.OrderNumber))
+                {
+                    existingOrderNumberSet.Add(order.OrderNumber);
+                }
                 imported++;
             }
             catch (Exception ex)
             {
-                errors.Add($"{order.Id}: {ex.Message}");
+                errors.Add($"{order.OrderNumber ?? order.Id.ToString()}: {ex.Message}");
+                _logger.LogError(ex, "Error importing order {OrderNumber} ({Id})", order.OrderNumber, order.Id);
             }
         }
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped, {Errors} errors", 
-            imported, skipped, errors.Count);
+        var skipped = skippedById + skippedByOrderNumber;
+        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped ({SkippedById} by ID, {SkippedByOrderNumber} by order number), {Errors} errors", 
+            imported, skipped, skippedById, skippedByOrderNumber, errors.Count);
 
-        return Ok(new { imported, skipped, errors = errors.Count, errorDetails = errors });
+        return Ok(new { 
+            imported, 
+            skipped,
+            skippedById,
+            skippedByOrderNumber, 
+            errors = errors.Count, 
+            errorDetails = errors 
+        });
     }
 
     private D365OrderDto MapToDto(D365Order order)

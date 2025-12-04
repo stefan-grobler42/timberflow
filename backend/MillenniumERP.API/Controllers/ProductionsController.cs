@@ -298,17 +298,36 @@ public class ProductionsController : ControllerBase
     public async Task<ActionResult<object>> BulkImport([FromBody] List<ProductionImportDto> productions)
     {
         var imported = 0;
-        var skipped = 0;
+        var skippedById = 0;
+        var skippedByName = 0;
         var errors = new List<string>();
+
+        var existingNames = await _context.Productions
+            .Where(p => p.Name != null)
+            .Select(p => p.Name!)
+            .ToListAsync();
+        var existingNameSet = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
+
+        var existingIds = await _context.Productions
+            .Select(p => p.Id)
+            .ToListAsync();
+        var existingIdSet = new HashSet<Guid>(existingIds);
 
         foreach (var prod in productions)
         {
             try
             {
-                var exists = await _context.Productions.AnyAsync(p => p.Id == prod.Id);
-                if (exists)
+                if (existingIdSet.Contains(prod.Id))
                 {
-                    skipped++;
+                    _logger.LogDebug("Skipping production {Name} - ID {Id} already exists", prod.Name, prod.Id);
+                    skippedById++;
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(prod.Name) && existingNameSet.Contains(prod.Name))
+                {
+                    _logger.LogDebug("Skipping production {Name} - Name already exists in database", prod.Name);
+                    skippedByName++;
                     continue;
                 }
 
@@ -351,20 +370,34 @@ public class ProductionsController : ControllerBase
                 };
 
                 _context.Productions.Add(entity);
+                existingIdSet.Add(prod.Id);
+                if (!string.IsNullOrEmpty(prod.Name))
+                {
+                    existingNameSet.Add(prod.Name);
+                }
                 imported++;
             }
             catch (Exception ex)
             {
-                errors.Add($"{prod.Id}: {ex.Message}");
+                errors.Add($"{prod.Name ?? prod.Id.ToString()}: {ex.Message}");
+                _logger.LogError(ex, "Error importing production {Name} ({Id})", prod.Name, prod.Id);
             }
         }
 
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped, {Errors} errors", 
-            imported, skipped, errors.Count);
+        var skipped = skippedById + skippedByName;
+        _logger.LogInformation("Bulk import completed: {Imported} imported, {Skipped} skipped ({SkippedById} by ID, {SkippedByName} by name), {Errors} errors", 
+            imported, skipped, skippedById, skippedByName, errors.Count);
 
-        return Ok(new { imported, skipped, errors = errors.Count, errorDetails = errors });
+        return Ok(new { 
+            imported, 
+            skipped,
+            skippedById,
+            skippedByName, 
+            errors = errors.Count, 
+            errorDetails = errors 
+        });
     }
 
     private ProductionDto MapToDto(Production production, string? orderNumber = null, string? customerName = null)
