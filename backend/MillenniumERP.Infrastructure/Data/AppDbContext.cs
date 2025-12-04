@@ -56,6 +56,9 @@ public class AppDbContext : DbContext
     // Schedule blocks for non-job time blocks
     public DbSet<ScheduleBlock> ScheduleBlocks { get; set; }
     
+    // Team Work Items (WIP) for active job scheduling
+    public DbSet<TeamWorkItem> TeamWorkItems { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
@@ -552,6 +555,36 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.RelatedProduction)
                   .WithMany()
                   .HasForeignKey(e => e.RelatedProductionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // TeamWorkItem configuration
+        modelBuilder.Entity<TeamWorkItem>(entity =>
+        {
+            entity.ToTable("team_work_items");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.TeamId, e.WorkDate });
+            entity.HasIndex(e => e.ProductionId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.WorkDate);
+
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("scheduled");
+            entity.Property(e => e.TimberCubes).HasPrecision(18, 4);
+            entity.Property(e => e.ActualEfinks).HasPrecision(18, 4);
+
+            entity.HasOne(e => e.Production)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProductionId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ParentWip)
+                  .WithMany()
+                  .HasForeignKey(e => e.ParentWipId)
                   .OnDelete(DeleteBehavior.SetNull);
         });
 
