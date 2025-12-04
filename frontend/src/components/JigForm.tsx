@@ -7,10 +7,27 @@ import {
   MessageBarType,
   CommandBar,
   Dropdown,
+  SwatchColorPicker,
+  Label,
 } from '@fluentui/react';
-import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
+import type { ICommandBarItemProps, IDropdownOption, IColorCellProps } from '@fluentui/react';
 import { jigService, employeeService } from '../services/millenniumServices';
 import type { Jig, Employee } from '../types/millennium';
+
+const teamColourOptions: IColorCellProps[] = [
+  { id: '#4A90A4', label: 'Carolina Blue', color: '#4A90A4' },
+  { id: '#2E7D32', label: 'Forest Green', color: '#2E7D32' },
+  { id: '#FF5722', label: 'Deep Orange', color: '#FF5722' },
+  { id: '#9C27B0', label: 'Purple', color: '#9C27B0' },
+  { id: '#F44336', label: 'Red', color: '#F44336' },
+  { id: '#2196F3', label: 'Blue', color: '#2196F3' },
+  { id: '#FFC107', label: 'Amber', color: '#FFC107' },
+  { id: '#009688', label: 'Teal', color: '#009688' },
+  { id: '#607D8B', label: 'Blue Grey', color: '#607D8B' },
+  { id: '#795548', label: 'Brown', color: '#795548' },
+  { id: '#E91E63', label: 'Pink', color: '#E91E63' },
+  { id: '#3F51B5', label: 'Indigo', color: '#3F51B5' },
+];
 
 interface JigFormProps {
   jig?: Jig;
@@ -33,6 +50,8 @@ export const JigForm = ({
     reliabilityScore: undefined,
     strengths: '',
     averageEfinks: 80,
+    displayOrder: 0,
+    colour: '#4A90A4',
   });
   const [_employees, setEmployees] = useState<Employee[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<IDropdownOption[]>([]);
@@ -54,6 +73,8 @@ export const JigForm = ({
         reliabilityScore: jig.reliabilityScore,
         strengths: jig.strengths || '',
         averageEfinks: jig.averageEfinks ?? 80,
+        displayOrder: jig.displayOrder ?? 0,
+        colour: jig.colour || '#4A90A4',
       });
     }
     setError(null);
@@ -126,6 +147,8 @@ export const JigForm = ({
         reliabilityScore: undefined,
         strengths: '',
         averageEfinks: 80,
+        displayOrder: 0,
+        colour: '#4A90A4',
       });
       setSaving(false);
     } catch (err) {
@@ -248,6 +271,54 @@ export const JigForm = ({
             }}
             disabled={saving}
           />
+
+          <TextField
+            label="Display Order"
+            type="number"
+            min={0}
+            step={1}
+            description="The order in which this team appears in the planner (lower numbers appear first)."
+            value={formData.displayOrder?.toString() || '0'}
+            onChange={(_, value) => {
+              const parsed = value ? parseInt(value, 10) : 0;
+              setFormData({ ...formData, displayOrder: Math.max(0, parsed) });
+            }}
+            disabled={saving}
+          />
+
+          <Stack tokens={{ childrenGap: 4 }}>
+            <Label>Team Colour</Label>
+            <Text variant="small" styles={{ root: { color: '#666', marginBottom: 8 } }}>
+              Select a colour for visual identification in the production planner.
+            </Text>
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+              <SwatchColorPicker
+                columnCount={6}
+                cellShape="square"
+                cellHeight={32}
+                cellWidth={32}
+                cellBorderWidth={2}
+                colorCells={teamColourOptions}
+                selectedId={formData.colour}
+                onChange={(_, __, colour) => setFormData({ ...formData, colour: colour || '#4A90A4' })}
+                disabled={saving}
+              />
+              <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                <div 
+                  style={{ 
+                    width: 40, 
+                    height: 40, 
+                    backgroundColor: formData.colour || '#4A90A4',
+                    borderRadius: 4,
+                    border: '2px solid #ccc'
+                  }} 
+                />
+                <Text variant="small" styles={{ root: { fontFamily: 'monospace' } }}>
+                  {formData.colour || '#4A90A4'}
+                </Text>
+              </Stack>
+            </Stack>
+          </Stack>
         </Stack>
       </Stack>
     </Stack>

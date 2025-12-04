@@ -126,6 +126,8 @@ export interface Jig {
   reliabilityScore?: number;
   strengths?: string;
   averageEfinks?: number;
+  displayOrder?: number;
+  colour?: string;
   createdOn?: string;
   createdBy?: string;
   modifiedOn?: string;
