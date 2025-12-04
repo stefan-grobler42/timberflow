@@ -49,6 +49,14 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 -   **Order Form Summary**: Reactive workflow timeline (Quote Created to Order Complete) dynamically updating based on form data, responsive two-column layout.
 -   **Form Enhancements**: `cleanFormData` function for robust handling of nullable fields and team allocations.
 -   **Data Migration**: Python script for schema-aware data migration from Microsoft Dynamics 365 to PostgreSQL, preserving D365 GUIDs and ensuring data integrity.
+-   **D365 Incremental Sync**: Automated synchronization system that:
+    -   Fetches only NEW records from D365 using OData `$filter=createdon gt {last_sync_timestamp}` to avoid re-importing existing data
+    -   Tracks sync history in `sync_history` database table with entity name, timestamps, status, records imported, duration, and errors
+    -   Runs automatically at midnight South Africa time (SAST, UTC+2) via `DynamicsSyncScheduler` background service
+    -   Provides manual "Refresh from Dynamics" button in Production Planner action bar with real-time status feedback
+    -   Uses thread-safe concurrency protection to prevent overlapping sync operations
+    -   Syncs both `salesorder` and `cr694_production` entities
+    -   Key files: `dynamics365_integration/incremental_sync.py`, `SyncController.cs`, `DynamicsSyncScheduler.cs`, `syncService.ts`
 
 ### Feature Specifications
 -   **ERP Modules**: Comprehensive modules including Activities, Installations, Trips, Loads, Procurement, Suppliers, Sub-Contractors, Accounts, Contacts, Quotes, Orders, Tenders, Products, Employees, Designers, Sales Representatives, Vehicles.

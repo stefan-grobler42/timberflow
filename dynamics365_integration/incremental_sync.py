@@ -285,7 +285,7 @@ def main():
         
         result = syncer.run()
         
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result))
         
         return 0 if result['success'] else 1
         
@@ -299,7 +299,7 @@ def main():
             'duration_seconds': 0,
             'success': False
         }
-        print(json.dumps(error_result, indent=2))
+        print(json.dumps(error_result))
         return 1
 
 
