@@ -261,7 +261,7 @@ export const ProductionPlannerPage = () => {
           setSelectedJigIds(jigs.map(j => j.id));
         }
         setLoading(false);
-        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
+        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${allUnallocated.length}`);
       } catch (stateErr) {
         console.error('[PLANNER] ✗ State update FAILED:', stateErr);
         throw stateErr;
@@ -912,20 +912,12 @@ export const ProductionPlannerPage = () => {
           id: job.wipId!,
           data: {
             overtimeEnabled: enabled,
-            // When disabling overtime, explicitly send null to clear the override
-            dayEndMinutes: enabled ? closeTime : null,
-            plannedStartMinutes: rescheduled?.plannedStartTime !== undefined 
-              ? rescheduled.plannedStartTime 
-              : (job.plannedStartTime ?? undefined),
-            plannedEndMinutes: rescheduled?.plannedEndTime !== undefined 
-              ? rescheduled.plannedEndTime 
-              : (job.plannedEndTime ?? undefined),
-            plannedDurationMinutes: rescheduled?.plannedDurationMinutes !== undefined 
-              ? rescheduled.plannedDurationMinutes 
-              : job.plannedDurationMinutes,  // Keep existing WIP value - don't recalculate from E-Finks
-            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes !== undefined 
-              ? rescheduled.breakAdjustmentMinutes 
-              : (job.breakAdjustmentMinutes ?? 0)
+            // When disabling overtime, explicitly clear the override (undefined will trigger backend to set null)
+            dayEndMinutes: enabled ? closeTime : undefined,
+            plannedStartMinutes: rescheduled?.plannedStartTime ?? (job.plannedStartTime ?? undefined),
+            plannedEndMinutes: rescheduled?.plannedEndTime ?? (job.plannedEndTime ?? undefined),
+            plannedDurationMinutes: rescheduled?.plannedDurationMinutes ?? (job.plannedDurationMinutes ?? undefined),  // Keep existing WIP value - don't recalculate from E-Finks
+            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes ?? (job.breakAdjustmentMinutes ?? 0)
           }
         };
       });
