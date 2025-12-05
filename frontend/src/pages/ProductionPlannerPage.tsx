@@ -226,6 +226,7 @@ export const ProductionPlannerPage = () => {
         throw mapErr;
       }
       
+      // D365 orders that don't have Production records yet
       const ordersNeedingProduction = unallocated.map((o: any) => ({
         id: `order-${o.id}`,
         name: o.name || '',
@@ -237,12 +238,23 @@ export const ProductionPlannerPage = () => {
         productionComplete: false
       }));
       
-      console.log(`[PLANNER] ✓ Found ${ordersNeedingProduction.length} truly unallocated sales orders (checked at database level)`);
+      // Production records that exist but are NOT allocated to any team (no WIP entry)
+      // These are the main source of unallocated jobs that need to be dragged to teams
+      const unallocatedProductions = jobList.filter(j => 
+        !j.wipId && // No WIP allocation
+        !j.productionComplete && // Not completed
+        j.jigId === null // Not assigned to a team
+      );
+      
+      // Combine both sources for the unallocated basket
+      const allUnallocated = [...unallocatedProductions, ...ordersNeedingProduction];
+      
+      console.log(`[PLANNER] ✓ Found ${unallocatedProductions.length} unallocated productions (no WIP) + ${ordersNeedingProduction.length} D365 orders = ${allUnallocated.length} total unallocated`);
       
       try {
         console.log('[PLANNER] Updating state...');
         setJobs(jobList);
-        setUnallocatedOrders(ordersNeedingProduction);
+        setUnallocatedOrders(allUnallocated);
         setJigTeams(jigs);
         setScheduleBlocks(blocks);
         if (selectedJigIds.length === 0) {
