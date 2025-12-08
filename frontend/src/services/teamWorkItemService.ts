@@ -60,6 +60,7 @@ export interface CreateTeamWorkItemDto {
   dayStartMinutes?: number;
   dayEndMinutes?: number;
   breakDefinitions?: string;
+  customDurationMinutes?: number | null;
 }
 
 export interface UpdateTeamWorkItemDto {

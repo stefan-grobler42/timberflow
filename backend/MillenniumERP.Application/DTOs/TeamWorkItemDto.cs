@@ -174,6 +174,9 @@ public class CreateTeamWorkItemDto
 
     [JsonPropertyName("breakDefinitions")]
     public string? BreakDefinitions { get; set; }
+
+    [JsonPropertyName("customDurationMinutes")]
+    public int? CustomDurationMinutes { get; set; }
 }
 
 public class UpdateTeamWorkItemDto

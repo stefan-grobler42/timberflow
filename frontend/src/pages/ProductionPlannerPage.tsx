@@ -462,7 +462,10 @@ export const ProductionPlannerPage = () => {
             plannedDurationMinutes: payload.updates.plannedDurationMinutes ?? 60,
             breakAdjustmentMinutes: payload.updates.breakAdjustmentMinutes ?? 0,
             status: 'scheduled',
-            overtimeEnabled: existingJob?.overtimeEnabled ?? false
+            overtimeEnabled: existingJob?.overtimeEnabled ?? false,
+            customDurationMinutes: payload.updates.customDurationMinutes !== undefined 
+              ? payload.updates.customDurationMinutes 
+              : existingJob?.customDurationMinutes
           };
           // Only set dayEndMinutes when overtime is explicitly enabled by user
           // This represents a true user override, not a ShiftConfig default

@@ -472,6 +472,7 @@ public class TeamWorkItemsController : ControllerBase
             production.PlannedEndTime = createDto.PlannedEndMinutes;
             production.PlannedDurationMinutes = createDto.PlannedDurationMinutes;
             production.BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes;
+            production.CustomDurationMinutes = createDto.CustomDurationMinutes;
             production.ModifiedOn = DateTime.UtcNow;
         }
 
