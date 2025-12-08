@@ -651,31 +651,23 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
 
     return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations]);
+  }, [workingHours, breakSlots, customDurations, getBaseDuration]);
 
   useEffect(() => {
     if (!workingHours) return;
     
-    console.log('[DAYVIEW] Checking overflow for', dayStr);
     const allOverflowing = new Set<string>();
     
     jigTeams.forEach(jig => {
       const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
-      if (jigJobs.length > 0) {
-        console.log('[DAYVIEW] Team', jig.name, 'has', jigJobs.length, 'jobs');
-      }
       const { overflowing } = checkJobOverflow(jigJobs, jig.id);
       overflowing.forEach(id => allOverflowing.add(id));
     });
     
     const unallocatedJobsList = getUnallocatedJobsForDate(dayStr);
-    if (unallocatedJobsList.length > 0) {
-      console.log('[DAYVIEW] Unallocated has', unallocatedJobsList.length, 'jobs');
-    }
     const { overflowing: unallocOverflow } = checkJobOverflow(unallocatedJobsList, null);
     unallocOverflow.forEach(id => allOverflowing.add(id));
     
-    console.log('[DAYVIEW] Overflow check complete, found', allOverflowing.size, 'overflowing');
     setOverflowingJobs(allOverflowing);
   }, [jobs, workingHours, breakSlots, customDurations, dayStr, jigTeams, checkJobOverflow]);
 

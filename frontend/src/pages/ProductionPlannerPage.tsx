@@ -848,8 +848,6 @@ export const ProductionPlannerPage = () => {
         plannedEndTime: timing.endTime,
         breakAdjustmentMinutes: timing.breakMinutes
       }, 'resize');
-      
-      console.log('[PLANNER] Staged reset for job:', jobId, 'duration:', defaultDuration, 'minutes');
     } else {
       stageJobUpdate(jobId, {
         customDurationMinutes: null,
