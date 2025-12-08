@@ -110,7 +110,6 @@ interface DayViewProps {
   onBlockClick?: (block: ScheduleBlock) => void;
 }
 
-const HOURS_IN_DAY = 24;
 const MIN_BLOCK_HEIGHT = 20;
 
 const DayViewComponent: React.FC<DayViewProps> = ({
@@ -778,75 +777,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     breakSlot?: BreakSlot;
   }
 
-  const generateTimelineSegments = (forWorkingHours?: { start: number; end: number }): TimelineSegment[] => {
-    const segments: TimelineSegment[] = [];
-    const effectiveWorkingHours = forWorkingHours || workingHours;
-    const sortedBreaks = [...breakSlots].sort((a, b) => 
-      (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
-    );
-    
-    const totalMinutes = HOURS_IN_DAY * 60;
-    let currentMinute = 0;
-    
-    while (currentMinute < totalMinutes) {
-      const breakAtThisPoint = sortedBreaks.find(b => {
-        const breakStart = b.startHour * 60 + b.startMinute;
-        return currentMinute === breakStart;
-      });
-      
-      if (breakAtThisPoint) {
-        const breakDuration = getBreakDurationMinutes(breakAtThisPoint);
-        const hour = Math.floor(currentMinute / 60);
-        const minute = currentMinute % 60;
-        
-        segments.push({
-          startMinutes: currentMinute,
-          durationMinutes: breakDuration,
-          label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${breakAtThisPoint.label}`,
-          isBreak: true,
-          isWorking: true,
-          backgroundColor: breakAtThisPoint.color,
-          breakSlot: breakAtThisPoint
-        });
-        
-        currentMinute += breakDuration;
-        continue;
-      }
-      
-      let segmentEnd = totalMinutes;
-      
-      for (const b of sortedBreaks) {
-        const breakStart = b.startHour * 60 + b.startMinute;
-        if (breakStart > currentMinute && breakStart < segmentEnd) {
-          segmentEnd = breakStart;
-        }
-      }
-      
-      const nextHourBoundary = (Math.floor(currentMinute / 60) + 1) * 60;
-      if (nextHourBoundary < segmentEnd) {
-        segmentEnd = nextHourBoundary;
-      }
-      
-      const segmentDuration = segmentEnd - currentMinute;
-      const hour = Math.floor(currentMinute / 60);
-      const minute = currentMinute % 60;
-      const isWorking = effectiveWorkingHours ? (hour >= effectiveWorkingHours.start && hour < effectiveWorkingHours.end) : false;
-      
-      segments.push({
-        startMinutes: currentMinute,
-        durationMinutes: segmentDuration,
-        label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
-        isBreak: false,
-        isWorking,
-        backgroundColor: isWorking ? 'white' : 'rgba(0, 0, 0, 0.06)'
-      });
-      
-      currentMinute = segmentEnd;
-    }
-    
-    return segments;
-  };
-
   if (loading) {
     return (
       <Stack verticalAlign="center" horizontalAlign="center" styles={{ root: { padding: 50 } }}>
@@ -995,14 +925,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       <div style={{ display: 'inline-flex' }}>
         {/* Planner grid (time column + team columns) */}
         <div style={{ display: 'flex' }}>
-          {/* Time header column - spacers must match team column header heights exactly */}
+          {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-            {/* Spacer for Early OT row - matches team column (24px height with border-box) */}
-            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}></div>
-            {/* Spacer for Late OT row - matches team column (24px height with border-box) */}
-            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc', boxSizing: 'border-box' }}></div>
-            {/* Spacer for team header (50px + 1px border) */}
-            <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
               {timelineSegments.map((segment, idx) => (
                 <Stack
@@ -1606,15 +1530,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         })}
         </div>
 
-        {/* Unallocated column - attached to the right with small gap, headers aligned */}
+        {/* Unallocated column - attached to the right with small gap */}
         {unallocatedJobs.length > 0 && (
           <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
-            {/* Spacer for Early OT row - matches team column */}
-            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}></div>
-            {/* Spacer for Late OT row - matches team column */}
-            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc', boxSizing: 'border-box' }}></div>
-            
-            {/* Unallocated header - aligned with team headers (50px) */}
+            {/* Unallocated header */}
             <Stack
               styles={{
                 root: {
