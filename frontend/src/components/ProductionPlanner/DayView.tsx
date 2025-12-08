@@ -1553,24 +1553,23 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                             style={{
                               position: 'absolute',
-                              bottom: 0,
-                              left: 0,
-                              right: 0,
-                              height: 10,
+                              bottom: 4,
+                              left: 4,
+                              right: 4,
+                              height: 8,
                               cursor: 'ns-resize',
                               backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
-                              borderTop: resizingJob === job.id ? '2px dashed rgba(255,255,255,0.5)' : 'none'
+                              borderRadius: 4,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
                             }}
                             title="Drag to resize"
                           >
                             <div style={{
-                              position: 'absolute',
-                              bottom: 2,
-                              left: '50%',
-                              transform: 'translateX(-50%)',
                               width: 30,
                               height: 3,
-                              backgroundColor: 'rgba(255,255,255,0.4)',
+                              backgroundColor: 'rgba(255,255,255,0.5)',
                               borderRadius: 2
                             }} />
                           </div>
