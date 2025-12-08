@@ -59,7 +59,7 @@ export const ProductionPlannerPage = () => {
   const [jigTeams, setJigTeams] = useState<Jig[]>([]);
   const [selectedJigIds, setSelectedJigIds] = useState<string[]>([]);
   const [unallocatedOrders, setUnallocatedOrders] = useState<Job[]>([]);
-  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('month');
   const [currentDateStr, setCurrentDateStr] = useState(() => startOfMonthUtc(new Date()));
   const [selectedWeekStart, setSelectedWeekStart] = useState<string | null>(null);
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
