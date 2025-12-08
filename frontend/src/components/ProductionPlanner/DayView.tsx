@@ -711,14 +711,15 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return dropZones;
   }, [workingHours, dayStr, jobs]);
 
-  const handleTimelineDragOver = (e: React.DragEvent, jigId: string) => {
+  const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number) => {
     e.preventDefault();
     e.stopPropagation();
     onDragOver(e);
     
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const dropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE);
+    // Convert screen position to absolute time by adding visible start offset
+    const dropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE) + visibleStart;
     
     setDropHoverJigId(jigId);
     setDropHoverPosition(dropMinutes);
@@ -729,11 +730,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     setDropHoverPosition(null);
   };
 
-  const handleTimelineDrop = (e: React.DragEvent, jigId: string | null) => {
+  const handleTimelineDrop = (e: React.DragEvent, jigId: string | null, visibleStart: number) => {
     e.preventDefault();
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const rawDropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE);
+    // Convert screen position to absolute time by adding visible start offset
+    const rawDropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE) + visibleStart;
     
     let snappedPosition = rawDropMinutes;
     
@@ -857,8 +859,123 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return <Text>Error loading working hours</Text>;
   }
 
-  const timelineSegments = generateTimelineSegments();
-  const totalTimelineHeight = HOURS_IN_DAY * 60 * PlannerV2.PIXELS_PER_MINUTE;
+  // Calculate the visible time range based on working hours and all teams' overtime settings
+  // Default: 1 hour before working hours start, 1 hour after working hours end
+  // With OT: extends to accommodate team overtime + 1 hour padding
+  const calculateVisibleTimeRange = (): { startHour: number; endHour: number } => {
+    let earliestStart = workingHours.start; // e.g., 7 for 07:00
+    let latestEnd = workingHours.end; // e.g., 17 for 17:00
+
+    // Check all teams' overtime settings
+    for (const teamId of Object.keys(overtimeByTeam)) {
+      const settings = overtimeByTeam[teamId];
+      
+      // Early OT - check for earlier start times
+      if (settings?.earlyEnabled && settings.earlyStartTime !== undefined) {
+        const earlyStartHour = Math.floor(settings.earlyStartTime / 60);
+        if (earlyStartHour < earliestStart) {
+          earliestStart = earlyStartHour;
+        }
+      }
+      
+      // Late OT - check for later end times
+      if (settings?.enabled && settings.closeTime !== undefined) {
+        const lateEndHour = Math.ceil(settings.closeTime / 60);
+        if (lateEndHour > latestEnd) {
+          latestEnd = lateEndHour;
+        }
+      }
+    }
+
+    // Add 1 hour padding on each side, clamped to 0-24
+    const visibleStart = Math.max(0, earliestStart - 1);
+    const visibleEnd = Math.min(24, latestEnd + 1);
+
+    return { startHour: visibleStart, endHour: visibleEnd };
+  };
+
+  const visibleTimeRange = calculateVisibleTimeRange();
+  const visibleStartMinutes = visibleTimeRange.startHour * 60;
+  const visibleEndMinutes = visibleTimeRange.endHour * 60;
+  const visibleDurationMinutes = visibleEndMinutes - visibleStartMinutes;
+
+  // Generate timeline segments only for the visible range
+  const generateVisibleTimelineSegments = (forWorkingHours?: { start: number; end: number }): TimelineSegment[] => {
+    const segments: TimelineSegment[] = [];
+    const effectiveWorkingHours = forWorkingHours || workingHours;
+    const sortedBreaks = [...breakSlots].sort((a, b) => 
+      (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
+    );
+    
+    let currentMinute = visibleStartMinutes;
+    
+    while (currentMinute < visibleEndMinutes) {
+      const breakAtThisPoint = sortedBreaks.find(b => {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        return currentMinute === breakStart;
+      });
+      
+      if (breakAtThisPoint) {
+        const breakDuration = getBreakDurationMinutes(breakAtThisPoint);
+        const hour = Math.floor(currentMinute / 60);
+        const minute = currentMinute % 60;
+        
+        // Only add if break ends within visible range
+        const breakEnd = Math.min(currentMinute + breakDuration, visibleEndMinutes);
+        const visibleBreakDuration = breakEnd - currentMinute;
+        
+        if (visibleBreakDuration > 0) {
+          segments.push({
+            startMinutes: currentMinute,
+            durationMinutes: visibleBreakDuration,
+            label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${breakAtThisPoint.label}`,
+            isBreak: true,
+            isWorking: true,
+            backgroundColor: breakAtThisPoint.color,
+            breakSlot: breakAtThisPoint
+          });
+        }
+        
+        currentMinute += breakDuration;
+        continue;
+      }
+      
+      let segmentEnd = visibleEndMinutes;
+      
+      for (const b of sortedBreaks) {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        if (breakStart > currentMinute && breakStart < segmentEnd) {
+          segmentEnd = breakStart;
+        }
+      }
+      
+      const nextHourBoundary = (Math.floor(currentMinute / 60) + 1) * 60;
+      if (nextHourBoundary < segmentEnd) {
+        segmentEnd = nextHourBoundary;
+      }
+      
+      const segmentDuration = segmentEnd - currentMinute;
+      const hour = Math.floor(currentMinute / 60);
+      const minute = currentMinute % 60;
+      const isWorking = effectiveWorkingHours ? (hour >= effectiveWorkingHours.start && hour < effectiveWorkingHours.end) : false;
+      
+      segments.push({
+        startMinutes: currentMinute,
+        durationMinutes: segmentDuration,
+        label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+        isBreak: false,
+        isWorking,
+        backgroundColor: isWorking ? 'white' : 'rgba(0, 0, 0, 0.06)'
+      });
+      
+      currentMinute = segmentEnd;
+    }
+    
+    return segments;
+  };
+
+  const timelineSegments = generateVisibleTimelineSegments();
+  const totalTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
 
   // Calculate unallocated job totals for the separate panel
   const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
@@ -893,7 +1010,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   styles={{
                     root: {
                       position: 'absolute',
-                      top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
+                      top: (segment.startMinutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                       left: 0,
                       right: 0,
                       height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
@@ -945,10 +1062,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 })()
               : baseWorkingHours.end
           } : workingHours;
-          const teamTimelineHeight = HOURS_IN_DAY * 60 * PlannerV2.PIXELS_PER_MINUTE;
+          const teamTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
           
-          // Generate team-specific timeline segments with overtime hours lit up
-          const teamTimelineSegments = generateTimelineSegments(teamWorkingHours ?? undefined);
+          // Generate team-specific timeline segments with overtime hours lit up (using visible range)
+          const teamTimelineSegments = generateVisibleTimelineSegments(teamWorkingHours ?? undefined);
 
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
@@ -1109,9 +1226,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
               {/* Timeline background with break slots */}
               <div
-                onDragOver={(e) => handleTimelineDragOver(e, jig.id)}
+                onDragOver={(e) => handleTimelineDragOver(e, jig.id, visibleStartMinutes)}
                 onDragLeave={handleTimelineDragLeave}
-                onDrop={(e) => handleTimelineDrop(e, jig.id)}
+                onDrop={(e) => handleTimelineDrop(e, jig.id, visibleStartMinutes)}
                 style={{
                   position: 'relative',
                   height: teamTimelineHeight,
@@ -1125,7 +1242,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     key={`${jig.id}-bg-${idx}-${segment.startMinutes}`}
                     style={{
                       position: 'absolute',
-                      top: segment.startMinutes * PlannerV2.PIXELS_PER_MINUTE,
+                      top: (segment.startMinutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                       left: 0,
                       right: 0,
                       height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
@@ -1136,16 +1253,17 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   />
                 ))}
 
-                {/* Hour lines - solid lines at each hour within this team's working hours */}
-                {teamWorkingHours && Array.from({ length: teamWorkingHours.end - teamWorkingHours.start + 1 }, (_, idx) => {
-                  const hour = teamWorkingHours.start + idx;
+                {/* Hour lines - solid lines at each hour within visible range */}
+                {Array.from({ length: visibleTimeRange.endHour - visibleTimeRange.startHour + 1 }, (_, idx) => {
+                  const hour = visibleTimeRange.startHour + idx;
                   const minutes = hour * 60;
+                  if (minutes < visibleStartMinutes || minutes > visibleEndMinutes) return null;
                   return (
                     <div
                       key={`${jig.id}-hour-${hour}`}
                       style={{
                         position: 'absolute',
-                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        top: (minutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                         left: 0,
                         right: 0,
                         height: 1,
@@ -1157,17 +1275,17 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   );
                 })}
 
-                {/* 15-minute interval lines - light dashed lines within this team's working hours */}
-                {teamWorkingHours && Array.from({ length: (teamWorkingHours.end - teamWorkingHours.start) * 4 }, (_, idx) => {
-                  const minutes = teamWorkingHours.start * 60 + (idx + 1) * 15;
+                {/* 15-minute interval lines - light dashed lines within visible range */}
+                {Array.from({ length: (visibleTimeRange.endHour - visibleTimeRange.startHour) * 4 }, (_, idx) => {
+                  const minutes = visibleTimeRange.startHour * 60 + (idx + 1) * 15;
                   if (minutes % 60 === 0) return null;
-                  if (minutes > teamWorkingHours.end * 60) return null;
+                  if (minutes > visibleEndMinutes || minutes < visibleStartMinutes) return null;
                   return (
                     <div
                       key={`${jig.id}-quarter-${idx}`}
                       style={{
                         position: 'absolute',
-                        top: minutes * PlannerV2.PIXELS_PER_MINUTE,
+                        top: (minutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                         left: 0,
                         right: 0,
                         height: 1,
@@ -1200,7 +1318,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       key="drop-indicator"
                       style={{
                         position: 'absolute',
-                        top: nearestZone.position * PlannerV2.PIXELS_PER_MINUTE - 2,
+                        top: (nearestZone.position - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE - 2,
                         left: 4,
                         right: 4,
                         height: 4,
@@ -1237,11 +1355,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 {teamWorkingHours && scheduleBlocks
                   .filter(block => block.teamId === null || block.teamId === jig.id)
                   .map(block => {
-                    const workingHoursStartMinutes = teamWorkingHours.start * 60;
-                    const adjustedStartMinutes = Math.max(0, block.startTimeMinutes - workingHoursStartMinutes);
-                    const adjustedEndMinutes = block.endTimeMinutes - workingHoursStartMinutes;
-                    const blockTop = adjustedStartMinutes * PlannerV2.PIXELS_PER_MINUTE;
-                    const blockHeight = (adjustedEndMinutes - adjustedStartMinutes) * PlannerV2.PIXELS_PER_MINUTE;
+                    const blockTop = (block.startTimeMinutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE;
+                    const blockHeight = (block.endTimeMinutes - block.startTimeMinutes) * PlannerV2.PIXELS_PER_MINUTE;
                     const blockColor = SCHEDULE_BLOCK_COLORS[block.blockType];
                     const blockLabel = SCHEDULE_BLOCK_LABELS[block.blockType];
                     
@@ -1344,7 +1459,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         }}
                         style={{
                           position: 'absolute',
-                          top: top * PlannerV2.PIXELS_PER_MINUTE + 4,
+                          top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE + 4,
                           left: 4,
                           right: 4,
                           height: clampedHeight,
