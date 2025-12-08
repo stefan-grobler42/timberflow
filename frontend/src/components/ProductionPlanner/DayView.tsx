@@ -927,9 +927,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         <div style={{ display: 'flex' }}>
           {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-            {/* Merged blank cell spanning OT toggles + team header height (24+1 Early OT + 24+1 Late OT + 50+1 Team header = 101px) */}
+            {/* Merged blank cell spanning OT toggles + team header height (24 Early OT + 24 Late OT + 50 Team header = 98px, all border-box) */}
             <div style={{ 
-              height: 101, 
+              height: 98, 
               backgroundColor: '#f5f5f5', 
               borderBottom: '1px solid #ddd',
               boxSizing: 'border-box'
@@ -1153,7 +1153,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 </Stack>
               </Stack>
               
-              {/* Jig header - fixed height */}
+              {/* Jig header - fixed height with border-box */}
               <Stack
                 onClick={() => onTeamDoubleClick(jig.id)}
                 styles={{
@@ -1163,6 +1163,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     backgroundColor: teamOvertime.enabled ? '#005a9e' : '#0078d4',
                     color: 'white',
                     borderBottom: '1px solid #ddd',
+                    boxSizing: 'border-box',
                     cursor: 'pointer'
                   }
                 }}
