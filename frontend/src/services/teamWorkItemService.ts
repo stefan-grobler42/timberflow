@@ -206,6 +206,10 @@ class TeamWorkItemService {
     await this.delete(id);
   }
 
+  async deleteByProductionId(productionId: string): Promise<void> {
+    return api.delete(`/TeamWorkItems/by-production/${productionId}`);
+  }
+
   async moveToTeam(id: string, newTeamId: string, newWorkDate?: string): Promise<TeamWorkItemDto> {
     const updateData: UpdateTeamWorkItemDto = { teamId: newTeamId };
     if (newWorkDate) {

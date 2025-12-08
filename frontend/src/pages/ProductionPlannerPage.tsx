@@ -479,8 +479,18 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] ✓ WIP allocations saved');
       }
       
-      // Also persist any jobs that don't have team assignment (just updates)
-      const jobsWithoutTeam = payloads.filter(p => !p.updates.jigId || !p.updates.plannedDateStr);
+      // Handle jobs being unallocated (jigId is null) - need to delete their WIP records
+      const jobsBeingUnallocated = payloads.filter(p => p.updates.jigId === null);
+      for (const payload of jobsBeingUnallocated) {
+        console.log('[PLANNER] Deleting WIP for unallocated job:', payload.jobId);
+        await teamWorkItemService.deleteByProductionId(payload.jobId);
+      }
+      if (jobsBeingUnallocated.length > 0) {
+        console.log('[PLANNER] ✓ Deleted WIP records for', jobsBeingUnallocated.length, 'unallocated jobs');
+      }
+      
+      // Also persist any jobs that don't have team assignment (just date/duration updates, not unallocation)
+      const jobsWithoutTeam = payloads.filter(p => p.updates.jigId !== null && (!p.updates.jigId || !p.updates.plannedDateStr));
       for (const payload of jobsWithoutTeam) {
         const apiPayload: Record<string, any> = {};
         if (payload.updates.jigId !== undefined) apiPayload.jigId = payload.updates.jigId;

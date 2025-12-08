@@ -364,6 +364,39 @@ public class TeamWorkItemsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("by-production/{productionId}")]
+    public async Task<IActionResult> DeleteByProductionId(Guid productionId)
+    {
+        var items = await _context.TeamWorkItems
+            .Where(w => w.ProductionId == productionId)
+            .ToListAsync();
+
+        if (!items.Any())
+        {
+            return NoContent();
+        }
+
+        _context.TeamWorkItems.RemoveRange(items);
+        
+        var production = await _context.Productions.FindAsync(productionId);
+        if (production != null)
+        {
+            production.JigId = null;
+            production.PlannedStartTime = null;
+            production.PlannedEndTime = null;
+            production.PlannedDurationMinutes = null;
+            production.BreakAdjustmentMinutes = null;
+            production.ModifiedOn = DateTime.UtcNow;
+        }
+        
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Deleted {Count} TeamWorkItems for Production {ProductionId} (returned to unallocated pool)", 
+            items.Count, productionId);
+
+        return NoContent();
+    }
+
     [HttpPost("batch")]
     public async Task<ActionResult<IEnumerable<TeamWorkItemDto>>> BatchCreate([FromBody] List<CreateTeamWorkItemDto> createDtos)
     {
