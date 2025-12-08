@@ -267,7 +267,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const settings: SystemSettings = await systemSettingsService.getSettings();
       const date = new Date(dayStr);
       const dayOfWeek = date.getDay();
-      const weekend = dayOfWeek === 0 || dayOfWeek === 6;
       
       const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek] as 
         'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
@@ -280,10 +279,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         const startHour = parseInt(start.split(':')[0]);
         const endHour = parseInt(end.split(':')[0]);
         hours = { start: startHour, end: endHour };
-      } else if (weekend && settings.breakTimes?.weekendOvertime) {
-        const startTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursStart);
-        const endTime = parseTime(settings.breakTimes.weekendOvertime.workingHoursEnd);
-        hours = { start: startTime.hour, end: endTime.hour };
       }
       setBaseWorkingHours(hours);
       setWorkingHours(hours);
@@ -291,20 +286,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const breaks: BreakSlot[] = [];
       const breakTimes = settings.breakTimes;
 
-      if (weekend && breakTimes?.weekendOvertime) {
-        const lunchStart = parseTime(breakTimes.weekendOvertime.lunchStart);
-        const lunchEnd = parseTime(breakTimes.weekendOvertime.lunchEnd);
-        breaks.push({
-          startHour: lunchStart.hour,
-          startMinute: lunchStart.minute,
-          endHour: lunchEnd.hour,
-          endMinute: lunchEnd.minute,
-          label: 'Lunch',
-          color: '#fff3cd'
-        });
-      } else if (breakTimes?.weekday) {
-        const teaStart = parseTime(breakTimes.weekday.teaStart);
-        const teaEnd = parseTime(breakTimes.weekday.teaEnd);
+      // Add tea morning break (light green)
+      if (breakTimes?.teaMorning) {
+        const teaStart = parseTime(breakTimes.teaMorning.start);
+        const teaEnd = parseTime(breakTimes.teaMorning.end);
         breaks.push({
           startHour: teaStart.hour,
           startMinute: teaStart.minute,
@@ -313,9 +298,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           label: 'Tea',
           color: '#d4edda'
         });
+      }
 
-        const lunchStart = parseTime(breakTimes.weekday.lunchStart);
-        const lunchEnd = parseTime(breakTimes.weekday.lunchEnd);
+      // Add lunch break (light yellow)
+      if (breakTimes?.lunch) {
+        const lunchStart = parseTime(breakTimes.lunch.start);
+        const lunchEnd = parseTime(breakTimes.lunch.end);
         breaks.push({
           startHour: lunchStart.hour,
           startMinute: lunchStart.minute,
@@ -324,20 +312,34 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           label: 'Lunch',
           color: '#fff3cd'
         });
+      }
 
-        // Store dinner break separately - it's added dynamically based on overtime state
-        if (breakTimes.weekdayOvertime) {
-          const dinnerStart = parseTime(breakTimes.weekdayOvertime.dinnerStart);
-          const dinnerEnd = parseTime(breakTimes.weekdayOvertime.dinnerEnd);
-          setDinnerBreakSlot({
-            startHour: dinnerStart.hour,
-            startMinute: dinnerStart.minute,
-            endHour: dinnerEnd.hour,
-            endMinute: dinnerEnd.minute,
-            label: 'Dinner (OT)',
-            color: '#f8d7da'
-          });
-        }
+      // Add tea afternoon break (light blue)
+      if (breakTimes?.teaAfternoon) {
+        const teaAfternoonStart = parseTime(breakTimes.teaAfternoon.start);
+        const teaAfternoonEnd = parseTime(breakTimes.teaAfternoon.end);
+        breaks.push({
+          startHour: teaAfternoonStart.hour,
+          startMinute: teaAfternoonStart.minute,
+          endHour: teaAfternoonEnd.hour,
+          endMinute: teaAfternoonEnd.minute,
+          label: 'Tea PM',
+          color: '#cce5ff'
+        });
+      }
+
+      // Store dinner break separately - it's added dynamically based on overtime state (light pink)
+      if (breakTimes?.dinnerOvertime) {
+        const dinnerStart = parseTime(breakTimes.dinnerOvertime.start);
+        const dinnerEnd = parseTime(breakTimes.dinnerOvertime.end);
+        setDinnerBreakSlot({
+          startHour: dinnerStart.hour,
+          startMinute: dinnerStart.minute,
+          endHour: dinnerEnd.hour,
+          endMinute: dinnerEnd.minute,
+          label: 'Dinner (OT)',
+          color: '#f8d7da'
+        });
       }
 
       setBaseBreakSlots(breaks);
@@ -890,13 +892,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       <div style={{ display: 'inline-flex' }}>
         {/* Planner grid (time column + team columns) */}
         <div style={{ display: 'flex' }}>
-          {/* Time header column - spacers must match team column header heights */}
+          {/* Time header column - spacers must match team column header heights exactly */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-            {/* Spacer for Early OT row (24px) */}
-            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid rgba(0,0,0,0.1)' }}></div>
-            {/* Spacer for Late OT row (24px) */}
-            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
-            {/* Spacer for team header (50px) */}
+            {/* Spacer for Early OT row - matches team column (24px height with border-box) */}
+            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}></div>
+            {/* Spacer for Late OT row - matches team column (24px height with border-box) */}
+            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc', boxSizing: 'border-box' }}></div>
+            {/* Spacer for team header (50px + 1px border) */}
             <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
               {timelineSegments.map((segment, idx) => (
@@ -961,8 +963,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
               {/* Overtime controls - positioned above header */}
-              <Stack styles={{ root: { borderBottom: '1px solid #ccc' } }}>
-                {/* Early OT row */}
+              <Stack>
+                {/* Early OT row - 24px height + 1px border = 25px total */}
                 <Stack
                   horizontal
                   verticalAlign="center"
@@ -973,7 +975,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       height: 24,
                       padding: '2px 8px',
                       backgroundColor: teamOvertime.earlyEnabled ? '#81c784' : '#e0e0e0',
-                      borderBottom: '1px solid rgba(0,0,0,0.1)'
+                      borderBottom: '1px solid rgba(0,0,0,0.1)',
+                      boxSizing: 'border-box'
                     }
                   }}
                 >
@@ -1023,7 +1026,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     />
                   )}
                 </Stack>
-                {/* Late OT row */}
+                {/* Late OT row - 24px height + 1px border = 25px total */}
                 <Stack
                   horizontal
                   verticalAlign="center"
@@ -1033,7 +1036,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     root: {
                       height: 24,
                       padding: '2px 8px',
-                      backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0'
+                      backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0',
+                      borderBottom: '1px solid #ccc',
+                      boxSizing: 'border-box'
                     }
                   }}
                 >
@@ -1499,10 +1504,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         {/* Unallocated column - attached to the right with small gap, headers aligned */}
         {unallocatedJobs.length > 0 && (
           <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
-            {/* Spacer for Early OT row (24px) */}
-            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid rgba(0,0,0,0.1)' }}></div>
-            {/* Spacer for Late OT row (24px) */}
-            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc' }}></div>
+            {/* Spacer for Early OT row - matches team column */}
+            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid rgba(0,0,0,0.1)', boxSizing: 'border-box' }}></div>
+            {/* Spacer for Late OT row - matches team column */}
+            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc', boxSizing: 'border-box' }}></div>
             
             {/* Unallocated header - aligned with team headers (50px) */}
             <Stack
