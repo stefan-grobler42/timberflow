@@ -927,6 +927,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         <div style={{ display: 'flex' }}>
           {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
+            {/* Merged blank cell spanning OT toggles + team header height */}
+            <div style={{ 
+              height: 98, 
+              backgroundColor: '#f5f5f5', 
+              borderBottom: '1px solid #ccc',
+              boxSizing: 'border-box'
+            }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
               {timelineSegments.map((segment, idx) => (
                 <Stack
