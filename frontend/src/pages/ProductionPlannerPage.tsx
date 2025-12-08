@@ -497,7 +497,9 @@ export const ProductionPlannerPage = () => {
           ...toScheduledJob(job),
           plannedDateStr: dateStr,
           jigId: updatedJigId,
-          plannedDurationMinutes: teamSpecificDuration
+          plannedDurationMinutes: teamSpecificDuration,
+          // Clear stale customDurationMinutes for first-time allocations so scheduler uses EFinks calculation
+          customDurationMinutes: job.wipId ? job.customDurationMinutes : undefined
         };
         
         const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
