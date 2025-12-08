@@ -935,6 +935,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
               boxSizing: 'border-box'
             }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
+              {/* Background segments without borders */}
               {timelineSegments.map((segment, idx) => (
                 <Stack
                   key={`time-${idx}-${segment.startMinutes}`}
@@ -945,7 +946,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       left: 0,
                       right: 0,
                       height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
-                      borderBottom: segment.isWorking || segment.isBreak ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
                       padding: '4px 10px',
                       backgroundColor: segment.backgroundColor,
                       opacity: segment.isWorking || segment.isBreak ? 1 : 0.7,
@@ -968,6 +968,26 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   )}
                 </Stack>
               ))}
+              {/* Hour lines - matching the grid columns exactly */}
+              {Array.from({ length: visibleTimeRange.endHour - visibleTimeRange.startHour + 1 }, (_, idx) => {
+                const hour = visibleTimeRange.startHour + idx;
+                const minutes = hour * 60;
+                if (minutes < visibleStartMinutes || minutes > visibleEndMinutes) return null;
+                const isWorkingHour = workingHours && hour >= workingHours.start && hour < workingHours.end;
+                return (
+                  <div
+                    key={`time-hour-${hour}`}
+                    style={{
+                      position: 'absolute',
+                      top: (minutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
+                      left: 0,
+                      right: 0,
+                      height: 1,
+                      backgroundColor: isWorkingHour ? '#ddd' : 'rgba(0,0,0,0.08)'
+                    }}
+                  />
+                );
+              })}
             </div>
           </Stack>
 
