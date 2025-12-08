@@ -206,16 +206,16 @@ export const ProductionPlannerPage = () => {
             customer: p.customerName || 'Unknown',
             estimatedEFinks: p.newEstimateDefinks || 0,
             customDurationMinutes: p.customDurationMinutes || undefined,
-            plannedDateStr: null,
-            jigId: null,
+            plannedDateStr: p.productionPlannedDate ? formatIsoDateLocal(p.productionPlannedDate) : null,
+            jigId: p.jigId || null,
             productionComplete: p.productionComplete === true,
             parentProductionId: p.parentProductionId || undefined,
             rolloverSequence: p.rolloverSequence || undefined,
             createdOn: p.createdOn || undefined,
-            plannedStartTime: null,
-            plannedEndTime: null,
-            plannedDurationMinutes: null,
-            breakAdjustmentMinutes: null
+            plannedStartTime: p.plannedStartTime !== undefined ? p.plannedStartTime : null,
+            plannedEndTime: p.plannedEndTime !== undefined ? p.plannedEndTime : null,
+            plannedDurationMinutes: p.plannedDurationMinutes !== undefined ? p.plannedDurationMinutes : null,
+            breakAdjustmentMinutes: p.breakAdjustmentMinutes !== undefined ? p.breakAdjustmentMinutes : null
           };
         });
         
@@ -226,7 +226,7 @@ export const ProductionPlannerPage = () => {
         throw mapErr;
       }
       
-      // D365 orders that don't have Production records yet
+      // D365 orders that don't have Production records yet - these go in the basket
       const ordersNeedingProduction = unallocated.map((o: any) => ({
         id: `order-${o.id}`,
         name: o.name || '',
@@ -238,30 +238,28 @@ export const ProductionPlannerPage = () => {
         productionComplete: false
       }));
       
-      // Production records that exist but are NOT allocated to any team (no WIP entry)
-      // These are the main source of unallocated jobs that need to be dragged to teams
-      const unallocatedProductions = jobList.filter(j => 
-        !j.wipId && // No WIP allocation
-        !j.productionComplete && // Not completed
-        j.jigId === null // Not assigned to a team
-      );
+      // Count productions with date but no team (these show in "Unallocated" column, not basket)
+      const productionsWithDateNoTeam = jobList.filter(j => 
+        j.plannedDateStr && // Has a production date
+        j.jigId === null && // Not assigned to a team
+        !j.productionComplete // Not completed
+      ).length;
       
-      // Combine both sources for the unallocated basket
-      const allUnallocated = [...unallocatedProductions, ...ordersNeedingProduction];
-      
-      console.log(`[PLANNER] ✓ Found ${unallocatedProductions.length} unallocated productions (no WIP) + ${ordersNeedingProduction.length} D365 orders = ${allUnallocated.length} total unallocated`);
+      // Only D365 orders without Production records go in the basket
+      // Productions with dates but no team will appear in the "Unallocated" column in DayView
+      console.log(`[PLANNER] ✓ Found ${productionsWithDateNoTeam} productions with date but no team (Unallocated column) + ${ordersNeedingProduction.length} D365 orders (basket)`);
       
       try {
         console.log('[PLANNER] Updating state...');
         setJobs(jobList);
-        setUnallocatedOrders(allUnallocated);
+        setUnallocatedOrders(ordersNeedingProduction);
         setJigTeams(jigs);
         setScheduleBlocks(blocks);
         if (selectedJigIds.length === 0) {
           setSelectedJigIds(jigs.map(j => j.id));
         }
         setLoading(false);
-        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${allUnallocated.length}`);
+        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
       } catch (stateErr) {
         console.error('[PLANNER] ✗ State update FAILED:', stateErr);
         throw stateErr;
