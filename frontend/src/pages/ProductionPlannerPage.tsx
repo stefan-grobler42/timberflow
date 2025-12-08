@@ -1,8 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown,
-  PrimaryButton, DefaultButton, Icon
+  Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType, Dropdown
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
@@ -66,7 +65,6 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>>>({});
-  const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
@@ -321,56 +319,8 @@ export const ProductionPlannerPage = () => {
     return map;
   }, [baseJobs]);
 
-  // Cache for allJobs to avoid unnecessary recreations
-  const allJobsCache = useRef<Job[]>([]);
-  const lastBaseJobsRef = useRef<Job[]>([]);
-  const lastStagingMapRef = useRef<Map<string, any>>(new Map());
-
-  // Compute allJobs with staging overlay - stable references when unchanged
-  const allJobs = useMemo(() => {
-    // Fast path: no staging changes, return baseJobs directly
-    if (globalStaging.stagedChanges.size === 0) {
-      if (baseJobs !== lastBaseJobsRef.current) {
-        lastBaseJobsRef.current = baseJobs;
-        allJobsCache.current = baseJobs;
-      }
-      return allJobsCache.current;
-    }
-
-    // Check if anything actually changed
-    const stagingChanged = globalStaging.stagedChanges !== lastStagingMapRef.current;
-    const baseChanged = baseJobs !== lastBaseJobsRef.current;
-    
-    if (!stagingChanged && !baseChanged && allJobsCache.current.length > 0) {
-      return allJobsCache.current;
-    }
-
-    // Build result with staging overlays
-    const result: Job[] = baseJobs.map(job => {
-      const staged = globalStaging.stagedChanges.get(job.id);
-      if (!staged) return job;
-      
-      return { 
-        ...job,
-        jigId: staged.newValues.jigId !== undefined ? staged.newValues.jigId : job.jigId,
-        plannedDateStr: staged.newValues.plannedDateStr !== undefined ? staged.newValues.plannedDateStr : job.plannedDateStr,
-        plannedStartTime: staged.newValues.plannedStartTime !== undefined ? staged.newValues.plannedStartTime : job.plannedStartTime,
-        plannedEndTime: staged.newValues.plannedEndTime !== undefined ? staged.newValues.plannedEndTime : job.plannedEndTime,
-        plannedDurationMinutes: staged.newValues.plannedDurationMinutes !== undefined ? staged.newValues.plannedDurationMinutes : job.plannedDurationMinutes,
-        customDurationMinutes: staged.newValues.customDurationMinutes !== undefined 
-          ? (staged.newValues.customDurationMinutes === null ? undefined : staged.newValues.customDurationMinutes) 
-          : job.customDurationMinutes,
-        breakAdjustmentMinutes: staged.newValues.breakAdjustmentMinutes !== undefined 
-          ? (staged.newValues.breakAdjustmentMinutes === null ? undefined : staged.newValues.breakAdjustmentMinutes)
-          : job.breakAdjustmentMinutes
-      };
-    });
-
-    lastBaseJobsRef.current = baseJobs;
-    lastStagingMapRef.current = globalStaging.stagedChanges;
-    allJobsCache.current = result;
-    return result;
-  }, [baseJobs, globalStaging]);
+  // All jobs is simply the combination of jobs and unallocated orders (no staging overlay)
+  const allJobs = useMemo(() => baseJobs, [baseJobs]);
 
   // Convert Job to ScheduledJob for plannerV2
   const toScheduledJob = useCallback((job: Job): PlannerV2.ScheduledJob => ({
@@ -390,164 +340,164 @@ export const ProductionPlannerPage = () => {
     productionComplete: job.productionComplete
   }), []);
 
-  // Stage a job click - adds job to global staging
-  const handleJobClick = useCallback((jobId: string) => {
-    const job = allJobs.find(j => j.id === jobId);
-    if (!job) return;
-    
-    // Skip staging for unallocated jobs - they don't follow scheduling rules
-    if (!job.jigId || !job.plannedDateStr) {
-      console.log('[PLANNER] Skipping staging for unallocated job:', jobId);
-      return;
-    }
-    
-    // Use functional updater to check latest staging state and avoid stale closures
-    setGlobalStaging(prev => {
-      // If already staged, return unchanged
-      if (PlannerV2.hasJobChanges(prev, jobId)) {
-        console.log('[PLANNER] Job already staged:', jobId);
-        return prev;
-      }
-      
-      console.log('[PLANNER] Staging job:', jobId);
-      return PlannerV2.stageChange(prev, jobId, toScheduledJob(job), {}, 'allocate');
-    });
-  }, [allJobs, toScheduledJob]);
-
-  // Stage a change to a job (for resize, move, etc.)
-  const stageJobUpdate = useCallback((jobId: string, updates: Partial<PlannerV2.ScheduledJob>, changeType: PlannerV2.ChangeType = 'allocate') => {
-    const job = baseJobs.find(j => j.id === jobId);
-    if (!job) return;
-    
-    console.log('[PLANNER] Staging job update:', jobId, updates, changeType);
-    setGlobalStaging(prev => PlannerV2.stageChange(prev, jobId, toScheduledJob(job), updates, changeType));
-  }, [baseJobs, toScheduledJob]);
-
-  // Global Accept - persist ALL staged changes
-  const acceptAllChanges = async () => {
-    if (!PlannerV2.hasChanges(globalStaging)) return;
-    
-    setIsSaving(true);
-    console.log('[PLANNER] Accepting all staged changes:', PlannerV2.getChangeCount(globalStaging), 'jobs');
-    
+  // Save job allocation immediately to database
+  const saveJobAllocation = useCallback(async (
+    jobId: string, 
+    updates: {
+      teamId: string;
+      workDate: string;
+      plannedStartMinutes: number;
+      plannedEndMinutes: number;
+      plannedDurationMinutes: number;
+      breakAdjustmentMinutes: number;
+    },
+    existingWipId?: string
+  ): Promise<boolean> => {
     try {
-      const payloads = PlannerV2.buildPersistencePayloads(globalStaging);
-      
-      // Build job details map for audit records
-      const jobDetailsMap = new Map<string, PlannerV2.JobDetails>();
-      for (const job of [...jobs, ...unallocatedOrders]) {
-        jobDetailsMap.set(job.id, { orderNumber: job.orderNumber, customer: job.customer });
+      setIsSaving(true);
+      const job = baseJobs.find(j => j.id === jobId);
+      if (!job) {
+        console.error('[PLANNER] Job not found:', jobId);
+        return false;
       }
-      
-      // Build audit records before persisting
-      const auditRecords = PlannerV2.buildAuditRecords(globalStaging, jobDetailsMap);
-      console.log('[PLANNER] Creating', auditRecords.length, 'audit records');
-      
-      // Build WIP allocations for batch save
-      // NOTE: dayStartMinutes/dayEndMinutes are intentionally NOT set here.
-      // These fields should only be populated when there's a true user override
-      // (e.g., user explicitly toggled overtime). Leaving them null allows the
-      // planner to use ShiftConfig defaults at runtime.
-      const wipAllocations: CreateTeamWorkItemDto[] = payloads
-        .filter(p => p.updates.jigId && p.updates.plannedDateStr)
-        .map((payload, idx) => {
-          const existingJob = allJobs.find(j => j.id === payload.jobId);
-          const allocation: CreateTeamWorkItemDto = {
-            productionId: payload.jobId,
-            teamId: payload.updates.jigId!,
-            workDate: payload.updates.plannedDateStr!,
-            sequence: idx,
-            plannedStartMinutes: payload.updates.plannedStartTime ?? 420,
-            plannedEndMinutes: payload.updates.plannedEndTime ?? 1020,
-            plannedDurationMinutes: payload.updates.plannedDurationMinutes ?? 60,
-            breakAdjustmentMinutes: payload.updates.breakAdjustmentMinutes ?? 0,
-            status: 'scheduled',
-            overtimeEnabled: existingJob?.overtimeEnabled ?? false,
-            customDurationMinutes: payload.updates.customDurationMinutes !== undefined 
-              ? payload.updates.customDurationMinutes 
-              : existingJob?.customDurationMinutes
-          };
-          // Only set dayEndMinutes when overtime is explicitly enabled by user
-          // This represents a true user override, not a ShiftConfig default
-          if (existingJob?.overtimeEnabled === true && existingJob?.dayEndMinutes !== undefined) {
-            allocation.dayEndMinutes = existingJob.dayEndMinutes;
-          }
-          return allocation;
+
+      if (existingWipId) {
+        await teamWorkItemService.update(existingWipId, {
+          teamId: updates.teamId,
+          workDate: updates.workDate,
+          plannedStartMinutes: updates.plannedStartMinutes,
+          plannedEndMinutes: updates.plannedEndMinutes,
+          plannedDurationMinutes: updates.plannedDurationMinutes,
+          breakAdjustmentMinutes: updates.breakAdjustmentMinutes
         });
-      
-      // Batch save WIP entries (this also syncs to Production table)
-      if (wipAllocations.length > 0) {
-        console.log('[PLANNER] Saving', wipAllocations.length, 'WIP allocations via batch API');
-        await teamWorkItemService.batchAllocate(wipAllocations);
-        console.log('[PLANNER] ✓ WIP allocations saved');
+        console.log('[PLANNER] ✓ Updated WIP record:', existingWipId);
+      } else {
+        const allocation: CreateTeamWorkItemDto = {
+          productionId: jobId,
+          teamId: updates.teamId,
+          workDate: updates.workDate,
+          sequence: 0,
+          plannedStartMinutes: updates.plannedStartMinutes,
+          plannedEndMinutes: updates.plannedEndMinutes,
+          plannedDurationMinutes: updates.plannedDurationMinutes,
+          breakAdjustmentMinutes: updates.breakAdjustmentMinutes,
+          status: 'scheduled'
+        };
+        await teamWorkItemService.create(allocation);
+        console.log('[PLANNER] ✓ Created WIP record for job:', jobId);
       }
-      
-      // Handle jobs being unallocated (jigId is null) - need to delete their WIP records
-      const jobsBeingUnallocated = payloads.filter(p => p.updates.jigId === null);
-      for (const payload of jobsBeingUnallocated) {
-        console.log('[PLANNER] Deleting WIP for unallocated job:', payload.jobId);
-        await teamWorkItemService.deleteByProductionId(payload.jobId);
-      }
-      if (jobsBeingUnallocated.length > 0) {
-        console.log('[PLANNER] ✓ Deleted WIP records for', jobsBeingUnallocated.length, 'unallocated jobs');
-      }
-      
-      // Also persist any jobs that don't have team assignment (just date/duration updates, not unallocation)
-      const jobsWithoutTeam = payloads.filter(p => p.updates.jigId !== null && (!p.updates.jigId || !p.updates.plannedDateStr));
-      for (const payload of jobsWithoutTeam) {
-        const apiPayload: Record<string, any> = {};
-        if (payload.updates.jigId !== undefined) apiPayload.jigId = payload.updates.jigId;
-        if (payload.updates.plannedDateStr !== undefined) apiPayload.productionPlannedDate = payload.updates.plannedDateStr;
-        if (payload.updates.plannedStartTime !== undefined) apiPayload.plannedStartTime = payload.updates.plannedStartTime;
-        if (payload.updates.plannedEndTime !== undefined) apiPayload.plannedEndTime = payload.updates.plannedEndTime;
-        if (payload.updates.plannedDurationMinutes !== undefined) apiPayload.plannedDurationMinutes = payload.updates.plannedDurationMinutes;
-        if (payload.updates.customDurationMinutes !== undefined) apiPayload.customDurationMinutes = payload.updates.customDurationMinutes;
-        if (payload.updates.breakAdjustmentMinutes !== undefined) apiPayload.breakAdjustmentMinutes = payload.updates.breakAdjustmentMinutes;
-        
-        console.log('[PLANNER] Persisting job directly:', payload.jobId, apiPayload);
-        await productionService.update(payload.jobId, apiPayload);
-      }
-      
-      // Send audit records to backend
-      if (auditRecords.length > 0) {
-        const auditDtos: CreateProductionAuditDto[] = auditRecords.map(record => ({
-          productionId: record.jobId,
-          changeType: record.changeType,
-          oldJigId: record.previousValues.jigId,
-          newJigId: record.newValues.jigId,
-          oldPlannedDate: record.previousValues.plannedDateStr,
-          newPlannedDate: record.newValues.plannedDateStr,
-          oldStartTime: record.previousValues.plannedStartTime,
-          newStartTime: record.newValues.plannedStartTime,
-          oldEndTime: record.previousValues.plannedEndTime,
-          newEndTime: record.newValues.plannedEndTime,
-          orderNumber: record.orderNumber,
-          customerName: record.customer,
-          notes: record.isPrimary ? 'Primary job change' : 'Affected by cascade'
-        }));
-        
-        await productionAuditService.createBatch(auditDtos);
-        console.log('[PLANNER] ✓ Audit records saved');
-      }
-      
-      console.log('[PLANNER] ✓ All changes persisted');
-      
-      // Clear staging and reload data
-      setGlobalStaging(PlannerV2.createEmptyStaging());
-      await loadData();
+
+      setJobs(prevJobs => prevJobs.map(j => {
+        if (j.id === jobId) {
+          return {
+            ...j,
+            jigId: updates.teamId,
+            plannedDateStr: updates.workDate,
+            plannedStartTime: updates.plannedStartMinutes,
+            plannedEndTime: updates.plannedEndMinutes,
+            plannedDurationMinutes: updates.plannedDurationMinutes,
+            breakAdjustmentMinutes: updates.breakAdjustmentMinutes
+          };
+        }
+        return j;
+      }));
+
+      return true;
     } catch (err) {
-      console.error('[PLANNER] ✗ Failed to persist changes:', err);
-      setError('Failed to save changes. Please try again.');
+      console.error('[PLANNER] ✗ Failed to save job allocation:', err);
+      setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return false;
     } finally {
       setIsSaving(false);
     }
-  };
+  }, [baseJobs]);
 
-  // Global Discard - clear all staged changes
-  const discardAllChanges = () => {
-    console.log('[PLANNER] Discarding all staged changes');
-    setGlobalStaging(PlannerV2.createEmptyStaging());
-  };
+  // Save multiple job updates (for cascade operations)
+  const saveMultipleJobUpdates = useCallback(async (
+    updates: Array<{
+      jobId: string;
+      wipId?: string;
+      teamId: string;
+      workDate: string;
+      plannedStartMinutes: number;
+      plannedEndMinutes: number;
+      plannedDurationMinutes: number;
+      breakAdjustmentMinutes: number;
+    }>
+  ): Promise<boolean> => {
+    try {
+      setIsSaving(true);
+      
+      const wipUpdates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
+      const wipCreates: CreateTeamWorkItemDto[] = [];
+
+      for (const update of updates) {
+        if (update.wipId) {
+          wipUpdates.push({
+            id: update.wipId,
+            data: {
+              teamId: update.teamId,
+              workDate: update.workDate,
+              plannedStartMinutes: update.plannedStartMinutes,
+              plannedEndMinutes: update.plannedEndMinutes,
+              plannedDurationMinutes: update.plannedDurationMinutes,
+              breakAdjustmentMinutes: update.breakAdjustmentMinutes
+            }
+          });
+        } else {
+          wipCreates.push({
+            productionId: update.jobId,
+            teamId: update.teamId,
+            workDate: update.workDate,
+            sequence: 0,
+            plannedStartMinutes: update.plannedStartMinutes,
+            plannedEndMinutes: update.plannedEndMinutes,
+            plannedDurationMinutes: update.plannedDurationMinutes,
+            breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+            status: 'scheduled'
+          });
+        }
+      }
+
+      if (wipUpdates.length > 0) {
+        await teamWorkItemService.batchUpdate(wipUpdates);
+        console.log('[PLANNER] ✓ Batch updated', wipUpdates.length, 'WIP records');
+      }
+
+      if (wipCreates.length > 0) {
+        await teamWorkItemService.batchAllocate(wipCreates);
+        console.log('[PLANNER] ✓ Batch created', wipCreates.length, 'WIP records');
+      }
+
+      setJobs(prevJobs => {
+        const updateMap = new Map(updates.map(u => [u.jobId, u]));
+        return prevJobs.map(j => {
+          const update = updateMap.get(j.id);
+          if (update) {
+            return {
+              ...j,
+              jigId: update.teamId,
+              plannedDateStr: update.workDate,
+              plannedStartTime: update.plannedStartMinutes,
+              plannedEndTime: update.plannedEndMinutes,
+              plannedDurationMinutes: update.plannedDurationMinutes,
+              breakAdjustmentMinutes: update.breakAdjustmentMinutes
+            };
+          }
+          return j;
+        });
+      });
+
+      return true;
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to save multiple jobs:', err);
+      setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
 
   // Unallocated basket: all production without planned date + orders needing production
   const unallocated = useMemo(() => {
@@ -573,8 +523,8 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   }, []);
 
-  // Drop to a team/day column - assign jig, date, and calculate time
-  // Uses sequential scheduling with cascade and multi-day overflow handling via plannerV2
+  // Drop to a team/day column - assign jig, date, and calculate time with team-specific duration
+  // Immediately saves to database (no staging)
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
     
@@ -590,6 +540,12 @@ export const ProductionPlannerPage = () => {
 
     try {
       if (updatedJigId) {
+        const team = jigTeams.find(t => t.id === updatedJigId);
+        const teamAverageEfinks = team?.averageEfinks ?? 80;
+        
+        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, teamAverageEfinks);
+        console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ')');
+        
         const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
         const shift = PlannerV2.getShiftConfig(teamOvertimeSettings?.enabled, teamOvertimeSettings?.closeTime);
         
@@ -610,35 +566,40 @@ export const ProductionPlannerPage = () => {
         const droppedJob: PlannerV2.ScheduledJob = {
           ...toScheduledJob(job),
           plannedDateStr: dateStr,
-          jigId: updatedJigId
+          jigId: updatedJigId,
+          plannedDurationMinutes: teamSpecificDuration
         };
         
         const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
         
         console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled,', cascadeResult.overflows.length, 'overflows');
         
-        setGlobalStaging(prev => {
-          let newStaging = prev;
-          
-          for (const scheduledJob of cascadeResult.scheduledJobs) {
-            const isDroppedJob = scheduledJob.id === job.id;
-            const originalJob = isDroppedJob ? job : allJobs.find(j => j.id === scheduledJob.id);
-            
-            if (originalJob) {
-              const changeType: PlannerV2.ChangeType = isDroppedJob ? 'allocate' : 'cascade';
-              newStaging = PlannerV2.stageChange(newStaging, scheduledJob.id, toScheduledJob(originalJob), {
-                plannedDateStr: dateStr,
-                jigId: updatedJigId,
-                plannedStartTime: scheduledJob.plannedStartTime,
-                plannedEndTime: scheduledJob.plannedEndTime,
-                plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
-                breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes
-              }, changeType);
-            }
+        const updates: Array<{
+          jobId: string;
+          wipId?: string;
+          teamId: string;
+          workDate: string;
+          plannedStartMinutes: number;
+          plannedEndMinutes: number;
+          plannedDurationMinutes: number;
+          breakAdjustmentMinutes: number;
+        }> = [];
+        
+        for (const scheduledJob of cascadeResult.scheduledJobs) {
+          const originalJob = allJobs.find(j => j.id === scheduledJob.id);
+          if (originalJob) {
+            updates.push({
+              jobId: scheduledJob.id,
+              wipId: originalJob.wipId,
+              teamId: updatedJigId,
+              workDate: dateStr,
+              plannedStartMinutes: scheduledJob.plannedStartTime ?? shift.startTime,
+              plannedEndMinutes: scheduledJob.plannedEndTime ?? shift.endTime,
+              plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? teamSpecificDuration,
+              breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
+            });
           }
-          
-          return newStaging;
-        });
+        }
         
         if (cascadeResult.overflows.length > 0) {
           console.log('[PLANNER] Processing', cascadeResult.overflows.length, 'multi-day overflows');
@@ -651,44 +612,31 @@ export const ProductionPlannerPage = () => {
             overtimeByTeamDay
           );
           
-          console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected,', multiDayResult.newRollovers.length, 'rollovers');
+          console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected');
           
-          setGlobalStaging(prev => {
-            let newStaging = prev;
-            
-            for (const scheduledJob of multiDayResult.scheduledJobs) {
-              const originalJob = allJobs.find(j => j.id === scheduledJob.id);
-              
-              if (originalJob && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
-                newStaging = PlannerV2.stageChange(newStaging, scheduledJob.id, toScheduledJob(originalJob), {
-                  plannedDateStr: scheduledJob.plannedDateStr,
-                  jigId: scheduledJob.jigId,
-                  plannedStartTime: scheduledJob.plannedStartTime,
-                  plannedEndTime: scheduledJob.plannedEndTime,
-                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes,
-                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes
-                }, 'cascade');
+          for (const scheduledJob of multiDayResult.scheduledJobs) {
+            const originalJob = allJobs.find(j => j.id === scheduledJob.id);
+            if (originalJob && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
+              const existingUpdate = updates.find(u => u.jobId === scheduledJob.id);
+              if (!existingUpdate) {
+                updates.push({
+                  jobId: scheduledJob.id,
+                  wipId: originalJob.wipId,
+                  teamId: scheduledJob.jigId ?? updatedJigId,
+                  workDate: scheduledJob.plannedDateStr,
+                  plannedStartMinutes: scheduledJob.plannedStartTime ?? shift.startTime,
+                  plannedEndMinutes: scheduledJob.plannedEndTime ?? shift.endTime,
+                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? 60,
+                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
+                });
               }
             }
-            
-            for (const rollover of multiDayResult.newRollovers) {
-              const parentJob = allJobs.find(j => j.id === rollover.parentProductionId);
-              if (parentJob) {
-                newStaging = PlannerV2.stageChange(newStaging, rollover.id, rollover, {
-                  plannedDateStr: rollover.plannedDateStr,
-                  jigId: rollover.jigId,
-                  plannedStartTime: rollover.plannedStartTime,
-                  plannedEndTime: rollover.plannedEndTime,
-                  plannedDurationMinutes: rollover.plannedDurationMinutes,
-                  breakAdjustmentMinutes: rollover.breakAdjustmentMinutes,
-                  parentProductionId: rollover.parentProductionId,
-                  rolloverSequence: rollover.rolloverSequence
-                }, 'rollover');
-              }
-            }
-            
-            return newStaging;
-          });
+          }
+        }
+        
+        const success = await saveMultipleJobUpdates(updates);
+        if (!success) {
+          console.error('[PLANNER] Failed to save job allocations');
         }
         
         if (viewMode !== 'day') {
@@ -696,16 +644,7 @@ export const ProductionPlannerPage = () => {
           setCurrentDateStr(dateStr);
         }
       } else {
-        const jobDuration = PlannerV2.getJobDuration(toScheduledJob(job));
-        stageJobUpdate(job.id, {
-          plannedDateStr: dateStr,
-          jigId: null,
-          plannedStartTime: null,
-          plannedEndTime: null,
-          plannedDurationMinutes: jobDuration,
-          breakAdjustmentMinutes: null
-        }, 'allocate');
-        
+        console.log('[PLANNER] Dropping without team assignment, skipping save');
         if (viewMode !== 'day') {
           setViewMode('day');
           setCurrentDateStr(dateStr);
@@ -713,7 +652,7 @@ export const ProductionPlannerPage = () => {
       }
       
       if (isSalesOrder) {
-        console.log('[PLANNER] Note: Sales order will be created on accept');
+        console.log('[PLANNER] Note: Sales order dropped - production will be created');
       }
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to schedule job:', err);
@@ -723,40 +662,54 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  // Drop to global unallocated basket - reset to EFinks and clear assignment
-  const handleDropToUnallocated = () => {
+  // Drop to global unallocated basket - delete WIP record
+  const handleDropToUnallocated = async () => {
     if (!draggedJobId) return;
     
     const job = allJobs.find(j => j.id === draggedJobId);
     if (!job) return;
 
-    // Can't unallocate a sales order that doesn't have a production record yet
     const isSalesOrder = job.id.startsWith('order-');
     if (isSalesOrder) {
       setDraggedJobId(null);
       return;
     }
 
-    // Reset to EFinks default when moving to unallocated
-    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
-    
-    // Stage the unallocate - resets to EFinks default
-    stageJobUpdate(job.id, {
-      jigId: null,
-      plannedDateStr: null,
-      plannedStartTime: null,
-      plannedEndTime: null,
-      plannedDurationMinutes: defaultDuration,
-      customDurationMinutes: undefined,
-      breakAdjustmentMinutes: null
-    }, 'unallocate');
-    
-    console.log('[PLANNER] Staged unallocate for job:', job.id, 'reset to EFinks:', defaultDuration, 'min');
-    setDraggedJobId(null);
+    try {
+      setIsSaving(true);
+      
+      if (job.wipId) {
+        await teamWorkItemService.deleteByProductionId(job.id);
+        console.log('[PLANNER] ✓ Deleted WIP record for job:', job.id);
+      }
+      
+      setJobs(prevJobs => prevJobs.map(j => {
+        if (j.id === job.id) {
+          return {
+            ...j,
+            jigId: null,
+            plannedDateStr: null,
+            plannedStartTime: null,
+            plannedEndTime: null,
+            plannedDurationMinutes: null,
+            wipId: undefined
+          };
+        }
+        return j;
+      }));
+      
+      console.log('[PLANNER] ✓ Unallocated job:', job.id);
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to unallocate job:', err);
+      setError(`Failed to unallocate: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+      setDraggedJobId(null);
+    }
   };
 
-  // Drop to team unallocated column - assign team but no date/time, reset to EFinks
-  const handleDropToTeamUnallocated = (jigId: string) => {
+  // Drop to team unallocated column - for now just unallocate (team-only assignment not supported via WIP)
+  const handleDropToTeamUnallocated = async (jigId: string) => {
     if (!draggedJobId) return;
     
     const job = allJobs.find(j => j.id === draggedJobId);
@@ -768,91 +721,137 @@ export const ProductionPlannerPage = () => {
       return;
     }
 
-    // Reset to EFinks default when moving to team unallocated
-    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
-    
-    stageJobUpdate(job.id, {
-      jigId: jigId,
-      plannedDateStr: null,
-      plannedStartTime: null,
-      plannedEndTime: null,
-      plannedDurationMinutes: defaultDuration,
-      customDurationMinutes: undefined,
-      breakAdjustmentMinutes: null
-    }, 'unallocate');
-    
-    console.log('[PLANNER] Staged team unallocate for job:', job.id, 'team:', jigId);
-    setDraggedJobId(null);
+    try {
+      setIsSaving(true);
+      
+      if (job.wipId) {
+        await teamWorkItemService.deleteByProductionId(job.id);
+        console.log('[PLANNER] ✓ Deleted WIP record for team unallocate:', job.id);
+      }
+      
+      setJobs(prevJobs => prevJobs.map(j => {
+        if (j.id === job.id) {
+          return {
+            ...j,
+            jigId: null,
+            plannedDateStr: null,
+            plannedStartTime: null,
+            plannedEndTime: null,
+            plannedDurationMinutes: null,
+            wipId: undefined
+          };
+        }
+        return j;
+      }));
+      
+      console.log('[PLANNER] ✓ Team unallocated job:', job.id, 'from team:', jigId);
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to team unallocate job:', err);
+      setError(`Failed to unallocate: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setIsSaving(false);
+      setDraggedJobId(null);
+    }
   };
 
   const handleJobDoubleClick = (jobId: string) => {
     navigate(`/production-planner/${jobId}`);
   };
 
-  const handleJobDurationChange = (jobId: string, durationMinutes: number) => {
+  const handleJobDurationChange = async (jobId: string, durationMinutes: number) => {
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
     
     const dateStr = job.plannedDateStr;
     const jigId = job.jigId;
     
-    // Round duration to 15-minute increment
     const roundedDuration = PlannerV2.roundToQuarterHour(durationMinutes);
     
-    // Calculate new end time based on the resized duration
     if (job.plannedStartTime != null && jigId && dateStr) {
       const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
       const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
       
-      // Calculate new end time and break adjustments
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
       
-      // Stage the resize - no cascading, overlaps allowed during staging
-      stageJobUpdate(jobId, {
-        customDurationMinutes: roundedDuration,
+      const existingJobsOnDay = allJobs.filter(
+        j => j.plannedDateStr === dateStr && 
+             j.jigId === jigId && 
+             j.id !== job.id &&
+             !j.productionComplete
+      ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
+       .map(j => toScheduledJob(j));
+      
+      const subsequentJobs = existingJobsOnDay.filter(
+        j => (j.plannedStartTime ?? 0) >= (job.plannedStartTime ?? 0)
+      );
+      
+      const resizedJob: PlannerV2.ScheduledJob = {
+        ...toScheduledJob(job),
         plannedDurationMinutes: roundedDuration,
         plannedEndTime: timing.endTime,
         breakAdjustmentMinutes: timing.breakMinutes
-      }, 'resize');
+      };
       
-      console.log('[PLANNER] Staged resize for job:', jobId, 'duration:', roundedDuration, 'minutes');
-    } else {
-      stageJobUpdate(jobId, {
-        customDurationMinutes: roundedDuration,
-        plannedDurationMinutes: roundedDuration
-      }, 'resize');
-    }
-  };
-
-  const handleJobDurationReset = (jobId: string) => {
-    const job = allJobs.find(j => j.id === jobId);
-    if (!job) return;
-    
-    const dateStr = job.plannedDateStr;
-    const jigId = job.jigId;
-    
-    // Calculate default duration from EFinks
-    const defaultDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
-    
-    if (job.plannedStartTime != null && jigId && dateStr) {
-      const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
-      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
+      const updates: Array<{
+        jobId: string;
+        wipId?: string;
+        teamId: string;
+        workDate: string;
+        plannedStartMinutes: number;
+        plannedEndMinutes: number;
+        plannedDurationMinutes: number;
+        breakAdjustmentMinutes: number;
+      }> = [];
       
-      // Calculate end time using default duration
-      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, defaultDuration, shift);
-      
-      // Stage the reset - clears customDurationMinutes (use null, not undefined, to properly clear)
-      stageJobUpdate(jobId, {
-        customDurationMinutes: null,
-        plannedDurationMinutes: defaultDuration,
-        plannedEndTime: timing.endTime,
+      updates.push({
+        jobId: job.id,
+        wipId: job.wipId,
+        teamId: jigId,
+        workDate: dateStr,
+        plannedStartMinutes: job.plannedStartTime,
+        plannedEndMinutes: timing.endTime,
+        plannedDurationMinutes: roundedDuration,
         breakAdjustmentMinutes: timing.breakMinutes
-      }, 'resize');
+      });
+      
+      if (subsequentJobs.length > 0) {
+        let currentEnd = timing.endTime;
+        
+        for (const subsequentJob of subsequentJobs) {
+          const origJob = allJobs.find(j => j.id === subsequentJob.id);
+          if (!origJob) continue;
+          
+          const jobDuration = subsequentJob.plannedDurationMinutes ?? 
+            PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
+          
+          let newStartTime = Math.max(currentEnd, shift.startTime);
+          if (newStartTime >= shift.lunchStart && newStartTime < shift.lunchEnd) {
+            newStartTime = shift.lunchEnd;
+          }
+          
+          const subTiming = PlannerV2.calculateEndTime(newStartTime, jobDuration, shift);
+          
+          updates.push({
+            jobId: subsequentJob.id,
+            wipId: origJob.wipId,
+            teamId: jigId,
+            workDate: dateStr,
+            plannedStartMinutes: newStartTime,
+            plannedEndMinutes: subTiming.endTime,
+            plannedDurationMinutes: jobDuration,
+            breakAdjustmentMinutes: subTiming.breakMinutes
+          });
+          
+          currentEnd = subTiming.endTime;
+        }
+      }
+      
+      const success = await saveMultipleJobUpdates(updates);
+      if (success) {
+        console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
+      }
     } else {
-      stageJobUpdate(jobId, {
-        customDurationMinutes: null,
-        plannedDurationMinutes: defaultDuration
-      }, 'resize');
+      console.log('[PLANNER] Resize for unallocated job - skipping save');
     }
   };
 
@@ -1490,43 +1489,6 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      {PlannerV2.hasChanges(globalStaging) && (
-        <Stack 
-          horizontal 
-          verticalAlign="center" 
-          tokens={{ childrenGap: 15 }}
-          styles={{ 
-            root: { 
-              padding: '12px 16px',
-              marginTop: 10,
-              backgroundColor: '#fff4ce',
-              borderRadius: 4,
-              border: '1px solid #ffb900'
-            } 
-          }}
-        >
-          <Icon iconName="Edit" styles={{ root: { color: '#ffb900', fontSize: 18 } }} />
-          <Text styles={{ root: { fontWeight: 600, color: '#323130' } }}>
-            {PlannerV2.getChangeCount(globalStaging)} job{PlannerV2.getChangeCount(globalStaging) !== 1 ? 's' : ''} staged for changes
-          </Text>
-          <Stack horizontal tokens={{ childrenGap: 10 }} styles={{ root: { marginLeft: 'auto' } }}>
-            <DefaultButton
-              text="Discard All"
-              onClick={discardAllChanges}
-              disabled={isSaving}
-              styles={{ root: { minWidth: 100 } }}
-            />
-            <PrimaryButton
-              text={isSaving ? 'Saving...' : 'Accept All Changes'}
-              onClick={acceptAllChanges}
-              disabled={isSaving}
-              iconProps={{ iconName: 'CheckMark' }}
-              styles={{ root: { minWidth: 150 } }}
-            />
-          </Stack>
-        </Stack>
-      )}
-
       <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15 } }}>
         <div
           onMouseEnter={() => setBasketCollapsed(false)}
@@ -1642,15 +1604,12 @@ export const ProductionPlannerPage = () => {
               onDragOver={handleDragOver}
               onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
               onJobDoubleClick={handleJobDoubleClick}
-              onJobClick={handleJobClick}
               onJobDurationChange={handleJobDurationChange}
-              onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
               overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}
               onTeamOvertimeChange={handleTeamOvertimeChange}
               onTeamEarlyOvertimeChange={handleTeamEarlyOvertimeChange}
-              globalStaging={globalStaging}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
               isDragging={!!draggedJobId}
               scheduleBlocks={scheduleBlocks.filter(block => block.dateStr === currentDateStr)}

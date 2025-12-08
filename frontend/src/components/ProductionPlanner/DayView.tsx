@@ -95,15 +95,12 @@ interface DayViewProps {
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
   onJobDoubleClick: (jobId: string) => void;
-  onJobClick?: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
-  onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
   onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: number, additionalMinutes?: number) => void;
   onTeamEarlyOvertimeChange?: (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => void;
-  globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
   scheduleBlocks?: ScheduleBlock[];
@@ -122,15 +119,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onDragOver,
   onDrop,
   onJobDoubleClick,
-  onJobClick,
   onJobDurationChange,
-  onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover,
   overtimeByTeam = {},
   onTeamOvertimeChange,
   onTeamEarlyOvertimeChange,
-  globalStaging,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
   isDragging = false,
   scheduleBlocks = [],
@@ -175,12 +169,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const anyTeamHasOvertime = useMemo(() => {
     return Object.values(overtimeByTeam).some(settings => settings.enabled);
   }, [overtimeByTeam]);
-
-  // Check if job is staged (in pending changes)
-  const isJobStaged = (jobId: string) => globalStaging ? PlannerV2.hasJobChanges(globalStaging, jobId) : false;
-  
-  // Check if job is the primary staged job
-  const isPrimaryStaged = (jobId: string) => globalStaging?.primaryJobId === jobId;
 
   // Calculate additional working minutes for overtime
   const calculateOvertimeDelta = useCallback((closeTimeMinutes: number) => {
@@ -383,44 +371,15 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   };
 
   const hasManualResize = useCallback((job: Job): boolean => {
-    // Check for staged changes first (e.g., Reset button clicked sets customDurationMinutes to null)
-    if (globalStaging) {
-      const stagedChange = globalStaging.stagedChanges.get(job.id);
-      if (stagedChange && stagedChange.newValues.customDurationMinutes !== undefined) {
-        // If staged customDurationMinutes is null, job is no longer manually resized
-        return PlannerV2.isManuallyAltered({
-          customDurationMinutes: stagedChange.newValues.customDurationMinutes,
-          estimatedEFinks: job.estimatedEFinks
-        });
-      }
-    }
-    
     return PlannerV2.isManuallyAltered({
       customDurationMinutes: customDurations[job.id] ?? job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations, globalStaging]);
+  }, [customDurations]);
 
   const getBaseDuration = useCallback((job: Job): number => {
-    // First check local resize state (during active drag)
     if (customDurations[job.id]) {
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
-    }
-    
-    // Check for staged changes (e.g., Reset button clicked but not yet saved)
-    if (globalStaging) {
-      const stagedChange = globalStaging.stagedChanges.get(job.id);
-      if (stagedChange) {
-        // If customDurationMinutes was staged (even as null), use staged plannedDurationMinutes
-        if (stagedChange.newValues.customDurationMinutes !== undefined || 
-            stagedChange.newValues.plannedDurationMinutes !== undefined) {
-          const stagedDuration = stagedChange.newValues.plannedDurationMinutes;
-          if (stagedDuration != null && stagedDuration > 0) {
-            const breakAdjustment = stagedChange.newValues.breakAdjustmentMinutes ?? job.breakAdjustmentMinutes ?? 0;
-            return stagedDuration - breakAdjustment;
-          }
-        }
-      }
     }
     
     if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
@@ -432,7 +391,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations, globalStaging]);
+  }, [customDurations]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {
     const baseDuration = getBaseDuration(job);
@@ -1475,26 +1434,20 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     const overflowMinutes = overflowDetails.get(job.id) || 0;
                     const maxHeight = Math.max(0, (workingEnd - top) * PlannerV2.PIXELS_PER_MINUTE - 4);
                     const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
-                    const jobIsStaged = isJobStaged(job.id);
-                    const jobIsPrimary = isPrimaryStaged(job.id);
                     
                     const getBackground = () => {
-                      if (jobIsStaged) return 'linear-gradient(135deg, rgba(255, 185, 0, 0.95), rgba(200, 140, 0, 0.85))';
                       if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                     };
                     
                     const getBorder = () => {
-                      if (jobIsPrimary) return '3px solid #ffb900';
-                      if (jobIsStaged) return '2px dashed #ffb900';
                       if (isOverflowing) return '2px solid #ff4444';
                       if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
                       return '1px solid rgba(255, 255, 255, 0.3)';
                     };
                     
                     const getBoxShadow = () => {
-                      if (jobIsStaged) return '0 4px 16px rgba(255, 185, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
                       if (isOverflowing) return '0 4px 12px rgba(198, 40, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
@@ -1511,8 +1464,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         onClick={() => {
                           if (isOverflowing) {
                             handleOverflowClick(job, jig.id, overflowMinutes);
-                          } else if (onJobClick && !job.productionComplete) {
-                            onJobClick(job.id);
                           }
                         }}
                         style={{
@@ -1523,11 +1474,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           height: clampedHeight,
                           padding: 8,
                           background: getBackground(),
-                          color: jobIsStaged ? '#333' : (job.productionComplete ? '#555' : 'white'),
+                          color: job.productionComplete ? '#555' : 'white',
                           borderRadius: 6,
                           border: getBorder(),
                           cursor: isOverflowing ? 'pointer' : (resizingJob ? 'ns-resize' : 'grab'),
-                          zIndex: jobIsStaged ? 200 : (resizingJob === job.id ? 100 : 10),
+                          zIndex: resizingJob === job.id ? 100 : 10,
                           boxShadow: getBoxShadow(),
                           opacity: job.productionComplete ? 0.7 : 1,
                           display: 'flex',
@@ -1536,61 +1487,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           backdropFilter: 'blur(4px)'
                         }}
                       >
-                        {/* Staged indicator badge */}
-                        {jobIsStaged && (
-                          <div style={{
-                            position: 'absolute',
-                            top: 2,
-                            left: 2,
-                            backgroundColor: '#fff4ce',
-                            color: '#996600',
-                            padding: '2px 6px',
-                            borderRadius: 4,
-                            fontSize: 9,
-                            fontWeight: 600,
-                            zIndex: 300
-                          }}>
-                            {jobIsPrimary ? 'PRIMARY' : 'STAGED'}
-                          </div>
-                        )}
-                        {/* Refresh button - only show when manually resized */}
-                        {hasManualResize(job) && onJobDurationReset && !job.productionComplete && (
-                          <IconButton
-                            iconProps={{ iconName: 'Refresh' }}
-                            title="Reset to calculated size"
-                            ariaLabel="Reset to calculated size"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCustomDurations(prev => {
-                                const next = { ...prev };
-                                delete next[job.id];
-                                return next;
-                              });
-                              onJobDurationReset(job.id);
-                            }}
-                            styles={{
-                              root: {
-                                position: 'absolute',
-                                top: 2,
-                                right: 2,
-                                width: 20,
-                                height: 20,
-                                minWidth: 20,
-                                backgroundColor: 'rgba(255,255,255,0.2)',
-                                borderRadius: 4
-                              },
-                              icon: { fontSize: 10, color: 'white' },
-                              rootHovered: { backgroundColor: 'rgba(255,255,255,0.4)' }
-                            }}
-                          />
-                        )}
-                        {/* Overflow indicator - positioned to avoid button overlap */}
+                        {/* Overflow indicator */}
                         {isOverflowing && (
                           <Text styles={{ 
                             root: { 
                               position: 'absolute',
                               top: 2,
-                              right: hasManualResize(job) && onJobDurationReset ? 26 : 4,
+                              right: 4,
                               color: '#ffff00', 
                               fontWeight: 700, 
                               fontSize: 18, 
