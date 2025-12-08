@@ -429,10 +429,9 @@ export const ProductionPlannerPage = () => {
   }, []);
 
 
-  // Unallocated basket: ONLY D365 orders without production records (id starts with 'order-')
-  // Productions without dates are NOT shown in basket - they need to be scheduled via the planner
+  // Unallocated basket: all production without planned date + orders needing production
   const unallocated = useMemo(() => {
-    return allJobs.filter(j => !j.plannedDateStr && j.id.startsWith('order-'));
+    return allJobs.filter(j => !j.plannedDateStr);
   }, [allJobs]);
 
   const getDaysInView = useMemo(() => {
@@ -500,7 +499,7 @@ export const ProductionPlannerPage = () => {
           jigId: updatedJigId,
           plannedDurationMinutes: teamSpecificDuration,
           // Clear stale customDurationMinutes for first-time allocations so scheduler uses EFinks calculation
-          customDurationMinutes: job.wipId ? (job.customDurationMinutes ?? null) : null
+          customDurationMinutes: job.wipId ? job.customDurationMinutes : undefined
         };
         
         const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
