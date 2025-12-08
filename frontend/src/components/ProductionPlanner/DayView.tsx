@@ -906,6 +906,93 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return segments;
   };
 
+  // Generate timeline segments using MINUTE precision for working hours (for team-specific overtime)
+  const generateVisibleTimelineSegmentsMinutes = (forWorkingMinutes: { startMinutes: number; endMinutes: number }): TimelineSegment[] => {
+    const segments: TimelineSegment[] = [];
+    const sortedBreaks = [...breakSlots].sort((a, b) => 
+      (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
+    );
+    
+    let currentMinute = visibleStartMinutes;
+    
+    while (currentMinute < visibleEndMinutes) {
+      const breakAtThisPoint = sortedBreaks.find(b => {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        return currentMinute === breakStart;
+      });
+      
+      if (breakAtThisPoint) {
+        const breakDuration = getBreakDurationMinutes(breakAtThisPoint);
+        const hour = Math.floor(currentMinute / 60);
+        const minute = currentMinute % 60;
+        
+        // Only add if break ends within visible range
+        const breakEnd = Math.min(currentMinute + breakDuration, visibleEndMinutes);
+        const visibleBreakDuration = breakEnd - currentMinute;
+        
+        // Break is only "working" if it falls within the team's working minutes
+        const isWithinWorkingMinutes = currentMinute >= forWorkingMinutes.startMinutes && currentMinute < forWorkingMinutes.endMinutes;
+        
+        if (visibleBreakDuration > 0) {
+          segments.push({
+            startMinutes: currentMinute,
+            durationMinutes: visibleBreakDuration,
+            label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} ${breakAtThisPoint.label}`,
+            isBreak: true,
+            isWorking: isWithinWorkingMinutes,
+            backgroundColor: isWithinWorkingMinutes ? breakAtThisPoint.color : 'rgba(0, 0, 0, 0.06)',
+            breakSlot: breakAtThisPoint
+          });
+        }
+        
+        currentMinute += breakDuration;
+        continue;
+      }
+      
+      let segmentEnd = visibleEndMinutes;
+      
+      for (const b of sortedBreaks) {
+        const breakStart = b.startHour * 60 + b.startMinute;
+        if (breakStart > currentMinute && breakStart < segmentEnd) {
+          segmentEnd = breakStart;
+        }
+      }
+      
+      // Also break at working hour boundaries for proper coloring
+      if (forWorkingMinutes.startMinutes > currentMinute && forWorkingMinutes.startMinutes < segmentEnd) {
+        segmentEnd = forWorkingMinutes.startMinutes;
+      }
+      if (forWorkingMinutes.endMinutes > currentMinute && forWorkingMinutes.endMinutes < segmentEnd) {
+        segmentEnd = forWorkingMinutes.endMinutes;
+      }
+      
+      const nextHourBoundary = (Math.floor(currentMinute / 60) + 1) * 60;
+      if (nextHourBoundary < segmentEnd) {
+        segmentEnd = nextHourBoundary;
+      }
+      
+      const segmentDuration = segmentEnd - currentMinute;
+      const hour = Math.floor(currentMinute / 60);
+      const minute = currentMinute % 60;
+      
+      // Use minute-precision comparison for working status
+      const isWorking = currentMinute >= forWorkingMinutes.startMinutes && currentMinute < forWorkingMinutes.endMinutes;
+      
+      segments.push({
+        startMinutes: currentMinute,
+        durationMinutes: segmentDuration,
+        label: `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`,
+        isBreak: false,
+        isWorking,
+        backgroundColor: isWorking ? 'white' : 'rgba(0, 0, 0, 0.06)'
+      });
+      
+      currentMinute = segmentEnd;
+    }
+    
+    return segments;
+  };
+
   const timelineSegments = generateVisibleTimelineSegments();
   const totalTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
 
@@ -1000,25 +1087,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const totalMinutes = jigJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
           const teamOvertime = getTeamOvertime(jig.id);
           
-          // Calculate per-team working hours based on this team's overtime settings (both early and late)
-          const teamWorkingHours = baseWorkingHours ? {
-            // Early OT: extend start time to earlier hour based on earlyStartTime
-            start: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
-              ? Math.floor(teamOvertime.earlyStartTime / 60)
-              : baseWorkingHours.start,
-            // Late OT: extend end time to later hour based on closeTime
-            end: teamOvertime.enabled
-              ? (() => {
-                  const h = Math.floor(teamOvertime.closeTime / 60);
-                  const m = teamOvertime.closeTime % 60;
-                  return m > 0 ? h + 1 : h;
-                })()
-              : baseWorkingHours.end
-          } : workingHours;
+          // Calculate per-team working hours in MINUTES for 30-minute precision
+          const teamWorkingMinutes = baseWorkingHours ? {
+            // Early OT: use exact minute value from overtime settings
+            startMinutes: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
+              ? teamOvertime.earlyStartTime
+              : baseWorkingHours.start * 60,
+            // Late OT: use exact minute value from overtime settings
+            endMinutes: teamOvertime.enabled && teamOvertime.closeTime !== undefined
+              ? teamOvertime.closeTime
+              : baseWorkingHours.end * 60
+          } : { startMinutes: workingHours.start * 60, endMinutes: workingHours.end * 60 };
           const teamTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
           
-          // Generate team-specific timeline segments with overtime hours lit up (using visible range)
-          const teamTimelineSegments = generateVisibleTimelineSegments(teamWorkingHours ?? undefined);
+          // Generate team-specific timeline segments with overtime using minute precision
+          const teamTimelineSegments = generateVisibleTimelineSegmentsMinutes(teamWorkingMinutes);
 
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
@@ -1306,7 +1389,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 })()}
 
                 {/* Schedule blocks - rendered below jobs */}
-                {teamWorkingHours && scheduleBlocks
+                {teamWorkingMinutes && scheduleBlocks
                   .filter(block => block.teamId === null || block.teamId === jig.id)
                   .map(block => {
                     const blockTop = (block.startTimeMinutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE;
