@@ -383,15 +383,44 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   };
 
   const hasManualResize = useCallback((job: Job): boolean => {
+    // Check for staged changes first (e.g., Reset button clicked sets customDurationMinutes to null)
+    if (globalStaging) {
+      const stagedChange = globalStaging.stagedChanges.get(job.id);
+      if (stagedChange && stagedChange.newValues.customDurationMinutes !== undefined) {
+        // If staged customDurationMinutes is null, job is no longer manually resized
+        return PlannerV2.isManuallyAltered({
+          customDurationMinutes: stagedChange.newValues.customDurationMinutes,
+          estimatedEFinks: job.estimatedEFinks
+        });
+      }
+    }
+    
     return PlannerV2.isManuallyAltered({
       customDurationMinutes: customDurations[job.id] ?? job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations]);
+  }, [customDurations, globalStaging]);
 
   const getBaseDuration = useCallback((job: Job): number => {
+    // First check local resize state (during active drag)
     if (customDurations[job.id]) {
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
+    }
+    
+    // Check for staged changes (e.g., Reset button clicked but not yet saved)
+    if (globalStaging) {
+      const stagedChange = globalStaging.stagedChanges.get(job.id);
+      if (stagedChange) {
+        // If customDurationMinutes was staged (even as null), use staged plannedDurationMinutes
+        if (stagedChange.newValues.customDurationMinutes !== undefined || 
+            stagedChange.newValues.plannedDurationMinutes !== undefined) {
+          const stagedDuration = stagedChange.newValues.plannedDurationMinutes;
+          if (stagedDuration != null && stagedDuration > 0) {
+            const breakAdjustment = stagedChange.newValues.breakAdjustmentMinutes ?? job.breakAdjustmentMinutes ?? 0;
+            return stagedDuration - breakAdjustment;
+          }
+        }
+      }
     }
     
     if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
@@ -403,7 +432,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations]);
+  }, [customDurations, globalStaging]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {
     const baseDuration = getBaseDuration(job);
