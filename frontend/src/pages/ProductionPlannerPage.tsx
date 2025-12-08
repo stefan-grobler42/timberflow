@@ -351,6 +351,7 @@ export const ProductionPlannerPage = () => {
       plannedEndMinutes: number;
       plannedDurationMinutes: number;
       breakAdjustmentMinutes: number;
+      customDurationMinutes?: number;
     }>
   ): Promise<boolean> => {
     try {
@@ -409,7 +410,8 @@ export const ProductionPlannerPage = () => {
               plannedStartTime: update.plannedStartMinutes,
               plannedEndTime: update.plannedEndMinutes,
               plannedDurationMinutes: update.plannedDurationMinutes,
-              breakAdjustmentMinutes: update.breakAdjustmentMinutes
+              breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+              customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes
             };
           }
           return j;
@@ -747,6 +749,7 @@ export const ProductionPlannerPage = () => {
         plannedEndMinutes: number;
         plannedDurationMinutes: number;
         breakAdjustmentMinutes: number;
+        customDurationMinutes?: number;
       }> = [];
       
       updates.push({
@@ -757,7 +760,8 @@ export const ProductionPlannerPage = () => {
         plannedStartMinutes: job.plannedStartTime,
         plannedEndMinutes: timing.endTime,
         plannedDurationMinutes: roundedDuration,
-        breakAdjustmentMinutes: timing.breakMinutes
+        breakAdjustmentMinutes: timing.breakMinutes,
+        customDurationMinutes: roundedDuration
       });
       
       if (subsequentJobs.length > 0) {
@@ -799,6 +803,39 @@ export const ProductionPlannerPage = () => {
       }
     } else {
       console.log('[PLANNER] Resize for unallocated job - skipping save');
+    }
+  };
+
+  const handleJobDurationReset = async (jobId: string) => {
+    const job = allJobs.find(j => j.id === jobId);
+    if (!job) return;
+    
+    const calculatedDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
+    console.log(`[PLANNER] Resetting job ${jobId} from custom duration to calculated: ${calculatedDuration}m`);
+    
+    setJobs(prevJobs => prevJobs.map(j => 
+      j.id === jobId ? { ...j, customDurationMinutes: undefined } : j
+    ));
+    
+    if (job.plannedStartTime != null && job.jigId && job.plannedDateStr) {
+      const teamOvertime = overtimeByTeamDay[job.plannedDateStr]?.[job.jigId];
+      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
+      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, calculatedDuration, shift);
+      
+      const updates = [{
+        jobId: job.id,
+        wipId: job.wipId,
+        teamId: job.jigId,
+        workDate: job.plannedDateStr,
+        plannedStartMinutes: job.plannedStartTime,
+        plannedEndMinutes: timing.endTime,
+        plannedDurationMinutes: calculatedDuration,
+        breakAdjustmentMinutes: timing.breakMinutes,
+        customDurationMinutes: undefined
+      }];
+      
+      await saveMultipleJobUpdates(updates);
+      console.log('[PLANNER] ✓ Reset job duration to calculated value');
     }
   };
 
@@ -1552,6 +1589,7 @@ export const ProductionPlannerPage = () => {
               onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
               onJobDoubleClick={handleJobDoubleClick}
               onJobDurationChange={handleJobDurationChange}
+              onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               onJobRollover={handleJobRollover}
               overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}

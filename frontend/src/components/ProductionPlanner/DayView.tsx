@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton, IconButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
@@ -96,6 +96,7 @@ interface DayViewProps {
   onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
   onJobDoubleClick: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
+  onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
@@ -120,6 +121,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onDrop,
   onJobDoubleClick,
   onJobDurationChange,
+  onJobDurationReset,
   onTeamDoubleClick,
   onJobRollover,
   overtimeByTeam = {},
@@ -376,8 +378,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
     
     if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
-      const breakAdjustment = job.breakAdjustmentMinutes || 0;
-      return job.plannedDurationMinutes - breakAdjustment;
+      return job.plannedDurationMinutes;
     }
     
     return PlannerV2.getJobDuration({
@@ -391,6 +392,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const breakAdjustment = job.breakAdjustmentMinutes || 0;
     return baseDuration + breakAdjustment;
   }, [getBaseDuration]);
+
+  const hasManualResize = useCallback((job: Job): boolean => {
+    if (customDurations[job.id]) return true;
+    return PlannerV2.isManuallyAltered({
+      customDurationMinutes: job.customDurationMinutes,
+      estimatedEFinks: job.estimatedEFinks
+    });
+  }, [customDurations]);
 
   const jobsByJig = useMemo(() => {
     const map = new Map<string, Job[]>();
@@ -1467,13 +1476,44 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           backdropFilter: 'blur(4px)'
                         }}
                       >
+                        {/* Reset icon for manually resized jobs */}
+                        {hasManualResize(job) && onJobDurationReset && !job.productionComplete && (
+                          <IconButton
+                            iconProps={{ iconName: 'Refresh' }}
+                            title="Reset to calculated size"
+                            ariaLabel="Reset to calculated size"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCustomDurations(prev => {
+                                const next = { ...prev };
+                                delete next[job.id];
+                                return next;
+                              });
+                              onJobDurationReset(job.id);
+                            }}
+                            styles={{
+                              root: {
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                width: 20,
+                                height: 20,
+                                minWidth: 20,
+                                backgroundColor: 'rgba(255,255,255,0.2)',
+                                borderRadius: 4
+                              },
+                              icon: { fontSize: 10, color: 'white' },
+                              rootHovered: { backgroundColor: 'rgba(255,255,255,0.4)' }
+                            }}
+                          />
+                        )}
                         {/* Overflow indicator */}
                         {isOverflowing && (
                           <Text styles={{ 
                             root: { 
                               position: 'absolute',
                               top: 2,
-                              right: 4,
+                              right: hasManualResize(job) && onJobDurationReset ? 26 : 4,
                               color: '#ffff00', 
                               fontWeight: 700, 
                               fontSize: 18, 
