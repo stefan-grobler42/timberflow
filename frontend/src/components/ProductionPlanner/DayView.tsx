@@ -930,9 +930,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const totalMinutes = jigJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
           const teamOvertime = getTeamOvertime(jig.id);
           
-          // Calculate per-team working hours based on this team's overtime setting
+          // Calculate per-team working hours based on this team's overtime settings (both early and late)
           const teamWorkingHours = baseWorkingHours ? {
-            start: baseWorkingHours.start,
+            // Early OT: extend start time to earlier hour based on earlyStartTime
+            start: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
+              ? Math.floor(teamOvertime.earlyStartTime / 60)
+              : baseWorkingHours.start,
+            // Late OT: extend end time to later hour based on closeTime
             end: teamOvertime.enabled
               ? (() => {
                   const h = Math.floor(teamOvertime.closeTime / 60);
