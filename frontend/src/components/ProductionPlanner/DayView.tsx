@@ -890,9 +890,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       <div style={{ display: 'inline-flex' }}>
         {/* Planner grid (time column + team columns) */}
         <div style={{ display: 'flex' }}>
-          {/* Time header column */}
+          {/* Time header column - spacers must match team column header heights */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-            <div style={{ height: 26, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
+            {/* Spacer for Early OT row (24px) */}
+            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid rgba(0,0,0,0.1)' }}></div>
+            {/* Spacer for Late OT row (24px) */}
+            <div style={{ height: 24, backgroundColor: '#f5f5f5', borderBottom: '1px solid #ccc' }}></div>
+            {/* Spacer for team header (50px) */}
             <div style={{ height: 50, borderBottom: '1px solid #ddd' }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
               {timelineSegments.map((segment, idx) => (
@@ -1495,8 +1499,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         {/* Unallocated column - attached to the right with small gap, headers aligned */}
         {unallocatedJobs.length > 0 && (
           <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
-            {/* Spacer to align with overtime row */}
-            <div style={{ height: 26, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc' }}></div>
+            {/* Spacer for Early OT row (24px) */}
+            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid rgba(0,0,0,0.1)' }}></div>
+            {/* Spacer for Late OT row (24px) */}
+            <div style={{ height: 24, backgroundColor: '#ffcdd2', borderBottom: '1px solid #ccc' }}></div>
             
             {/* Unallocated header - aligned with team headers (50px) */}
             <Stack
