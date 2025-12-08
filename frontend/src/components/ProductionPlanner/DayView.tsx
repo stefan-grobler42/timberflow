@@ -945,7 +945,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       left: 0,
                       right: 0,
                       height: segment.durationMinutes * PlannerV2.PIXELS_PER_MINUTE,
-                      borderBottom: '1px solid #ddd',
+                      borderBottom: segment.isWorking || segment.isBreak ? '1px solid #ddd' : '1px solid rgba(0,0,0,0.08)',
                       padding: '4px 10px',
                       backgroundColor: segment.backgroundColor,
                       opacity: segment.isWorking || segment.isBreak ? 1 : 0.7,
