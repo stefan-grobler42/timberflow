@@ -5,8 +5,8 @@ import {
 } from '@fluentui/react';
 import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { productionService, d365OrderService } from '../services/d365Services';
-import { jigService, productionAuditService, scheduleBlockService } from '../services/millenniumServices';
-import type { CreateProductionAuditDto, ScheduleBlock } from '../services/millenniumServices';
+import { jigService, scheduleBlockService } from '../services/millenniumServices';
+import type { ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
 import { teamWorkItemService, type CreateTeamWorkItemDto, type UpdateTeamWorkItemDto } from '../services/teamWorkItemService';
 import type { Jig } from '../types/millennium';
@@ -65,7 +65,7 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>>>({});
-  const [isSaving, setIsSaving] = useState(false);
+  const [_isSaving, setIsSaving] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
@@ -340,78 +340,6 @@ export const ProductionPlannerPage = () => {
     productionComplete: job.productionComplete
   }), []);
 
-  // Save job allocation immediately to database
-  const saveJobAllocation = useCallback(async (
-    jobId: string, 
-    updates: {
-      teamId: string;
-      workDate: string;
-      plannedStartMinutes: number;
-      plannedEndMinutes: number;
-      plannedDurationMinutes: number;
-      breakAdjustmentMinutes: number;
-    },
-    existingWipId?: string
-  ): Promise<boolean> => {
-    try {
-      setIsSaving(true);
-      const job = baseJobs.find(j => j.id === jobId);
-      if (!job) {
-        console.error('[PLANNER] Job not found:', jobId);
-        return false;
-      }
-
-      if (existingWipId) {
-        await teamWorkItemService.update(existingWipId, {
-          teamId: updates.teamId,
-          workDate: updates.workDate,
-          plannedStartMinutes: updates.plannedStartMinutes,
-          plannedEndMinutes: updates.plannedEndMinutes,
-          plannedDurationMinutes: updates.plannedDurationMinutes,
-          breakAdjustmentMinutes: updates.breakAdjustmentMinutes
-        });
-        console.log('[PLANNER] ✓ Updated WIP record:', existingWipId);
-      } else {
-        const allocation: CreateTeamWorkItemDto = {
-          productionId: jobId,
-          teamId: updates.teamId,
-          workDate: updates.workDate,
-          sequence: 0,
-          plannedStartMinutes: updates.plannedStartMinutes,
-          plannedEndMinutes: updates.plannedEndMinutes,
-          plannedDurationMinutes: updates.plannedDurationMinutes,
-          breakAdjustmentMinutes: updates.breakAdjustmentMinutes,
-          status: 'scheduled'
-        };
-        await teamWorkItemService.create(allocation);
-        console.log('[PLANNER] ✓ Created WIP record for job:', jobId);
-      }
-
-      setJobs(prevJobs => prevJobs.map(j => {
-        if (j.id === jobId) {
-          return {
-            ...j,
-            jigId: updates.teamId,
-            plannedDateStr: updates.workDate,
-            plannedStartTime: updates.plannedStartMinutes,
-            plannedEndTime: updates.plannedEndMinutes,
-            plannedDurationMinutes: updates.plannedDurationMinutes,
-            breakAdjustmentMinutes: updates.breakAdjustmentMinutes
-          };
-        }
-        return j;
-      }));
-
-      return true;
-    } catch (err) {
-      console.error('[PLANNER] ✗ Failed to save job allocation:', err);
-      setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [baseJobs]);
-
   // Save multiple job updates (for cascade operations)
   const saveMultipleJobUpdates = useCallback(async (
     updates: Array<{
@@ -644,7 +572,32 @@ export const ProductionPlannerPage = () => {
           setCurrentDateStr(dateStr);
         }
       } else {
-        console.log('[PLANNER] Dropping without team assignment, skipping save');
+        console.log('[PLANNER] Dropping to unallocated - removing from team');
+        
+        if (job.wipId) {
+          setIsSaving(true);
+          await teamWorkItemService.deleteByProductionId(job.id);
+          console.log('[PLANNER] ✓ Deleted WIP record for job:', job.id);
+        }
+        
+        setJobs(prevJobs => prevJobs.map(j => {
+          if (j.id === job.id) {
+            return {
+              ...j,
+              jigId: null,
+              plannedDateStr: dateStr,
+              plannedStartTime: null,
+              plannedEndTime: null,
+              plannedDurationMinutes: null,
+              wipId: undefined
+            };
+          }
+          return j;
+        }));
+        
+        setIsSaving(false);
+        console.log('[PLANNER] ✓ Job unallocated successfully');
+        
         if (viewMode !== 'day') {
           setViewMode('day');
           setCurrentDateStr(dateStr);
@@ -785,13 +738,6 @@ export const ProductionPlannerPage = () => {
         j => (j.plannedStartTime ?? 0) >= (job.plannedStartTime ?? 0)
       );
       
-      const resizedJob: PlannerV2.ScheduledJob = {
-        ...toScheduledJob(job),
-        plannedDurationMinutes: roundedDuration,
-        plannedEndTime: timing.endTime,
-        breakAdjustmentMinutes: timing.breakMinutes
-      };
-      
       const updates: Array<{
         jobId: string;
         wipId?: string;
@@ -825,8 +771,9 @@ export const ProductionPlannerPage = () => {
             PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
           
           let newStartTime = Math.max(currentEnd, shift.startTime);
-          if (newStartTime >= shift.lunchStart && newStartTime < shift.lunchEnd) {
-            newStartTime = shift.lunchEnd;
+          const lunchBreak = shift.breaks.find(b => b.name === 'Lunch');
+          if (lunchBreak && newStartTime >= lunchBreak.start && newStartTime < lunchBreak.end) {
+            newStartTime = lunchBreak.end;
           }
           
           const subTiming = PlannerV2.calculateEndTime(newStartTime, jobDuration, shift);
