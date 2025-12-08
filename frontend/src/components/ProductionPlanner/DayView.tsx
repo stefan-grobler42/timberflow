@@ -414,7 +414,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   }, [jobs, dayStr]);
 
   const unallocatedJobs = useMemo(() => {
-    return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);
+    // Show all jobs on this date that have no team assigned (both complete and incomplete)
+    return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId);
   }, [jobs, dayStr]);
 
   // chainJobsMap is now passed from parent (computed from baseJobs for stability)
