@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton, IconButton } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
@@ -370,13 +370,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return additions;
   };
 
-  const hasManualResize = useCallback((job: Job): boolean => {
-    return PlannerV2.isManuallyAltered({
-      customDurationMinutes: customDurations[job.id] ?? job.customDurationMinutes,
-      estimatedEFinks: job.estimatedEFinks
-    });
-  }, [customDurations]);
-
   const getBaseDuration = useCallback((job: Job): number => {
     if (customDurations[job.id]) {
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
@@ -560,19 +553,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     positions.sort((a, b) => a.top - b.top);
 
     return positions;
-  };
-
-  const formatBreakAdditions = (breakAdditions: BreakAddition[]): string => {
-    if (breakAdditions.length === 0) return '';
-    
-    const totalMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
-    const labels = breakAdditions.map(b => b.label);
-    
-    if (labels.length === 1) {
-      return `+${totalMinutes}m (${labels[0]})`;
-    } else {
-      return `+${totalMinutes}m (${labels.join(' + ')})`;
-    }
   };
 
   const getNextDateStr = (dateStr: string): string => {
@@ -1516,13 +1496,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             {job.estimatedEFinks} E-Finks
                           </Text>
                           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
-                            ({formatDuration(getBaseDurationMinutes(job))})
+                            {breakAdditions.length > 0 
+                              ? `(${formatDuration(getBaseDurationMinutes(job) + breakAdditions.reduce((sum, b) => sum + b.minutes, 0))} total: ${formatDuration(getBaseDurationMinutes(job))} work + ${breakAdditions.reduce((sum, b) => sum + b.minutes, 0)}m breaks)`
+                              : `(${formatDuration(getBaseDurationMinutes(job))})`
+                            }
                           </Text>
-                          {breakAdditions.length > 0 && (
-                            <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
-                              {formatBreakAdditions(breakAdditions)}
-                            </Text>
-                          )}
                           {isOverflowing && (
                             <Text variant="tiny" styles={{ root: { color: '#ffff00', fontWeight: 600 } }}>
                               Overflow: {formatDuration(overflowMinutes)}
