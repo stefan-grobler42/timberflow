@@ -849,11 +849,16 @@ export const ProductionPlannerPage = () => {
     console.log(`[PLANNER] Team overtime change for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
     
     // Update local state immediately for UI responsiveness
+    // IMPORTANT: Spread existing team entry to preserve earlyEnabled/earlyStartTime when changing Late OT
     setOvertimeByTeamDay(prev => ({
       ...prev,
       [dayStr]: {
         ...(prev[dayStr] || {}),
-        [teamId]: { enabled, closeTime }
+        [teamId]: { 
+          ...(prev[dayStr]?.[teamId] || { earlyEnabled: false, earlyStartTime: 360 }),
+          enabled, 
+          closeTime 
+        }
       }
     }));
     
@@ -944,12 +949,16 @@ export const ProductionPlannerPage = () => {
       
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
-      // Revert local state on error
+      // Revert local state on error - preserve early OT settings
       setOvertimeByTeamDay(prev => ({
         ...prev,
         [dayStr]: {
           ...(prev[dayStr] || {}),
-          [teamId]: { enabled: !enabled, closeTime }
+          [teamId]: { 
+            ...(prev[dayStr]?.[teamId] || { earlyEnabled: false, earlyStartTime: 360 }),
+            enabled: !enabled, 
+            closeTime 
+          }
         }
       }));
     }
