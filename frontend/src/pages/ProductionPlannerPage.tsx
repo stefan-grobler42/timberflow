@@ -65,7 +65,7 @@ export const ProductionPlannerPage = () => {
   const [_selectedDayStr, _setSelectedDayStr] = useState<string | null>(null);
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number }>>>({});
+  const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>>>({});
   const [globalStaging, setGlobalStaging] = useState<PlannerV2.StagingState>(PlannerV2.createEmptyStaging());
   const [isSaving, setIsSaving] = useState(false);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
@@ -955,7 +955,68 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: number }> => {
+  const handleTeamEarlyOvertimeChange = async (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => {
+    console.log(`[PLANNER] Team early overtime change for ${dayStr}/${teamId}: earlyEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
+    
+    // Update local state immediately for UI responsiveness
+    setOvertimeByTeamDay(prev => ({
+      ...prev,
+      [dayStr]: {
+        ...(prev[dayStr] || {}),
+        [teamId]: { 
+          ...(prev[dayStr]?.[teamId] || { enabled: false, closeTime: 1140 }),
+          earlyEnabled, 
+          earlyStartTime 
+        }
+      }
+    }));
+    
+    // Find all jobs for this team-day that have WIP records
+    const affectedJobs = allJobs.filter(
+      j => j.plannedDateStr === dayStr && 
+           j.jigId === teamId && 
+           j.wipId
+    );
+    
+    if (affectedJobs.length === 0) {
+      console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+      return;
+    }
+    
+    console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with earlyOvertimeEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
+    
+    try {
+      // Build batch update for WIP records
+      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => ({
+        id: job.wipId!,
+        data: {
+          earlyOvertimeEnabled: earlyEnabled,
+          dayStartMinutes: earlyEnabled ? earlyStartTime : undefined
+        }
+      }));
+      
+      // Persist to WIP table
+      await teamWorkItemService.batchUpdate(updates);
+      console.log(`[PLANNER] ✓ Early overtime settings persisted for ${affectedJobs.length} jobs`);
+      
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to persist early overtime settings:', err);
+      // Revert local state on error
+      setOvertimeByTeamDay(prev => ({
+        ...prev,
+        [dayStr]: {
+          ...(prev[dayStr] || {}),
+          [teamId]: { 
+            ...(prev[dayStr]?.[teamId] || { enabled: false, closeTime: 1140 }),
+            earlyEnabled: !earlyEnabled, 
+            earlyStartTime 
+          }
+        }
+      }));
+    }
+  };
+
+  const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }> => {
     return overtimeByTeamDay[dayStr] || {};
   };
 
@@ -1568,6 +1629,7 @@ export const ProductionPlannerPage = () => {
               onJobRollover={handleJobRollover}
               overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}
               onTeamOvertimeChange={handleTeamOvertimeChange}
+              onTeamEarlyOvertimeChange={handleTeamEarlyOvertimeChange}
               globalStaging={globalStaging}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
               isDragging={!!draggedJobId}

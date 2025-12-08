@@ -81,6 +81,8 @@ interface OverflowInfo {
 interface TeamOvertimeSettings {
   enabled: boolean;
   closeTime: number;
+  earlyEnabled?: boolean;
+  earlyStartTime?: number;
 }
 
 interface DayViewProps {
@@ -100,6 +102,7 @@ interface DayViewProps {
   onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
   onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: number, additionalMinutes?: number) => void;
+  onTeamEarlyOvertimeChange?: (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => void;
   globalStaging?: PlannerV2.StagingState;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
@@ -127,6 +130,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onJobRollover,
   overtimeByTeam = {},
   onTeamOvertimeChange,
+  onTeamEarlyOvertimeChange,
   globalStaging,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
   isDragging = false,
@@ -165,7 +169,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   // Helper to get overtime settings for a specific team
   const getTeamOvertime = useCallback((teamId: string): TeamOvertimeSettings => {
-    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: 1140 };
+    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: 1140, earlyEnabled: false, earlyStartTime: 360 };
   }, [overtimeByTeam]);
 
   // Check if ANY team has overtime enabled (for timeline rendering)
@@ -210,6 +214,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const newTimeMinutes = timeStringToMinutes(newTimeStr);
       const deltaMinutes = currentSettings.enabled ? calculateOvertimeDelta(newTimeMinutes) : 0;
       onTeamOvertimeChange(dayStr, teamId, currentSettings.enabled, newTimeMinutes, deltaMinutes);
+    }
+  };
+
+  const handleTeamEarlyOvertimeToggle = (teamId: string, checked: boolean) => {
+    if (onTeamEarlyOvertimeChange) {
+      const currentSettings = getTeamOvertime(teamId);
+      onTeamEarlyOvertimeChange(dayStr, teamId, checked, currentSettings.earlyStartTime ?? 360);
+    }
+  };
+
+  const handleTeamEarlyOvertimeStartTimeChange = (teamId: string, newTimeStr: string) => {
+    if (onTeamEarlyOvertimeChange) {
+      const currentSettings = getTeamOvertime(teamId);
+      const newTimeMinutes = timeStringToMinutes(newTimeStr);
+      onTeamEarlyOvertimeChange(dayStr, teamId, currentSettings.earlyEnabled ?? false, newTimeMinutes);
     }
   };
 
@@ -938,70 +957,133 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           return (
             <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
               {/* Overtime controls - positioned above header */}
-              <Stack
-                horizontal
-                verticalAlign="center"
-                horizontalAlign="center"
-                tokens={{ childrenGap: 4 }}
-                styles={{
-                  root: {
-                    height: 26,
-                    padding: '2px 8px',
-                    backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0',
-                    borderBottom: '1px solid #ccc'
-                  }
-                }}
-              >
-                <Toggle
-                  checked={teamOvertime.enabled}
-                  onChange={(_, checked) => handleTeamOvertimeToggle(jig.id, !!checked)}
+              <Stack styles={{ root: { borderBottom: '1px solid #ccc' } }}>
+                {/* Early OT row */}
+                <Stack
+                  horizontal
+                  verticalAlign="center"
+                  horizontalAlign="center"
+                  tokens={{ childrenGap: 4 }}
                   styles={{
-                    root: { marginBottom: 0 },
-                    pill: { 
-                      backgroundColor: teamOvertime.enabled ? '#ff9800' : '#999',
-                      border: 'none',
-                      width: 32,
-                      height: 14
-                    },
-                    thumb: { backgroundColor: 'white', width: 10, height: 10 }
+                    root: {
+                      height: 24,
+                      padding: '2px 8px',
+                      backgroundColor: teamOvertime.earlyEnabled ? '#81c784' : '#e0e0e0',
+                      borderBottom: '1px solid rgba(0,0,0,0.1)'
+                    }
                   }}
-                />
-                <Text variant="tiny" styles={{ root: { color: teamOvertime.enabled ? '#333' : '#666', fontWeight: 500, fontSize: 10 } }}>
-                  OT
-                </Text>
-                {teamOvertime.enabled && baseWorkingHours && (
-                  <Dropdown
-                    selectedKey={minutesToTimeString(teamOvertime.closeTime)}
-                    onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
-                    options={(() => {
-                      const options: IDropdownOption[] = [];
-                      for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
-                        if (hour === baseWorkingHours.end) {
-                          options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
-                        } else {
+                >
+                  <Toggle
+                    checked={teamOvertime.earlyEnabled ?? false}
+                    onChange={(_, checked) => handleTeamEarlyOvertimeToggle(jig.id, !!checked)}
+                    styles={{
+                      root: { marginBottom: 0 },
+                      pill: { 
+                        backgroundColor: teamOvertime.earlyEnabled ? '#4caf50' : '#999',
+                        border: 'none',
+                        width: 28,
+                        height: 12
+                      },
+                      thumb: { backgroundColor: 'white', width: 8, height: 8 }
+                    }}
+                  />
+                  <Text variant="tiny" styles={{ root: { color: teamOvertime.earlyEnabled ? '#1b5e20' : '#666', fontWeight: 500, fontSize: 9 } }}>
+                    Early
+                  </Text>
+                  {teamOvertime.earlyEnabled && baseWorkingHours && (
+                    <Dropdown
+                      selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 360)}
+                      onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
+                      options={(() => {
+                        const options: IDropdownOption[] = [];
+                        for (let hour = 4; hour < baseWorkingHours.start; hour++) {
                           options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
                           options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
                         }
-                      }
-                      options.push({ key: '00:00', text: '00:00' });
-                      return options;
-                    })()}
+                        return options;
+                      })()}
+                      styles={{
+                        root: { minWidth: 55 },
+                        title: { 
+                          backgroundColor: 'rgba(0,0,0,0.1)', 
+                          color: '#1b5e20', 
+                          border: 'none',
+                          fontSize: 9,
+                          padding: '1px 4px',
+                          height: 18,
+                          lineHeight: '16px'
+                        },
+                        caretDown: { color: '#1b5e20', fontSize: 9 },
+                        dropdown: { minWidth: 55 }
+                      }}
+                    />
+                  )}
+                </Stack>
+                {/* Late OT row */}
+                <Stack
+                  horizontal
+                  verticalAlign="center"
+                  horizontalAlign="center"
+                  tokens={{ childrenGap: 4 }}
+                  styles={{
+                    root: {
+                      height: 24,
+                      padding: '2px 8px',
+                      backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0'
+                    }
+                  }}
+                >
+                  <Toggle
+                    checked={teamOvertime.enabled}
+                    onChange={(_, checked) => handleTeamOvertimeToggle(jig.id, !!checked)}
                     styles={{
-                      root: { minWidth: 60 },
-                      title: { 
-                        backgroundColor: 'rgba(0,0,0,0.1)', 
-                        color: '#333', 
+                      root: { marginBottom: 0 },
+                      pill: { 
+                        backgroundColor: teamOvertime.enabled ? '#ff9800' : '#999',
                         border: 'none',
-                        fontSize: 10,
-                        padding: '1px 4px',
-                        height: 20,
-                        lineHeight: '18px'
+                        width: 28,
+                        height: 12
                       },
-                      caretDown: { color: '#333', fontSize: 10 },
-                      dropdown: { minWidth: 60 }
+                      thumb: { backgroundColor: 'white', width: 8, height: 8 }
                     }}
                   />
-                )}
+                  <Text variant="tiny" styles={{ root: { color: teamOvertime.enabled ? '#333' : '#666', fontWeight: 500, fontSize: 9 } }}>
+                    Late
+                  </Text>
+                  {teamOvertime.enabled && baseWorkingHours && (
+                    <Dropdown
+                      selectedKey={minutesToTimeString(teamOvertime.closeTime)}
+                      onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
+                      options={(() => {
+                        const options: IDropdownOption[] = [];
+                        for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
+                          if (hour === baseWorkingHours.end) {
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                          } else {
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                          }
+                        }
+                        options.push({ key: '00:00', text: '00:00' });
+                        return options;
+                      })()}
+                      styles={{
+                        root: { minWidth: 55 },
+                        title: { 
+                          backgroundColor: 'rgba(0,0,0,0.1)', 
+                          color: '#333', 
+                          border: 'none',
+                          fontSize: 9,
+                          padding: '1px 4px',
+                          height: 18,
+                          lineHeight: '16px'
+                        },
+                        caretDown: { color: '#333', fontSize: 9 },
+                        dropdown: { minWidth: 55 }
+                      }}
+                    />
+                  )}
+                </Stack>
               </Stack>
               
               {/* Jig header - fixed height */}
