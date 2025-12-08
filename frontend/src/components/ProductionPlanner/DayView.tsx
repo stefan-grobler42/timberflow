@@ -314,20 +314,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         });
       }
 
-      // Add tea afternoon break (light blue)
-      if (breakTimes?.teaAfternoon) {
-        const teaAfternoonStart = parseTime(breakTimes.teaAfternoon.start);
-        const teaAfternoonEnd = parseTime(breakTimes.teaAfternoon.end);
-        breaks.push({
-          startHour: teaAfternoonStart.hour,
-          startMinute: teaAfternoonStart.minute,
-          endHour: teaAfternoonEnd.hour,
-          endMinute: teaAfternoonEnd.minute,
-          label: 'Tea PM',
-          color: '#cce5ff'
-        });
-      }
-
       // Store dinner break separately - it's added dynamically based on overtime state (light pink)
       if (breakTimes?.dinnerOvertime) {
         const dinnerStart = parseTime(breakTimes.dinnerOvertime.start);
