@@ -792,41 +792,43 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   // Calculate the visible time range based on working hours and all teams' overtime settings
   // Default: 1 hour before working hours start, 1 hour after working hours end
   // With OT: extends to accommodate team overtime + 1 hour padding
-  const calculateVisibleTimeRange = (): { startHour: number; endHour: number } => {
-    let earliestStart = workingHours.start; // e.g., 7 for 07:00
-    let latestEnd = workingHours.end; // e.g., 17 for 17:00
+  const calculateVisibleTimeRange = (): { startHour: number; endHour: number; startMinutes: number; endMinutes: number } => {
+    let earliestStartMinutes = workingHours.start * 60; // e.g., 420 for 07:00
+    let latestEndMinutes = workingHours.end * 60; // e.g., 1020 for 17:00
 
-    // Check all teams' overtime settings
+    // Check all teams' overtime settings - use minute precision
     for (const teamId of Object.keys(overtimeByTeam)) {
       const settings = overtimeByTeam[teamId];
       
-      // Early OT - check for earlier start times
+      // Early OT - check for earlier start times (in minutes)
       if (settings?.earlyEnabled && settings.earlyStartTime !== undefined) {
-        const earlyStartHour = Math.floor(settings.earlyStartTime / 60);
-        if (earlyStartHour < earliestStart) {
-          earliestStart = earlyStartHour;
+        if (settings.earlyStartTime < earliestStartMinutes) {
+          earliestStartMinutes = settings.earlyStartTime;
         }
       }
       
-      // Late OT - check for later end times
+      // Late OT - check for later end times (in minutes)
       if (settings?.enabled && settings.closeTime !== undefined) {
-        const lateEndHour = Math.ceil(settings.closeTime / 60);
-        if (lateEndHour > latestEnd) {
-          latestEnd = lateEndHour;
+        if (settings.closeTime > latestEndMinutes) {
+          latestEndMinutes = settings.closeTime;
         }
       }
     }
 
-    // Add 1 hour padding on each side, clamped to 0-24
-    const visibleStart = Math.max(0, earliestStart - 1);
-    const visibleEnd = Math.min(24, latestEnd + 1);
+    // Add 1 hour padding on each side, clamped to 0-24 hours (in minutes)
+    const visibleStartMinutes = Math.max(0, earliestStartMinutes - 60);
+    const visibleEndMinutes = Math.min(24 * 60, latestEndMinutes + 60);
 
-    return { startHour: visibleStart, endHour: visibleEnd };
+    // Convert to hours for backwards compatibility (floored/ceiled to nearest hour for display)
+    const visibleStart = Math.floor(visibleStartMinutes / 60);
+    const visibleEnd = Math.ceil(visibleEndMinutes / 60);
+
+    return { startHour: visibleStart, endHour: visibleEnd, startMinutes: visibleStartMinutes, endMinutes: visibleEndMinutes };
   };
 
   const visibleTimeRange = calculateVisibleTimeRange();
-  const visibleStartMinutes = visibleTimeRange.startHour * 60;
-  const visibleEndMinutes = visibleTimeRange.endHour * 60;
+  const visibleStartMinutes = visibleTimeRange.startMinutes;
+  const visibleEndMinutes = visibleTimeRange.endMinutes;
   const visibleDurationMinutes = visibleEndMinutes - visibleStartMinutes;
 
   // Generate timeline segments only for the visible range
