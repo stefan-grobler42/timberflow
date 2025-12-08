@@ -927,11 +927,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         <div style={{ display: 'flex' }}>
           {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
-            {/* Merged blank cell spanning OT toggles + team header height (24 Early OT + 24 Late OT + 50 Team header + 1px border) */}
+            {/* Merged blank cell spanning OT toggles + team header height (24+1 Early OT + 24+1 Late OT + 50+1 Team header = 101px) */}
             <div style={{ 
-              height: 99, 
+              height: 101, 
               backgroundColor: '#f5f5f5', 
-              borderBottom: '1px solid #ccc',
+              borderBottom: '1px solid #ddd',
               boxSizing: 'border-box'
             }}></div>
             <div style={{ position: 'relative', height: totalTimelineHeight }}>
