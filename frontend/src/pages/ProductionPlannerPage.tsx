@@ -1465,20 +1465,22 @@ export const ProductionPlannerPage = () => {
           
           console.log(`[EARLY-OT-ROLLOVER] Found rollover chain: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
           
-          // Get rescheduled parent timing
+          // CRITICAL FIX: Use ORIGINAL WIP durations from customDurationMinutes or plannedDurationMinutes
+          // NOT the rescheduled durations which just preserve the same values
+          const parentOriginalDuration = parentJob.customDurationMinutes ?? parentJob.plannedDurationMinutes ?? 
+            Math.round(parentJob.estimatedEFinks * 6.5625);
+          
+          const rolloverOriginalDuration = rolloverChild.customDurationMinutes ?? rolloverChild.plannedDurationMinutes ?? 
+            Math.round(rolloverChild.estimatedEFinks * 6.5625);
+          
+          // Total work remaining in the chain (should equal original Production E-Finks worth of work)
+          const totalChainDuration = parentOriginalDuration + rolloverOriginalDuration;
+          
+          console.log(`[EARLY-OT-ROLLOVER] ORIGINAL parent duration: ${parentOriginalDuration}m, rollover: ${rolloverOriginalDuration}m, total chain: ${totalChainDuration}m`);
+          
+          // Get rescheduled parent start time (where it will actually start after moving up)
           const rescheduledParent = rescheduledMap.get(parentJob.id);
           const parentStartTime = rescheduledParent?.plannedStartTime ?? parentJob.plannedStartTime ?? newShift.startTime;
-          const parentEndTime = rescheduledParent?.plannedEndTime ?? parentJob.plannedEndTime ?? (parentStartTime + 255);
-          const parentCurrentDuration = parentEndTime - parentStartTime - (rescheduledParent?.breakAdjustmentMinutes ?? parentJob.breakAdjustmentMinutes ?? 0);
-          
-          const rolloverStartTime = rolloverChild.plannedStartTime ?? 420;
-          const rolloverEndTime = rolloverChild.plannedEndTime ?? 1020;
-          const rolloverCurrentDuration = rolloverEndTime - rolloverStartTime - (rolloverChild.breakAdjustmentMinutes || 0);
-          
-          // Total work remaining in the chain
-          const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
-          
-          console.log(`[EARLY-OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, rollover: ${rolloverCurrentDuration}m, total chain: ${totalChainDuration}m`);
           
           // Calculate how much time is available from the parent's start to end of day
           const availableTime = PlannerV2.getAvailableMinutes(parentStartTime, newShift);
@@ -1488,10 +1490,10 @@ export const ProductionPlannerPage = () => {
           // Parent should FILL all available time (up to total chain duration)
           const newParentDuration = Math.min(totalChainDuration, availableTime);
           const newRolloverDuration = totalChainDuration - newParentDuration;
-          const timeToAbsorb = newParentDuration - parentCurrentDuration;
+          const timeToAbsorb = newParentDuration - parentOriginalDuration;
           
           if (timeToAbsorb <= 0) {
-            console.log(`[EARLY-OT-ROLLOVER] Parent already at max capacity, no redistribution needed`);
+            console.log(`[EARLY-OT-ROLLOVER] Parent already at max capacity (original: ${parentOriginalDuration}m, available: ${availableTime}m), no redistribution needed`);
             continue;
           }
           
@@ -1519,7 +1521,8 @@ export const ProductionPlannerPage = () => {
           if (rolloverChild.wipId) {
             // Calculate new end time for rollover based on new duration
             const rolloverShift = PlannerV2.getShiftConfig(false, 1020, false, 420); // Default shift for rollover day
-            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+            const rolloverChildStartTime = rolloverChild.plannedStartTime ?? 420; // Default to 07:00
+            const rolloverTiming = PlannerV2.calculateEndTime(rolloverChildStartTime, newRolloverDuration, rolloverShift);
             
             await teamWorkItemService.batchUpdate([{
               id: rolloverChild.wipId,
