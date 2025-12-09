@@ -203,17 +203,17 @@ export const ProductionPlannerPage = () => {
             orderNumber: p.orderNumber || p.name || 'N/A',
             customer: p.customerName || 'Unknown',
             estimatedEFinks: p.newEstimateDefinks || 0,
-            customDurationMinutes: p.customDurationMinutes || undefined,
-            plannedDateStr: p.productionPlannedDate ? formatIsoDateLocal(p.productionPlannedDate) : null,
-            jigId: p.jigId || null,
+            customDurationMinutes: undefined,
+            plannedDateStr: null,
+            jigId: null,
             productionComplete: p.productionComplete === true,
             parentProductionId: p.parentProductionId || undefined,
-            rolloverSequence: p.rolloverSequence || undefined,
+            rolloverSequence: undefined,
             createdOn: p.createdOn || undefined,
-            plannedStartTime: p.plannedStartTime !== undefined ? p.plannedStartTime : null,
-            plannedEndTime: p.plannedEndTime !== undefined ? p.plannedEndTime : null,
-            plannedDurationMinutes: p.plannedDurationMinutes !== undefined ? p.plannedDurationMinutes : null,
-            breakAdjustmentMinutes: p.breakAdjustmentMinutes !== undefined ? p.breakAdjustmentMinutes : null
+            plannedStartTime: null,
+            plannedEndTime: null,
+            plannedDurationMinutes: null,
+            breakAdjustmentMinutes: null
           };
         });
         
