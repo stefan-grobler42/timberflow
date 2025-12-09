@@ -166,6 +166,60 @@ export const ProductionPlannerPage = () => {
       }
       console.log(`[PLANNER] ✓ Built WIP lookup map with ${wipByProductionId.size} entries`);
       
+      // RESTORE OT STATE FROM WIP RECORDS
+      // Group WIP items by workDate + teamId to derive per-team/day OT settings
+      const restoredOTState: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>> = {};
+      
+      for (const wip of wipItems) {
+        if (!wip.workDate || !wip.teamId) continue;
+        
+        const dayStr = formatIsoDateLocal(wip.workDate);
+        if (!dayStr) continue; // Skip if date couldn't be formatted
+        
+        const teamId = wip.teamId; // Now guaranteed non-null
+        
+        if (!restoredOTState[dayStr]) {
+          restoredOTState[dayStr] = {};
+        }
+        
+        const existing = restoredOTState[dayStr][teamId];
+        
+        // Prioritize enabled=true when any WIP record has it enabled
+        // Use the most permissive settings (latest closeTime, earliest startTime)
+        const newEnabled = wip.overtimeEnabled ?? false;
+        const newCloseTime = wip.dayEndMinutes ?? 1140; // Default 19:00
+        const newEarlyEnabled = wip.earlyOvertimeEnabled ?? false;
+        const newEarlyStartTime = wip.dayStartMinutes ?? 360; // Default 06:00
+        
+        if (existing) {
+          // Merge: any enabled wins, max closeTime, min earlyStartTime
+          restoredOTState[dayStr][teamId] = {
+            enabled: existing.enabled || newEnabled,
+            closeTime: Math.max(existing.closeTime, newCloseTime),
+            earlyEnabled: existing.earlyEnabled || newEarlyEnabled,
+            earlyStartTime: Math.min(existing.earlyStartTime ?? 360, newEarlyStartTime)
+          };
+        } else {
+          restoredOTState[dayStr][teamId] = {
+            enabled: newEnabled,
+            closeTime: newCloseTime,
+            earlyEnabled: newEarlyEnabled,
+            earlyStartTime: newEarlyStartTime
+          };
+        }
+      }
+      
+      // Count how many team/days have OT enabled for logging
+      let lateOTCount = 0;
+      let earlyOTCount = 0;
+      for (const dayStr of Object.keys(restoredOTState)) {
+        for (const teamId of Object.keys(restoredOTState[dayStr])) {
+          if (restoredOTState[dayStr][teamId].enabled) lateOTCount++;
+          if (restoredOTState[dayStr][teamId].earlyEnabled) earlyOTCount++;
+        }
+      }
+      console.log(`[PLANNER] ✓ Restored OT state: ${lateOTCount} late OT, ${earlyOTCount} early OT settings across ${Object.keys(restoredOTState).length} days`);
+      
       let jobList: Job[];
       try {
         console.log('[PLANNER] Starting job mapping with WIP overlay...');
@@ -253,6 +307,7 @@ export const ProductionPlannerPage = () => {
         setUnallocatedOrders(ordersNeedingProduction);
         setJigTeams(jigs);
         setScheduleBlocks(blocks);
+        setOvertimeByTeamDay(restoredOTState); // Restore OT toggle state from WIP records
         if (selectedJigIds.length === 0) {
           setSelectedJigIds(jigs.map(j => j.id));
         }
