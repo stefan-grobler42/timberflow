@@ -961,8 +961,27 @@ export const ProductionPlannerPage = () => {
           
           console.log(`[OT-ROLLOVER] Absorbing ${timeToAbsorb}m from rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
           
+          // PROPORTIONAL E-FINKS REDISTRIBUTION
+          // Total E-Finks must be preserved across the chain
+          const totalEFinks = parentJob.estimatedEFinks + rolloverChild.estimatedEFinks;
+          const totalDuration = newParentDuration + newRolloverDuration;
+          
+          // Calculate proportional E-Finks based on new durations
+          // Parent gets more E-Finks (more work time), rollover gets less
+          const newParentEFinks = Math.round((newParentDuration / totalDuration) * totalEFinks);
+          const newRolloverEFinks = totalEFinks - newParentEFinks; // Ensures sum is exact
+          
+          console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
+          
           // Update parent job with extended duration - recalculate end time with new duration
           const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, newShift);
+          
+          // Update parent Production with new E-Finks
+          await productionService.update(parentJob.id, {
+            plannedDurationMinutes: newParentDuration,
+            newEstimateDefinks: newParentEFinks
+          });
+          console.log(`[OT-ROLLOVER] ✓ Updated parent Production: duration=${newParentDuration}m, efinks=${newParentEFinks}`);
           
           if (parentJob.wipId) {
             await teamWorkItemService.batchUpdate([{
@@ -975,13 +994,19 @@ export const ProductionPlannerPage = () => {
                 breakAdjustmentMinutes: parentTiming.breakMinutes
               }
             }]);
-            console.log(`[OT-ROLLOVER] ✓ Extended parent WIP to ${newParentDuration}m, ends at ${parentTiming.endTime}`);
+            console.log(`[OT-ROLLOVER] ✓ Extended parent WIP to ${newParentDuration}m, ends at ${parentTiming.endTime}, efinks=${newParentEFinks}`);
           }
           
           // Update or delete rollover
           if (newRolloverDuration <= 0) {
             // Rollover no longer needed - delete it
-            console.log(`[OT-ROLLOVER] Rollover fully absorbed, deleting ${rolloverChild.id}`);
+            // Restore all E-Finks to parent
+            console.log(`[OT-ROLLOVER] Rollover fully absorbed, restoring all ${totalEFinks} E-Finks to parent`);
+            
+            await productionService.update(parentJob.id, {
+              newEstimateDefinks: totalEFinks
+            });
+            
             
             // Delete WIP record first (if exists)
             if (rolloverChild.wipId) {
@@ -993,12 +1018,12 @@ export const ProductionPlannerPage = () => {
             await productionService.delete(rolloverChild.id);
             console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
           } else {
-            // Update rollover with reduced duration - just resize, don't re-create
-            // Update both Production and WIP to have the new duration
+            // Update rollover with reduced duration and E-Finks
             await productionService.update(rolloverChild.id, {
-              plannedDurationMinutes: newRolloverDuration
+              plannedDurationMinutes: newRolloverDuration,
+              newEstimateDefinks: newRolloverEFinks
             });
-            console.log(`[OT-ROLLOVER] ✓ Reduced rollover Production duration to ${newRolloverDuration}m`);
+            console.log(`[OT-ROLLOVER] ✓ Reduced rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
             
             // Update rollover WIP if exists - ALWAYS start at day's shift start time
             if (rolloverChild.wipId) {
@@ -1025,7 +1050,7 @@ export const ProductionPlannerPage = () => {
                   breakAdjustmentMinutes: rolloverTiming.breakMinutes
                 }
               }]);
-              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP: start=${rolloverStartTime}, duration=${newRolloverDuration}m, end=${rolloverTiming.endTime}`);
+              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP: start=${rolloverStartTime}, duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
             }
           }
         }
@@ -1059,30 +1084,153 @@ export const ProductionPlannerPage = () => {
         return; // Skip the regular state update since we're reloading
       }
       
-      // OT being DISABLED - just update the WIP records with new OT flag
-      // Don't reschedule - jobs stay where they are, just mark OT as disabled
-      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => ({
-        id: job.wipId!,
-        data: {
-          overtimeEnabled: enabled,
-          dayEndMinutes: undefined // Clear the override
+      // OT being DISABLED - redistribute time back from parent to rollover
+      console.log(`[OT-ROLLOVER] OT disabled - checking for rollover chains to redistribute back...`);
+      
+      // Get the shift without OT (standard hours)
+      const noOTShift = PlannerV2.getShiftConfig(
+        false, // no late OT
+        1020,  // default 17:00
+        existingEarlySettings?.earlyEnabled,
+        existingEarlySettings?.earlyStartTime
+      );
+      
+      // Find jobs on this day/team that are parents of rollover chains
+      for (const parentJob of affectedJobs) {
+        const rootParentId = parentJob.parentProductionId || parentJob.id;
+        const currentSequence = parentJob.rolloverSequence || 0;
+        
+        // Find rollover child (next segment in chain)
+        const rolloverChild = allJobs.find(j => 
+          j.parentProductionId === rootParentId && 
+          (j.rolloverSequence || 0) === currentSequence + 1
+        );
+        
+        if (!rolloverChild) continue;
+        
+        console.log(`[OT-ROLLOVER] Found rollover chain to redistribute back: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
+        
+        // Get current durations
+        const parentCurrentDuration = parentJob.plannedDurationMinutes ?? parentJob.customDurationMinutes ?? 
+          PlannerV2.getJobDuration({ estimatedEFinks: parentJob.estimatedEFinks });
+        const rolloverCurrentDuration = rolloverChild.plannedDurationMinutes ?? rolloverChild.customDurationMinutes ??
+          PlannerV2.getJobDuration({ estimatedEFinks: rolloverChild.estimatedEFinks });
+        
+        console.log(`[OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, Current rollover duration: ${rolloverCurrentDuration}m`);
+        
+        // Calculate how much time is available WITHOUT OT
+        const parentStartTime = parentJob.plannedStartTime ?? noOTShift.startTime;
+        const availableWithoutOT = PlannerV2.getAvailableMinutes(parentStartTime, noOTShift);
+        
+        // If parent currently exceeds available time without OT, need to shrink it
+        if (parentCurrentDuration > availableWithoutOT) {
+          const excessTime = parentCurrentDuration - availableWithoutOT;
+          const newParentDuration = availableWithoutOT;
+          const newRolloverDuration = rolloverCurrentDuration + excessTime;
+          
+          console.log(`[OT-ROLLOVER] Redistributing ${excessTime}m back to rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
+          
+          // PROPORTIONAL E-FINKS REDISTRIBUTION
+          const totalEFinks = parentJob.estimatedEFinks + rolloverChild.estimatedEFinks;
+          const totalDuration = newParentDuration + newRolloverDuration;
+          
+          // Parent gets less E-Finks (less work time), rollover gets more
+          const newParentEFinks = Math.round((newParentDuration / totalDuration) * totalEFinks);
+          const newRolloverEFinks = totalEFinks - newParentEFinks;
+          
+          console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
+          
+          // Update parent Production with new E-Finks and duration
+          await productionService.update(parentJob.id, {
+            plannedDurationMinutes: newParentDuration,
+            newEstimateDefinks: newParentEFinks
+          });
+          
+          // Update parent WIP
+          const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, noOTShift);
+          if (parentJob.wipId) {
+            await teamWorkItemService.batchUpdate([{
+              id: parentJob.wipId,
+              data: {
+                overtimeEnabled: false,
+                dayEndMinutes: undefined,
+                plannedDurationMinutes: newParentDuration,
+                plannedEndMinutes: parentTiming.endTime,
+                breakAdjustmentMinutes: parentTiming.breakMinutes
+              }
+            }]);
+            console.log(`[OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
+          }
+          
+          // Update rollover Production with new E-Finks and duration
+          await productionService.update(rolloverChild.id, {
+            plannedDurationMinutes: newRolloverDuration,
+            newEstimateDefinks: newRolloverEFinks
+          });
+          
+          // Update rollover WIP
+          if (rolloverChild.wipId) {
+            const rolloverDateStr = rolloverChild.plannedDateStr!;
+            const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
+            const rolloverShift = PlannerV2.getShiftConfig(
+              rolloverTeamOvertime?.enabled,
+              rolloverTeamOvertime?.closeTime,
+              rolloverTeamOvertime?.earlyEnabled,
+              rolloverTeamOvertime?.earlyStartTime
+            );
+            const rolloverStartTime = rolloverShift.startTime;
+            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+            
+            await teamWorkItemService.batchUpdate([{
+              id: rolloverChild.wipId,
+              data: {
+                plannedStartMinutes: rolloverStartTime,
+                plannedDurationMinutes: newRolloverDuration,
+                plannedEndMinutes: rolloverTiming.endTime,
+                breakAdjustmentMinutes: rolloverTiming.breakMinutes
+              }
+            }]);
+            console.log(`[OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
+          }
+        } else {
+          // Parent fits in standard hours, just update OT flag
+          if (parentJob.wipId) {
+            await teamWorkItemService.batchUpdate([{
+              id: parentJob.wipId,
+              data: {
+                overtimeEnabled: false,
+                dayEndMinutes: undefined
+              }
+            }]);
+          }
         }
-      }));
+      }
       
-      await teamWorkItemService.batchUpdate(updates);
-      console.log(`[PLANNER] ✓ WIP overtime settings disabled for ${affectedJobs.length} jobs`);
+      // For jobs that are NOT part of rollover chains, just update OT settings
+      const nonRolloverJobsOff = affectedJobs.filter(job => {
+        const rootParentId = job.parentProductionId || job.id;
+        const currentSequence = job.rolloverSequence || 0;
+        const hasRolloverChild = allJobs.some(j => 
+          j.parentProductionId === rootParentId && 
+          (j.rolloverSequence || 0) === currentSequence + 1
+        );
+        return !hasRolloverChild;
+      });
       
-      // Update local job state
-      setJobs(prevJobs => prevJobs.map(job => {
-        if (job.plannedDateStr === dayStr && job.jigId === teamId && job.wipId) {
-          return {
-            ...job,
-            overtimeEnabled: enabled,
+      if (nonRolloverJobsOff.length > 0) {
+        const updates: { id: string; data: UpdateTeamWorkItemDto }[] = nonRolloverJobsOff.map(job => ({
+          id: job.wipId!,
+          data: {
+            overtimeEnabled: false,
             dayEndMinutes: undefined
-          };
-        }
-        return job;
-      }));
+          }
+        }));
+        await teamWorkItemService.batchUpdate(updates);
+        console.log(`[PLANNER] ✓ WIP overtime settings disabled for ${nonRolloverJobsOff.length} non-rollover jobs`);
+      }
+      
+      // Reload data to reflect all changes
+      await loadData();
       
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
