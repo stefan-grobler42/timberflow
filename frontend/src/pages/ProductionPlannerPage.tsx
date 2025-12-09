@@ -867,8 +867,9 @@ export const ProductionPlannerPage = () => {
       });
       
       if (subsequentJobs.length > 0) {
-        // Start cascade from the resized job's new end time PLUS buffer
-        let currentEnd = timing.endTime + PlannerV2.BUFFER_MINUTES;
+        // Cascade uses break-aware scheduling
+        // Start from resized job's end time + buffer, skipping breaks
+        let nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, shift) ?? shift.endTime;
         
         for (const subsequentJob of subsequentJobs) {
           const origJob = allJobs.find(j => j.id === subsequentJob.id);
@@ -877,25 +878,22 @@ export const ProductionPlannerPage = () => {
           const jobDuration = subsequentJob.plannedDurationMinutes ?? 
             PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
           
-          // Simply use the currentEnd as the new start time (already includes buffer)
-          // NO break logic - scheduler uses only 30-minute buffers
-          const newStartTime = Math.max(currentEnd, shift.startTime);
-          
-          const subTiming = PlannerV2.calculateEndTime(newStartTime, jobDuration, shift);
+          // Schedule job at next available time (break-aware)
+          const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
           
           updates.push({
             jobId: subsequentJob.id,
             wipId: origJob.wipId,
             teamId: jigId,
             workDate: dateStr,
-            plannedStartMinutes: newStartTime,
+            plannedStartMinutes: nextStartTime,
             plannedEndMinutes: subTiming.endTime,
             plannedDurationMinutes: jobDuration,
             breakAdjustmentMinutes: subTiming.breakMinutes
           });
           
-          // Next job starts after this one ends PLUS buffer
-          currentEnd = subTiming.endTime + PlannerV2.BUFFER_MINUTES;
+          // Next job starts after this one ends (break-aware with buffer)
+          nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
         }
       }
       

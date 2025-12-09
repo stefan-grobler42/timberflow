@@ -1,12 +1,19 @@
 /**
  * Core cascade scheduling logic for the plannerV2 module.
- * SIMPLIFIED: No break logic - jobs start 30 minutes after previous job ends.
+ * BREAK-AWARE: Jobs skip over breaks and maintain 30-minute buffers.
  */
 
 import type { ScheduledJob, ShiftConfig, OvertimeSettings } from './types';
 import { BUFFER_MINUTES } from './constants';
 import { getJobDuration } from './durationCalculator';
-import { getShiftConfig, getNextWorkingDay } from './shiftCalendar';
+import { 
+  getShiftConfig, 
+  getNextWorkingDay, 
+  calculateEndTime, 
+  isInBreak,
+  getNextValidStartTime,
+  getAvailableMinutes
+} from './shiftCalendar';
 
 /**
  * Result of scheduling a single job.
@@ -54,30 +61,34 @@ export interface DropZone {
 }
 
 /**
- * SIMPLIFIED: Schedules a job at a given start time.
- * End time = start time + work duration (no break expansion).
- * Overflow = amount that extends past shift end.
+ * BREAK-AWARE: Schedules a job at a given start time.
+ * If start time is in a break, adjusts to after the break.
+ * End time accounts for any breaks spanned by the work duration.
  */
 export function scheduleJob(
   job: ScheduledJob,
   startTime: number,
   shift: ShiftConfig
 ): JobTimingResult {
+  // Ensure we don't start in a break
+  const adjustedStart = getNextValidStartTime(startTime, shift);
+  
   const workDuration = getJobDuration(job);
-  const endTime = startTime + workDuration;
+  const timing = calculateEndTime(adjustedStart, workDuration, shift);
   
   let overflowMinutes = 0;
-  let actualEndTime = endTime;
   
-  if (endTime > shift.endTime) {
-    overflowMinutes = endTime - shift.endTime;
-    actualEndTime = shift.endTime;
+  // Check if work extends past shift end
+  // Available work time = workDuration that can fit before shift.endTime
+  const availableWork = getAvailableMinutes(adjustedStart, shift);
+  if (workDuration > availableWork) {
+    overflowMinutes = workDuration - availableWork;
   }
   
   return {
-    plannedStartTime: startTime,
-    plannedEndTime: actualEndTime,
-    breakAdjustmentMinutes: 0,
+    plannedStartTime: adjustedStart,
+    plannedEndTime: timing.endTime,
+    breakAdjustmentMinutes: timing.breakMinutes,
     overflowMinutes: Math.max(0, overflowMinutes)
   };
 }
@@ -111,8 +122,24 @@ export function findInsertPosition(
 }
 
 /**
- * SIMPLIFIED: Cascade scheduling - jobs start 30 min after previous job ends.
- * No break adjustments.
+ * Gets the next start time after a job ends, accounting for buffer and breaks.
+ * If buffer + end time lands in a break, skips to end of break.
+ */
+function getNextStartTimeAfterJob(endTime: number, shift: ShiftConfig): number {
+  let nextTime = endTime + BUFFER_MINUTES;
+  
+  // If the buffer lands us in a break, skip to end of break
+  const breakAt = isInBreak(nextTime, shift);
+  if (breakAt) {
+    nextTime = breakAt.end;
+  }
+  
+  return nextTime;
+}
+
+/**
+ * BREAK-AWARE: Cascade scheduling - jobs form a train with 30-min buffers.
+ * Jobs skip over breaks and maintain the buffer chain.
  */
 export function cascadeSchedule(
   jobs: ScheduledJob[],
@@ -126,23 +153,26 @@ export function cascadeSchedule(
   const jobsBefore = jobs.slice(0, insertIndex);
   const jobsAfter = jobs.slice(insertIndex);
   
+  // Keep jobs before the insert point as-is
   for (const job of jobsBefore) {
     scheduledJobs.push({ ...job });
   }
   
+  // Determine start time for inserted job
   let currentTime = shift.startTime;
   if (jobsBefore.length > 0) {
     const lastBefore = jobsBefore[jobsBefore.length - 1];
     const lastEndTime = lastBefore.plannedEndTime ?? shift.startTime;
-    currentTime = lastEndTime + BUFFER_MINUTES;
+    currentTime = getNextStartTimeAfterJob(lastEndTime, shift);
   }
   
+  // Schedule the inserted job
   const insertedTiming = scheduleJob(insertedJob, currentTime, shift);
   const scheduledInserted: ScheduledJob = {
     ...insertedJob,
     plannedStartTime: insertedTiming.plannedStartTime,
     plannedEndTime: insertedTiming.plannedEndTime,
-    breakAdjustmentMinutes: 0,
+    breakAdjustmentMinutes: insertedTiming.breakAdjustmentMinutes,
     plannedDurationMinutes: getJobDuration(insertedJob)
   };
   scheduledJobs.push(scheduledInserted);
@@ -154,10 +184,12 @@ export function cascadeSchedule(
     });
   }
   
-  currentTime = insertedTiming.plannedEndTime + BUFFER_MINUTES;
+  // Cascade subsequent jobs (the train moves back)
+  currentTime = getNextStartTimeAfterJob(insertedTiming.plannedEndTime, shift);
   
   for (const job of jobsAfter) {
     if (currentTime >= shift.endTime) {
+      // Job is pushed completely out of the day
       const jobDuration = getJobDuration(job);
       overflows.push({
         job: { ...job },
@@ -171,7 +203,7 @@ export function cascadeSchedule(
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
-      breakAdjustmentMinutes: 0,
+      breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
       plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
@@ -183,7 +215,7 @@ export function cascadeSchedule(
       });
     }
     
-    currentTime = timing.plannedEndTime + BUFFER_MINUTES;
+    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift);
   }
   
   return { scheduledJobs, overflows };
@@ -312,7 +344,7 @@ export function processMultiDayOverflows(
 }
 
 /**
- * SIMPLIFIED: Calculate drop zones without break considerations.
+ * BREAK-AWARE: Calculate drop zones with break consideration.
  */
 export function calculateDropZones(
   existingJobs: ScheduledJob[],
@@ -325,7 +357,7 @@ export function calculateDropZones(
       index: 0,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      availableMinutes: shift.endTime - shift.startTime
+      availableMinutes: getAvailableMinutes(shift.startTime, shift)
     });
     return zones;
   }
@@ -356,7 +388,7 @@ export function calculateDropZones(
     const currentEnd = currentJob.plannedEndTime ?? shift.startTime;
     const nextStart = nextJob.plannedStartTime ?? shift.endTime;
     
-    const gapStart = currentEnd + BUFFER_MINUTES;
+    const gapStart = getNextStartTimeAfterJob(currentEnd, shift);
     const gapEnd = nextStart - BUFFER_MINUTES;
     
     if (gapEnd > gapStart) {
@@ -371,14 +403,14 @@ export function calculateDropZones(
   
   const lastJob = sortedJobs[sortedJobs.length - 1];
   const lastEnd = lastJob.plannedEndTime ?? shift.startTime;
-  const afterLastStart = lastEnd + BUFFER_MINUTES;
+  const afterLastStart = getNextStartTimeAfterJob(lastEnd, shift);
   
   if (afterLastStart < shift.endTime) {
     zones.push({
       index: sortedJobs.length,
       startTime: afterLastStart,
       endTime: shift.endTime,
-      availableMinutes: shift.endTime - afterLastStart
+      availableMinutes: getAvailableMinutes(afterLastStart, shift)
     });
   }
   
@@ -386,7 +418,8 @@ export function calculateDropZones(
 }
 
 /**
- * SIMPLIFIED: Reschedule day without break adjustments.
+ * BREAK-AWARE: Reschedule all jobs on a day from the beginning.
+ * This is the "train" reschedule - all jobs cascade from shift start.
  */
 export function rescheduleDay(
   jobs: ScheduledJob[],
@@ -420,7 +453,7 @@ export function rescheduleDay(
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
-      breakAdjustmentMinutes: 0,
+      breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
       plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
@@ -432,7 +465,7 @@ export function rescheduleDay(
       });
     }
     
-    currentTime = timing.plannedEndTime + BUFFER_MINUTES;
+    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift);
   }
   
   return { scheduledJobs, overflows };
@@ -451,13 +484,13 @@ export function canJobFit(
 }
 
 /**
- * SIMPLIFIED: Gets the next available start time (just adds buffer).
+ * BREAK-AWARE: Gets the next available start time (adds buffer and skips breaks).
  */
 export function getNextAvailableTime(
   afterTime: number,
   shift: ShiftConfig
 ): number | null {
-  const nextTime = afterTime + BUFFER_MINUTES;
+  const nextTime = getNextStartTimeAfterJob(afterTime, shift);
   
   if (nextTime >= shift.endTime) {
     return null;

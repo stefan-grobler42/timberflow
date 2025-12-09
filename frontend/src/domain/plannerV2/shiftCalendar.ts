@@ -1,6 +1,6 @@
 /**
  * Working hours and shift management for the plannerV2 module.
- * SIMPLIFIED: No break logic in scheduling calculations.
+ * BREAK-AWARE: Jobs cannot start or end within breaks - breaks are non-working hours.
  */
 
 import type { Break, ShiftConfig, EndTimeResult } from './types';
@@ -14,7 +14,7 @@ import {
 
 /**
  * Gets the shift configuration for a work day.
- * Breaks are still stored for visual display but NOT used in scheduling calculations.
+ * Breaks are used in scheduling calculations - jobs skip over breaks.
  */
 export function getShiftConfig(
   overtimeEnabled: boolean = false,
@@ -41,7 +41,7 @@ export function getShiftConfig(
 }
 
 /**
- * Gets all breaks that fall within a time range (for visual display only).
+ * Gets all breaks that fall within a time range.
  */
 export function getBreaksInRange(
   startTime: number,
@@ -60,19 +60,55 @@ export function getBreaksInRange(
 }
 
 /**
- * SIMPLIFIED: No break expansion - just returns 0.
- * Kept for API compatibility.
+ * Calculates how much break time is added when working from startTime for duration minutes.
+ * Jobs that span breaks must add the full break duration.
  */
 export function calculateBreakExpansion(
   startTime: number,
   duration: number,
   shift: ShiftConfig
 ): number {
-  return 0;
+  if (duration <= 0) return 0;
+  
+  let breakMinutes = 0;
+  let currentTime = startTime;
+  let workRemaining = duration;
+  
+  // Sort breaks by start time
+  const sortedBreaks = [...shift.breaks].sort((a, b) => a.start - b.start);
+  
+  for (const brk of sortedBreaks) {
+    if (workRemaining <= 0) break;
+    
+    // If we're before this break
+    if (currentTime < brk.start) {
+      const workBeforeBreak = brk.start - currentTime;
+      
+      if (workRemaining <= workBeforeBreak) {
+        // Job ends before this break
+        break;
+      }
+      
+      // Work up to the break, then skip over it
+      workRemaining -= workBeforeBreak;
+      breakMinutes += brk.duration;
+      currentTime = brk.end;
+    } else if (currentTime >= brk.start && currentTime < brk.end) {
+      // We're inside a break - this shouldn't happen but handle it
+      // Skip to end of break
+      breakMinutes += (brk.end - currentTime);
+      currentTime = brk.end;
+    }
+    // If we're past this break, continue to next
+  }
+  
+  return breakMinutes;
 }
 
 /**
- * SIMPLIFIED: End time = start time + work duration (no break expansion).
+ * BREAK-AWARE: Calculates end time accounting for breaks.
+ * If a job would end during a break, it extends past the break.
+ * Returns the actual clock time when the job ends, including break time.
  */
 export function calculateEndTime(
   startTime: number,
@@ -83,16 +119,64 @@ export function calculateEndTime(
     return { endTime: startTime, breakMinutes: 0 };
   }
   
-  const endTime = startTime + workDuration;
+  let currentTime = startTime;
+  let workRemaining = workDuration;
+  let totalBreakMinutes = 0;
+  
+  // Sort breaks by start time
+  const sortedBreaks = [...shift.breaks].sort((a, b) => a.start - b.start);
+  
+  for (const brk of sortedBreaks) {
+    if (workRemaining <= 0) break;
+    
+    // Skip breaks that are before our current time
+    if (brk.end <= currentTime) continue;
+    
+    // If current time is within a break, jump to end of break
+    if (currentTime >= brk.start && currentTime < brk.end) {
+      totalBreakMinutes += (brk.end - currentTime);
+      currentTime = brk.end;
+      continue;
+    }
+    
+    // Work until we hit the break or finish
+    if (currentTime < brk.start) {
+      const workBeforeBreak = brk.start - currentTime;
+      
+      if (workRemaining <= workBeforeBreak) {
+        // Job ends before this break
+        currentTime += workRemaining;
+        workRemaining = 0;
+        break;
+      }
+      
+      // Work up to the break
+      workRemaining -= workBeforeBreak;
+      currentTime = brk.start;
+      
+      // Skip over the break (add full break duration)
+      totalBreakMinutes += brk.duration;
+      currentTime = brk.end;
+    }
+  }
+  
+  // Add any remaining work time
+  if (workRemaining > 0) {
+    currentTime += workRemaining;
+  }
+  
+  // Cap at shift end
+  const finalEndTime = Math.min(currentTime, shift.endTime);
   
   return {
-    endTime: Math.min(endTime, shift.endTime),
-    breakMinutes: 0
+    endTime: finalEndTime,
+    breakMinutes: totalBreakMinutes
   };
 }
 
 /**
- * SIMPLIFIED: Available minutes = time from start to shift end (no break subtraction).
+ * BREAK-AWARE: Available working minutes from startTime to shift end.
+ * Subtracts any breaks that fall within the remaining time.
  */
 export function getAvailableMinutes(startTime: number, shift: ShiftConfig): number {
   if (startTime >= shift.endTime) {
@@ -100,7 +184,18 @@ export function getAvailableMinutes(startTime: number, shift: ShiftConfig): numb
   }
   
   const effectiveStart = Math.max(startTime, shift.startTime);
-  return Math.max(0, shift.endTime - effectiveStart);
+  let availableMinutes = shift.endTime - effectiveStart;
+  
+  // Subtract breaks that fall within the available time
+  for (const brk of shift.breaks) {
+    if (brk.end > effectiveStart && brk.start < shift.endTime) {
+      const breakStart = Math.max(brk.start, effectiveStart);
+      const breakEnd = Math.min(brk.end, shift.endTime);
+      availableMinutes -= (breakEnd - breakStart);
+    }
+  }
+  
+  return Math.max(0, availableMinutes);
 }
 
 /**
@@ -130,7 +225,7 @@ export function isWithinShift(time: number, shift: ShiftConfig): boolean {
 }
 
 /**
- * Checks if a time falls within a break period (for visual display).
+ * Checks if a time falls within a break period.
  */
 export function isInBreak(time: number, shift: ShiftConfig): Break | null {
   for (const brk of shift.breaks) {
@@ -142,26 +237,44 @@ export function isInBreak(time: number, shift: ShiftConfig): Break | null {
 }
 
 /**
- * SIMPLIFIED: No "near break" adjustment - just returns the proposed start time.
- * Kept for API compatibility.
+ * BREAK-AWARE: Adjusts start time to skip over breaks.
+ * If the proposed start time falls within a break, returns the end of that break.
+ * Also checks if adding buffer would land in a break.
  */
 export function getAdjustedStartTime(
   proposedStartTime: number,
   shift: ShiftConfig,
   bufferMinutes: number = 30
 ): number {
-  return proposedStartTime;
+  let adjustedTime = proposedStartTime;
+  
+  // Check if we're in a break
+  const breakAt = isInBreak(adjustedTime, shift);
+  if (breakAt) {
+    adjustedTime = breakAt.end;
+  }
+  
+  // Check if adding buffer would land us in a break
+  // (This is for the next job's start time)
+  const timeWithBuffer = adjustedTime + bufferMinutes;
+  const bufferBreak = isInBreak(timeWithBuffer, shift);
+  if (bufferBreak) {
+    // The buffer lands in a break, so next job starts after the break
+    // But we return the current adjusted time, not the buffered time
+  }
+  
+  return adjustedTime;
 }
 
 /**
- * Gets the total break duration within a shift (for display purposes).
+ * Gets the total break duration within a shift.
  */
 export function getTotalBreakMinutes(shift: ShiftConfig): number {
   return shift.breaks.reduce((total, brk) => total + brk.duration, 0);
 }
 
 /**
- * Gets the total workable minutes in a shift (for display purposes).
+ * Gets the total workable minutes in a shift (excluding breaks).
  */
 export function getTotalWorkableMinutes(shift: ShiftConfig): number {
   const shiftDuration = shift.endTime - shift.startTime;
@@ -185,4 +298,20 @@ export function parseTimeToMinutes(time: string): number {
   const hours = parts[0] || 0;
   const minutes = parts[1] || 0;
   return hours * 60 + minutes;
+}
+
+/**
+ * Gets the next valid start time after a given time, skipping any breaks.
+ * Used to ensure jobs don't start within breaks.
+ */
+export function getNextValidStartTime(afterTime: number, shift: ShiftConfig): number {
+  let startTime = afterTime;
+  
+  // Check if we're in a break and skip to end of break
+  const breakAt = isInBreak(startTime, shift);
+  if (breakAt) {
+    startTime = breakAt.end;
+  }
+  
+  return startTime;
 }

@@ -343,49 +343,49 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
 
-    // FIRST: Check if job STARTS within a break period
-    // If so, add the remaining break time to the visual height
-    for (const breakSlot of breakSlots) {
+    // Sort breaks by start time
+    const sortedBreaks = [...breakSlots].sort((a, b) => 
+      getBreakStartMinutes(a) - getBreakStartMinutes(b)
+    );
+
+    for (const breakSlot of sortedBreaks) {
+      if (remainingWork <= 0) break;
+      
       const breakStart = getBreakStartMinutes(breakSlot);
       const breakEnd = breakStart + getBreakDurationMinutes(breakSlot);
+      const breakDuration = getBreakDurationMinutes(breakSlot);
       
-      // If job starts within this break (after break start but before break end)
-      if (jobStartMinutes > breakStart && jobStartMinutes < breakEnd) {
-        const remainingBreakTime = breakEnd - jobStartMinutes;
+      // Skip breaks that are before our current time
+      if (breakEnd <= currentTime) continue;
+      
+      // If current time is within a break, skip to end of break
+      // Jobs should not start in breaks, but handle it gracefully
+      if (currentTime >= breakStart && currentTime < breakEnd) {
+        const remainingBreakTime = breakEnd - currentTime;
         additions.push({
-          label: breakSlot.label.replace(' (OT)', '') + ' (partial)',
+          label: breakSlot.label.replace(' (OT)', ''),
           minutes: remainingBreakTime
         });
-        // Adjust current time to after the break
         currentTime = breakEnd;
-        break; // Only one break can contain the start
+        continue;
       }
-    }
-
-    // THEN: Check for breaks the job flows through entirely
-    while (remainingWork > 0) {
-      let nextBreak: BreakSlot | null = null;
-      let nextBreakStart = Infinity;
-
-      for (const breakSlot of breakSlots) {
-        const breakStart = getBreakStartMinutes(breakSlot);
-        if (breakStart > currentTime && breakStart < nextBreakStart) {
-          nextBreak = breakSlot;
-          nextBreakStart = breakStart;
+      
+      // Work until we hit the break or finish
+      if (currentTime < breakStart) {
+        const workBeforeBreak = breakStart - currentTime;
+        
+        if (remainingWork <= workBeforeBreak) {
+          // Job ends before this break
+          break;
         }
-      }
-
-      if (nextBreak && nextBreakStart < currentTime + remainingWork) {
-        const workBeforeBreak = nextBreakStart - currentTime;
+        
+        // Work up to the break, then skip over it
         remainingWork -= workBeforeBreak;
-        const breakDuration = getBreakDurationMinutes(nextBreak);
         additions.push({
-          label: nextBreak.label.replace(' (OT)', ''),
+          label: breakSlot.label.replace(' (OT)', ''),
           minutes: breakDuration
         });
-        currentTime = nextBreakStart + breakDuration;
-      } else {
-        remainingWork = 0;
+        currentTime = breakEnd;
       }
     }
 
