@@ -1607,14 +1607,30 @@ export const ProductionPlannerPage = () => {
       const originalStartTime = jobStartTime;
       const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
       
-      // Update original job's WIP record with truncated timing (if WIP exists)
+      // Calculate E-Finks apportionment between parent and rollover
+      const totalEFinks = job.estimatedEFinks || 0;
+      const totalDuration = truncatedDuration + overflowMinutes;
+      const parentEFinks = totalDuration > 0 ? Math.round((truncatedDuration / totalDuration) * totalEFinks) : totalEFinks;
+      const rolloverEFinks = totalEFinks - parentEFinks; // Ensure they sum to total
+      
+      console.log('[ROLLOVER] E-Finks apportionment:', {
+        totalEFinks,
+        totalDuration,
+        parentDuration: truncatedDuration,
+        rolloverDuration: overflowMinutes,
+        parentEFinks,
+        rolloverEFinks
+      });
+      
+      // Update original job's WIP record with truncated timing AND reduced E-Finks (if WIP exists)
       if (originalWipId) {
         console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
           wipId: originalWipId,
           start: originalStartTime,
           end: originalTiming.endTime,
           duration: truncatedDuration,
-          breaks: originalTiming.breakMinutes
+          breaks: originalTiming.breakMinutes,
+          estimatedEfinks: parentEFinks
         });
         
         await teamWorkItemService.batchUpdate([{
@@ -1622,10 +1638,12 @@ export const ProductionPlannerPage = () => {
           data: {
             plannedEndMinutes: originalTiming.endTime,
             plannedDurationMinutes: truncatedDuration,
-            breakAdjustmentMinutes: originalTiming.breakMinutes
+            breakAdjustmentMinutes: originalTiming.breakMinutes,
+            estimatedEfinks: parentEFinks,
+            customDurationMinutes: truncatedDuration
           }
         }]);
-        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
+        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing and E-Finks');
       }
       
       // WIP-FIRST: Create WIP-only rollover record (NO Production record yet)
@@ -1698,7 +1716,7 @@ export const ProductionPlannerPage = () => {
           orderNumber: job.orderNumber,
           customerName: job.customer,
           productionName: rolloverName,
-          estimatedEfinks: Math.round(overflowMinutes / 6.5625),
+          estimatedEfinks: rolloverEFinks,
           salesOrderId: fullProduction.orderNo ?? undefined
         }]);
         console.log('[ROLLOVER] ✓ WIP-only rollover created');

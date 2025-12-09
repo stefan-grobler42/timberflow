@@ -105,6 +105,8 @@ export interface UpdateTeamWorkItemDto {
   dayStartMinutes?: number;
   dayEndMinutes?: number;
   breakDefinitions?: string;
+  estimatedEfinks?: number;
+  customDurationMinutes?: number | null;
 }
 
 export interface CompleteTeamWorkItemDto {

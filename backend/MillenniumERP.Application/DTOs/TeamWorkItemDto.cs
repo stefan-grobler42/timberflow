@@ -305,6 +305,12 @@ public class UpdateTeamWorkItemDto
 
     [JsonPropertyName("breakDefinitions")]
     public string? BreakDefinitions { get; set; }
+    
+    [JsonPropertyName("estimatedEfinks")]
+    public decimal? EstimatedEfinks { get; set; }
+    
+    [JsonPropertyName("customDurationMinutes")]
+    public int? CustomDurationMinutes { get; set; }
 }
 
 public class CompleteTeamWorkItemDto

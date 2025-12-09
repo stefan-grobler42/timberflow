@@ -365,6 +365,8 @@ public class TeamWorkItemsController : ControllerBase
         item.DayEndMinutes = updateDto.DayEndMinutes;
         
         if (updateDto.BreakDefinitions != null) item.BreakDefinitions = updateDto.BreakDefinitions;
+        if (updateDto.EstimatedEfinks.HasValue) item.EstimatedEfinks = updateDto.EstimatedEfinks;
+        if (updateDto.CustomDurationMinutes.HasValue) item.CustomDurationMinutes = updateDto.CustomDurationMinutes;
 
         item.ModifiedOn = DateTime.UtcNow;
 
