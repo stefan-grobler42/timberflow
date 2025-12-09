@@ -343,6 +343,26 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
 
+    // FIRST: Check if job STARTS within a break period
+    // If so, add the remaining break time to the visual height
+    for (const breakSlot of breakSlots) {
+      const breakStart = getBreakStartMinutes(breakSlot);
+      const breakEnd = breakStart + getBreakDurationMinutes(breakSlot);
+      
+      // If job starts within this break (after break start but before break end)
+      if (jobStartMinutes > breakStart && jobStartMinutes < breakEnd) {
+        const remainingBreakTime = breakEnd - jobStartMinutes;
+        additions.push({
+          label: breakSlot.label.replace(' (OT)', '') + ' (partial)',
+          minutes: remainingBreakTime
+        });
+        // Adjust current time to after the break
+        currentTime = breakEnd;
+        break; // Only one break can contain the start
+      }
+    }
+
+    // THEN: Check for breaks the job flows through entirely
     while (remainingWork > 0) {
       let nextBreak: BreakSlot | null = null;
       let nextBreakStart = Infinity;

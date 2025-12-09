@@ -867,7 +867,8 @@ export const ProductionPlannerPage = () => {
       });
       
       if (subsequentJobs.length > 0) {
-        let currentEnd = timing.endTime;
+        // Start cascade from the resized job's new end time PLUS buffer
+        let currentEnd = timing.endTime + PlannerV2.BUFFER_MINUTES;
         
         for (const subsequentJob of subsequentJobs) {
           const origJob = allJobs.find(j => j.id === subsequentJob.id);
@@ -876,11 +877,9 @@ export const ProductionPlannerPage = () => {
           const jobDuration = subsequentJob.plannedDurationMinutes ?? 
             PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
           
-          let newStartTime = Math.max(currentEnd, shift.startTime);
-          const lunchBreak = shift.breaks.find(b => b.name === 'Lunch');
-          if (lunchBreak && newStartTime >= lunchBreak.start && newStartTime < lunchBreak.end) {
-            newStartTime = lunchBreak.end;
-          }
+          // Simply use the currentEnd as the new start time (already includes buffer)
+          // NO break logic - scheduler uses only 30-minute buffers
+          const newStartTime = Math.max(currentEnd, shift.startTime);
           
           const subTiming = PlannerV2.calculateEndTime(newStartTime, jobDuration, shift);
           
@@ -895,7 +894,8 @@ export const ProductionPlannerPage = () => {
             breakAdjustmentMinutes: subTiming.breakMinutes
           });
           
-          currentEnd = subTiming.endTime;
+          // Next job starts after this one ends PLUS buffer
+          currentEnd = subTiming.endTime + PlannerV2.BUFFER_MINUTES;
         }
       }
       
@@ -1287,7 +1287,7 @@ export const ProductionPlannerPage = () => {
             console.log(`[OT-ROLLOVER] Rollover is WIP-only, skipping Production update`);
           }
           
-          // Update rollover WIP
+          // Update rollover WIP - CRITICAL: Also set overtimeEnabled: false so loadData doesn't re-enable OT
           if (rolloverChild.wipId) {
             const rolloverDateStr = rolloverChild.plannedDateStr!;
             const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
@@ -1308,16 +1308,28 @@ export const ProductionPlannerPage = () => {
                 plannedEndMinutes: rolloverTiming.endTime,
                 breakAdjustmentMinutes: rolloverTiming.breakMinutes,
                 estimatedEfinks: newRolloverEFinks,
-                customDurationMinutes: newRolloverDuration
+                customDurationMinutes: newRolloverDuration,
+                overtimeEnabled: false,
+                dayEndMinutes: undefined
               }
             }]);
             console.log(`[OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
           }
         } else {
-          // Parent fits in standard hours, just update OT flag
+          // Parent fits in standard hours, just update OT flag for both parent AND any rollover children
           if (parentJob.wipId) {
             await teamWorkItemService.batchUpdate([{
               id: parentJob.wipId,
+              data: {
+                overtimeEnabled: false,
+                dayEndMinutes: undefined
+              }
+            }]);
+          }
+          // Also update rollover child's OT flag if it exists
+          if (rolloverChild.wipId) {
+            await teamWorkItemService.batchUpdate([{
+              id: rolloverChild.wipId,
               data: {
                 overtimeEnabled: false,
                 dayEndMinutes: undefined
