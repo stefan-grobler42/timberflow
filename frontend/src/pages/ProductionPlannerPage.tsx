@@ -1447,9 +1447,109 @@ export const ProductionPlannerPage = () => {
         rescheduledMap.set(rj.id, rj);
       }
       
+      // ROLLOVER REDISTRIBUTION: When early OT is enabled, jobs move earlier, exposing time at the END of the day.
+      // Parent jobs with rollovers should stretch to consume this newly available time.
+      if (earlyEnabled) {
+        console.log(`[EARLY-OT-ROLLOVER] Checking for rollover chains to redistribute...`);
+        
+        for (const parentJob of affectedJobs) {
+          const rootParentId = parentJob.parentProductionId || parentJob.id;
+          const currentSequence = parentJob.rolloverSequence || 0;
+          
+          // Find rollover child (next segment in chain)
+          const rolloverChild = allJobs.find(j => 
+            j.parentProductionId === rootParentId && 
+            (j.rolloverSequence || 0) === currentSequence + 1
+          );
+          
+          if (!rolloverChild) continue;
+          
+          console.log(`[EARLY-OT-ROLLOVER] Found rollover chain: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
+          
+          // Get rescheduled parent timing
+          const rescheduledParent = rescheduledMap.get(parentJob.id);
+          const parentStartTime = rescheduledParent?.plannedStartTime ?? parentJob.plannedStartTime ?? newShift.startTime;
+          const parentEndTime = rescheduledParent?.plannedEndTime ?? parentJob.plannedEndTime ?? (parentStartTime + 255);
+          const parentCurrentDuration = parentEndTime - parentStartTime - (rescheduledParent?.breakAdjustmentMinutes ?? parentJob.breakAdjustmentMinutes ?? 0);
+          
+          const rolloverStartTime = rolloverChild.plannedStartTime ?? 420;
+          const rolloverEndTime = rolloverChild.plannedEndTime ?? 1020;
+          const rolloverCurrentDuration = rolloverEndTime - rolloverStartTime - (rolloverChild.breakAdjustmentMinutes || 0);
+          
+          // Total work remaining in the chain
+          const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
+          
+          console.log(`[EARLY-OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, rollover: ${rolloverCurrentDuration}m, total chain: ${totalChainDuration}m`);
+          
+          // Calculate how much time is available from the parent's start to end of day
+          const availableTime = PlannerV2.getAvailableMinutes(parentStartTime, newShift);
+          
+          console.log(`[EARLY-OT-ROLLOVER] Available time from ${parentStartTime} to end of day: ${availableTime}m`);
+          
+          // Parent should FILL all available time (up to total chain duration)
+          const newParentDuration = Math.min(totalChainDuration, availableTime);
+          const newRolloverDuration = totalChainDuration - newParentDuration;
+          const timeToAbsorb = newParentDuration - parentCurrentDuration;
+          
+          if (timeToAbsorb <= 0) {
+            console.log(`[EARLY-OT-ROLLOVER] Parent already at max capacity, no redistribution needed`);
+            continue;
+          }
+          
+          console.log(`[EARLY-OT-ROLLOVER] Absorbing ${timeToAbsorb}m from rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
+          
+          // PROPORTIONAL E-FINKS REDISTRIBUTION
+          const totalEFinks = parentJob.estimatedEFinks + rolloverChild.estimatedEFinks;
+          const totalDuration = newParentDuration + newRolloverDuration;
+          const newParentEFinks = Math.round((newParentDuration / totalDuration) * totalEFinks);
+          const newRolloverEFinks = totalEFinks - newParentEFinks;
+          
+          console.log(`[EARLY-OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks}, Rollover=${newRolloverEFinks}`);
+          
+          // Calculate new end time for parent
+          const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, newShift);
+          
+          // Update the rescheduled map with the stretched parent
+          rescheduledMap.set(parentJob.id, {
+            ...rescheduledMap.get(parentJob.id)!,
+            plannedStartTime: parentStartTime,
+            plannedEndTime: parentTiming.endTime,
+            plannedDurationMinutes: newParentDuration,
+            breakAdjustmentMinutes: parentTiming.breakMinutes
+          });
+          
+          // Update rollover child in WIP (it's on a different day, so not in affectedJobs)
+          if (rolloverChild.wipId) {
+            // Calculate new end time for rollover based on new duration
+            const rolloverShift = PlannerV2.getShiftConfig(false, 1020, false, 420); // Default shift for rollover day
+            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+            
+            await teamWorkItemService.batchUpdate([{
+              id: rolloverChild.wipId,
+              data: {
+                plannedDurationMinutes: newRolloverDuration,
+                plannedEndMinutes: rolloverTiming.endTime,
+                breakAdjustmentMinutes: rolloverTiming.breakMinutes,
+                estimatedEfinks: newRolloverEFinks,
+                customDurationMinutes: newRolloverDuration
+              }
+            }]);
+            console.log(`[EARLY-OT-ROLLOVER] ✓ Updated rollover child WIP with new duration: ${newRolloverDuration}m`);
+          }
+          
+          // Store new parent EFinks to update in the batch below
+          (parentJob as any)._newEstimatedEFinks = newParentEFinks;
+          (parentJob as any)._newCustomDuration = newParentDuration;
+        }
+      }
+      
       // Build batch update for WIP records with recalculated times
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => {
         const rescheduled = rescheduledMap.get(job.id);
+        // Check if this parent job was stretched to consume rollover time
+        const newEFinks = (job as any)._newEstimatedEFinks;
+        const newCustomDuration = (job as any)._newCustomDuration;
+        
         return {
           id: job.wipId!,
           data: {
@@ -1458,7 +1558,10 @@ export const ProductionPlannerPage = () => {
             plannedStartMinutes: rescheduled?.plannedStartTime ?? job.plannedStartTime ?? undefined,
             plannedEndMinutes: rescheduled?.plannedEndTime ?? job.plannedEndTime ?? undefined,
             plannedDurationMinutes: rescheduled?.plannedDurationMinutes ?? job.plannedDurationMinutes ?? undefined,
-            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes ?? job.breakAdjustmentMinutes ?? undefined
+            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes ?? job.breakAdjustmentMinutes ?? undefined,
+            // Include redistributed E-Finks and custom duration for parents with rollovers
+            ...(newEFinks !== undefined && { estimatedEfinks: newEFinks }),
+            ...(newCustomDuration !== undefined && { customDurationMinutes: newCustomDuration })
           }
         };
       });
@@ -1468,16 +1571,24 @@ export const ProductionPlannerPage = () => {
       console.log(`[PLANNER] ✓ Early overtime settings and rescheduled times persisted for ${affectedJobs.length} jobs`);
       
       // Update local jobs state with rescheduled times
+      // Also update any parent jobs that were stretched and their rollover children
+      const stretchedParentData = new Map(
+        affectedJobs.filter(j => (j as any)._newEstimatedEFinks !== undefined)
+          .map(j => [j.id, { newEFinks: (j as any)._newEstimatedEFinks, newCustomDuration: (j as any)._newCustomDuration }])
+      );
+      
       setJobs(prevJobs => prevJobs.map(job => {
         if (job.plannedDateStr === dayStr && job.jigId === teamId && job.wipId) {
           const rescheduled = rescheduledMap.get(job.id);
           if (rescheduled) {
+            const stretchedData = stretchedParentData.get(job.id);
             return {
               ...job,
               plannedStartTime: rescheduled.plannedStartTime ?? job.plannedStartTime,
               plannedEndTime: rescheduled.plannedEndTime ?? job.plannedEndTime,
               plannedDurationMinutes: rescheduled.plannedDurationMinutes !== undefined ? rescheduled.plannedDurationMinutes : job.plannedDurationMinutes,
-              breakAdjustmentMinutes: rescheduled.breakAdjustmentMinutes !== undefined ? rescheduled.breakAdjustmentMinutes : job.breakAdjustmentMinutes
+              breakAdjustmentMinutes: rescheduled.breakAdjustmentMinutes !== undefined ? rescheduled.breakAdjustmentMinutes : job.breakAdjustmentMinutes,
+              ...(stretchedData && { estimatedEFinks: stretchedData.newEFinks, customDurationMinutes: stretchedData.newCustomDuration })
             };
           }
         }
