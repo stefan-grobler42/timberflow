@@ -204,7 +204,7 @@ export const ProductionPlannerPage = () => {
             customer: p.customerName || 'Unknown',
             estimatedEFinks: p.newEstimateDefinks || 0,
             customDurationMinutes: undefined,
-            plannedDateStr: null,
+            plannedDateStr: p.productionPlannedDate ? formatIsoDateLocal(p.productionPlannedDate) : null,
             jigId: null,
             productionComplete: p.productionComplete === true,
             parentProductionId: p.parentProductionId || undefined,
