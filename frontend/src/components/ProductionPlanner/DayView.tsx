@@ -373,10 +373,17 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   };
 
   const getBaseDuration = useCallback((job: Job): number => {
+    // Priority 1: Local resize in progress
     if (customDurations[job.id]) {
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
     }
     
+    // Priority 2: WIP plannedDurationMinutes (authoritative for allocated jobs - includes truncated rollovers)
+    if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
+      return job.plannedDurationMinutes;
+    }
+    
+    // Priority 3: Production customDurationMinutes or calculate from E-Finks
     return PlannerV2.getJobDuration({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
