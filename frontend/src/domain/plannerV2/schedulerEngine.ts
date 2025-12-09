@@ -1,24 +1,20 @@
 /**
  * Core cascade scheduling logic for the plannerV2 module.
- * Handles job scheduling, cascading, overflow management, and drop zone calculations.
+ * SIMPLIFIED: No break logic - jobs start 30 minutes after previous job ends.
  */
 
 import type { ScheduledJob, ShiftConfig, OvertimeSettings } from './types';
 import { BUFFER_MINUTES } from './constants';
 import { getJobDuration } from './durationCalculator';
-import { calculateEndTime, getShiftConfig, getNextWorkingDay, getAvailableMinutes, getAdjustedStartTime } from './shiftCalendar';
+import { getShiftConfig, getNextWorkingDay } from './shiftCalendar';
 
 /**
  * Result of scheduling a single job.
  */
 export interface JobTimingResult {
-  /** Start time in minutes from midnight */
   plannedStartTime: number;
-  /** End time in minutes from midnight */
   plannedEndTime: number;
-  /** Minutes added due to breaks spanned by this job */
   breakAdjustmentMinutes: number;
-  /** Minutes that overflow past shift end (0 if job fits) */
   overflowMinutes: number;
 }
 
@@ -26,9 +22,7 @@ export interface JobTimingResult {
  * Entry representing an overflow that needs to be handled.
  */
 export interface OverflowEntry {
-  /** The job that overflowed */
   job: ScheduledJob;
-  /** Minutes that overflow past shift end */
   overflowMinutes: number;
 }
 
@@ -36,9 +30,7 @@ export interface OverflowEntry {
  * Result of cascade scheduling operation.
  */
 export interface CascadeResult {
-  /** All jobs after scheduling (including inserted and cascaded) */
   scheduledJobs: ScheduledJob[];
-  /** Jobs that overflow past shift end */
   overflows: OverflowEntry[];
 }
 
@@ -46,11 +38,8 @@ export interface CascadeResult {
  * Result of multi-day overflow processing.
  */
 export interface MultiDayCascadeResult {
-  /** All dates that were affected by the cascade */
   affectedDays: string[];
-  /** All scheduled jobs after processing */
   scheduledJobs: ScheduledJob[];
-  /** New rollover job segments created */
   newRollovers: ScheduledJob[];
 }
 
@@ -58,30 +47,16 @@ export interface MultiDayCascadeResult {
  * Represents a valid drop position for job insertion.
  */
 export interface DropZone {
-  /** Index in the job list where a job can be inserted */
   index: number;
-  /** Start time of the drop zone in minutes from midnight */
   startTime: number;
-  /** End time of the drop zone in minutes from midnight */
   endTime: number;
-  /** Available minutes in this zone (excluding breaks) */
   availableMinutes: number;
 }
 
 /**
- * Schedules a single job at a given start time, accounting for breaks.
- * 
- * @param job - The job to schedule
- * @param startTime - Start time in minutes from midnight
- * @param shift - Shift configuration with breaks
- * @returns Job timing result including overflow information
- * 
- * @example
- * const shift = getShiftConfig();
- * const result = scheduleJob(myJob, 510, shift);
- * // result.plannedStartTime = 510
- * // result.plannedEndTime accounts for breaks
- * // result.overflowMinutes > 0 if job extends past shift end
+ * SIMPLIFIED: Schedules a job at a given start time.
+ * End time = start time + work duration (no break expansion).
+ * Overflow = amount that extends past shift end.
  */
 export function scheduleJob(
   job: ScheduledJob,
@@ -89,50 +64,26 @@ export function scheduleJob(
   shift: ShiftConfig
 ): JobTimingResult {
   const workDuration = getJobDuration(job);
-  
-  if (startTime >= shift.endTime) {
-    return {
-      plannedStartTime: startTime,
-      plannedEndTime: startTime + workDuration,
-      breakAdjustmentMinutes: 0,
-      overflowMinutes: workDuration
-    };
-  }
-  
-  const { endTime, breakMinutes } = calculateEndTime(startTime, workDuration, shift);
+  const endTime = startTime + workDuration;
   
   let overflowMinutes = 0;
   let actualEndTime = endTime;
   
   if (endTime > shift.endTime) {
-    const workedBeforeEnd = getAvailableMinutes(startTime, shift);
-    overflowMinutes = workDuration - workedBeforeEnd;
+    overflowMinutes = endTime - shift.endTime;
     actualEndTime = shift.endTime;
   }
   
   return {
     plannedStartTime: startTime,
     plannedEndTime: actualEndTime,
-    breakAdjustmentMinutes: breakMinutes,
+    breakAdjustmentMinutes: 0,
     overflowMinutes: Math.max(0, overflowMinutes)
   };
 }
 
 /**
  * Finds the correct insert position for a job based on drop time.
- * Jobs are sorted by their planned start time.
- * 
- * @param existingJobs - Array of already scheduled jobs (assumed sorted by start time)
- * @param dropTime - The time position where the job should be inserted
- * @returns Index where the job should be inserted
- * 
- * @example
- * const jobs = [
- *   { plannedStartTime: 420 },  // 7:00 AM
- *   { plannedStartTime: 540 },  // 9:00 AM
- *   { plannedStartTime: 660 }   // 11:00 AM
- * ];
- * findInsertPosition(jobs, 600) // returns 2 (after 9am, before 11am)
  */
 export function findInsertPosition(
   existingJobs: ScheduledJob[],
@@ -160,20 +111,8 @@ export function findInsertPosition(
 }
 
 /**
- * Performs cascade scheduling after inserting a job.
- * All subsequent jobs are pushed forward with BUFFER_MINUTES gaps.
- * If a job would start within 30min of a break, it starts after the break instead.
- * 
- * @param jobs - Existing jobs on the same day/jig (sorted by start time)
- * @param insertedJob - The job being inserted
- * @param insertIndex - Position where the job is inserted
- * @param shift - Shift configuration
- * @returns Cascade result with scheduled jobs and overflow information
- * 
- * @example
- * const result = cascadeSchedule(existingJobs, newJob, 0, shift);
- * // result.scheduledJobs contains all jobs with updated times
- * // result.overflows contains jobs that don't fit in the day
+ * SIMPLIFIED: Cascade scheduling - jobs start 30 min after previous job ends.
+ * No break adjustments.
  */
 export function cascadeSchedule(
   jobs: ScheduledJob[],
@@ -191,15 +130,11 @@ export function cascadeSchedule(
     scheduledJobs.push({ ...job });
   }
   
-  // First job starts at shift start time
   let currentTime = shift.startTime;
   if (jobsBefore.length > 0) {
     const lastBefore = jobsBefore[jobsBefore.length - 1];
     const lastEndTime = lastBefore.plannedEndTime ?? shift.startTime;
-    // Add buffer after last job
     currentTime = lastEndTime + BUFFER_MINUTES;
-    // Rule 3: If this puts us within 30min of a break, start after the break
-    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   const insertedTiming = scheduleJob(insertedJob, currentTime, shift);
@@ -207,7 +142,7 @@ export function cascadeSchedule(
     ...insertedJob,
     plannedStartTime: insertedTiming.plannedStartTime,
     plannedEndTime: insertedTiming.plannedEndTime,
-    breakAdjustmentMinutes: insertedTiming.breakAdjustmentMinutes,
+    breakAdjustmentMinutes: 0,
     plannedDurationMinutes: getJobDuration(insertedJob)
   };
   scheduledJobs.push(scheduledInserted);
@@ -219,10 +154,7 @@ export function cascadeSchedule(
     });
   }
   
-  // Calculate next start: after job end + buffer, adjusted for breaks
   currentTime = insertedTiming.plannedEndTime + BUFFER_MINUTES;
-  // Rule 3: If this puts us within 30min of a break, start after the break
-  currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   
   for (const job of jobsAfter) {
     if (currentTime >= shift.endTime) {
@@ -239,7 +171,7 @@ export function cascadeSchedule(
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
-      breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
+      breakAdjustmentMinutes: 0,
       plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
@@ -251,38 +183,18 @@ export function cascadeSchedule(
       });
     }
     
-    // Calculate next start: after job end + buffer, adjusted for breaks
     currentTime = timing.plannedEndTime + BUFFER_MINUTES;
-    // Rule 3: If this puts us within 30min of a break, start after the break
-    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   return { scheduledJobs, overflows };
 }
 
-/**
- * Generates a unique ID for a rollover job segment.
- * 
- * @param parentId - The parent job ID
- * @param sequence - The sequence number
- * @returns Unique rollover ID
- */
 function generateRolloverId(parentId: string, sequence: number): string {
   return `${parentId}-rollover-${sequence}`;
 }
 
 /**
  * Creates a new rollover job segment for overflow work.
- * 
- * @param parentJob - The original job that overflowed
- * @param overflowMinutes - Minutes of work to carry over
- * @param targetDate - Target date in YYYY-MM-DD format
- * @param sequence - Sequence number for the rollover (1 = first rollover, etc.)
- * @returns New rollover job segment
- * 
- * @example
- * const rollover = createRolloverSegment(originalJob, 60, '2025-01-07', 1);
- * // Creates a new job linked to the original with 60 minutes of work
  */
 export function createRolloverSegment(
   parentJob: ScheduledJob,
@@ -312,17 +224,6 @@ export function createRolloverSegment(
 
 /**
  * Processes multi-day overflow cascading.
- * Uses queue-based processing to handle overflows that may cascade across multiple days.
- * 
- * @param overflows - Initial overflow entries to process
- * @param allJobs - All existing jobs across all days (for reference)
- * @param overtimeByTeamDay - Overtime settings keyed by date string, then by team ID
- * @returns Multi-day cascade result
- * 
- * @example
- * const result = processMultiDayOverflows(overflows, allJobs, overtimeByTeamDay);
- * // result.affectedDays shows which days were modified
- * // result.newRollovers contains created rollover segments
  */
 export function processMultiDayOverflows(
   overflows: OverflowEntry[],
@@ -411,16 +312,7 @@ export function processMultiDayOverflows(
 }
 
 /**
- * Calculates valid drop zones for job insertion.
- * Includes positions at shift start, between jobs (with buffer), and after last job.
- * 
- * @param existingJobs - Jobs already scheduled on the day/jig (sorted by start time)
- * @param shift - Shift configuration
- * @returns Array of drop zones with availability information
- * 
- * @example
- * const zones = calculateDropZones(jobs, shift);
- * // zones[0] might be { index: 0, startTime: 420, endTime: 480, availableMinutes: 60 }
+ * SIMPLIFIED: Calculate drop zones without break considerations.
  */
 export function calculateDropZones(
   existingJobs: ScheduledJob[],
@@ -429,12 +321,11 @@ export function calculateDropZones(
   const zones: DropZone[] = [];
   
   if (existingJobs.length === 0) {
-    const availableMinutes = getAvailableMinutes(shift.startTime, shift);
     zones.push({
       index: 0,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      availableMinutes
+      availableMinutes: shift.endTime - shift.startTime
     });
     return zones;
   }
@@ -453,10 +344,7 @@ export function calculateDropZones(
         index: 0,
         startTime: shift.startTime,
         endTime: gapEnd,
-        availableMinutes: getAvailableMinutes(shift.startTime, {
-          ...shift,
-          endTime: gapEnd
-        })
+        availableMinutes: gapEnd - shift.startTime
       });
     }
   }
@@ -476,10 +364,7 @@ export function calculateDropZones(
         index: i + 1,
         startTime: gapStart,
         endTime: gapEnd,
-        availableMinutes: getAvailableMinutes(gapStart, {
-          ...shift,
-          endTime: gapEnd
-        })
+        availableMinutes: gapEnd - gapStart
       });
     }
   }
@@ -493,7 +378,7 @@ export function calculateDropZones(
       index: sortedJobs.length,
       startTime: afterLastStart,
       endTime: shift.endTime,
-      availableMinutes: getAvailableMinutes(afterLastStart, shift)
+      availableMinutes: shift.endTime - afterLastStart
     });
   }
   
@@ -501,13 +386,7 @@ export function calculateDropZones(
 }
 
 /**
- * Reschedules all jobs on a day/jig from the start.
- * Useful for full recalculation after changes.
- * Applies the "near break" adjustment (if job would start within 30min of break, starts after break).
- * 
- * @param jobs - Jobs to reschedule (will be sorted by current start time)
- * @param shift - Shift configuration
- * @returns Cascade result with rescheduled jobs and overflows
+ * SIMPLIFIED: Reschedule day without break adjustments.
  */
 export function rescheduleDay(
   jobs: ScheduledJob[],
@@ -524,7 +403,6 @@ export function rescheduleDay(
   const scheduledJobs: ScheduledJob[] = [];
   const overflows: OverflowEntry[] = [];
   
-  // First job starts at shift start time
   let currentTime = shift.startTime;
   
   for (const job of sortedJobs) {
@@ -542,7 +420,7 @@ export function rescheduleDay(
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
-      breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
+      breakAdjustmentMinutes: 0,
       plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
@@ -554,10 +432,7 @@ export function rescheduleDay(
       });
     }
     
-    // Calculate next start: after job end + buffer, adjusted for breaks
     currentTime = timing.plannedEndTime + BUFFER_MINUTES;
-    // Rule 3: If this puts us within 30min of a break, start after the break
-    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   return { scheduledJobs, overflows };
@@ -565,11 +440,6 @@ export function rescheduleDay(
 
 /**
  * Checks if a job can fit at a specific time without overflow.
- * 
- * @param job - The job to check
- * @param startTime - Proposed start time
- * @param shift - Shift configuration
- * @returns True if the job fits entirely within the shift
  */
 export function canJobFit(
   job: ScheduledJob,
@@ -581,11 +451,7 @@ export function canJobFit(
 }
 
 /**
- * Gets the next available start time after a given time, accounting for buffer.
- * 
- * @param afterTime - Time after which to find availability
- * @param shift - Shift configuration
- * @returns Next available start time, or null if no time available
+ * SIMPLIFIED: Gets the next available start time (just adds buffer).
  */
 export function getNextAvailableTime(
   afterTime: number,
@@ -595,16 +461,6 @@ export function getNextAvailableTime(
   
   if (nextTime >= shift.endTime) {
     return null;
-  }
-  
-  for (const brk of shift.breaks) {
-    if (nextTime >= brk.start && nextTime < brk.end) {
-      const afterBreak = brk.end;
-      if (afterBreak >= shift.endTime) {
-        return null;
-      }
-      return afterBreak;
-    }
   }
   
   return nextTime;
