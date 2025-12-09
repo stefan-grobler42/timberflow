@@ -1070,13 +1070,7 @@ export const ProductionPlannerPage = () => {
           // Update parent job with extended duration - recalculate end time with new duration
           const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, newShift);
           
-          // Update parent Production with new E-Finks
-          await productionService.update(parentJob.id, {
-            plannedDurationMinutes: newParentDuration,
-            newEstimateDefinks: newParentEFinks
-          });
-          console.log(`[OT-ROLLOVER] ✓ Updated parent Production: duration=${newParentDuration}m, efinks=${newParentEFinks}`);
-          
+          // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
           if (parentJob.wipId) {
             await teamWorkItemService.batchUpdate([{
               id: parentJob.wipId,
@@ -1107,12 +1101,7 @@ export const ProductionPlannerPage = () => {
             const totalParentDuration = parentCurrentDuration + rolloverCurrentDuration;
             const fullParentTiming = PlannerV2.calculateEndTime(parentStartTime, totalParentDuration, newShift);
             
-            await productionService.update(parentJob.id, {
-              plannedDurationMinutes: totalParentDuration,
-              newEstimateDefinks: totalEFinks
-            });
-            
-            // Update parent WIP with total E-Finks and duration
+            // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
             if (parentJob.wipId) {
               await teamWorkItemService.batchUpdate([{
                 id: parentJob.wipId,
@@ -1141,18 +1130,7 @@ export const ProductionPlannerPage = () => {
               console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
             }
           } else {
-            // Update rollover with reduced duration and E-Finks
-            // Only update Production if it exists (not WIP-only)
-            if (!isWipOnlyRollover) {
-              await productionService.update(rolloverChild.id, {
-                plannedDurationMinutes: newRolloverDuration,
-                newEstimateDefinks: newRolloverEFinks
-              });
-              console.log(`[OT-ROLLOVER] ✓ Reduced rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
-            } else {
-              console.log(`[OT-ROLLOVER] Rollover is WIP-only, skipping Production update`);
-            }
-            
+            // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
             // Update rollover WIP if exists - ALWAYS start at day's shift start time
             if (rolloverChild.wipId) {
               const rolloverDateStr = rolloverChild.plannedDateStr!;
@@ -1270,15 +1248,7 @@ export const ProductionPlannerPage = () => {
           
           console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
           
-          // Check if rollover is WIP-only (no Production record exists)
-          const isWipOnlyRolloverDisable = rolloverChild.id.startsWith('wip-');
-          
-          // Update parent Production with new E-Finks and duration
-          await productionService.update(parentJob.id, {
-            plannedDurationMinutes: newParentDuration,
-            newEstimateDefinks: newParentEFinks
-          });
-          
+          // WIP-FIRST: Only update WIP records, NOT Production.newEstimateDefinks
           // Update parent WIP
           const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, noOTShift);
           if (parentJob.wipId) {
@@ -1296,17 +1266,7 @@ export const ProductionPlannerPage = () => {
             console.log(`[OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
           }
           
-          // Update rollover Production with new E-Finks and duration (only if not WIP-only)
-          if (!isWipOnlyRolloverDisable) {
-            await productionService.update(rolloverChild.id, {
-              plannedDurationMinutes: newRolloverDuration,
-              newEstimateDefinks: newRolloverEFinks
-            });
-            console.log(`[OT-ROLLOVER] ✓ Enlarged rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
-          } else {
-            console.log(`[OT-ROLLOVER] Rollover is WIP-only, skipping Production update`);
-          }
-          
+          // WIP-FIRST: Only update WIP, not Production.newEstimateDefinks
           // Update rollover WIP - CRITICAL: Also set overtimeEnabled: false so loadData doesn't re-enable OT
           if (rolloverChild.wipId) {
             const rolloverDateStr = rolloverChild.plannedDateStr!;
@@ -1610,20 +1570,10 @@ export const ProductionPlannerPage = () => {
       );
       console.log('[ROLLOVER] Existing rollover found:', existingRollover?.id, existingRollover?.orderNumber);
 
-      // Update original job with reduced duration - always explicitly include jigId
-      const updateData: any = {
-        customDurationMinutes: Math.max(20, remainingDuration),
-        rolloverSequence: currentSequence,
-        // Always send jigId to maintain team assignment - send null explicitly if clearing
-        jigId: preservedJigId ?? null
-      };
-      if (job.parentProductionId) {
-        updateData.parentProductionId = job.parentProductionId;
-      }
-      
-      console.log('[ROLLOVER] Updating parent job with:', JSON.stringify(updateData));
-      await productionService.update(jobId, updateData);
-      console.log('[ROLLOVER] ✓ Parent job updated');
+      // WIP-FIRST ARCHITECTURE: DO NOT update Production record during planning
+      // All rollover-related data (customDurationMinutes, rolloverSequence, teamId) 
+      // is stored in WIP records only until job completion
+      console.log('[ROLLOVER] WIP-first: Skipping Production update, all changes go to WIP only');
 
       // WIP-FIRST ARCHITECTURE: Rollovers are created as WIP-only records initially
       // No Production record is created until job completion
@@ -1697,10 +1647,11 @@ export const ProductionPlannerPage = () => {
             plannedDurationMinutes: truncatedDuration,
             breakAdjustmentMinutes: originalTiming.breakMinutes,
             estimatedEfinks: parentEFinks,
-            customDurationMinutes: truncatedDuration
+            customDurationMinutes: truncatedDuration,
+            rolloverSequence: currentSequence // Track sequence in WIP
           }
         }]);
-        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing and E-Finks');
+        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing, E-Finks, and rolloverSequence');
       }
       
       // WIP-FIRST: Create WIP-only rollover record (NO Production record yet)

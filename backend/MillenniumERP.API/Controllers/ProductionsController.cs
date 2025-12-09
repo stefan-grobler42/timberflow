@@ -67,7 +67,8 @@ public class ProductionsController : ControllerBase
     [HttpGet("planner")]
     public async Task<ActionResult<IEnumerable<ProductionPlannerDto>>> GetForPlanner(
         [FromQuery] string? dateFrom = null,
-        [FromQuery] string? dateTo = null)
+        [FromQuery] string? dateTo = null,
+        [FromQuery] bool? excludeInWip = null)
     {
         // Default date range: 12 months back, 3 months forward
         var fromDate = DateTime.UtcNow.AddMonths(-12);
@@ -84,13 +85,21 @@ public class ProductionsController : ControllerBase
         }
 
         // Get productions with planned dates in range OR any incomplete productions (for scheduling)
-        var plannerData = await _context.Productions
+        var query = _context.Productions
             .AsNoTracking()
             .Include(p => p.Order)
             .Include(p => p.CustomerAccount)
             .Where(p => 
                 (p.Productionplanneddate >= fromDate && p.Productionplanneddate <= toDate) ||
-                (p.Productioncomplete != true))
+                (p.Productioncomplete != true));
+
+        // Filter out productions that are already in WIP (allocated)
+        if (excludeInWip == true)
+        {
+            query = query.Where(p => !p.IsInWip);
+        }
+
+        var plannerData = await query
             .Select(p => new ProductionPlannerDto
             {
                 Id = p.Id,
@@ -109,6 +118,7 @@ public class ProductionsController : ControllerBase
                 PlannedEndTime = p.PlannedEndTime,
                 PlannedDurationMinutes = p.PlannedDurationMinutes,
                 BreakAdjustmentMinutes = p.BreakAdjustmentMinutes,
+                IsInWip = p.IsInWip,
                 CreatedOn = p.CreatedOn
             })
             .ToListAsync();
@@ -447,6 +457,7 @@ public class ProductionsController : ControllerBase
             PlannedEndTime = production.PlannedEndTime,
             PlannedDurationMinutes = production.PlannedDurationMinutes,
             BreakAdjustmentMinutes = production.BreakAdjustmentMinutes,
+            IsInWip = production.IsInWip,
             CreatedOn = production.CreatedOn,
             CreatedBy = production.CreatedBy,
             ModifiedOn = production.ModifiedOn,

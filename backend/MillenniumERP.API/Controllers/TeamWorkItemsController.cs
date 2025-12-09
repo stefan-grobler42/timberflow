@@ -164,16 +164,12 @@ public class TeamWorkItemsController : ControllerBase
         [FromQuery] string? dateFrom = null,
         [FromQuery] string? dateTo = null)
     {
-        var allocatedProductionIds = await _context.TeamWorkItems
-            .Select(w => w.ProductionId)
-            .Distinct()
-            .ToListAsync();
-
+        // Use IsInWip flag instead of checking TeamWorkItems table
         var query = _context.Productions
             .AsNoTracking()
             .Include(p => p.Order)
             .Include(p => p.CustomerAccount)
-            .Where(p => !allocatedProductionIds.Contains(p.Id))
+            .Where(p => !p.IsInWip)
             .Where(p => p.Productioncomplete != true);
 
         if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var fromDate))
@@ -205,6 +201,7 @@ public class TeamWorkItemsController : ControllerBase
                 PlannedEndTime = p.PlannedEndTime,
                 PlannedDurationMinutes = p.PlannedDurationMinutes,
                 BreakAdjustmentMinutes = p.BreakAdjustmentMinutes,
+                IsInWip = p.IsInWip,
                 CreatedOn = p.CreatedOn
             })
             .ToListAsync();
@@ -292,6 +289,14 @@ public class TeamWorkItemsController : ControllerBase
         };
 
         _context.TeamWorkItems.Add(item);
+
+        // Set IsInWip flag on Production when creating WIP record
+        if (production != null)
+        {
+            production.IsInWip = true;
+            production.ModifiedOn = DateTime.UtcNow;
+        }
+
         await _context.SaveChangesAsync();
 
         _logger.LogInformation("Created TeamWorkItem {Id} for Production {ProductionId} on Team {TeamId} (IsRolloverOnly: {IsRolloverOnly})", 
@@ -395,6 +400,17 @@ public class TeamWorkItemsController : ControllerBase
             return NotFound(new { message = $"TeamWorkItem with ID {id} not found" });
         }
 
+        // Clear IsInWip flag on Production when deleting WIP record
+        if (item.ProductionId.HasValue)
+        {
+            var production = await _context.Productions.FindAsync(item.ProductionId.Value);
+            if (production != null)
+            {
+                production.IsInWip = false;
+                production.ModifiedOn = DateTime.UtcNow;
+            }
+        }
+
         _context.TeamWorkItems.Remove(item);
         await _context.SaveChangesAsync();
 
@@ -443,6 +459,7 @@ public class TeamWorkItemsController : ControllerBase
             production.PlannedEndTime = null;
             production.PlannedDurationMinutes = null;
             production.BreakAdjustmentMinutes = null;
+            production.IsInWip = false;
             production.ModifiedOn = DateTime.UtcNow;
         }
         
@@ -565,6 +582,13 @@ public class TeamWorkItemsController : ControllerBase
                 };
                 _context.TeamWorkItems.Add(item);
                 results.Add(item);
+
+                // Set IsInWip flag on Production when creating new WIP record
+                if (production != null)
+                {
+                    production.IsInWip = true;
+                    production.ModifiedOn = DateTime.UtcNow;
+                }
             }
 
         }

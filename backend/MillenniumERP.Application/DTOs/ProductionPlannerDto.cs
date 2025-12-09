@@ -18,5 +18,6 @@ public class ProductionPlannerDto
     public int? PlannedEndTime { get; set; }
     public int? PlannedDurationMinutes { get; set; }
     public int? BreakAdjustmentMinutes { get; set; }
+    public bool IsInWip { get; set; }
     public DateTime? CreatedOn { get; set; }
 }

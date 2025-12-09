@@ -47,6 +47,7 @@ public class ProductionDto
     public int? PlannedEndTime { get; set; }    // Minutes from midnight (e.g., 1020 = 5:00 PM)
     public int? PlannedDurationMinutes { get; set; }  // Base duration from EFinks (no breaks)
     public int? BreakAdjustmentMinutes { get; set; }  // Extra time added when job crosses breaks
+    public bool IsInWip { get; set; }  // Flag indicating job is allocated to WIP
     
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }

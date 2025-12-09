@@ -173,6 +173,10 @@ namespace MillenniumERP.Domain.Entities
         [Column("break_adjustment_minutes")]
         public int? BreakAdjustmentMinutes { get; set; }
 
+        /// <summary>Flag indicating job is allocated to WIP - excludes from unallocated list</summary>
+        [Column("is_in_wip")]
+        public bool IsInWip { get; set; } = false;
+
         // Audit fields
         public DateTime? CreatedOn { get; set; }
         public Guid? CreatedBy { get; set; }
