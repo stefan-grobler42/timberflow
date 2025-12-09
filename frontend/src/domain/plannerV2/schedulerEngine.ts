@@ -6,7 +6,7 @@
 import type { ScheduledJob, ShiftConfig, OvertimeSettings } from './types';
 import { BUFFER_MINUTES } from './constants';
 import { getJobDuration } from './durationCalculator';
-import { calculateEndTime, getShiftConfig, getNextWorkingDay, getAvailableMinutes } from './shiftCalendar';
+import { calculateEndTime, getShiftConfig, getNextWorkingDay, getAvailableMinutes, getAdjustedStartTime } from './shiftCalendar';
 
 /**
  * Result of scheduling a single job.
@@ -162,6 +162,7 @@ export function findInsertPosition(
 /**
  * Performs cascade scheduling after inserting a job.
  * All subsequent jobs are pushed forward with BUFFER_MINUTES gaps.
+ * If a job would start within 30min of a break, it starts after the break instead.
  * 
  * @param jobs - Existing jobs on the same day/jig (sorted by start time)
  * @param insertedJob - The job being inserted
@@ -190,11 +191,15 @@ export function cascadeSchedule(
     scheduledJobs.push({ ...job });
   }
   
+  // First job starts at shift start time
   let currentTime = shift.startTime;
   if (jobsBefore.length > 0) {
     const lastBefore = jobsBefore[jobsBefore.length - 1];
     const lastEndTime = lastBefore.plannedEndTime ?? shift.startTime;
+    // Add buffer after last job
     currentTime = lastEndTime + BUFFER_MINUTES;
+    // Rule 3: If this puts us within 30min of a break, start after the break
+    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   const insertedTiming = scheduleJob(insertedJob, currentTime, shift);
@@ -214,7 +219,10 @@ export function cascadeSchedule(
     });
   }
   
+  // Calculate next start: after job end + buffer, adjusted for breaks
   currentTime = insertedTiming.plannedEndTime + BUFFER_MINUTES;
+  // Rule 3: If this puts us within 30min of a break, start after the break
+  currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   
   for (const job of jobsAfter) {
     if (currentTime >= shift.endTime) {
@@ -243,7 +251,10 @@ export function cascadeSchedule(
       });
     }
     
+    // Calculate next start: after job end + buffer, adjusted for breaks
     currentTime = timing.plannedEndTime + BUFFER_MINUTES;
+    // Rule 3: If this puts us within 30min of a break, start after the break
+    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   return { scheduledJobs, overflows };
@@ -492,6 +503,7 @@ export function calculateDropZones(
 /**
  * Reschedules all jobs on a day/jig from the start.
  * Useful for full recalculation after changes.
+ * Applies the "near break" adjustment (if job would start within 30min of break, starts after break).
  * 
  * @param jobs - Jobs to reschedule (will be sorted by current start time)
  * @param shift - Shift configuration
@@ -512,6 +524,7 @@ export function rescheduleDay(
   const scheduledJobs: ScheduledJob[] = [];
   const overflows: OverflowEntry[] = [];
   
+  // First job starts at shift start time
   let currentTime = shift.startTime;
   
   for (const job of sortedJobs) {
@@ -541,7 +554,10 @@ export function rescheduleDay(
       });
     }
     
+    // Calculate next start: after job end + buffer, adjusted for breaks
     currentTime = timing.plannedEndTime + BUFFER_MINUTES;
+    // Rule 3: If this puts us within 30min of a break, start after the break
+    currentTime = getAdjustedStartTime(currentTime, shift, BUFFER_MINUTES);
   }
   
   return { scheduledJobs, overflows };

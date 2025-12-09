@@ -477,7 +477,12 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ')');
         
         const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
-        const shift = PlannerV2.getShiftConfig(teamOvertimeSettings?.enabled, teamOvertimeSettings?.closeTime);
+        const shift = PlannerV2.getShiftConfig(
+          teamOvertimeSettings?.enabled, 
+          teamOvertimeSettings?.closeTime,
+          teamOvertimeSettings?.earlyEnabled,
+          teamOvertimeSettings?.earlyStartTime
+        );
         
         const existingJobsOnDay = allJobs.filter(
           j => j.plannedDateStr === dateStr && 
@@ -724,7 +729,12 @@ export const ProductionPlannerPage = () => {
     
     if (job.plannedStartTime != null && jigId && dateStr) {
       const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
-      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
+      const shift = PlannerV2.getShiftConfig(
+        teamOvertime?.enabled, 
+        teamOvertime?.closeTime,
+        teamOvertime?.earlyEnabled,
+        teamOvertime?.earlyStartTime
+      );
       
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
       
@@ -819,7 +829,12 @@ export const ProductionPlannerPage = () => {
     
     if (job.plannedStartTime != null && job.jigId && job.plannedDateStr) {
       const teamOvertime = overtimeByTeamDay[job.plannedDateStr]?.[job.jigId];
-      const shift = PlannerV2.getShiftConfig(teamOvertime?.enabled, teamOvertime?.closeTime);
+      const shift = PlannerV2.getShiftConfig(
+        teamOvertime?.enabled, 
+        teamOvertime?.closeTime,
+        teamOvertime?.earlyEnabled,
+        teamOvertime?.earlyStartTime
+      );
       const timing = PlannerV2.calculateEndTime(job.plannedStartTime, calculatedDuration, shift);
       
       const updates = [{
@@ -872,7 +887,14 @@ export const ProductionPlannerPage = () => {
     
     try {
       // Get the new shift configuration based on overtime settings
-      const newShift = PlannerV2.getShiftConfig(enabled, closeTime);
+      // Preserve early OT settings when changing late OT
+      const existingEarlySettings = overtimeByTeamDay[dayStr]?.[teamId];
+      const newShift = PlannerV2.getShiftConfig(
+        enabled, 
+        closeTime,
+        existingEarlySettings?.earlyEnabled,
+        existingEarlySettings?.earlyStartTime
+      );
       
       // Convert affected jobs to ScheduledJob format for the scheduler
       const scheduledJobs: PlannerV2.ScheduledJob[] = affectedJobs.map(job => ({
@@ -989,18 +1011,80 @@ export const ProductionPlannerPage = () => {
     console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with earlyOvertimeEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
     
     try {
-      // Build batch update for WIP records
-      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => ({
-        id: job.wipId!,
-        data: {
-          earlyOvertimeEnabled: earlyEnabled,
-          dayStartMinutes: earlyEnabled ? earlyStartTime : undefined
-        }
+      // Get the new shift configuration based on early OT settings
+      // Preserve late OT settings when changing early OT
+      const existingLateSettings = overtimeByTeamDay[dayStr]?.[teamId];
+      const newShift = PlannerV2.getShiftConfig(
+        existingLateSettings?.enabled,
+        existingLateSettings?.closeTime,
+        earlyEnabled,
+        earlyStartTime
+      );
+      
+      // Convert affected jobs to ScheduledJob format for the scheduler
+      const scheduledJobs: PlannerV2.ScheduledJob[] = affectedJobs.map(job => ({
+        id: job.id,
+        orderNumber: job.orderNumber,
+        customer: job.customer,
+        estimatedEFinks: job.estimatedEFinks,
+        plannedDateStr: job.plannedDateStr,
+        jigId: job.jigId,
+        plannedStartTime: job.plannedStartTime ?? null,
+        plannedEndTime: job.plannedEndTime ?? null,
+        plannedDurationMinutes: job.plannedDurationMinutes ?? null,
+        customDurationMinutes: job.customDurationMinutes ?? null,
+        breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
+        parentProductionId: job.parentProductionId ?? null,
+        rolloverSequence: job.rolloverSequence ?? 0,
+        productionComplete: job.productionComplete
       }));
+      
+      // Recalculate job positions with the new shift configuration (jobs start at new start time)
+      const { scheduledJobs: rescheduledJobs } = PlannerV2.rescheduleDay(scheduledJobs, newShift);
+      console.log(`[PLANNER] ✓ Recalculated ${rescheduledJobs.length} job positions with new early OT shift config`);
+      
+      // Build a map of job ID to rescheduled timing
+      const rescheduledMap = new Map<string, PlannerV2.ScheduledJob>();
+      for (const rj of rescheduledJobs) {
+        rescheduledMap.set(rj.id, rj);
+      }
+      
+      // Build batch update for WIP records with recalculated times
+      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = affectedJobs.map(job => {
+        const rescheduled = rescheduledMap.get(job.id);
+        return {
+          id: job.wipId!,
+          data: {
+            earlyOvertimeEnabled: earlyEnabled,
+            dayStartMinutes: earlyEnabled ? earlyStartTime : undefined,
+            plannedStartMinutes: rescheduled?.plannedStartTime ?? job.plannedStartTime ?? undefined,
+            plannedEndMinutes: rescheduled?.plannedEndTime ?? job.plannedEndTime ?? undefined,
+            plannedDurationMinutes: rescheduled?.plannedDurationMinutes ?? job.plannedDurationMinutes ?? undefined,
+            breakAdjustmentMinutes: rescheduled?.breakAdjustmentMinutes ?? job.breakAdjustmentMinutes ?? undefined
+          }
+        };
+      });
       
       // Persist to WIP table
       await teamWorkItemService.batchUpdate(updates);
-      console.log(`[PLANNER] ✓ Early overtime settings persisted for ${affectedJobs.length} jobs`);
+      console.log(`[PLANNER] ✓ Early overtime settings and rescheduled times persisted for ${affectedJobs.length} jobs`);
+      
+      // Update local jobs state with rescheduled times
+      setJobs(prevJobs => prevJobs.map(job => {
+        if (job.plannedDateStr === dayStr && job.jigId === teamId && job.wipId) {
+          const rescheduled = rescheduledMap.get(job.id);
+          if (rescheduled) {
+            return {
+              ...job,
+              plannedStartTime: rescheduled.plannedStartTime ?? job.plannedStartTime,
+              plannedEndTime: rescheduled.plannedEndTime ?? job.plannedEndTime,
+              plannedDurationMinutes: rescheduled.plannedDurationMinutes !== undefined ? rescheduled.plannedDurationMinutes : job.plannedDurationMinutes,
+              breakAdjustmentMinutes: rescheduled.breakAdjustmentMinutes !== undefined ? rescheduled.breakAdjustmentMinutes : job.breakAdjustmentMinutes
+            };
+          }
+        }
+        return job;
+      }));
       
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist early overtime settings:', err);

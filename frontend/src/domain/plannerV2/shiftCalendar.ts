@@ -16,29 +16,40 @@ import {
  * Gets the shift configuration for a work day.
  * Includes appropriate breaks based on whether overtime is enabled.
  * 
- * @param overtimeEnabled - Whether overtime hours are active
+ * @param overtimeEnabled - Whether late overtime hours are active
  * @param customCloseTime - Optional custom end time in minutes from midnight
+ * @param earlyOtEnabled - Whether early overtime is active
+ * @param earlyOtStartTime - Optional custom start time for early OT in minutes from midnight
  * @returns Complete shift configuration
  * 
  * @example
- * getShiftConfig()                    // Standard 7am-5pm shift
- * getShiftConfig(true)                // Overtime 7am-7pm shift
- * getShiftConfig(true, 1110)          // Custom overtime ending at 6:30pm
+ * getShiftConfig()                           // Standard 7am-5pm shift
+ * getShiftConfig(true)                       // Late overtime 7am-7pm shift
+ * getShiftConfig(true, 1110)                 // Custom late OT ending at 6:30pm
+ * getShiftConfig(false, undefined, true, 360) // Early OT starting at 6am
  */
 export function getShiftConfig(
   overtimeEnabled: boolean = false,
-  customCloseTime?: number
+  customCloseTime?: number,
+  earlyOtEnabled: boolean = false,
+  earlyOtStartTime?: number
 ): ShiftConfig {
+  // Calculate start time: use early OT start if enabled, otherwise standard start
+  const startTime = earlyOtEnabled && earlyOtStartTime !== undefined
+    ? earlyOtStartTime
+    : WORKING_START;
+  
   const endTime = overtimeEnabled
     ? (customCloseTime ?? OVERTIME_END)
     : WORKING_END;
     
   const breaks = overtimeEnabled ? [...OVERTIME_BREAKS] : [...STANDARD_BREAKS];
   
-  const applicableBreaks = breaks.filter(b => b.end <= endTime);
+  // Filter breaks to only include those within the shift hours
+  const applicableBreaks = breaks.filter(b => b.start >= startTime && b.end <= endTime);
   
   return {
-    startTime: WORKING_START,
+    startTime,
     endTime,
     breaks: applicableBreaks
   };
@@ -343,6 +354,45 @@ export function isInBreak(time: number, shift: ShiftConfig): Break | null {
     }
   }
   return null;
+}
+
+/**
+ * Gets the adjusted start time for a job, accounting for "near break" logic.
+ * If the proposed start time is within 30 minutes of a break start, 
+ * the job should start after the break instead.
+ * 
+ * @param proposedStartTime - The initially proposed start time
+ * @param shift - Shift configuration containing breaks
+ * @param bufferMinutes - Buffer time to check (default 30)
+ * @returns Adjusted start time (after break if within buffer)
+ * 
+ * @example
+ * const shift = getShiftConfig(); // Tea break at 9:00-9:30
+ * getAdjustedStartTime(525, shift)  // 8:45 -> returns 570 (after tea break)
+ * getAdjustedStartTime(510, shift)  // 8:30 -> returns 510 (ok, 30min before break)
+ * getAdjustedStartTime(600, shift)  // 10:00 -> returns 600 (well after break)
+ */
+export function getAdjustedStartTime(
+  proposedStartTime: number,
+  shift: ShiftConfig,
+  bufferMinutes: number = 30
+): number {
+  // First check if we're already inside a break - if so, move to after it
+  const inBreak = isInBreak(proposedStartTime, shift);
+  if (inBreak) {
+    return inBreak.end;
+  }
+  
+  // Check if proposed start is within bufferMinutes of any break
+  for (const brk of shift.breaks) {
+    // If proposed start time is within buffer minutes BEFORE the break starts
+    if (proposedStartTime >= brk.start - bufferMinutes && proposedStartTime < brk.start) {
+      // Move the start time to after the break
+      return brk.end;
+    }
+  }
+  
+  return proposedStartTime;
 }
 
 /**
