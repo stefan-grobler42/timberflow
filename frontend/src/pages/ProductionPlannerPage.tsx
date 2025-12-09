@@ -1229,10 +1229,99 @@ export const ProductionPlannerPage = () => {
       };
 
       console.log('[ROLLOVER] Creating rollover with jigId:', rolloverData.jigId);
-      await productionService.create(rolloverData);
-      console.log('[ROLLOVER] ✓ Rollover created, linked to parent:', rootParentId);
-      console.log('[ROLLOVER] ========== Reloading data ==========');
+      const newRolloverProduction = await productionService.create(rolloverData);
+      console.log('[ROLLOVER] ✓ Rollover created with ID:', newRolloverProduction.id, 'linked to parent:', rootParentId);
 
+      // FIX ISSUE 1: Update original job's WIP record with truncated timing
+      // FIX ISSUE 2: Create WIP record for rollover so it appears in team column
+      if (preservedJigId && job.wipId) {
+        const dateStr = job.plannedDateStr!;
+        const teamOvertime = overtimeByTeamDay[dateStr]?.[preservedJigId];
+        const shift = PlannerV2.getShiftConfig(
+          teamOvertime?.enabled,
+          teamOvertime?.closeTime,
+          teamOvertime?.earlyEnabled,
+          teamOvertime?.earlyStartTime
+        );
+        
+        // Calculate correct end time for truncated original job (fits within day)
+        const truncatedDuration = Math.max(20, remainingDuration);
+        const originalStartTime = job.plannedStartTime ?? shift.startTime;
+        const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
+        
+        // Update original job's WIP record with correct truncated timing
+        console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
+          start: originalStartTime,
+          end: originalTiming.endTime,
+          duration: truncatedDuration,
+          breaks: originalTiming.breakMinutes
+        });
+        
+        await teamWorkItemService.batchUpdate([{
+          id: job.wipId,
+          data: {
+            plannedEndMinutes: originalTiming.endTime,
+            plannedDurationMinutes: truncatedDuration,
+            breakAdjustmentMinutes: originalTiming.breakMinutes
+          }
+        }]);
+        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
+        
+        // Get next day's overtime settings for rollover job scheduling
+        const nextDayTeamOvertime = overtimeByTeamDay[nextDateStr]?.[preservedJigId];
+        const nextDayShift = PlannerV2.getShiftConfig(
+          nextDayTeamOvertime?.enabled,
+          nextDayTeamOvertime?.closeTime,
+          nextDayTeamOvertime?.earlyEnabled,
+          nextDayTeamOvertime?.earlyStartTime
+        );
+        
+        // Find existing jobs on next day to determine start time
+        const existingJobsNextDay = allJobs.filter(
+          j => j.plannedDateStr === nextDateStr && 
+               j.jigId === preservedJigId && 
+               j.id !== newRolloverProduction.id &&
+               !j.productionComplete
+        ).sort((a, b) => (a.plannedStartTime ?? nextDayShift.startTime) - (b.plannedStartTime ?? nextDayShift.startTime));
+        
+        // Rollover starts after last job on next day, or at day start if no jobs
+        let rolloverStartTime = nextDayShift.startTime;
+        if (existingJobsNextDay.length > 0) {
+          const lastJob = existingJobsNextDay[existingJobsNextDay.length - 1];
+          const lastEndTime = lastJob.plannedEndTime ?? nextDayShift.startTime;
+          // Apply 30min buffer + near-break adjustment
+          rolloverStartTime = PlannerV2.getAdjustedStartTime(lastEndTime + PlannerV2.BUFFER_MINUTES, nextDayShift);
+        }
+        
+        const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, overflowMinutes, nextDayShift);
+        
+        // Create WIP record for rollover job so it shows in team column
+        console.log('[ROLLOVER] Creating WIP for rollover:', {
+          productionId: newRolloverProduction.id,
+          teamId: preservedJigId,
+          workDate: nextDateStr,
+          start: rolloverStartTime,
+          end: rolloverTiming.endTime,
+          duration: overflowMinutes
+        });
+        
+        await teamWorkItemService.batchAllocate([{
+          productionId: newRolloverProduction.id,
+          teamId: preservedJigId,
+          workDate: nextDateStr,
+          sequence: existingJobsNextDay.length + 1,
+          plannedStartMinutes: rolloverStartTime,
+          plannedEndMinutes: rolloverTiming.endTime,
+          plannedDurationMinutes: overflowMinutes,
+          breakAdjustmentMinutes: rolloverTiming.breakMinutes,
+          rolloverSequence: currentSequence + 1,
+          parentWipId: job.wipId,
+          customDurationMinutes: overflowMinutes
+        }]);
+        console.log('[ROLLOVER] ✓ WIP record created for rollover job');
+      }
+
+      console.log('[ROLLOVER] ========== Reloading data ==========');
       await loadData();
       console.log('[ROLLOVER] ========== Rollover complete ==========');
     } catch (err) {
