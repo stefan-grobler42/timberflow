@@ -65,7 +65,8 @@ export const ProductionPlannerPage = () => {
   const [basketCollapsed, setBasketCollapsed] = useState(true);
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [overtimeByTeamDay, setOvertimeByTeamDay] = useState<Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>>>({});
-  const [_isSaving, setIsSaving] = useState(false);
+  const [operationInProgress, setOperationInProgress] = useState(false);
+  const [operationMessage, setOperationMessage] = useState<string>('');
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [blockPanelOpen, setBlockPanelOpen] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
@@ -410,7 +411,7 @@ export const ProductionPlannerPage = () => {
     }>
   ): Promise<boolean> => {
     try {
-      setIsSaving(true);
+      setOperationInProgress(true); setOperationMessage('Saving changes...');
       
       const wipUpdates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
       const wipCreates: CreateTeamWorkItemDto[] = [];
@@ -479,7 +480,7 @@ export const ProductionPlannerPage = () => {
       setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return false;
     } finally {
-      setIsSaving(false);
+      setOperationInProgress(false); setOperationMessage('');
     }
   }, []);
 
@@ -637,7 +638,7 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] Dropping to unallocated - removing from team');
         
         if (job.wipId) {
-          setIsSaving(true);
+          setOperationInProgress(true); setOperationMessage('Saving changes...');
           await teamWorkItemService.deleteByProductionId(job.id);
           console.log('[PLANNER] ✓ Deleted WIP record for job:', job.id);
         }
@@ -657,7 +658,7 @@ export const ProductionPlannerPage = () => {
           return j;
         }));
         
-        setIsSaving(false);
+        setOperationInProgress(false); setOperationMessage('');
         console.log('[PLANNER] ✓ Job unallocated successfully');
         
         if (viewMode !== 'day') {
@@ -691,7 +692,7 @@ export const ProductionPlannerPage = () => {
     }
 
     try {
-      setIsSaving(true);
+      setOperationInProgress(true); setOperationMessage('Saving changes...');
       
       if (job.wipId) {
         await teamWorkItemService.deleteByProductionId(job.id);
@@ -718,7 +719,7 @@ export const ProductionPlannerPage = () => {
       console.error('[PLANNER] ✗ Failed to unallocate job:', err);
       setError(`Failed to unallocate: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setIsSaving(false);
+      setOperationInProgress(false); setOperationMessage('');
       setDraggedJobId(null);
     }
   };
@@ -737,7 +738,7 @@ export const ProductionPlannerPage = () => {
     }
 
     try {
-      setIsSaving(true);
+      setOperationInProgress(true); setOperationMessage('Saving changes...');
       
       if (job.wipId) {
         await teamWorkItemService.deleteByProductionId(job.id);
@@ -764,7 +765,7 @@ export const ProductionPlannerPage = () => {
       console.error('[PLANNER] ✗ Failed to team unallocate job:', err);
       setError(`Failed to unallocate: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
-      setIsSaving(false);
+      setOperationInProgress(false); setOperationMessage('');
       setDraggedJobId(null);
     }
   };
@@ -939,6 +940,10 @@ export const ProductionPlannerPage = () => {
     }
     
     console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with overtime=${enabled}, closeTime=${closeTime}`);
+    
+    // Show loading overlay
+    setOperationInProgress(true);
+    setOperationMessage(enabled ? 'Enabling overtime...' : 'Disabling overtime...');
     
     try {
       // Get the new shift configuration based on overtime settings
@@ -1301,6 +1306,9 @@ export const ProductionPlannerPage = () => {
           }
         }
       }));
+    } finally {
+      setOperationInProgress(false);
+      setOperationMessage('');
     }
   };
 
@@ -1333,6 +1341,10 @@ export const ProductionPlannerPage = () => {
     }
     
     console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with earlyOvertimeEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
+    
+    // Show loading overlay
+    setOperationInProgress(true);
+    setOperationMessage(earlyEnabled ? 'Enabling early overtime...' : 'Disabling early overtime...');
     
     try {
       // Get the new shift configuration based on early OT settings
@@ -1424,6 +1436,9 @@ export const ProductionPlannerPage = () => {
           }
         }
       }));
+    } finally {
+      setOperationInProgress(false);
+      setOperationMessage('');
     }
   };
 
@@ -1939,7 +1954,27 @@ export const ProductionPlannerPage = () => {
   
   return (
     <ShiftConfigProvider>
-    <Stack styles={{ root: { minHeight: '100%' } }}>
+    <Stack styles={{ root: { minHeight: '100%', position: 'relative' } }}>
+      {/* Loading overlay - blocks interactions during background operations */}
+      {operationInProgress && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          pointerEvents: 'all'
+        }}>
+          <Spinner size={3} label={operationMessage || 'Processing...'} />
+        </div>
+      )}
+      
       <Stack horizontal horizontalAlign="space-between" verticalAlign="center" styles={{ root: { marginBottom: 15 } }}>
         <Text variant="xxLarge">
           Production Planner ({jobs.length} jobs)
