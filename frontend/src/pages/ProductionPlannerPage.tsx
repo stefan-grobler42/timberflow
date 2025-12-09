@@ -1029,7 +1029,7 @@ export const ProductionPlannerPage = () => {
             });
             console.log(`[OT-ROLLOVER] ✓ Reduced rollover duration to ${newRolloverDuration}m`);
             
-            // Update rollover WIP if exists
+            // Update rollover WIP if exists - ALWAYS start at day's first available time
             if (rolloverChild.wipId) {
               const rolloverDateStr = rolloverChild.plannedDateStr!;
               const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
@@ -1039,18 +1039,22 @@ export const ProductionPlannerPage = () => {
                 rolloverTeamOvertime?.earlyEnabled,
                 rolloverTeamOvertime?.earlyStartTime
               );
-              const rolloverStartTime = rolloverChild.plannedStartTime ?? rolloverShift.startTime;
+              // FIX: Rollover should ALWAYS start at day's first available time, not inherit parent's start
+              const rolloverStartTime = rolloverShift.startTime;
               const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+              
+              console.log(`[OT-ROLLOVER] Resetting rollover to start at day start: ${rolloverStartTime} (was ${rolloverChild.plannedStartTime})`);
               
               await teamWorkItemService.batchUpdate([{
                 id: rolloverChild.wipId,
                 data: {
+                  plannedStartMinutes: rolloverStartTime,  // FIX: Set start to day's first available time
                   plannedDurationMinutes: newRolloverDuration,
                   plannedEndMinutes: rolloverTiming.endTime,
                   breakAdjustmentMinutes: rolloverTiming.breakMinutes
                 }
               }]);
-              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP with reduced duration`);
+              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP: start=${rolloverStartTime}, duration=${newRolloverDuration}m, end=${rolloverTiming.endTime}`);
             }
           }
         }

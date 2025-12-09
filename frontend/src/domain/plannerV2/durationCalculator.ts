@@ -79,14 +79,20 @@ export function calculateEfinksDuration(efinks: number, teamAverageEfinks?: numb
 
 /**
  * Gets the effective duration for a job, using custom duration if set,
- * otherwise calculating from E-Finks.
+ * otherwise planned duration from WIP, otherwise calculating from E-Finks.
  * 
- * @param job - Object containing customDurationMinutes and/or estimatedEFinks
+ * Priority order:
+ * 1. customDurationMinutes - Manual resize by user
+ * 2. plannedDurationMinutes - WIP record duration (for truncated rollovers, etc.)
+ * 3. Calculate from estimatedEFinks
+ * 
+ * @param job - Object containing customDurationMinutes, plannedDurationMinutes and/or estimatedEFinks
  * @param teamAverageEfinks - Optional team's average E-Finks capacity (for team-specific efficiency)
  * @returns Duration in minutes, always rounded to quarter hour
  * 
  * @example
  * getJobDuration({ customDurationMinutes: 45 })           // returns 45
+ * getJobDuration({ plannedDurationMinutes: 60 })          // returns 60
  * getJobDuration({ estimatedEFinks: 5 })                  // returns 45 (32.8125 -> 45)
  * getJobDuration({ customDurationMinutes: 60, estimatedEFinks: 5 })  // returns 60 (custom takes precedence)
  * getJobDuration({})                                       // returns 15 (minimum)
@@ -94,12 +100,20 @@ export function calculateEfinksDuration(efinks: number, teamAverageEfinks?: numb
  */
 export function getJobDuration(job: {
   customDurationMinutes?: number | null;
+  plannedDurationMinutes?: number | null;
   estimatedEFinks?: number | null;
 }, teamAverageEfinks?: number | null): number {
+  // Priority 1: Custom duration (manual resize)
   if (job.customDurationMinutes && job.customDurationMinutes > 0) {
     return roundToQuarterHour(job.customDurationMinutes);
   }
   
+  // Priority 2: Planned duration from WIP (truncated rollovers, allocated jobs)
+  if (job.plannedDurationMinutes && job.plannedDurationMinutes > 0) {
+    return job.plannedDurationMinutes;
+  }
+  
+  // Priority 3: Calculate from E-Finks
   return calculateEfinksDuration(job.estimatedEFinks || 0, teamAverageEfinks);
 }
 
