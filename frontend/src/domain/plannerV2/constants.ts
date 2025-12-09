@@ -34,20 +34,14 @@ export const STANDARD_BREAKS: Break[] = [
   {
     name: 'Morning Tea',
     start: 540,  // 9:00 AM
-    end: 555,    // 9:15 AM
-    duration: 15
+    end: 570,    // 9:30 AM
+    duration: 30
   },
   {
     name: 'Lunch',
     start: 720,  // 12:00 PM
-    end: 750,    // 12:30 PM
-    duration: 30
-  },
-  {
-    name: 'Afternoon Tea',
-    start: 870,  // 2:30 PM
-    end: 885,    // 2:45 PM
-    duration: 15
+    end: 765,    // 12:45 PM
+    duration: 45
   }
 ];
 
@@ -59,25 +53,19 @@ export const OVERTIME_BREAKS: Break[] = [
   {
     name: 'Morning Tea',
     start: 540,  // 9:00 AM
-    end: 555,    // 9:15 AM
-    duration: 15
+    end: 570,    // 9:30 AM
+    duration: 30
   },
   {
     name: 'Lunch',
     start: 720,  // 12:00 PM
-    end: 750,    // 12:30 PM
-    duration: 30
-  },
-  {
-    name: 'Afternoon Tea',
-    start: 870,  // 2:30 PM
-    end: 885,    // 2:45 PM
-    duration: 15
+    end: 765,    // 12:45 PM
+    duration: 45
   },
   {
     name: 'Dinner',
-    start: 1020, // 5:00 PM
-    end: 1050,   // 5:30 PM
+    start: 1080, // 6:00 PM
+    end: 1110,   // 6:30 PM
     duration: 30
   }
 ];
