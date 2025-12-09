@@ -1446,11 +1446,14 @@ export const ProductionPlannerPage = () => {
     return overtimeByTeamDay[dayStr] || {};
   };
 
-  const handleJobRollover = async (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
+  const handleJobRollover = async (jobId: string, _overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
     try {
+      // Show loading overlay
+      setOperationInProgress(true);
+      setOperationMessage('Creating rollover...');
+      
       console.log('[ROLLOVER] ========== Starting rollover ==========');
       console.log('[ROLLOVER] Job ID:', jobId);
-      console.log('[ROLLOVER] Overflow minutes:', overflowMinutes);
       console.log('[ROLLOVER] Next date:', nextDateStr);
       console.log('[ROLLOVER] Passed jigId:', jigId);
       
@@ -1469,8 +1472,34 @@ export const ProductionPlannerPage = () => {
       }
       console.log('[ROLLOVER] Full production jigId:', fullProduction.jigId);
 
-      const currentDuration = job.customDurationMinutes || Math.round(job.estimatedEFinks * 6.5625);
-      const remainingDuration = currentDuration - overflowMinutes;
+      // BUG FIX: Calculate available time using getAvailableMinutes instead of subtracting overflow
+      // The overflow calculation includes break visual time, but we need WORK TIME only
+      const preservedJigId = jigId ?? job.jigId;
+      const dateStr = job.plannedDateStr!;
+      const teamOvertime = overtimeByTeamDay[dateStr]?.[preservedJigId || ''];
+      const shift = PlannerV2.getShiftConfig(
+        teamOvertime?.enabled,
+        teamOvertime?.closeTime,
+        teamOvertime?.earlyEnabled,
+        teamOvertime?.earlyStartTime
+      );
+      
+      const jobStartTime = job.plannedStartTime ?? shift.startTime;
+      const currentDuration = job.plannedDurationMinutes ?? job.customDurationMinutes ?? Math.round(job.estimatedEFinks * 6.5625);
+      
+      // Calculate EXACTLY how much work time fits on day 1 (from job start to end of day)
+      const availableOnDay1 = PlannerV2.getAvailableMinutes(jobStartTime, shift);
+      const remainingDuration = Math.min(availableOnDay1, currentDuration);
+      const overflowMinutes = currentDuration - remainingDuration;
+      
+      console.log('[ROLLOVER] Duration calculation:', {
+        currentDuration,
+        jobStartTime,
+        shiftEnd: shift.endTime,
+        availableOnDay1,
+        remainingDuration,
+        overflowMinutes
+      });
 
       // Determine the root parent ID for this job chain
       const rootParentId = job.parentProductionId || jobId;
@@ -1478,10 +1507,6 @@ export const ProductionPlannerPage = () => {
       console.log('[ROLLOVER] Root parent ID:', rootParentId);
       console.log('[ROLLOVER] Current sequence:', currentSequence);
 
-      // BUG FIX 1: Preserve jigId - use nullish coalescing to handle edge cases
-      // jigId parameter from overflow detection takes priority, fallback to job's existing jigId
-      // Using ?? instead of || to correctly handle falsy-but-valid values
-      const preservedJigId = jigId ?? job.jigId;
       console.log('[ROLLOVER] Preserved jigId:', preservedJigId);
 
       // BUG FIX 2: Check if a rollover child already exists for this job
@@ -1593,18 +1618,10 @@ export const ProductionPlannerPage = () => {
           }
         }
         
-        const dateStr = job.plannedDateStr!;
-        const teamOvertime = overtimeByTeamDay[dateStr]?.[preservedJigId];
-        const shift = PlannerV2.getShiftConfig(
-          teamOvertime?.enabled,
-          teamOvertime?.closeTime,
-          teamOvertime?.earlyEnabled,
-          teamOvertime?.earlyStartTime
-        );
-        
+        // Use shift config already calculated above
         // Calculate correct end time for truncated original job (fits within day)
         const truncatedDuration = Math.max(20, remainingDuration);
-        const originalStartTime = job.plannedStartTime ?? shift.startTime;
+        const originalStartTime = jobStartTime;
         const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
         
         // FIX ISSUE 2: Update original job's WIP record with truncated timing (if WIP exists)
@@ -1701,6 +1718,9 @@ export const ProductionPlannerPage = () => {
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to roll over job:', err);
       setError(`Failed to roll over job: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationInProgress(false);
+      setOperationMessage('');
     }
   };
 
