@@ -2,7 +2,7 @@ import { api } from './api';
 
 export interface TeamWorkItemDto {
   id: string;
-  productionId: string;
+  productionId?: string | null;
   teamId: string;
   workDate: string;
   sequence: number;
@@ -38,10 +38,16 @@ export interface TeamWorkItemDto {
   customerName?: string;
   orderNumber?: string;
   estimatedEfinks?: number;
+  siteAddress?: string;
+  customDurationMinutes?: number | null;
+  isRolloverOnly: boolean;
+  rootProductionId?: string | null;
+  parentProductionId?: string | null;
+  salesOrderId?: string | null;
 }
 
 export interface CreateTeamWorkItemDto {
-  productionId: string;
+  productionId?: string | null;
   teamId: string;
   workDate: string;
   sequence: number;
@@ -61,6 +67,15 @@ export interface CreateTeamWorkItemDto {
   dayEndMinutes?: number;
   breakDefinitions?: string;
   customDurationMinutes?: number | null;
+  orderNumber?: string;
+  customerName?: string;
+  productionName?: string;
+  siteAddress?: string;
+  estimatedEfinks?: number;
+  isRolloverOnly?: boolean;
+  rootProductionId?: string | null;
+  parentProductionId?: string | null;
+  salesOrderId?: string | null;
 }
 
 export interface UpdateTeamWorkItemDto {

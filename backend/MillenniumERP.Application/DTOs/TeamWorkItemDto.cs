@@ -8,7 +8,25 @@ public class TeamWorkItemDto
     public Guid Id { get; set; }
 
     [JsonPropertyName("productionId")]
-    public Guid ProductionId { get; set; }
+    public Guid? ProductionId { get; set; }
+    
+    [JsonPropertyName("siteAddress")]
+    public string? SiteAddress { get; set; }
+    
+    [JsonPropertyName("customDurationMinutes")]
+    public int? CustomDurationMinutes { get; set; }
+    
+    [JsonPropertyName("isRolloverOnly")]
+    public bool IsRolloverOnly { get; set; }
+    
+    [JsonPropertyName("rootProductionId")]
+    public Guid? RootProductionId { get; set; }
+    
+    [JsonPropertyName("parentProductionId")]
+    public Guid? ParentProductionId { get; set; }
+    
+    [JsonPropertyName("salesOrderId")]
+    public Guid? SalesOrderId { get; set; }
 
     [JsonPropertyName("teamId")]
     public Guid TeamId { get; set; }
@@ -119,7 +137,36 @@ public class TeamWorkItemDto
 public class CreateTeamWorkItemDto
 {
     [JsonPropertyName("productionId")]
-    public Guid ProductionId { get; set; }
+    public Guid? ProductionId { get; set; }
+    
+    // Display fields - stored in WIP for self-contained records
+    [JsonPropertyName("orderNumber")]
+    public string? OrderNumber { get; set; }
+    
+    [JsonPropertyName("customerName")]
+    public string? CustomerName { get; set; }
+    
+    [JsonPropertyName("productionName")]
+    public string? ProductionName { get; set; }
+    
+    [JsonPropertyName("siteAddress")]
+    public string? SiteAddress { get; set; }
+    
+    [JsonPropertyName("estimatedEfinks")]
+    public decimal? EstimatedEfinks { get; set; }
+    
+    // Rollover chain tracking
+    [JsonPropertyName("isRolloverOnly")]
+    public bool IsRolloverOnly { get; set; }
+    
+    [JsonPropertyName("rootProductionId")]
+    public Guid? RootProductionId { get; set; }
+    
+    [JsonPropertyName("parentProductionId")]
+    public Guid? ParentProductionId { get; set; }
+    
+    [JsonPropertyName("salesOrderId")]
+    public Guid? SalesOrderId { get; set; }
 
     [JsonPropertyName("teamId")]
     public Guid TeamId { get; set; }

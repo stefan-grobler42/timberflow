@@ -12,8 +12,43 @@ namespace MillenniumERP.Domain.Entities
         public Guid Id { get; set; }
 
         [Column("production_id")]
-        [Required]
-        public Guid ProductionId { get; set; }
+        public Guid? ProductionId { get; set; }
+        
+        // Display fields - copied from Production on allocation, self-contained for WIP-only rollovers
+        [Column("order_number")]
+        [MaxLength(100)]
+        public string? OrderNumber { get; set; }
+        
+        [Column("customer_name")]
+        [MaxLength(200)]
+        public string? CustomerName { get; set; }
+        
+        [Column("production_name")]
+        [MaxLength(200)]
+        public string? ProductionName { get; set; }
+        
+        [Column("site_address")]
+        [MaxLength(500)]
+        public string? SiteAddress { get; set; }
+        
+        [Column("estimated_efinks")]
+        public decimal? EstimatedEfinks { get; set; }
+        
+        [Column("custom_duration_minutes")]
+        public int? CustomDurationMinutes { get; set; }
+        
+        // Rollover chain tracking
+        [Column("is_rollover_only")]
+        public bool IsRolloverOnly { get; set; } = false;
+        
+        [Column("root_production_id")]
+        public Guid? RootProductionId { get; set; }
+        
+        [Column("parent_production_id")]
+        public Guid? ParentProductionId { get; set; }
+        
+        [Column("sales_order_id")]
+        public Guid? SalesOrderId { get; set; }
 
         [Column("team_id")]
         [Required]

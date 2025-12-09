@@ -163,7 +163,10 @@ export const ProductionPlannerPage = () => {
       
       const wipByProductionId = new Map<string, typeof wipItems[0]>();
       for (const wip of wipItems) {
-        wipByProductionId.set(wip.productionId, wip);
+        // Only map WIP items that have a productionId (not WIP-only rollovers)
+        if (wip.productionId) {
+          wipByProductionId.set(wip.productionId, wip);
+        }
       }
       console.log(`[PLANNER] ✓ Built WIP lookup map with ${wipByProductionId.size} entries`);
       
@@ -274,6 +277,39 @@ export const ProductionPlannerPage = () => {
         
         const allocatedCount = jobList.filter(j => j.wipId).length;
         console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${allocatedCount} allocated via WIP, ${jobList.filter(j => j.productionComplete).length} completed)`);
+        
+        // WIP-FIRST: Add WIP-only rollover records (no Production record yet)
+        // A WIP-only record is one where productionId is null/undefined (regardless of isRolloverOnly flag)
+        const wipOnlyRollovers = wipItems.filter(wip => !wip.productionId);
+        console.log(`[PLANNER] Found ${wipOnlyRollovers.length} WIP-only records to add (productionId is null)`);
+        
+        for (const wip of wipOnlyRollovers) {
+          const wipOnlyJob: Job = {
+            id: `wip-${wip.id}`, // Use wip prefix to distinguish from production IDs
+            name: wip.productionName || 'Rollover',
+            orderNumber: wip.orderNumber || 'N/A',
+            customer: wip.customerName || 'Unknown',
+            estimatedEFinks: wip.estimatedEfinks || 0,
+            customDurationMinutes: wip.customDurationMinutes ?? undefined,
+            plannedDateStr: formatIsoDateLocal(wip.workDate),
+            jigId: wip.teamId || null,
+            productionComplete: false,
+            parentProductionId: wip.parentProductionId ?? undefined,
+            rolloverSequence: wip.rolloverSequence || undefined,
+            createdOn: wip.createdOn || undefined,
+            plannedStartTime: wip.plannedStartMinutes !== undefined ? wip.plannedStartMinutes : null,
+            plannedEndTime: wip.plannedEndMinutes !== undefined ? wip.plannedEndMinutes : null,
+            plannedDurationMinutes: wip.plannedDurationMinutes !== undefined ? wip.plannedDurationMinutes : null,
+            breakAdjustmentMinutes: wip.breakAdjustmentMinutes !== undefined ? wip.breakAdjustmentMinutes : null,
+            wipId: wip.id,
+            dayStartMinutes: wip.dayStartMinutes !== undefined ? wip.dayStartMinutes : undefined,
+            dayEndMinutes: wip.dayEndMinutes !== undefined ? wip.dayEndMinutes : undefined,
+            overtimeEnabled: wip.overtimeEnabled !== undefined ? wip.overtimeEnabled : undefined
+          };
+          jobList.push(wipOnlyJob);
+        }
+        
+        console.log(`[PLANNER] ✓ Total jobs after adding WIP-only rollovers: ${jobList.length}`);
       } catch (mapErr) {
         console.error('[PLANNER] ✗ Job mapping FAILED:', mapErr);
         throw mapErr;
@@ -1532,122 +1568,68 @@ export const ProductionPlannerPage = () => {
       await productionService.update(jobId, updateData);
       console.log('[ROLLOVER] ✓ Parent job updated');
 
-      // If existing rollover child exists, DELETE it first - then create fresh one
-      // This ensures the rollover always has the correct duration after overtime changes
+      // WIP-FIRST ARCHITECTURE: Rollovers are created as WIP-only records initially
+      // No Production record is created until job completion
+      
+      // Look up the original job's WIP record from API if not in local state
+      let originalWipId = job.wipId;
+      if (!originalWipId && preservedJigId) {
+        console.log('[ROLLOVER] wipId not in local state, looking up from API...');
+        try {
+          const wipRecords = await teamWorkItemService.getByProductionId(jobId);
+          if (wipRecords && wipRecords.length > 0) {
+            originalWipId = wipRecords[0].id;
+            console.log('[ROLLOVER] Found WIP record from API:', originalWipId);
+          }
+        } catch (lookupErr) {
+          console.log('[ROLLOVER] Could not look up WIP record:', lookupErr);
+        }
+      }
+      
+      // If existing rollover child exists, DELETE it first
+      // Check if it's a WIP-only rollover (no productionId) or has a Production record
       if (existingRollover) {
         console.log('[ROLLOVER] Deleting existing rollover:', existingRollover.id, existingRollover.orderNumber);
-        await productionService.delete(existingRollover.id);
-        console.log('[ROLLOVER] ✓ Existing rollover deleted');
-      }
-
-      // Create rollover with same name but "(Rollover)" after order number
-      const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
-      const rolloverName = `${baseName} (Rollover)`;
-
-      // Clone all fields from original production, adjusting only what's needed for rollover
-      const rolloverData: any = {
-        // Core identification - cloned from original
-        name: rolloverName,
-        orderNo: fullProduction.orderNo,
-        customer: fullProduction.customer,
-        
-        // Scheduling - adjusted for rollover
-        productionPlannedDate: new Date(nextDateStr).toISOString(),
-        newEstimateDefinks: Math.round(overflowMinutes / 6.5625),
-        customDurationMinutes: overflowMinutes,
-        productionComplete: false,
-        
-        // Team assignments - use preserved jigId to maintain team allocation
-        jigId: preservedJigId,
-        pickingTeamId: fullProduction.pickingTeamId,
-        sawId: fullProduction.sawId,
-        
-        // Jig team staff - clone from original
-        jigLeader: fullProduction.jigLeader,
-        jigHelper1: fullProduction.jigHelper1,
-        jigHelper2: fullProduction.jigHelper2,
-        jigHelper3: fullProduction.jigHelper3,
-        jigHelper4: fullProduction.jigHelper4,
-        
-        // Picking team staff - clone from original
-        pickingMaster: fullProduction.pickingMaster,
-        pickingHelper1: fullProduction.pickingHelper1,
-        pickingHelper2: fullProduction.pickingHelper2,
-        pickingHelper3: fullProduction.pickingHelper3,
-        
-        // Saw team staff - clone from original
-        sawOperator: fullProduction.sawOperator,
-        sawHelper1: fullProduction.sawHelper1,
-        sawHelper2: fullProduction.sawHelper2,
-        
-        // Production metrics - clone from original
-        totalCuts: fullProduction.totalCuts,
-        totalTimberCubes: fullProduction.totalTimberCubes,
-        trussCost: fullProduction.trussCost,
-        trussSelling: fullProduction.trussSelling,
-        workUnitsEfinks: fullProduction.workUnitsEfinks,
-        
-        // Chain tracking
-        parentProductionId: rootParentId,
-        rolloverSequence: currentSequence + 1
-      };
-
-      console.log('[ROLLOVER] Creating rollover with jigId:', rolloverData.jigId);
-      const newRolloverProduction = await productionService.create(rolloverData);
-      console.log('[ROLLOVER] ✓ Rollover created with ID:', newRolloverProduction.id, 'linked to parent:', rootParentId);
-
-      // Handle WIP records for rollover - need to update original and create new
-      // Note: job.wipId may be undefined if local state wasn't updated after cascade scheduling
-      // So we look up the WIP record from the API if needed
-      if (preservedJigId) {
-        console.log('[ROLLOVER] Processing WIP records for team:', preservedJigId);
-        console.log('[ROLLOVER] job.wipId from local state:', job.wipId);
-        
-        // Look up the original job's WIP record from API if not in local state
-        let originalWipId = job.wipId;
-        if (!originalWipId) {
-          console.log('[ROLLOVER] wipId not in local state, looking up from API...');
-          try {
-            const wipRecords = await teamWorkItemService.getByProductionId(jobId);
-            if (wipRecords && wipRecords.length > 0) {
-              originalWipId = wipRecords[0].id;
-              console.log('[ROLLOVER] Found WIP record from API:', originalWipId);
-            }
-          } catch (lookupErr) {
-            console.log('[ROLLOVER] Could not look up WIP record:', lookupErr);
-          }
-        }
-        
-        // Use shift config already calculated above
-        // Calculate correct end time for truncated original job (fits within day)
-        const truncatedDuration = Math.max(20, remainingDuration);
-        const originalStartTime = jobStartTime;
-        const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
-        
-        // FIX ISSUE 2: Update original job's WIP record with truncated timing (if WIP exists)
-        if (originalWipId) {
-          console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
-            wipId: originalWipId,
-            start: originalStartTime,
-            end: originalTiming.endTime,
-            duration: truncatedDuration,
-            breaks: originalTiming.breakMinutes
-          });
-          
-          await teamWorkItemService.batchUpdate([{
-            id: originalWipId,
-            data: {
-              plannedEndMinutes: originalTiming.endTime,
-              plannedDurationMinutes: truncatedDuration,
-              breakAdjustmentMinutes: originalTiming.breakMinutes
-            }
-          }]);
-          console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
+        // For WIP-only rollovers, delete via WIP service; for Production-backed, delete via Production service
+        if (existingRollover.wipId && !existingRollover.id.includes('-')) {
+          // This is a WIP-only rollover - delete the WIP record
+          await teamWorkItemService.delete(existingRollover.wipId);
+          console.log('[ROLLOVER] ✓ Existing WIP-only rollover deleted');
         } else {
-          console.log('[ROLLOVER] No WIP record found for original job - skipping WIP update');
+          // This is a Production-backed rollover - delete both Production and WIP
+          await productionService.delete(existingRollover.id);
+          console.log('[ROLLOVER] ✓ Existing Production rollover deleted');
         }
+      }
+      
+      // Calculate truncated timing for parent job
+      const truncatedDuration = Math.max(20, remainingDuration);
+      const originalStartTime = jobStartTime;
+      const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
+      
+      // Update original job's WIP record with truncated timing (if WIP exists)
+      if (originalWipId) {
+        console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
+          wipId: originalWipId,
+          start: originalStartTime,
+          end: originalTiming.endTime,
+          duration: truncatedDuration,
+          breaks: originalTiming.breakMinutes
+        });
         
-        // FIX ISSUE 1: Create WIP record for rollover so it appears in team column
+        await teamWorkItemService.batchUpdate([{
+          id: originalWipId,
+          data: {
+            plannedEndMinutes: originalTiming.endTime,
+            plannedDurationMinutes: truncatedDuration,
+            breakAdjustmentMinutes: originalTiming.breakMinutes
+          }
+        }]);
+        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
+      }
+      
+      // WIP-FIRST: Create WIP-only rollover record (NO Production record yet)
+      if (preservedJigId) {
         // Get next day's overtime settings for rollover job scheduling
         const nextDayTeamOvertime = overtimeByTeamDay[nextDateStr]?.[preservedJigId];
         const nextDayShift = PlannerV2.getShiftConfig(
@@ -1662,7 +1644,6 @@ export const ProductionPlannerPage = () => {
         const existingJobsNextDay = allJobs.filter(
           j => j.plannedDateStr === nextDateStr && 
                j.jigId === preservedJigId && 
-               j.id !== newRolloverProduction.id &&
                !j.productionComplete &&
                // Exclude jobs from the same rollover chain
                j.parentProductionId !== rootParentId &&
@@ -1670,7 +1651,6 @@ export const ProductionPlannerPage = () => {
         ).sort((a, b) => (a.plannedStartTime ?? nextDayShift.startTime) - (b.plannedStartTime ?? nextDayShift.startTime));
         
         // Rollover ALWAYS starts at day's first available time
-        // Only consider existing jobs that are NOT part of the same rollover chain
         let rolloverStartTime = nextDayShift.startTime;
         if (existingJobsNextDay.length > 0) {
           const lastJob = existingJobsNextDay[existingJobsNextDay.length - 1];
@@ -1684,18 +1664,23 @@ export const ProductionPlannerPage = () => {
         
         const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, overflowMinutes, nextDayShift);
         
-        // Create WIP record for rollover job so it shows in team column
-        console.log('[ROLLOVER] Creating WIP for rollover:', {
-          productionId: newRolloverProduction.id,
+        // Create rollover name for display
+        const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
+        const rolloverName = `${baseName} (Rollover)`;
+        
+        // Create WIP-ONLY rollover record with all display fields
+        console.log('[ROLLOVER] Creating WIP-only rollover:', {
+          isRolloverOnly: true,
           teamId: preservedJigId,
           workDate: nextDateStr,
           start: rolloverStartTime,
           end: rolloverTiming.endTime,
-          duration: overflowMinutes
+          duration: overflowMinutes,
+          productionName: rolloverName
         });
         
         await teamWorkItemService.batchAllocate([{
-          productionId: newRolloverProduction.id,
+          productionId: null, // WIP-only - no Production record yet
           teamId: preservedJigId,
           workDate: nextDateStr,
           sequence: existingJobsNextDay.length + 1,
@@ -1705,9 +1690,18 @@ export const ProductionPlannerPage = () => {
           breakAdjustmentMinutes: rolloverTiming.breakMinutes,
           rolloverSequence: currentSequence + 1,
           parentWipId: originalWipId,
-          customDurationMinutes: overflowMinutes
+          customDurationMinutes: overflowMinutes,
+          // WIP-first fields - copy display data from parent
+          isRolloverOnly: true,
+          rootProductionId: rootParentId,
+          parentProductionId: jobId,
+          orderNumber: job.orderNumber,
+          customerName: job.customer,
+          productionName: rolloverName,
+          estimatedEfinks: Math.round(overflowMinutes / 6.5625),
+          salesOrderId: fullProduction.orderNo ?? undefined
         }]);
-        console.log('[ROLLOVER] ✓ WIP record created for rollover job');
+        console.log('[ROLLOVER] ✓ WIP-only rollover created');
       } else {
         console.log('[ROLLOVER] No team assignment - skipping WIP record creation');
       }

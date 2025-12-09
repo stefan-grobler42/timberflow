@@ -216,10 +216,37 @@ public class TeamWorkItemsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<TeamWorkItemDto>> Create([FromBody] CreateTeamWorkItemDto createDto)
     {
-        var production = await _context.Productions.FindAsync(createDto.ProductionId);
-        if (production == null)
+        Production? production = null;
+        string? orderNumber = createDto.OrderNumber;
+        string? customerName = createDto.CustomerName;
+        string? productionName = createDto.ProductionName;
+        string? siteAddress = createDto.SiteAddress;
+        decimal? estimatedEfinks = createDto.EstimatedEfinks;
+        Guid? salesOrderId = createDto.SalesOrderId;
+        
+        // For normal allocations, look up Production and copy display fields
+        if (createDto.ProductionId.HasValue)
         {
-            return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+            production = await _context.Productions
+                .Include(p => p.CustomerAccount)
+                .Include(p => p.Order)
+                .FirstOrDefaultAsync(p => p.Id == createDto.ProductionId.Value);
+            
+            if (production == null)
+            {
+                return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+            }
+            
+            // Copy display fields from Production if not provided in DTO
+            orderNumber ??= production.Order?.OrderNumber;
+            customerName ??= production.CustomerAccount?.Name;
+            productionName ??= production.Name;
+            estimatedEfinks ??= production.NewEstimatedefinks;
+            salesOrderId ??= production.Orderno;
+        }
+        else if (!createDto.IsRolloverOnly)
+        {
+            return BadRequest(new { message = "ProductionId is required for non-rollover allocations" });
         }
 
         var team = await _context.Jigs.FindAsync(createDto.TeamId);
@@ -250,14 +277,25 @@ public class TeamWorkItemsController : ControllerBase
             DayStartMinutes = createDto.DayStartMinutes,
             DayEndMinutes = createDto.DayEndMinutes,
             BreakDefinitions = createDto.BreakDefinitions,
+            // New WIP-first fields
+            OrderNumber = orderNumber,
+            CustomerName = customerName,
+            ProductionName = productionName,
+            SiteAddress = siteAddress,
+            EstimatedEfinks = estimatedEfinks,
+            CustomDurationMinutes = createDto.CustomDurationMinutes,
+            IsRolloverOnly = createDto.IsRolloverOnly,
+            RootProductionId = createDto.RootProductionId,
+            ParentProductionId = createDto.ParentProductionId,
+            SalesOrderId = salesOrderId,
             CreatedOn = DateTime.UtcNow
         };
 
         _context.TeamWorkItems.Add(item);
         await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Created TeamWorkItem {Id} for Production {ProductionId} on Team {TeamId}", 
-            item.Id, item.ProductionId, item.TeamId);
+        _logger.LogInformation("Created TeamWorkItem {Id} for Production {ProductionId} on Team {TeamId} (IsRolloverOnly: {IsRolloverOnly})", 
+            item.Id, item.ProductionId, item.TeamId, item.IsRolloverOnly);
 
         var result = await _context.TeamWorkItems
             .Include(w => w.Production)
@@ -421,10 +459,37 @@ public class TeamWorkItemsController : ControllerBase
         
         foreach (var createDto in createDtos)
         {
-            var production = await _context.Productions.FindAsync(createDto.ProductionId);
-            if (production == null)
+            Production? production = null;
+            string? orderNumber = createDto.OrderNumber;
+            string? customerName = createDto.CustomerName;
+            string? productionName = createDto.ProductionName;
+            string? siteAddress = createDto.SiteAddress;
+            decimal? estimatedEfinks = createDto.EstimatedEfinks;
+            Guid? salesOrderId = createDto.SalesOrderId;
+            
+            // For normal allocations, look up Production and copy display fields
+            if (createDto.ProductionId.HasValue)
             {
-                return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                production = await _context.Productions
+                    .Include(p => p.CustomerAccount)
+                    .Include(p => p.Order)
+                    .FirstOrDefaultAsync(p => p.Id == createDto.ProductionId.Value);
+                
+                if (production == null)
+                {
+                    return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                }
+                
+                // Copy display fields from Production if not provided in DTO
+                orderNumber ??= production.Order?.OrderNumber;
+                customerName ??= production.CustomerAccount?.Name;
+                productionName ??= production.Name;
+                estimatedEfinks ??= production.NewEstimatedefinks;
+                salesOrderId ??= production.Orderno;
+            }
+            else if (!createDto.IsRolloverOnly)
+            {
+                return BadRequest(new { message = "ProductionId is required for non-rollover allocations" });
             }
 
             var team = await _context.Jigs.FindAsync(createDto.TeamId);
@@ -433,10 +498,15 @@ public class TeamWorkItemsController : ControllerBase
                 return BadRequest(new { message = $"Team (Jig) with ID {createDto.TeamId} not found" });
             }
 
-            var existingItem = await _context.TeamWorkItems
-                .FirstOrDefaultAsync(w => w.ProductionId == createDto.ProductionId && 
-                                         w.WorkDate.Date == createDto.WorkDate.Date &&
-                                         w.TeamId == createDto.TeamId);
+            // For WIP-only rollovers, match by parentWipId + date + team, not productionId
+            TeamWorkItem? existingItem = null;
+            if (createDto.ProductionId.HasValue)
+            {
+                existingItem = await _context.TeamWorkItems
+                    .FirstOrDefaultAsync(w => w.ProductionId == createDto.ProductionId && 
+                                             w.WorkDate.Date == createDto.WorkDate.Date &&
+                                             w.TeamId == createDto.TeamId);
+            }
 
             if (existingItem != null)
             {
@@ -450,6 +520,7 @@ public class TeamWorkItemsController : ControllerBase
                 existingItem.DayStartMinutes = createDto.DayStartMinutes;
                 existingItem.DayEndMinutes = createDto.DayEndMinutes;
                 existingItem.BreakDefinitions = createDto.BreakDefinitions;
+                existingItem.CustomDurationMinutes = createDto.CustomDurationMinutes;
                 existingItem.ModifiedOn = DateTime.UtcNow;
                 results.Add(existingItem);
             }
@@ -477,6 +548,17 @@ public class TeamWorkItemsController : ControllerBase
                     DayStartMinutes = createDto.DayStartMinutes,
                     DayEndMinutes = createDto.DayEndMinutes,
                     BreakDefinitions = createDto.BreakDefinitions,
+                    // New WIP-first fields
+                    OrderNumber = orderNumber,
+                    CustomerName = customerName,
+                    ProductionName = productionName,
+                    SiteAddress = siteAddress,
+                    EstimatedEfinks = estimatedEfinks,
+                    CustomDurationMinutes = createDto.CustomDurationMinutes,
+                    IsRolloverOnly = createDto.IsRolloverOnly,
+                    RootProductionId = createDto.RootProductionId,
+                    ParentProductionId = createDto.ParentProductionId,
+                    SalesOrderId = salesOrderId,
                     CreatedOn = DateTime.UtcNow
                 };
                 _context.TeamWorkItems.Add(item);
@@ -656,11 +738,18 @@ public class TeamWorkItemsController : ControllerBase
             CreatedBy = item.CreatedBy,
             ModifiedOn = item.ModifiedOn,
             ModifiedBy = item.ModifiedBy,
-            ProductionName = item.Production?.Name,
+            // Use WIP fields directly, fall back to Production for backwards compatibility
+            ProductionName = item.ProductionName ?? item.Production?.Name,
             TeamName = item.Team?.Name,
-            CustomerName = item.Production?.CustomerAccount?.Name,
-            OrderNumber = item.Production?.Order?.OrderNumber,
-            EstimatedEfinks = item.Production?.NewEstimatedefinks
+            CustomerName = item.CustomerName ?? item.Production?.CustomerAccount?.Name,
+            OrderNumber = item.OrderNumber ?? item.Production?.Order?.OrderNumber,
+            EstimatedEfinks = item.EstimatedEfinks ?? item.Production?.NewEstimatedefinks,
+            SiteAddress = item.SiteAddress,
+            CustomDurationMinutes = item.CustomDurationMinutes,
+            IsRolloverOnly = item.IsRolloverOnly,
+            RootProductionId = item.RootProductionId,
+            ParentProductionId = item.ParentProductionId,
+            SalesOrderId = item.SalesOrderId
         };
     }
 }

@@ -23,7 +23,13 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 -   **Backend**: ASP.NET Core 8 Web API, layered structure (Controllers → Services → Data), separate DTOs, PostgreSQL with Entity Framework Core (Npgsql driver).
 -   **Database**: PostgreSQL is the primary database, replacing SQLite for production persistence.
 -   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs.
-    -   **WIP Architecture**: TeamWorkItem table is the single source of truth for all allocated jobs. The planner reads from WIP joined with Production metadata via `GET /api/TeamWorkItems/planner` endpoint. Key WIP fields include: `plannedStartMinutes`, `plannedEndMinutes`, `plannedDurationMinutes`, `breakAdjustmentMinutes`, `dayStartMinutes` (nullable), `dayEndMinutes` (nullable), and `overtimeEnabled`. Nullable day fields allow shift config defaults to apply when not explicitly overridden by user.
+    -   **WIP-First Architecture**: TeamWorkItem table is the single source of truth for all allocated jobs during planning/production phase.
+        -   **Self-Contained WIP Records**: WIP table stores all display fields directly (orderNumber, customerName, productionName, siteAddress, estimatedEfinks) - no Production join required for rendering.
+        -   **WIP-Only Rollovers**: Rollover children exist ONLY in WIP table initially (isRolloverOnly=true, productionId=null). Production records are created only upon job completion.
+        -   **Display Field Population**: When allocating a job, display fields are copied from Production to WIP. All modifications happen in WIP only.
+        -   **Chain Tracking**: Rollovers link via parentWipId (WIP chain) + rootProductionId/parentProductionId (for future Production record creation).
+        -   **Job IDs**: Production-backed jobs use production ID; WIP-only jobs use "wip-{wipId}" prefix for distinction.
+        -   Key WIP fields: `plannedStartMinutes`, `plannedEndMinutes`, `plannedDurationMinutes`, `breakAdjustmentMinutes`, `dayStartMinutes` (nullable), `dayEndMinutes` (nullable), `overtimeEnabled`, `isRolloverOnly`, `rootProductionId`, `parentProductionId`, `customDurationMinutes`.
     -   **PlannerV2 Domain Module** (`frontend/src/domain/plannerV2/`): Clean, isolated architecture with single-responsibility utilities:
         -   `types.ts`: Core type definitions (JobData, ScheduledJob, ScheduleResult)
         -   `constants.ts`: Centralized BUFFER_MINUTES (30), working hours, break definitions
