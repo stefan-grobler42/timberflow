@@ -1453,11 +1453,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         }}
                         style={{
                           position: 'absolute',
-                          top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE + 4,
+                          top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                           left: 4,
                           right: 4,
                           height: clampedHeight,
                           padding: 8,
+                          boxSizing: 'border-box',
                           background: getBackground(),
                           color: job.productionComplete ? '#555' : 'white',
                           borderRadius: 6,
