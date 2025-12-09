@@ -1535,8 +1535,8 @@ export const ProductionPlannerPage = () => {
           (parentJob as any)._newCustomDuration = newParentDuration;
         }
       } else {
-        // EARLY OT DISABLED - redistribute time back from parent to rollover
-        console.log(`[EARLY-OT-ROLLOVER] Early OT disabled - checking for rollover chains to redistribute back...`);
+        // EARLY OT DISABLED - redistribute time from parent back to rollover
+        console.log(`[EARLY-OT-ROLLOVER] Early OT disabled - handling rollover redistribution...`);
         
         // Get the shift WITHOUT early OT (standard hours)
         const noEarlyOTShift = PlannerV2.getShiftConfig(
@@ -1546,6 +1546,10 @@ export const ProductionPlannerPage = () => {
           420    // default 07:00
         );
         
+        // Track which jobs we've already handled as part of rollover chains
+        const handledJobIds = new Set<string>();
+        
+        // First, handle rollover chains - parent shrinks, rollover grows
         for (const parentJob of affectedJobs) {
           const rootParentId = parentJob.parentProductionId || parentJob.id;
           const currentSequence = parentJob.rolloverSequence || 0;
@@ -1558,9 +1562,10 @@ export const ProductionPlannerPage = () => {
           
           if (!rolloverChild) continue;
           
-          console.log(`[EARLY-OT-ROLLOVER] Found rollover chain to redistribute back: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
+          console.log(`[EARLY-OT-ROLLOVER] Found rollover chain to redistribute: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
+          handledJobIds.add(parentJob.id);
           
-          // Calculate durations from planned start/end times
+          // Calculate current durations from WIP
           const parentStartTime = parentJob.plannedStartTime ?? noEarlyOTShift.startTime;
           const parentEndTime = parentJob.plannedEndTime ?? (parentStartTime + 255);
           const parentCurrentDuration = parentEndTime - parentStartTime - (parentJob.breakAdjustmentMinutes || 0);
@@ -1572,9 +1577,9 @@ export const ProductionPlannerPage = () => {
           // Total work in the chain
           const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
           
-          console.log(`[EARLY-OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, Current rollover duration: ${rolloverCurrentDuration}m, Total chain: ${totalChainDuration}m`);
+          console.log(`[EARLY-OT-ROLLOVER] Parent duration: ${parentCurrentDuration}m, Rollover duration: ${rolloverCurrentDuration}m, Total: ${totalChainDuration}m`);
           
-          // Calculate how much time is available WITHOUT early OT (starting at 07:00)
+          // Calculate how much time is available WITHOUT early OT (from 07:00)
           const availableWithoutEarlyOT = PlannerV2.getAvailableMinutes(noEarlyOTShift.startTime, noEarlyOTShift);
           
           console.log(`[EARLY-OT-ROLLOVER] Available without early OT: ${availableWithoutEarlyOT}m`);
@@ -1585,7 +1590,6 @@ export const ProductionPlannerPage = () => {
           const excessTime = parentCurrentDuration - newParentDuration;
           const newRolloverDuration = rolloverCurrentDuration + excessTime;
           
-          // If there's excess time to redistribute to rollover
           if (excessTime > 0) {
             console.log(`[EARLY-OT-ROLLOVER] Redistributing ${excessTime}m back to rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
             
@@ -1595,7 +1599,7 @@ export const ProductionPlannerPage = () => {
             
             console.log(`[EARLY-OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks}, Rollover=${newRolloverEFinks}`);
             
-            // Update parent WIP
+            // Update parent WIP - starts at 07:00
             const parentTiming = PlannerV2.calculateEndTime(noEarlyOTShift.startTime, newParentDuration, noEarlyOTShift);
             if (parentJob.wipId) {
               await teamWorkItemService.batchUpdate([{
@@ -1614,7 +1618,7 @@ export const ProductionPlannerPage = () => {
               console.log(`[EARLY-OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
             }
             
-            // Update rollover WIP
+            // Update rollover WIP - grows to absorb excess time
             if (rolloverChild.wipId) {
               const rolloverDateStr = rolloverChild.plannedDateStr!;
               const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
@@ -1641,9 +1645,8 @@ export const ProductionPlannerPage = () => {
               console.log(`[EARLY-OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
             }
           } else {
-            // Parent fits in standard hours, just update early OT flag
+            // Parent fits in standard hours, just move to start at 07:00
             if (parentJob.wipId) {
-              // Reset start time to standard shift start
               const parentTiming = PlannerV2.calculateEndTime(noEarlyOTShift.startTime, parentCurrentDuration, noEarlyOTShift);
               await teamWorkItemService.batchUpdate([{
                 id: parentJob.wipId,
@@ -1659,48 +1662,41 @@ export const ProductionPlannerPage = () => {
           }
         }
         
-        // For jobs that are NOT part of rollover chains, just update early OT settings
-        const nonRolloverJobsOff = affectedJobs.filter(job => {
-          const rootParentId = job.parentProductionId || job.id;
-          const currentSequence = job.rolloverSequence || 0;
-          const hasRolloverChild = allJobs.some(j => 
-            j.parentProductionId === rootParentId && 
-            (j.rolloverSequence || 0) === currentSequence + 1
-          );
-          return !hasRolloverChild;
-        });
+        // Now handle non-rollover jobs - reschedule sequentially starting at 07:00
+        const nonRolloverJobsOff = affectedJobs.filter(job => !handledJobIds.has(job.id));
         
         if (nonRolloverJobsOff.length > 0) {
-          // Get shift without early OT
-          const noEarlyShift = PlannerV2.getShiftConfig(
-            existingLateSettings?.enabled,
-            existingLateSettings?.closeTime,
-            false,
-            420
-          );
+          // Sort by current start time to maintain order
+          nonRolloverJobsOff.sort((a, b) => (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420));
           
-          const updates: { id: string; data: UpdateTeamWorkItemDto }[] = nonRolloverJobsOff.map((job, index) => {
-            // Recalculate position without early OT
+          // Calculate positions sequentially with buffer
+          let nextStartTime = noEarlyOTShift.startTime;
+          const updatesOff: { id: string; data: UpdateTeamWorkItemDto }[] = [];
+          
+          for (const job of nonRolloverJobsOff) {
             const jobDuration = job.plannedDurationMinutes ?? job.customDurationMinutes ?? Math.round(job.estimatedEFinks * 6.5625);
-            const jobStartTime = noEarlyShift.startTime + (index * (jobDuration + 30)); // Simple sequential placement
-            const timing = PlannerV2.calculateEndTime(jobStartTime, jobDuration, noEarlyShift);
+            const timing = PlannerV2.calculateEndTime(nextStartTime, jobDuration, noEarlyOTShift);
             
-            return {
+            updatesOff.push({
               id: job.wipId!,
               data: {
                 earlyOvertimeEnabled: false,
                 dayStartMinutes: undefined,
-                plannedStartMinutes: jobStartTime,
+                plannedStartMinutes: nextStartTime,
                 plannedEndMinutes: timing.endTime,
                 breakAdjustmentMinutes: timing.breakMinutes
               }
-            };
-          });
-          await teamWorkItemService.batchUpdate(updates);
+            });
+            
+            // Next job starts after this one plus buffer
+            nextStartTime = timing.endTime + 30;
+          }
+          
+          await teamWorkItemService.batchUpdate(updatesOff);
           console.log(`[PLANNER] ✓ Updated early OT settings for ${nonRolloverJobsOff.length} non-rollover jobs`);
         }
         
-        // Reload data to reflect all changes (including rollover on different day)
+        // Reload data to reflect all changes
         await loadData();
         return;
       }
