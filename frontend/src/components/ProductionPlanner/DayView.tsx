@@ -377,10 +377,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       return PlannerV2.roundToQuarterHour(customDurations[job.id]);
     }
     
-    if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
-      return job.plannedDurationMinutes;
-    }
-    
     return PlannerV2.getJobDuration({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
