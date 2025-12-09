@@ -578,10 +578,20 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return workingHours.end * 60;
   };
 
-  const checkJobOverflow = useCallback((jigJobs: Job[], _jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
+  const checkJobOverflow = useCallback((jigJobs: Job[], jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
     const overflowing = new Set<string>();
     const overflowDetails = new Map<string, number>();
-    const workingEnd = getWorkingEndMinutes();
+    
+    // CRITICAL: Use team-specific OT end time, not base working hours
+    // This prevents OT toggle from re-triggering rollover dialogs
+    let workingEnd = getWorkingEndMinutes(); // base 17:00 = 1020
+    if (jigId) {
+      const teamOT = getTeamOvertime(jigId);
+      if (teamOT.enabled && teamOT.closeTime) {
+        workingEnd = teamOT.closeTime; // OT end time (e.g., 1140 = 19:00)
+      }
+    }
+    
     const workingHoursOffset = getWorkingHoursOffset();
 
     // CALENDAR-STYLE: Check each job independently at its stored position
@@ -602,7 +612,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
 
     return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations, getBaseDuration]);
+  }, [workingHours, breakSlots, customDurations, getBaseDuration, getTeamOvertime]);
 
   useEffect(() => {
     if (!workingHours) return;
