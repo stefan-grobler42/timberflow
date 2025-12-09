@@ -466,14 +466,6 @@ public class TeamWorkItemsController : ControllerBase
                 results.Add(item);
             }
 
-            production.JigId = createDto.TeamId;
-            production.Productionplanneddate = createDto.WorkDate;
-            production.PlannedStartTime = createDto.PlannedStartMinutes;
-            production.PlannedEndTime = createDto.PlannedEndMinutes;
-            production.PlannedDurationMinutes = createDto.PlannedDurationMinutes;
-            production.BreakAdjustmentMinutes = createDto.BreakAdjustmentMinutes;
-            production.CustomDurationMinutes = createDto.CustomDurationMinutes;
-            production.ModifiedOn = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
