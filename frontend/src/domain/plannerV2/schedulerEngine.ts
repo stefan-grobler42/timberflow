@@ -203,7 +203,7 @@ export function cascadeSchedule(
     plannedStartTime: insertedTiming.plannedStartTime,
     plannedEndTime: insertedTiming.plannedEndTime,
     breakAdjustmentMinutes: insertedTiming.breakAdjustmentMinutes,
-    plannedDurationMinutes: getJobDuration(insertedJob) + insertedTiming.breakAdjustmentMinutes
+    plannedDurationMinutes: getJobDuration(insertedJob)
   };
   scheduledJobs.push(scheduledInserted);
   
@@ -232,7 +232,7 @@ export function cascadeSchedule(
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
       breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
-      plannedDurationMinutes: getJobDuration(job) + timing.breakAdjustmentMinutes
+      plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
     
@@ -530,7 +530,7 @@ export function rescheduleDay(
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
       breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
-      plannedDurationMinutes: getJobDuration(job) + timing.breakAdjustmentMinutes
+      plannedDurationMinutes: getJobDuration(job)
     };
     scheduledJobs.push(scheduledJob);
     
