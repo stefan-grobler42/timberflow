@@ -1103,9 +1103,31 @@ export const ProductionPlannerPage = () => {
             // Restore all E-Finks to parent
             console.log(`[OT-ROLLOVER] Rollover fully absorbed, restoring all ${totalEFinks} E-Finks to parent`);
             
+            // Calculate parent timing with total duration (parent absorbs all)
+            const totalParentDuration = parentCurrentDuration + rolloverCurrentDuration;
+            const fullParentTiming = PlannerV2.calculateEndTime(parentStartTime, totalParentDuration, newShift);
+            
             await productionService.update(parentJob.id, {
+              plannedDurationMinutes: totalParentDuration,
               newEstimateDefinks: totalEFinks
             });
+            
+            // Update parent WIP with total E-Finks and duration
+            if (parentJob.wipId) {
+              await teamWorkItemService.batchUpdate([{
+                id: parentJob.wipId,
+                data: {
+                  overtimeEnabled: enabled,
+                  dayEndMinutes: closeTime,
+                  plannedDurationMinutes: totalParentDuration,
+                  plannedEndMinutes: fullParentTiming.endTime,
+                  breakAdjustmentMinutes: fullParentTiming.breakMinutes,
+                  estimatedEfinks: totalEFinks,
+                  customDurationMinutes: totalParentDuration
+                }
+              }]);
+              console.log(`[OT-ROLLOVER] ✓ Updated parent WIP with full duration=${totalParentDuration}m, efinks=${totalEFinks}`);
+            }
             
             // Delete WIP record first (if exists)
             if (rolloverChild.wipId) {

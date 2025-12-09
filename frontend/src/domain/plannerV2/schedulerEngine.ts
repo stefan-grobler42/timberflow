@@ -64,6 +64,10 @@ export interface DropZone {
  * BREAK-AWARE: Schedules a job at a given start time.
  * If start time is in a break, adjusts to after the break.
  * End time accounts for any breaks spanned by the work duration.
+ * 
+ * IMPORTANT: plannedEndTime is NOT clamped to shift end - it reflects the true
+ * break-adjusted end time. This allows cascade scheduling to properly compute
+ * buffers from the real end position. Overflow represents work that didn't fit.
  */
 export function scheduleJob(
   job: ScheduledJob,
@@ -76,18 +80,28 @@ export function scheduleJob(
   const workDuration = getJobDuration(job);
   const timing = calculateEndTime(adjustedStart, workDuration, shift);
   
+  // Calculate overflow based on break-expanded end time vs shift end
   let overflowMinutes = 0;
   
-  // Check if work extends past shift end
-  // Available work time = workDuration that can fit before shift.endTime
-  const availableWork = getAvailableMinutes(adjustedStart, shift);
-  if (workDuration > availableWork) {
-    overflowMinutes = workDuration - availableWork;
+  // True end time including break expansion
+  const trueEndTime = timing.endTime;
+  
+  // If the job extends past shift end, calculate overflow
+  if (trueEndTime > shift.endTime) {
+    // Overflow = how much of the job's CLOCK time extends past shift end
+    // But we need to express this as WORK time (excluding breaks that occurred)
+    // Work that completed = work before shift end
+    // For simplicity: overflow is the portion past shift.endTime minus any breaks in that portion
+    const clockOverflow = trueEndTime - shift.endTime;
+    // Assume the overflow portion doesn't contain additional breaks (since we're past shift end)
+    overflowMinutes = clockOverflow;
   }
   
   return {
     plannedStartTime: adjustedStart,
-    plannedEndTime: timing.endTime,
+    // Return true break-adjusted end time - NOT clamped to shift end
+    // This allows cascades to compute accurate buffers
+    plannedEndTime: trueEndTime,
     breakAdjustmentMinutes: timing.breakMinutes,
     overflowMinutes: Math.max(0, overflowMinutes)
   };
@@ -123,15 +137,35 @@ export function findInsertPosition(
 
 /**
  * Gets the next start time after a job ends, accounting for buffer and breaks.
- * If buffer + end time lands in a break, skips to end of break.
+ * Loops to ensure both buffer AND resulting start avoid breaks.
+ * If buffer + end time lands in a break, skips to end of break and ensures buffer is maintained.
  */
 function getNextStartTimeAfterJob(endTime: number, shift: ShiftConfig): number {
   let nextTime = endTime + BUFFER_MINUTES;
   
-  // If the buffer lands us in a break, skip to end of break
-  const breakAt = isInBreak(nextTime, shift);
-  if (breakAt) {
+  // Loop to ensure we don't land in a break after adding buffer
+  // and that the final position respects both buffer and break rules
+  let iterations = 0;
+  const maxIterations = 10; // Guard against infinite loop
+  
+  while (iterations < maxIterations) {
+    const breakAt = isInBreak(nextTime, shift);
+    if (!breakAt) {
+      // Not in a break, we're good
+      break;
+    }
+    
+    // We're in a break - skip to end of break
+    // After skipping, we need to ensure we're still past the buffer from the original end
     nextTime = breakAt.end;
+    
+    // If the break ends before the buffer would have placed us, we still need to maintain buffer
+    // This can happen if break end is less than endTime + BUFFER_MINUTES
+    if (nextTime < endTime + BUFFER_MINUTES) {
+      nextTime = endTime + BUFFER_MINUTES;
+    }
+    
+    iterations++;
   }
   
   return nextTime;
