@@ -1018,40 +1018,39 @@ export const ProductionPlannerPage = () => {
           
           console.log(`[OT-ROLLOVER] Found rollover chain: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
           
-          // CRITICAL: Use the CURRENT WIP durations directly - don't recalculate from E-Finks
-          // These are the truncated durations that represent actual work allocation
-          const parentCurrentDuration = parentJob.plannedDurationMinutes ?? parentJob.customDurationMinutes ?? 
-            PlannerV2.getJobDuration({ estimatedEFinks: parentJob.estimatedEFinks });
-          const rolloverCurrentDuration = rolloverChild.plannedDurationMinutes ?? rolloverChild.customDurationMinutes ??
-            PlannerV2.getJobDuration({ estimatedEFinks: rolloverChild.estimatedEFinks });
-          
-          console.log(`[OT-ROLLOVER] Current parent WIP duration: ${parentCurrentDuration}m, Current rollover WIP duration: ${rolloverCurrentDuration}m`);
-          
-          // Calculate how much EXTRA time is available with the new OT shift
-          // Parent's start time determines when we begin working
+          // CRITICAL: Calculate durations from planned start/end times for accuracy
+          // This avoids stale customDurationMinutes values
           const parentStartTime = parentJob.plannedStartTime ?? newShift.startTime;
+          const parentEndTime = parentJob.plannedEndTime ?? (parentStartTime + 255);
+          const parentCurrentDuration = parentEndTime - parentStartTime - (parentJob.breakAdjustmentMinutes || 0);
           
-          // Available time WITH OT (including dinner break if applicable)
+          const rolloverStartTime = rolloverChild.plannedStartTime ?? 420;
+          const rolloverEndTime = rolloverChild.plannedEndTime ?? 1020;
+          const rolloverCurrentDuration = rolloverEndTime - rolloverStartTime - (rolloverChild.breakAdjustmentMinutes || 0);
+          
+          // Total work remaining in the chain
+          const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
+          
+          console.log(`[OT-ROLLOVER] Current parent WIP duration: ${parentCurrentDuration}m, Current rollover WIP duration: ${rolloverCurrentDuration}m, Total chain: ${totalChainDuration}m`);
+          
+          // Calculate how much time is available with OT
           const availableWithOT = PlannerV2.getAvailableMinutes(parentStartTime, newShift);
-          
-          // Available time WITHOUT OT (what we had before)
           const availableWithoutOT = PlannerV2.getAvailableMinutes(parentStartTime, oldShift);
           
-          // Extra time gained from OT
-          const extraTimeFromOT = availableWithOT - availableWithoutOT;
+          console.log(`[OT-ROLLOVER] Available without OT: ${availableWithoutOT}m, Available with OT: ${availableWithOT}m`);
           
-          console.log(`[OT-ROLLOVER] Available without OT: ${availableWithoutOT}m, Available with OT: ${availableWithOT}m, Extra time: ${extraTimeFromOT}m`);
+          // Parent should FILL all available OT hours (up to the total chain duration)
+          // This stretches the parent to consume all available time, shrinking the rollover
+          const newParentDuration = Math.min(totalChainDuration, availableWithOT);
+          const newRolloverDuration = totalChainDuration - newParentDuration;
           
-          if (extraTimeFromOT <= 0) {
-            console.log(`[OT-ROLLOVER] No extra time available from OT, skipping redistribution`);
+          // Calculate how much we're absorbing from the rollover
+          const timeToAbsorb = newParentDuration - parentCurrentDuration;
+          
+          if (timeToAbsorb <= 0) {
+            console.log(`[OT-ROLLOVER] Parent already at max capacity, no redistribution needed`);
             continue;
           }
-          
-          // Calculate how much of the rollover we can absorb
-          // We can absorb up to the extra time available, but not more than the rollover duration
-          const timeToAbsorb = Math.min(extraTimeFromOT, rolloverCurrentDuration);
-          const newParentDuration = parentCurrentDuration + timeToAbsorb;
-          const newRolloverDuration = rolloverCurrentDuration - timeToAbsorb;
           
           console.log(`[OT-ROLLOVER] Absorbing ${timeToAbsorb}m from rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
           
@@ -1218,23 +1217,33 @@ export const ProductionPlannerPage = () => {
         
         console.log(`[OT-ROLLOVER] Found rollover chain to redistribute back: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
         
-        // Get current durations
-        const parentCurrentDuration = parentJob.plannedDurationMinutes ?? parentJob.customDurationMinutes ?? 
-          PlannerV2.getJobDuration({ estimatedEFinks: parentJob.estimatedEFinks });
-        const rolloverCurrentDuration = rolloverChild.plannedDurationMinutes ?? rolloverChild.customDurationMinutes ??
-          PlannerV2.getJobDuration({ estimatedEFinks: rolloverChild.estimatedEFinks });
+        // CRITICAL: Calculate durations from planned start/end times for accuracy
+        const parentStartTime = parentJob.plannedStartTime ?? noOTShift.startTime;
+        const parentEndTime = parentJob.plannedEndTime ?? (parentStartTime + 255);
+        const parentCurrentDuration = parentEndTime - parentStartTime - (parentJob.breakAdjustmentMinutes || 0);
         
-        console.log(`[OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, Current rollover duration: ${rolloverCurrentDuration}m`);
+        const rolloverStartTimeCalc = rolloverChild.plannedStartTime ?? 420;
+        const rolloverEndTimeCalc = rolloverChild.plannedEndTime ?? 1020;
+        const rolloverCurrentDuration = rolloverEndTimeCalc - rolloverStartTimeCalc - (rolloverChild.breakAdjustmentMinutes || 0);
+        
+        // Total work in the chain
+        const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
+        
+        console.log(`[OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, Current rollover duration: ${rolloverCurrentDuration}m, Total chain: ${totalChainDuration}m`);
         
         // Calculate how much time is available WITHOUT OT
-        const parentStartTime = parentJob.plannedStartTime ?? noOTShift.startTime;
         const availableWithoutOT = PlannerV2.getAvailableMinutes(parentStartTime, noOTShift);
         
-        // If parent currently exceeds available time without OT, need to shrink it
-        if (parentCurrentDuration > availableWithoutOT) {
-          const excessTime = parentCurrentDuration - availableWithoutOT;
-          const newParentDuration = availableWithoutOT;
-          const newRolloverDuration = rolloverCurrentDuration + excessTime;
+        console.log(`[OT-ROLLOVER] Available without OT: ${availableWithoutOT}m`);
+        
+        // Parent should SHRINK to fit within non-OT hours
+        // Any excess goes back to the rollover
+        const newParentDuration = Math.min(parentCurrentDuration, availableWithoutOT);
+        const excessTime = parentCurrentDuration - newParentDuration;
+        const newRolloverDuration = rolloverCurrentDuration + excessTime;
+        
+        // If there's excess time to redistribute to rollover
+        if (excessTime > 0) {
           
           console.log(`[OT-ROLLOVER] Redistributing ${excessTime}m back to rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
           
