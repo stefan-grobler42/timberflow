@@ -1087,13 +1087,19 @@ export const ProductionPlannerPage = () => {
                 dayEndMinutes: closeTime,
                 plannedDurationMinutes: newParentDuration,
                 plannedEndMinutes: parentTiming.endTime,
-                breakAdjustmentMinutes: parentTiming.breakMinutes
+                breakAdjustmentMinutes: parentTiming.breakMinutes,
+                estimatedEfinks: newParentEFinks,
+                customDurationMinutes: newParentDuration
               }
             }]);
             console.log(`[OT-ROLLOVER] ✓ Extended parent WIP to ${newParentDuration}m, ends at ${parentTiming.endTime}, efinks=${newParentEFinks}`);
           }
           
           // Update or delete rollover
+          // Check if rollover is WIP-only (no Production record exists)
+          // WIP-only rollovers have IDs starting with "wip-" or are rollovers without a valid production ID
+          const isWipOnlyRollover = rolloverChild.id.startsWith('wip-');
+          
           if (newRolloverDuration <= 0) {
             // Rollover no longer needed - delete it
             // Restore all E-Finks to parent
@@ -1103,23 +1109,29 @@ export const ProductionPlannerPage = () => {
               newEstimateDefinks: totalEFinks
             });
             
-            
             // Delete WIP record first (if exists)
             if (rolloverChild.wipId) {
               await teamWorkItemService.delete(rolloverChild.wipId);
               console.log(`[OT-ROLLOVER] ✓ Deleted rollover WIP`);
             }
             
-            // Delete Production record
-            await productionService.delete(rolloverChild.id);
-            console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
+            // Delete Production record only if it exists (not WIP-only)
+            if (!isWipOnlyRollover) {
+              await productionService.delete(rolloverChild.id);
+              console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
+            }
           } else {
             // Update rollover with reduced duration and E-Finks
-            await productionService.update(rolloverChild.id, {
-              plannedDurationMinutes: newRolloverDuration,
-              newEstimateDefinks: newRolloverEFinks
-            });
-            console.log(`[OT-ROLLOVER] ✓ Reduced rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
+            // Only update Production if it exists (not WIP-only)
+            if (!isWipOnlyRollover) {
+              await productionService.update(rolloverChild.id, {
+                plannedDurationMinutes: newRolloverDuration,
+                newEstimateDefinks: newRolloverEFinks
+              });
+              console.log(`[OT-ROLLOVER] ✓ Reduced rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
+            } else {
+              console.log(`[OT-ROLLOVER] Rollover is WIP-only, skipping Production update`);
+            }
             
             // Update rollover WIP if exists - ALWAYS start at day's shift start time
             if (rolloverChild.wipId) {
@@ -1143,7 +1155,9 @@ export const ProductionPlannerPage = () => {
                   plannedStartMinutes: rolloverStartTime,
                   plannedDurationMinutes: newRolloverDuration,
                   plannedEndMinutes: rolloverTiming.endTime,
-                  breakAdjustmentMinutes: rolloverTiming.breakMinutes
+                  breakAdjustmentMinutes: rolloverTiming.breakMinutes,
+                  estimatedEfinks: newRolloverEFinks,
+                  customDurationMinutes: newRolloverDuration
                 }
               }]);
               console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP: start=${rolloverStartTime}, duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
@@ -1236,6 +1250,9 @@ export const ProductionPlannerPage = () => {
           
           console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
           
+          // Check if rollover is WIP-only (no Production record exists)
+          const isWipOnlyRolloverDisable = rolloverChild.id.startsWith('wip-');
+          
           // Update parent Production with new E-Finks and duration
           await productionService.update(parentJob.id, {
             plannedDurationMinutes: newParentDuration,
@@ -1252,17 +1269,23 @@ export const ProductionPlannerPage = () => {
                 dayEndMinutes: undefined,
                 plannedDurationMinutes: newParentDuration,
                 plannedEndMinutes: parentTiming.endTime,
-                breakAdjustmentMinutes: parentTiming.breakMinutes
+                breakAdjustmentMinutes: parentTiming.breakMinutes,
+                estimatedEfinks: newParentEFinks
               }
             }]);
             console.log(`[OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
           }
           
-          // Update rollover Production with new E-Finks and duration
-          await productionService.update(rolloverChild.id, {
-            plannedDurationMinutes: newRolloverDuration,
-            newEstimateDefinks: newRolloverEFinks
-          });
+          // Update rollover Production with new E-Finks and duration (only if not WIP-only)
+          if (!isWipOnlyRolloverDisable) {
+            await productionService.update(rolloverChild.id, {
+              plannedDurationMinutes: newRolloverDuration,
+              newEstimateDefinks: newRolloverEFinks
+            });
+            console.log(`[OT-ROLLOVER] ✓ Enlarged rollover Production: duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
+          } else {
+            console.log(`[OT-ROLLOVER] Rollover is WIP-only, skipping Production update`);
+          }
           
           // Update rollover WIP
           if (rolloverChild.wipId) {
@@ -1283,7 +1306,9 @@ export const ProductionPlannerPage = () => {
                 plannedStartMinutes: rolloverStartTime,
                 plannedDurationMinutes: newRolloverDuration,
                 plannedEndMinutes: rolloverTiming.endTime,
-                breakAdjustmentMinutes: rolloverTiming.breakMinutes
+                breakAdjustmentMinutes: rolloverTiming.breakMinutes,
+                estimatedEfinks: newRolloverEFinks,
+                customDurationMinutes: newRolloverDuration
               }
             }]);
             console.log(`[OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
