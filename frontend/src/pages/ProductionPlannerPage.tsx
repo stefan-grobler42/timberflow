@@ -1253,14 +1253,15 @@ export const ProductionPlannerPage = () => {
           console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
           
           // WIP-FIRST: Only update WIP records, NOT Production.newEstimateDefinks
-          // Update parent WIP
+          // Update parent WIP - CRITICAL: Set dayEndMinutes to WORKING_END (1020) not undefined
+          // so the restore logic doesn't default to 1140 (OT end time)
           const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, noOTShift);
           if (parentJob.wipId) {
             await teamWorkItemService.batchUpdate([{
               id: parentJob.wipId,
               data: {
                 overtimeEnabled: false,
-                dayEndMinutes: undefined,
+                dayEndMinutes: 1020, // WORKING_END - standard 17:00
                 plannedDurationMinutes: newParentDuration,
                 plannedEndMinutes: parentTiming.endTime,
                 breakAdjustmentMinutes: parentTiming.breakMinutes,
@@ -1294,19 +1295,20 @@ export const ProductionPlannerPage = () => {
                 estimatedEfinks: newRolloverEFinks,
                 customDurationMinutes: newRolloverDuration,
                 overtimeEnabled: false,
-                dayEndMinutes: undefined
+                dayEndMinutes: 1020 // WORKING_END - standard 17:00
               }
             }]);
             console.log(`[OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
           }
         } else {
           // Parent fits in standard hours, just update OT flag for both parent AND any rollover children
+          // CRITICAL: Set dayEndMinutes to 1020 (WORKING_END) not undefined
           if (parentJob.wipId) {
             await teamWorkItemService.batchUpdate([{
               id: parentJob.wipId,
               data: {
                 overtimeEnabled: false,
-                dayEndMinutes: undefined
+                dayEndMinutes: 1020 // WORKING_END - standard 17:00
               }
             }]);
           }
@@ -1316,7 +1318,7 @@ export const ProductionPlannerPage = () => {
               id: rolloverChild.wipId,
               data: {
                 overtimeEnabled: false,
-                dayEndMinutes: undefined
+                dayEndMinutes: 1020 // WORKING_END - standard 17:00
               }
             }]);
           }
@@ -1335,11 +1337,13 @@ export const ProductionPlannerPage = () => {
       });
       
       if (nonRolloverJobsOff.length > 0) {
+        // CRITICAL: Set dayEndMinutes to 1020 (WORKING_END) not undefined
+        // so the restore logic doesn't default to 1140 (OT end time)
         const updates: { id: string; data: UpdateTeamWorkItemDto }[] = nonRolloverJobsOff.map(job => ({
           id: job.wipId!,
           data: {
             overtimeEnabled: false,
-            dayEndMinutes: undefined
+            dayEndMinutes: 1020 // WORKING_END - standard 17:00
           }
         }));
         await teamWorkItemService.batchUpdate(updates);
@@ -1548,6 +1552,8 @@ export const ProductionPlannerPage = () => {
         
         // Track which jobs we've already handled as part of rollover chains
         const handledJobIds = new Set<string>();
+        // Track the latest end time of handled rollover parents for proper sequencing
+        let maxHandledEndTime = noEarlyOTShift.startTime;
         
         // First, handle rollover chains - parent shrinks, rollover grows
         for (const parentJob of affectedJobs) {
@@ -1615,6 +1621,8 @@ export const ProductionPlannerPage = () => {
                   customDurationMinutes: newParentDuration
                 }
               }]);
+              // Track max end time for proper sequencing of non-rollover jobs
+              maxHandledEndTime = Math.max(maxHandledEndTime, parentTiming.endTime + 30); // +30 for buffer
               console.log(`[EARLY-OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
             }
             
@@ -1658,19 +1666,22 @@ export const ProductionPlannerPage = () => {
                   breakAdjustmentMinutes: parentTiming.breakMinutes
                 }
               }]);
+              // Track max end time for proper sequencing of non-rollover jobs
+              maxHandledEndTime = Math.max(maxHandledEndTime, parentTiming.endTime + 30); // +30 for buffer
             }
           }
         }
         
-        // Now handle non-rollover jobs - reschedule sequentially starting at 07:00
+        // Now handle non-rollover jobs - reschedule sequentially AFTER rollover parents
         const nonRolloverJobsOff = affectedJobs.filter(job => !handledJobIds.has(job.id));
         
         if (nonRolloverJobsOff.length > 0) {
           // Sort by current start time to maintain order
           nonRolloverJobsOff.sort((a, b) => (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420));
           
-          // Calculate positions sequentially with buffer
-          let nextStartTime = noEarlyOTShift.startTime;
+          // CRITICAL: Start AFTER rollover parents to avoid overlap
+          // Use maxHandledEndTime which already includes buffer
+          let nextStartTime = maxHandledEndTime;
           const updatesOff: { id: string; data: UpdateTeamWorkItemDto }[] = [];
           
           for (const job of nonRolloverJobsOff) {
