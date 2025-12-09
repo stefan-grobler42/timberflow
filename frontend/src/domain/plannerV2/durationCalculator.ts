@@ -189,3 +189,77 @@ export function pixelsToDuration(pixels: number): number {
   const rawMinutes = pixels / PIXELS_PER_MINUTE;
   return Math.max(MIN_DURATION, roundToQuarterHour(rawMinutes));
 }
+
+/**
+ * Rounds E-Finks value to 2 decimal places.
+ * CRITICAL: All E-Finks fields must use this to avoid infinitely long decimals.
+ * 
+ * @param efinks - The E-Finks value to round
+ * @returns E-Finks rounded to 2 decimal places
+ * 
+ * @example
+ * roundEfinks(12.345678)  // returns 12.35
+ * roundEfinks(12.344)     // returns 12.34
+ * roundEfinks(12)         // returns 12.00
+ */
+export function roundEfinks(efinks: number): number {
+  return Math.round(efinks * 100) / 100;
+}
+
+/**
+ * Converts duration in minutes to E-Finks based on team efficiency.
+ * Inverse of calculateEfinksDuration.
+ * 
+ * @param minutes - Duration in minutes
+ * @param teamAverageEfinks - Optional team's average E-Finks capacity
+ * @returns E-Finks value rounded to 2 decimal places
+ * 
+ * @example
+ * minutesToEfinks(65.625)      // returns 10.00 (65.625 / 6.5625 = 10)
+ * minutesToEfinks(60, 100)     // returns 11.43 (60 * 1.25 / 6.5625)
+ */
+export function minutesToEfinks(minutes: number, teamAverageEfinks?: number | null): number {
+  if (!minutes || minutes <= 0) {
+    return 0;
+  }
+  
+  const efficiencyFactor = getTeamEfficiencyFactor(teamAverageEfinks);
+  const rawEfinks = (minutes * efficiencyFactor) / MINUTES_PER_EFINK;
+  
+  return roundEfinks(rawEfinks);
+}
+
+/**
+ * Redistributes E-Finks between parent and child jobs based on their durations.
+ * Ensures parent + child E-Finks equals total, with proper 2-decimal rounding.
+ * 
+ * @param totalEfinks - Total E-Finks for the chain (from Production record)
+ * @param parentMinutes - Parent job duration in minutes
+ * @param childMinutes - Child job duration in minutes  
+ * @returns Object with parentEfinks and childEfinks, both rounded to 2 decimals
+ * 
+ * @example
+ * redistributeEfinks(100, 300, 200)  // { parentEfinks: 60.00, childEfinks: 40.00 }
+ * redistributeEfinks(100, 450, 75)   // { parentEfinks: 85.71, childEfinks: 14.29 }
+ */
+export function redistributeEfinks(
+  totalEfinks: number,
+  parentMinutes: number,
+  childMinutes: number
+): { parentEfinks: number; childEfinks: number } {
+  const totalMinutes = parentMinutes + childMinutes;
+  
+  if (totalMinutes <= 0) {
+    return { parentEfinks: roundEfinks(totalEfinks), childEfinks: 0 };
+  }
+  
+  // Calculate parent's proportion
+  const parentRatio = parentMinutes / totalMinutes;
+  const rawParentEfinks = totalEfinks * parentRatio;
+  const parentEfinks = roundEfinks(rawParentEfinks);
+  
+  // Child gets the remainder to ensure exact total (handles rounding drift)
+  const childEfinks = roundEfinks(totalEfinks - parentEfinks);
+  
+  return { parentEfinks, childEfinks };
+}
