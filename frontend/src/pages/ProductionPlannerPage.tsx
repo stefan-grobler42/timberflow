@@ -1423,14 +1423,19 @@ export const ProductionPlannerPage = () => {
         );
         
         // Find existing jobs on next day to determine start time
+        // CRITICAL: Exclude jobs from the SAME rollover chain - rollovers replace each other, don't stack
         const existingJobsNextDay = allJobs.filter(
           j => j.plannedDateStr === nextDateStr && 
                j.jigId === preservedJigId && 
                j.id !== newRolloverProduction.id &&
-               !j.productionComplete
+               !j.productionComplete &&
+               // Exclude jobs from the same rollover chain
+               j.parentProductionId !== rootParentId &&
+               j.id !== rootParentId
         ).sort((a, b) => (a.plannedStartTime ?? nextDayShift.startTime) - (b.plannedStartTime ?? nextDayShift.startTime));
         
-        // Rollover starts after last job on next day, or at day start if no jobs
+        // Rollover ALWAYS starts at day's first available time
+        // Only consider existing jobs that are NOT part of the same rollover chain
         let rolloverStartTime = nextDayShift.startTime;
         if (existingJobsNextDay.length > 0) {
           const lastJob = existingJobsNextDay[existingJobsNextDay.length - 1];
@@ -1438,6 +1443,9 @@ export const ProductionPlannerPage = () => {
           // Apply 30min buffer + near-break adjustment
           rolloverStartTime = PlannerV2.getAdjustedStartTime(lastEndTime + PlannerV2.BUFFER_MINUTES, nextDayShift);
         }
+        
+        console.log('[ROLLOVER] Calculated rollover start time:', rolloverStartTime, 
+          'existingJobsNextDay (non-chain):', existingJobsNextDay.length);
         
         const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, overflowMinutes, nextDayShift);
         
