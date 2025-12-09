@@ -945,6 +945,121 @@ export const ProductionPlannerPage = () => {
       await teamWorkItemService.batchUpdate(updates);
       console.log(`[PLANNER] ✓ WIP overtime settings and recalculated times persisted for ${affectedJobs.length} jobs`);
       
+      // ROLLOVER REDISTRIBUTION: When OT is enabled, extend first-day segments and shrink rollovers
+      if (enabled) {
+        console.log(`[OT-ROLLOVER] Checking for rollover chains to redistribute...`);
+        
+        // Find jobs on this day/team that are parents of rollover chains
+        for (const parentJob of affectedJobs) {
+          const rootParentId = parentJob.parentProductionId || parentJob.id;
+          const currentSequence = parentJob.rolloverSequence || 0;
+          
+          // Find rollover child (next segment in chain)
+          const rolloverChild = allJobs.find(j => 
+            j.parentProductionId === rootParentId && 
+            (j.rolloverSequence || 0) === currentSequence + 1
+          );
+          
+          if (!rolloverChild) continue;
+          
+          console.log(`[OT-ROLLOVER] Found rollover chain: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
+          
+          // Calculate total work needed for the entire chain segment
+          const parentDuration = parentJob.plannedDurationMinutes || parentJob.customDurationMinutes || 
+            Math.round(parentJob.estimatedEFinks * 6.5625);
+          const rolloverDuration = rolloverChild.plannedDurationMinutes || rolloverChild.customDurationMinutes ||
+            Math.round(rolloverChild.estimatedEFinks * 6.5625);
+          const totalWorkNeeded = parentDuration + rolloverDuration;
+          
+          console.log(`[OT-ROLLOVER] Parent duration: ${parentDuration}m, Rollover duration: ${rolloverDuration}m, Total: ${totalWorkNeeded}m`);
+          
+          // Calculate available working time with new OT settings
+          const parentStartTime = parentJob.plannedStartTime ?? newShift.startTime;
+          const availableTime = PlannerV2.getAvailableMinutes(parentStartTime, newShift);
+          
+          console.log(`[OT-ROLLOVER] Available time with OT: ${availableTime}m (from ${parentStartTime} to ${newShift.endTime})`);
+          
+          if (availableTime <= parentDuration) {
+            console.log(`[OT-ROLLOVER] No extra time available, skipping redistribution`);
+            continue;
+          }
+          
+          // Calculate how much we can extend the first day
+          const extraTimeAvailable = availableTime - parentDuration;
+          const timeToAbsorb = Math.min(extraTimeAvailable, rolloverDuration);
+          const newParentDuration = parentDuration + timeToAbsorb;
+          const newRolloverDuration = rolloverDuration - timeToAbsorb;
+          
+          console.log(`[OT-ROLLOVER] Absorbing ${timeToAbsorb}m from rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
+          
+          // Update parent job with extended duration
+          const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, newShift);
+          
+          if (parentJob.wipId) {
+            await teamWorkItemService.batchUpdate([{
+              id: parentJob.wipId,
+              data: {
+                plannedDurationMinutes: newParentDuration,
+                plannedEndMinutes: parentTiming.endTime,
+                breakAdjustmentMinutes: parentTiming.breakMinutes
+              }
+            }]);
+            console.log(`[OT-ROLLOVER] ✓ Extended parent WIP to ${newParentDuration}m`);
+          }
+          
+          // Update or delete rollover
+          if (newRolloverDuration <= 0) {
+            // Rollover no longer needed - delete it
+            console.log(`[OT-ROLLOVER] Rollover fully absorbed, deleting ${rolloverChild.id}`);
+            
+            // Delete WIP record first (if exists)
+            if (rolloverChild.wipId) {
+              await teamWorkItemService.delete(rolloverChild.wipId);
+              console.log(`[OT-ROLLOVER] ✓ Deleted rollover WIP`);
+            }
+            
+            // Delete Production record
+            await productionService.delete(rolloverChild.id);
+            console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
+          } else {
+            // Update rollover with reduced duration
+            await productionService.update(rolloverChild.id, {
+              customDurationMinutes: newRolloverDuration,
+              newEstimateDefinks: Math.round(newRolloverDuration / 6.5625)
+            });
+            console.log(`[OT-ROLLOVER] ✓ Reduced rollover duration to ${newRolloverDuration}m`);
+            
+            // Update rollover WIP if exists
+            if (rolloverChild.wipId) {
+              const rolloverDateStr = rolloverChild.plannedDateStr!;
+              const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
+              const rolloverShift = PlannerV2.getShiftConfig(
+                rolloverTeamOvertime?.enabled,
+                rolloverTeamOvertime?.closeTime,
+                rolloverTeamOvertime?.earlyEnabled,
+                rolloverTeamOvertime?.earlyStartTime
+              );
+              const rolloverStartTime = rolloverChild.plannedStartTime ?? rolloverShift.startTime;
+              const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+              
+              await teamWorkItemService.batchUpdate([{
+                id: rolloverChild.wipId,
+                data: {
+                  plannedDurationMinutes: newRolloverDuration,
+                  plannedEndMinutes: rolloverTiming.endTime,
+                  breakAdjustmentMinutes: rolloverTiming.breakMinutes
+                }
+              }]);
+              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP with reduced duration`);
+            }
+          }
+        }
+        
+        // Reload data to reflect all changes
+        await loadData();
+        return; // Skip the regular state update since we're reloading
+      }
+      
       // Update local job state to reflect all changes (use explicit undefined checks to preserve zero values)
       setJobs(prevJobs => prevJobs.map(job => {
         if (job.plannedDateStr === dayStr && job.jigId === teamId && job.wipId) {
