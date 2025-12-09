@@ -147,6 +147,10 @@ class TeamWorkItemService {
     return api.get<TeamWorkItemDto>(`/TeamWorkItems/${id}`);
   }
 
+  async getByProductionId(productionId: string): Promise<TeamWorkItemDto[]> {
+    return api.get<TeamWorkItemDto[]>(`/TeamWorkItems/production/${productionId}`);
+  }
+
   async getByTeamAndDate(teamId: string, dateStr: string): Promise<TeamWorkItemDto[]> {
     return api.get<TeamWorkItemDto[]>(`/TeamWorkItems/team/${teamId}/date/${dateStr}`);
   }

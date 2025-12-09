@@ -364,6 +364,23 @@ public class TeamWorkItemsController : ControllerBase
         return NoContent();
     }
 
+    [HttpGet("production/{productionId}")]
+    public async Task<ActionResult<IEnumerable<TeamWorkItemDto>>> GetByProductionId(Guid productionId)
+    {
+        var items = await _context.TeamWorkItems
+            .Include(w => w.Production)
+                .ThenInclude(p => p!.CustomerAccount)
+            .Include(w => w.Production)
+                .ThenInclude(p => p!.Order)
+            .Include(w => w.Team)
+            .Where(w => w.ProductionId == productionId)
+            .OrderBy(w => w.WorkDate)
+            .ThenBy(w => w.Sequence)
+            .ToListAsync();
+
+        return Ok(items.Select(MapToDto));
+    }
+
     [HttpDelete("by-production/{productionId}")]
     public async Task<IActionResult> DeleteByProductionId(Guid productionId)
     {

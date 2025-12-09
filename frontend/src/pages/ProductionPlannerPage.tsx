@@ -1232,9 +1232,28 @@ export const ProductionPlannerPage = () => {
       const newRolloverProduction = await productionService.create(rolloverData);
       console.log('[ROLLOVER] ✓ Rollover created with ID:', newRolloverProduction.id, 'linked to parent:', rootParentId);
 
-      // FIX ISSUE 1: Update original job's WIP record with truncated timing
-      // FIX ISSUE 2: Create WIP record for rollover so it appears in team column
-      if (preservedJigId && job.wipId) {
+      // Handle WIP records for rollover - need to update original and create new
+      // Note: job.wipId may be undefined if local state wasn't updated after cascade scheduling
+      // So we look up the WIP record from the API if needed
+      if (preservedJigId) {
+        console.log('[ROLLOVER] Processing WIP records for team:', preservedJigId);
+        console.log('[ROLLOVER] job.wipId from local state:', job.wipId);
+        
+        // Look up the original job's WIP record from API if not in local state
+        let originalWipId = job.wipId;
+        if (!originalWipId) {
+          console.log('[ROLLOVER] wipId not in local state, looking up from API...');
+          try {
+            const wipRecords = await teamWorkItemService.getByProductionId(jobId);
+            if (wipRecords && wipRecords.length > 0) {
+              originalWipId = wipRecords[0].id;
+              console.log('[ROLLOVER] Found WIP record from API:', originalWipId);
+            }
+          } catch (lookupErr) {
+            console.log('[ROLLOVER] Could not look up WIP record:', lookupErr);
+          }
+        }
+        
         const dateStr = job.plannedDateStr!;
         const teamOvertime = overtimeByTeamDay[dateStr]?.[preservedJigId];
         const shift = PlannerV2.getShiftConfig(
@@ -1249,24 +1268,30 @@ export const ProductionPlannerPage = () => {
         const originalStartTime = job.plannedStartTime ?? shift.startTime;
         const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
         
-        // Update original job's WIP record with correct truncated timing
-        console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
-          start: originalStartTime,
-          end: originalTiming.endTime,
-          duration: truncatedDuration,
-          breaks: originalTiming.breakMinutes
-        });
+        // FIX ISSUE 2: Update original job's WIP record with truncated timing (if WIP exists)
+        if (originalWipId) {
+          console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
+            wipId: originalWipId,
+            start: originalStartTime,
+            end: originalTiming.endTime,
+            duration: truncatedDuration,
+            breaks: originalTiming.breakMinutes
+          });
+          
+          await teamWorkItemService.batchUpdate([{
+            id: originalWipId,
+            data: {
+              plannedEndMinutes: originalTiming.endTime,
+              plannedDurationMinutes: truncatedDuration,
+              breakAdjustmentMinutes: originalTiming.breakMinutes
+            }
+          }]);
+          console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
+        } else {
+          console.log('[ROLLOVER] No WIP record found for original job - skipping WIP update');
+        }
         
-        await teamWorkItemService.batchUpdate([{
-          id: job.wipId,
-          data: {
-            plannedEndMinutes: originalTiming.endTime,
-            plannedDurationMinutes: truncatedDuration,
-            breakAdjustmentMinutes: originalTiming.breakMinutes
-          }
-        }]);
-        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing');
-        
+        // FIX ISSUE 1: Create WIP record for rollover so it appears in team column
         // Get next day's overtime settings for rollover job scheduling
         const nextDayTeamOvertime = overtimeByTeamDay[nextDateStr]?.[preservedJigId];
         const nextDayShift = PlannerV2.getShiftConfig(
@@ -1315,10 +1340,12 @@ export const ProductionPlannerPage = () => {
           plannedDurationMinutes: overflowMinutes,
           breakAdjustmentMinutes: rolloverTiming.breakMinutes,
           rolloverSequence: currentSequence + 1,
-          parentWipId: job.wipId,
+          parentWipId: originalWipId,
           customDurationMinutes: overflowMinutes
         }]);
         console.log('[ROLLOVER] ✓ WIP record created for rollover job');
+      } else {
+        console.log('[ROLLOVER] No team assignment - skipping WIP record creation');
       }
 
       console.log('[ROLLOVER] ========== Reloading data ==========');
