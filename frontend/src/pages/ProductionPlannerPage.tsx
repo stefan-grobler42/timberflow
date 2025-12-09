@@ -1853,13 +1853,17 @@ export const ProductionPlannerPage = () => {
       // Check if it's a WIP-only rollover (no productionId) or has a Production record
       if (existingRollover) {
         console.log('[ROLLOVER] Deleting existing rollover:', existingRollover.id, existingRollover.orderNumber);
-        // For WIP-only rollovers, delete via WIP service; for Production-backed, delete via Production service
-        if (existingRollover.wipId && !existingRollover.id.includes('-')) {
-          // This is a WIP-only rollover - delete the WIP record
-          await teamWorkItemService.delete(existingRollover.wipId);
+        // For WIP-only rollovers (ID starts with "wip-"), delete via WIP service
+        // For Production-backed rollovers, delete via Production service
+        const isWipOnlyRollover = existingRollover.id.startsWith('wip-');
+        
+        if (isWipOnlyRollover) {
+          // Extract the actual WIP ID (after "wip-" prefix)
+          const actualWipId = existingRollover.id.substring(4); // Remove "wip-" prefix
+          await teamWorkItemService.delete(actualWipId);
           console.log('[ROLLOVER] ✓ Existing WIP-only rollover deleted');
         } else {
-          // This is a Production-backed rollover - delete both Production and WIP
+          // This is a Production-backed rollover - delete Production (WIP will cascade)
           await productionService.delete(existingRollover.id);
           console.log('[ROLLOVER] ✓ Existing Production rollover deleted');
         }
