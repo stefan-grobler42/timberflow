@@ -820,86 +820,487 @@ export const ProductionPlannerPage = () => {
     const roundedDuration = PlannerV2.roundToQuarterHour(durationMinutes);
     
     if (job.plannedStartTime != null && jigId && dateStr) {
-      const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
-      const shift = PlannerV2.getShiftConfig(
-        teamOvertime?.enabled, 
-        teamOvertime?.closeTime,
-        teamOvertime?.earlyEnabled,
-        teamOvertime?.earlyStartTime
-      );
+      setOperationInProgress(true);
+      setOperationMessage('Resizing job...');
       
-      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
-      
-      const existingJobsOnDay = allJobs.filter(
-        j => j.plannedDateStr === dateStr && 
-             j.jigId === jigId && 
-             j.id !== job.id &&
-             !j.productionComplete
-      ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
-       .map(j => toScheduledJob(j));
-      
-      const subsequentJobs = existingJobsOnDay.filter(
-        j => (j.plannedStartTime ?? 0) >= (job.plannedStartTime ?? 0)
-      );
-      
-      const updates: Array<{
-        jobId: string;
-        wipId?: string;
-        teamId: string;
-        workDate: string;
-        plannedStartMinutes: number;
-        plannedEndMinutes: number;
-        plannedDurationMinutes: number;
-        breakAdjustmentMinutes: number;
-        customDurationMinutes?: number;
-      }> = [];
-      
-      updates.push({
-        jobId: job.id,
-        wipId: job.wipId,
-        teamId: jigId,
-        workDate: dateStr,
-        plannedStartMinutes: job.plannedStartTime,
-        plannedEndMinutes: timing.endTime,
-        plannedDurationMinutes: roundedDuration,
-        breakAdjustmentMinutes: timing.breakMinutes,
-        customDurationMinutes: roundedDuration
-      });
-      
-      if (subsequentJobs.length > 0) {
-        // Cascade uses break-aware scheduling
-        // Start from resized job's end time + buffer, skipping breaks
-        let nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, shift) ?? shift.endTime;
+      try {
+        const teamOvertime = overtimeByTeamDay[dateStr]?.[jigId];
+        const shift = PlannerV2.getShiftConfig(
+          teamOvertime?.enabled, 
+          teamOvertime?.closeTime,
+          teamOvertime?.earlyEnabled,
+          teamOvertime?.earlyStartTime
+        );
         
-        for (const subsequentJob of subsequentJobs) {
-          const origJob = allJobs.find(j => j.id === subsequentJob.id);
-          if (!origJob) continue;
+        // Check if this job has an existing rollover child
+        const rootParentId = job.parentProductionId || job.id;
+        const currentSequence = job.rolloverSequence || 0;
+        const existingRolloverChild = allJobs.find(j => 
+          j.parentProductionId === rootParentId && 
+          (j.rolloverSequence || 0) === currentSequence + 1
+        );
+        
+        console.log(`[RESIZE] Job ${job.orderNumber} resize to ${roundedDuration}m, has rollover child: ${!!existingRolloverChild}`);
+        
+        // SCENARIO 1: Job has existing rollover child - REDISTRIBUTE instead of creating new
+        if (existingRolloverChild) {
+          console.log(`[RESIZE] Redistributing between parent and existing rollover child`);
           
-          const jobDuration = subsequentJob.plannedDurationMinutes ?? 
-            PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
+          const rolloverDuration = existingRolloverChild.customDurationMinutes ?? 
+            existingRolloverChild.plannedDurationMinutes ?? 
+            Math.round(existingRolloverChild.estimatedEFinks * 6.5625);
+          const currentDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
+            Math.round(job.estimatedEFinks * 6.5625);
+          const totalChainDuration = currentDuration + rolloverDuration;
+          const totalEFinks = job.estimatedEFinks + existingRolloverChild.estimatedEFinks;
           
-          // Schedule job at next available time (break-aware)
-          const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
+          // Calculate available time from job's start position
+          const availableTime = PlannerV2.getAvailableMinutes(job.plannedStartTime, shift);
+          
+          // Parent takes what user requested, capped by available time
+          const newParentDuration = Math.min(roundedDuration, availableTime);
+          
+          // Child gets the remainder of the total chain
+          let newRolloverDuration = totalChainDuration - newParentDuration;
+          
+          // If child would become negative, parent is taking too much - use all available
+          if (newRolloverDuration < 0) {
+            newRolloverDuration = 0;
+          }
+          
+          console.log(`[RESIZE] Chain: ${currentDuration}m + ${rolloverDuration}m = ${totalChainDuration}m`);
+          console.log(`[RESIZE] New split: parent=${newParentDuration}m, child=${newRolloverDuration}m`);
+          
+          // Redistribute E-Finks proportionally
+          const { parentEfinks, childEfinks } = PlannerV2.redistributeEfinks(totalEFinks, newParentDuration, newRolloverDuration);
+          
+          // Update parent timing
+          const parentTiming = PlannerV2.calculateEndTime(job.plannedStartTime, newParentDuration, shift);
+          
+          // Build updates for parent
+          const updates: Array<{
+            jobId: string;
+            wipId?: string;
+            teamId: string;
+            workDate: string;
+            plannedStartMinutes: number;
+            plannedEndMinutes: number;
+            plannedDurationMinutes: number;
+            breakAdjustmentMinutes: number;
+            customDurationMinutes?: number;
+            estimatedEfinks?: number;
+          }> = [];
           
           updates.push({
-            jobId: subsequentJob.id,
-            wipId: origJob.wipId,
+            jobId: job.id,
+            wipId: job.wipId,
             teamId: jigId,
             workDate: dateStr,
-            plannedStartMinutes: nextStartTime,
-            plannedEndMinutes: subTiming.endTime,
-            plannedDurationMinutes: jobDuration,
-            breakAdjustmentMinutes: subTiming.breakMinutes
+            plannedStartMinutes: job.plannedStartTime,
+            plannedEndMinutes: parentTiming.endTime,
+            plannedDurationMinutes: newParentDuration,
+            breakAdjustmentMinutes: parentTiming.breakMinutes,
+            customDurationMinutes: newParentDuration,
+            estimatedEfinks: parentEfinks
           });
           
-          // Next job starts after this one ends (break-aware with buffer)
-          nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+          // Track overflows for multi-day cascade (declared early for child-day cascade)
+          const overflows: { job: typeof allJobs[0]; overflowMinutes: number; targetDate?: string }[] = [];
+          
+          // Update rollover child - check if it needs to span multiple days
+          if (existingRolloverChild.wipId || existingRolloverChild.id.startsWith('wip-')) {
+            const childDateStr = existingRolloverChild.plannedDateStr!;
+            const childTeamOvertime = overtimeByTeamDay[childDateStr]?.[jigId];
+            const childShift = PlannerV2.getShiftConfig(
+              childTeamOvertime?.enabled,
+              childTeamOvertime?.closeTime,
+              childTeamOvertime?.earlyEnabled,
+              childTeamOvertime?.earlyStartTime
+            );
+            
+            const childStartTime = existingRolloverChild.plannedStartTime ?? childShift.startTime;
+            const availableOnChildDay = PlannerV2.getAvailableMinutes(childStartTime, childShift);
+            
+            // Check if child can fit on its day
+            if (newRolloverDuration <= availableOnChildDay) {
+              // Child fits on its current day
+              const childTiming = PlannerV2.calculateEndTime(childStartTime, newRolloverDuration, childShift);
+              
+              updates.push({
+                jobId: existingRolloverChild.id,
+                wipId: existingRolloverChild.wipId || (existingRolloverChild.id.startsWith('wip-') ? existingRolloverChild.id.substring(4) : undefined),
+                teamId: jigId,
+                workDate: childDateStr,
+                plannedStartMinutes: childStartTime,
+                plannedEndMinutes: childTiming.endTime,
+                plannedDurationMinutes: newRolloverDuration,
+                breakAdjustmentMinutes: childTiming.breakMinutes,
+                customDurationMinutes: newRolloverDuration,
+                estimatedEfinks: childEfinks
+              });
+              
+              // CASCADE JOBS ON CHILD DAY - jobs after the child need to shift
+              const childDayJobs = allJobs.filter(
+                j => j.plannedDateStr === childDateStr && 
+                     j.jigId === jigId && 
+                     j.id !== existingRolloverChild.id &&
+                     !j.productionComplete &&
+                     (j.plannedStartTime ?? 0) > (existingRolloverChild.plannedStartTime ?? 0)
+              ).sort((a, b) => (a.plannedStartTime ?? childShift.startTime) - (b.plannedStartTime ?? childShift.startTime));
+              
+              if (childDayJobs.length > 0) {
+                console.log(`[RESIZE] Cascading ${childDayJobs.length} jobs on child day ${childDateStr}`);
+                let childNextStart = PlannerV2.getNextAvailableTime(childTiming.endTime, childShift) ?? childShift.endTime;
+                
+                for (const cdJob of childDayJobs) {
+                  const cdJobDuration = cdJob.customDurationMinutes ?? cdJob.plannedDurationMinutes ?? 
+                    Math.round(cdJob.estimatedEFinks * 6.5625);
+                  const availableForCd = PlannerV2.getAvailableMinutes(childNextStart, childShift);
+                  
+                  if (cdJobDuration <= availableForCd) {
+                    const cdTiming = PlannerV2.calculateEndTime(childNextStart, cdJobDuration, childShift);
+                    updates.push({
+                      jobId: cdJob.id,
+                      wipId: cdJob.wipId,
+                      teamId: jigId,
+                      workDate: childDateStr,
+                      plannedStartMinutes: childNextStart,
+                      plannedEndMinutes: cdTiming.endTime,
+                      plannedDurationMinutes: cdJobDuration,
+                      breakAdjustmentMinutes: cdTiming.breakMinutes
+                    });
+                    childNextStart = PlannerV2.getNextAvailableTime(cdTiming.endTime, childShift) ?? childShift.endTime;
+                  } else {
+                    // Child day job overflows - track for rollover with CHILD's date
+                    console.log(`[RESIZE] Child day job ${cdJob.orderNumber} pushed past end of child day ${childDateStr}`);
+                    
+                    // Calculate truncated E-Finks for what fits
+                    const cdTotalEfinks = cdJob.estimatedEFinks;
+                    const cdTruncatedEfinks = availableForCd > 0 
+                      ? PlannerV2.roundEfinks(cdTotalEfinks * (availableForCd / cdJobDuration))
+                      : 0;
+                    const cdOverflowEfinks = PlannerV2.roundEfinks(cdTotalEfinks - cdTruncatedEfinks);
+                    
+                    // Track overflow with child's next working day, not parent's
+                    const cdNextDate = PlannerV2.getNextWorkingDay(childDateStr);
+                    overflows.push({ 
+                      job: cdJob, 
+                      overflowMinutes: cdJobDuration - availableForCd,
+                      targetDate: cdNextDate  // Use child's next day
+                    });
+                    
+                    if (availableForCd > 0) {
+                      const cdTiming = PlannerV2.calculateEndTime(childNextStart, availableForCd, childShift);
+                      updates.push({
+                        jobId: cdJob.id,
+                        wipId: cdJob.wipId,
+                        teamId: jigId,
+                        workDate: childDateStr,
+                        plannedStartMinutes: childNextStart,
+                        plannedEndMinutes: cdTiming.endTime,
+                        plannedDurationMinutes: availableForCd, // Save truncated duration
+                        breakAdjustmentMinutes: cdTiming.breakMinutes,
+                        customDurationMinutes: availableForCd,
+                        estimatedEfinks: cdTruncatedEfinks
+                      });
+                    }
+                    childNextStart = childShift.endTime;
+                  }
+                }
+              }
+            } else {
+              // Child overflows its day - needs its own rollover (SCENARIO 3: multi-day)
+              console.log(`[RESIZE] Child rollover overflows (${newRolloverDuration}m > ${availableOnChildDay}m available), creating multi-day chain`);
+              
+              // Update child to max it can fit
+              const childTiming = PlannerV2.calculateEndTime(childStartTime, availableOnChildDay, childShift);
+              const childOverflow = newRolloverDuration - availableOnChildDay;
+              
+              // Proportional E-Finks for what fits on child day
+              const childDayEfinks = PlannerV2.roundEfinks(childEfinks * (availableOnChildDay / newRolloverDuration));
+              const grandchildEfinks = PlannerV2.roundEfinks(childEfinks - childDayEfinks);
+              
+              updates.push({
+                jobId: existingRolloverChild.id,
+                wipId: existingRolloverChild.wipId || (existingRolloverChild.id.startsWith('wip-') ? existingRolloverChild.id.substring(4) : undefined),
+                teamId: jigId,
+                workDate: childDateStr,
+                plannedStartMinutes: childStartTime,
+                plannedEndMinutes: childTiming.endTime,
+                plannedDurationMinutes: availableOnChildDay,
+                breakAdjustmentMinutes: childTiming.breakMinutes,
+                customDurationMinutes: availableOnChildDay,
+                estimatedEfinks: childDayEfinks
+              });
+              
+              // Save updates so far, then trigger rollover for the child overflow
+              await saveMultipleJobUpdates(updates);
+              console.log('[RESIZE] ✓ Saved parent and child updates, now creating grandchild rollover');
+              
+              setOperationInProgress(false);
+              setOperationMessage('');
+              
+              // Trigger rollover for the child (creates sequence+2)
+              const grandchildDateStr = PlannerV2.getNextWorkingDay(childDateStr);
+              await handleJobRollover(existingRolloverChild.id, childOverflow, grandchildDateStr, jigId);
+              return; // handleJobRollover will reload data
+            }
+          }
+          
+          // Now cascade subsequent jobs on the SAME day as parent
+          const existingJobsOnDay = allJobs.filter(
+            j => j.plannedDateStr === dateStr && 
+                 j.jigId === jigId && 
+                 j.id !== job.id &&
+                 j.id !== existingRolloverChild.id &&
+                 !j.productionComplete
+          ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
+          
+          const subsequentJobs = existingJobsOnDay.filter(
+            j => (j.plannedStartTime ?? 0) > (job.plannedStartTime ?? 0)
+          );
+          
+          let nextStartTime = PlannerV2.getNextAvailableTime(parentTiming.endTime, shift) ?? shift.endTime;
+          
+          for (const subJob of subsequentJobs) {
+            const subJobDuration = subJob.customDurationMinutes ?? subJob.plannedDurationMinutes ?? 
+              Math.round(subJob.estimatedEFinks * 6.5625);
+            
+            // Check if this job would overflow past end of day
+            const availableForSub = PlannerV2.getAvailableMinutes(nextStartTime, shift);
+            
+            if (subJobDuration <= availableForSub) {
+              // Job fits on this day
+              const subTiming = PlannerV2.calculateEndTime(nextStartTime, subJobDuration, shift);
+              updates.push({
+                jobId: subJob.id,
+                wipId: subJob.wipId,
+                teamId: jigId,
+                workDate: dateStr,
+                plannedStartMinutes: nextStartTime,
+                plannedEndMinutes: subTiming.endTime,
+                plannedDurationMinutes: subJobDuration,
+                breakAdjustmentMinutes: subTiming.breakMinutes
+              });
+              nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+            } else {
+              // Job overflows - track it for multi-day handling with parent's next day
+              console.log(`[RESIZE] Job ${subJob.orderNumber} pushed past end of day (needs ${subJobDuration}m, only ${availableForSub}m available)`);
+              overflows.push({ 
+                job: subJob, 
+                overflowMinutes: subJobDuration - availableForSub,
+                targetDate: PlannerV2.getNextWorkingDay(dateStr)  // Parent's next day
+              });
+              
+              // Schedule what fits on this day with TRUNCATED duration and E-Finks
+              if (availableForSub > 0) {
+                const subTiming = PlannerV2.calculateEndTime(nextStartTime, availableForSub, shift);
+                const truncatedEfinks = PlannerV2.roundEfinks(subJob.estimatedEFinks * (availableForSub / subJobDuration));
+                updates.push({
+                  jobId: subJob.id,
+                  wipId: subJob.wipId,
+                  teamId: jigId,
+                  workDate: dateStr,
+                  plannedStartMinutes: nextStartTime,
+                  plannedEndMinutes: subTiming.endTime,
+                  plannedDurationMinutes: availableForSub, // Save truncated duration
+                  breakAdjustmentMinutes: subTiming.breakMinutes,
+                  customDurationMinutes: availableForSub,
+                  estimatedEfinks: truncatedEfinks
+                });
+              }
+              nextStartTime = shift.endTime; // Can't schedule more after overflow
+            }
+          }
+          
+          await saveMultipleJobUpdates(updates);
+          console.log('[RESIZE] ✓ Saved redistribution with', updates.length, 'affected jobs');
+          
+          // Handle any overflows by creating rollovers
+          if (overflows.length > 0) {
+            console.log(`[RESIZE] Processing ${overflows.length} overflowed jobs`);
+            setOperationInProgress(false);
+            setOperationMessage('');
+            
+            for (const overflow of overflows) {
+              // Use the targetDate from the overflow if available, otherwise fallback to parent's next day
+              const targetDate = overflow.targetDate ?? PlannerV2.getNextWorkingDay(dateStr);
+              await handleJobRollover(overflow.job.id, overflow.overflowMinutes, targetDate, jigId);
+            }
+            return; // handleJobRollover reloads data
+          }
+          
+        } else {
+          // No existing rollover child - standard resize with cascade
+          const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
+          
+          // Check if THIS job now overflows past end of day
+          const availableTime = PlannerV2.getAvailableMinutes(job.plannedStartTime, shift);
+          const jobOverflows = roundedDuration > availableTime;
+          
+          console.log(`[RESIZE] Available time: ${availableTime}m, requested: ${roundedDuration}m, overflows: ${jobOverflows}`);
+          
+          if (jobOverflows) {
+            // SCENARIO 2 & 3: Job overflows - trigger rollover
+            console.log(`[RESIZE] Job overflows, calling handleJobRollover`);
+            // First update the job with the new duration
+            const updates: Array<{
+              jobId: string;
+              wipId?: string;
+              teamId: string;
+              workDate: string;
+              plannedStartMinutes: number;
+              plannedEndMinutes: number;
+              plannedDurationMinutes: number;
+              breakAdjustmentMinutes: number;
+              customDurationMinutes?: number;
+            }> = [];
+            
+            updates.push({
+              jobId: job.id,
+              wipId: job.wipId,
+              teamId: jigId,
+              workDate: dateStr,
+              plannedStartMinutes: job.plannedStartTime,
+              plannedEndMinutes: timing.endTime,
+              plannedDurationMinutes: roundedDuration,
+              breakAdjustmentMinutes: timing.breakMinutes,
+              customDurationMinutes: roundedDuration
+            });
+            
+            await saveMultipleJobUpdates(updates);
+            
+            // Now trigger rollover for this job
+            const overflowMinutes = roundedDuration - availableTime;
+            const nextDateStr = PlannerV2.getNextWorkingDay(dateStr);
+            
+            // Close loading overlay before calling handleJobRollover (it has its own)
+            setOperationInProgress(false);
+            setOperationMessage('');
+            
+            await handleJobRollover(job.id, overflowMinutes, nextDateStr, jigId);
+            return; // handleJobRollover will reload data
+          }
+          
+          // Standard case: Job fits, cascade subsequent jobs
+          const existingJobsOnDay = allJobs.filter(
+            j => j.plannedDateStr === dateStr && 
+                 j.jigId === jigId && 
+                 j.id !== job.id &&
+                 !j.productionComplete
+          ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
+           .map(j => toScheduledJob(j));
+          
+          const subsequentJobs = existingJobsOnDay.filter(
+            j => (j.plannedStartTime ?? 0) >= (job.plannedStartTime ?? 0)
+          );
+          
+          const updates: Array<{
+            jobId: string;
+            wipId?: string;
+            teamId: string;
+            workDate: string;
+            plannedStartMinutes: number;
+            plannedEndMinutes: number;
+            plannedDurationMinutes: number;
+            breakAdjustmentMinutes: number;
+            customDurationMinutes?: number;
+          }> = [];
+          
+          updates.push({
+            jobId: job.id,
+            wipId: job.wipId,
+            teamId: jigId,
+            workDate: dateStr,
+            plannedStartMinutes: job.plannedStartTime,
+            plannedEndMinutes: timing.endTime,
+            plannedDurationMinutes: roundedDuration,
+            breakAdjustmentMinutes: timing.breakMinutes,
+            customDurationMinutes: roundedDuration
+          });
+          
+          if (subsequentJobs.length > 0) {
+            let nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, shift) ?? shift.endTime;
+            
+            for (const subsequentJob of subsequentJobs) {
+              const origJob = allJobs.find(j => j.id === subsequentJob.id);
+              if (!origJob) continue;
+              
+              const jobDuration = subsequentJob.plannedDurationMinutes ?? 
+                PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
+              
+              // Check if subsequent job would overflow
+              const availableForSub = PlannerV2.getAvailableMinutes(nextStartTime, shift);
+              
+              if (jobDuration <= availableForSub) {
+                // Job fits on this day
+                const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
+                
+                updates.push({
+                  jobId: subsequentJob.id,
+                  wipId: origJob.wipId,
+                  teamId: jigId,
+                  workDate: dateStr,
+                  plannedStartMinutes: nextStartTime,
+                  plannedEndMinutes: subTiming.endTime,
+                  plannedDurationMinutes: jobDuration,
+                  breakAdjustmentMinutes: subTiming.breakMinutes
+                });
+                
+                nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+              } else {
+                // SCENARIO 2: Subsequent job pushed past end of day
+                console.log(`[RESIZE] Subsequent job ${origJob.orderNumber} pushed past end of day`);
+                
+                // Save what we have so far
+                await saveMultipleJobUpdates(updates);
+                
+                // Close loading overlay before calling handleJobRollover
+                setOperationInProgress(false);
+                setOperationMessage('');
+                
+                // Trigger rollover for this subsequent job
+                const overflowMinutes = jobDuration - availableForSub;
+                const nextDateStr = PlannerV2.getNextWorkingDay(dateStr);
+                
+                // First update this job's position with TRUNCATED duration to match what fits today
+                const truncatedDuration = Math.max(15, availableForSub);
+                const subTiming = PlannerV2.calculateEndTime(nextStartTime, truncatedDuration, shift);
+                
+                // Calculate E-Finks for truncated portion
+                const totalEfinks = subsequentJob.estimatedEFinks;
+                const truncatedEfinks = PlannerV2.roundEfinks(totalEfinks * (truncatedDuration / jobDuration));
+                
+                await saveMultipleJobUpdates([{
+                  jobId: subsequentJob.id,
+                  wipId: origJob.wipId,
+                  teamId: jigId,
+                  workDate: dateStr,
+                  plannedStartMinutes: nextStartTime,
+                  plannedEndMinutes: subTiming.endTime,
+                  plannedDurationMinutes: truncatedDuration, // Save truncated duration
+                  breakAdjustmentMinutes: subTiming.breakMinutes,
+                  customDurationMinutes: truncatedDuration,
+                  estimatedEfinks: truncatedEfinks
+                }]);
+                
+                await handleJobRollover(subsequentJob.id, overflowMinutes, nextDateStr, jigId);
+                return; // handleJobRollover will reload data
+              }
+            }
+          }
+          
+          const success = await saveMultipleJobUpdates(updates);
+          if (success) {
+            console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
+          }
         }
-      }
-      
-      const success = await saveMultipleJobUpdates(updates);
-      if (success) {
-        console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
+      } catch (err) {
+        console.error('[RESIZE] Error:', err);
+        setError(`Failed to resize: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      } finally {
+        setOperationInProgress(false);
+        setOperationMessage('');
       }
     } else {
       console.log('[PLANNER] Resize for unallocated job - skipping save');
