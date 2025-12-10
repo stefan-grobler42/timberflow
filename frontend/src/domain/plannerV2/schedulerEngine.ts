@@ -220,10 +220,39 @@ export function cascadeSchedule(
     });
   }
   
-  // Cascade subsequent jobs (the train moves back)
+  // Cascade subsequent jobs (the train moves back), but stop at gaps
+  // First, identify which jobs should cascade (are sequential to their predecessor)
+  const jobsToCascade: ScheduledJob[] = [];
+  for (let i = 0; i < jobsAfter.length; i++) {
+    const job = jobsAfter[i];
+    const jobOriginalStart = job.plannedStartTime ?? 0;
+    
+    // Determine the previous job's original end time for gap detection
+    let prevOriginalEnd: number;
+    if (i === 0) {
+      // First job after insert - check if it was sequential to what came before the insert point
+      if (jobsBefore.length > 0) {
+        prevOriginalEnd = jobsBefore[jobsBefore.length - 1].plannedEndTime ?? shift.startTime;
+      } else {
+        prevOriginalEnd = shift.startTime;
+      }
+    } else {
+      prevOriginalEnd = jobsAfter[i - 1].plannedEndTime ?? 0;
+    }
+    
+    // Check if this job was sequential to its predecessor (using original times)
+    if (!isSequentialTo(prevOriginalEnd, jobOriginalStart, shift)) {
+      // Gap detected - stop cascading, keep this and remaining jobs unchanged
+      break;
+    }
+    
+    jobsToCascade.push(job);
+  }
+  
+  // Schedule jobs that should cascade
   currentTime = getNextStartTimeAfterJob(insertedTiming.plannedEndTime, shift);
   
-  for (const job of jobsAfter) {
+  for (const job of jobsToCascade) {
     if (currentTime >= shift.endTime) {
       // Job is pushed completely out of the day
       const jobDuration = getJobDuration(job);
@@ -252,6 +281,11 @@ export function cascadeSchedule(
     }
     
     currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift);
+  }
+  
+  // Add remaining jobs (with gaps) unchanged - they should not cascade
+  for (let i = jobsToCascade.length; i < jobsAfter.length; i++) {
+    scheduledJobs.push({ ...jobsAfter[i] });
   }
   
   return { scheduledJobs, overflows };
