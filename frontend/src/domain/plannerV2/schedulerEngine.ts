@@ -643,6 +643,12 @@ export interface BreakdownStretchResult {
   spilloverToNextDay: boolean;
   /** Minutes of work that spill over to the next day */
   spilloverMinutes: number;
+  /** Date when deferred work can resume (for multi-day breakdowns) */
+  deferralDate: string | null;
+  /** Time in minutes when deferred work can start on the deferral date */
+  deferralStartMinutes: number | null;
+  /** Whether this is a multi-day breakdown that requires deferral to a specific time */
+  isMultiDayDeferral: boolean;
 }
 
 /**
@@ -651,17 +657,22 @@ export interface BreakdownStretchResult {
  * BREAKDOWN BEHAVIOR:
  * - If a breakdown occurs during a job, the job end time is stretched by the breakdown duration
  * - If the stretched job extends past shift end, the remaining work spills to the next day
- * - Multi-day breakdowns are handled by considering the breakdown portion on each day
+ * - Multi-day breakdowns: Work resumes at the exact time the breakdown ENDS (not start of next day)
  * 
- * Example: Job runs 07:00-15:00 (8 hours work), breakdown 10:00-12:00 (2 hours)
+ * Example 1: Job runs 07:00-15:00 (8 hours work), breakdown 10:00-12:00 (2 hours)
  * Result: Job now ends at 17:00 (stretched by 2 hours)
+ * 
+ * Example 2: Job runs 07:00-15:00 (8 hours work), breakdown 12:00 Day 1 to 12:00 Day 2 (24-hour breakdown)
+ * Result: 
+ * - Day 1: Job runs 07:00-12:00 (5 hours completed)
+ * - Day 2: Remaining 3 hours starts at 12:00 (deferralDate=Day2, deferralStartMinutes=720)
  * 
  * @param jobStartDate - The date the job is scheduled (YYYY-MM-DD)
  * @param jobStartMinutes - Job start time in minutes from midnight
  * @param jobEndMinutes - Job end time in minutes from midnight (before breakdown stretch)
  * @param shiftEndMinutes - Shift end time in minutes from midnight
  * @param breakdowns - Array of breakdown blocks to check for overlap
- * @returns Stretch information including spillover details
+ * @returns Stretch information including spillover and deferral details
  */
 export function calculateBreakdownStretch(
   jobStartDate: string,
@@ -671,8 +682,14 @@ export function calculateBreakdownStretch(
   breakdowns: BreakdownBlock[]
 ): BreakdownStretchResult {
   let stretchMinutes = 0;
+  let deferralDate: string | null = null;
+  let deferralStartMinutes: number | null = null;
+  let isMultiDayDeferral = false;
   
   for (const breakdown of breakdowns) {
+    // Check if this is a multi-day breakdown that affects this job
+    const isMultiDay = breakdown.startDate !== breakdown.endDate;
+    
     // Calculate the effective breakdown window for this job's date
     let breakdownStart: number | null = null;
     let breakdownEnd: number | null = null;
@@ -686,6 +703,14 @@ export function calculateBreakdownStretch(
       // On the start day, breakdown goes from start time to end of day (or shift end)
       breakdownStart = breakdown.startTimeMinutes;
       breakdownEnd = shiftEndMinutes; // Breakdown extends through rest of shift
+      
+      // For multi-day breakdown: if job overlaps with this breakdown,
+      // remaining work should defer to when breakdown ends (not just next day start)
+      if (breakdownStart < jobEndMinutes && breakdownEnd > jobStartMinutes) {
+        deferralDate = breakdown.endDate;
+        deferralStartMinutes = breakdown.endTimeMinutes;
+        isMultiDayDeferral = true;
+      }
     } else if (breakdown.startDate < jobStartDate && breakdown.endDate === jobStartDate) {
       // Breakdown started on a previous day and ends on this day
       // On the end day, breakdown goes from start of day to end time
@@ -693,9 +718,14 @@ export function calculateBreakdownStretch(
       breakdownEnd = breakdown.endTimeMinutes;
     } else if (breakdown.startDate < jobStartDate && breakdown.endDate > jobStartDate) {
       // Breakdown spans this entire day (started before, ends after)
-      // Entire shift is blocked
+      // Entire shift is blocked - all work defers to when breakdown ends
       breakdownStart = 0;
       breakdownEnd = shiftEndMinutes;
+      
+      // All work on this day must defer to when breakdown ends
+      deferralDate = breakdown.endDate;
+      deferralStartMinutes = breakdown.endTimeMinutes;
+      isMultiDayDeferral = true;
     } else {
       // Breakdown doesn't affect this day
       continue;
@@ -728,7 +758,10 @@ export function calculateBreakdownStretch(
   return {
     stretchMinutes,
     spilloverToNextDay,
-    spilloverMinutes
+    spilloverMinutes,
+    deferralDate,
+    deferralStartMinutes,
+    isMultiDayDeferral
   };
 }
 
@@ -818,29 +851,54 @@ export function extractBreakdowns(
 }
 
 /**
+ * Represents a deferred work segment for multi-day breakdowns.
+ * When a breakdown extends to a future date, remaining work is deferred.
+ */
+export interface DeferredWorkSegment {
+  /** The original job that has deferred work */
+  sourceJob: ScheduledJob;
+  /** Minutes of work to be done on the deferral date */
+  deferredMinutes: number;
+  /** Date when deferred work can resume */
+  deferralDate: string;
+  /** Time in minutes when deferred work can start on the deferral date */
+  deferralStartMinutes: number;
+}
+
+/**
+ * Extended result of breakdown stretching with cascade, including multi-day deferral info.
+ */
+export interface BreakdownCascadeResult extends CascadeResult {
+  /** Deferred work segments for multi-day breakdowns */
+  deferredWork: DeferredWorkSegment[];
+}
+
+/**
  * Applies breakdown stretching to all jobs on a day, with cascade effect.
  * 
  * WORKFLOW:
  * 1. Apply breakdown stretching to each job (extends end time)
  * 2. Cascade subsequent jobs forward based on stretched end times
  * 3. Track spillover for jobs pushed past shift end
+ * 4. For multi-day breakdowns, track deferral info so work resumes at the exact breakdown end time
  * 
  * @param jobs - Jobs scheduled on this day (already sorted by start time)
  * @param shift - Shift configuration for the day  
  * @param breakdowns - Breakdown blocks for this team on this day
- * @returns Updated jobs with breakdown stretching applied and any overflows
+ * @returns Updated jobs with breakdown stretching applied, overflows, and deferred work segments
  */
 export function applyBreakdownStretchWithCascade(
   jobs: ScheduledJob[],
   shift: ShiftConfig,
   breakdowns: BreakdownBlock[]
-): CascadeResult {
+): BreakdownCascadeResult {
   if (breakdowns.length === 0 || jobs.length === 0) {
-    return { scheduledJobs: [...jobs], overflows: [] };
+    return { scheduledJobs: [...jobs], overflows: [], deferredWork: [] };
   }
   
   const scheduledJobs: ScheduledJob[] = [];
   const overflows: OverflowEntry[] = [];
+  const deferredWork: DeferredWorkSegment[] = [];
   
   // Sort jobs by start time to ensure proper cascading
   const sortedJobs = [...jobs].sort(
@@ -906,8 +964,20 @@ export function applyBreakdownStretchWithCascade(
     
     scheduledJobs.push(stretchedJob);
     
-    // Track overflow if job extends past shift end
-    if (stretchResult.spilloverToNextDay && stretchResult.spilloverMinutes > 0) {
+    // Handle multi-day breakdown deferrals
+    // If this is a multi-day breakdown, remaining work should start at the breakdown end time
+    if (stretchResult.isMultiDayDeferral && stretchResult.deferralDate && stretchResult.deferralStartMinutes !== null) {
+      // For multi-day breakdowns: work deferred to breakdown end time
+      if (stretchResult.spilloverMinutes > 0) {
+        deferredWork.push({
+          sourceJob: stretchedJob,
+          deferredMinutes: stretchResult.spilloverMinutes,
+          deferralDate: stretchResult.deferralDate,
+          deferralStartMinutes: stretchResult.deferralStartMinutes
+        });
+      }
+    } else if (stretchResult.spilloverToNextDay && stretchResult.spilloverMinutes > 0) {
+      // Standard overflow (no specific deferral time) - goes to regular overflow handling
       overflows.push({
         job: stretchedJob,
         overflowMinutes: stretchResult.spilloverMinutes
@@ -915,12 +985,12 @@ export function applyBreakdownStretchWithCascade(
     }
   }
   
-  return { scheduledJobs, overflows };
+  return { scheduledJobs, overflows, deferredWork };
 }
 
 /**
  * Gets breakdown blocks that affect a specific team on a specific date.
- * Uses the standard ScheduleBlock format where each block has a single dateStr.
+ * Supports both single-day blocks (dateStr only) and multi-day blocks (startDate/endDate).
  * 
  * @param scheduleBlocks - All schedule blocks
  * @param teamId - The team ID to filter for
@@ -934,6 +1004,8 @@ export function getBreakdownsForTeamDay(
     dateStr: string;
     startTimeMinutes: number;
     endTimeMinutes: number;
+    startDate?: string;
+    endDate?: string;
   }>,
   teamId: string | null,
   dateStr: string
@@ -948,14 +1020,43 @@ export function getBreakdownsForTeamDay(
         return false;
       }
       
-      // Check if breakdown is on this date
-      return b.dateStr === dateStr;
+      // Check if breakdown affects this date
+      // Support both single-day (dateStr only) and multi-day (startDate/endDate) blocks
+      const blockStartDate = b.startDate || b.dateStr;
+      const blockEndDate = b.endDate || b.dateStr;
+      
+      // Date is affected if it falls within the block's date range
+      return dateStr >= blockStartDate && dateStr <= blockEndDate;
     })
     .map(b => ({
-      // For single-day blocks, startDate and endDate are the same
-      startDate: b.dateStr,
+      // Use startDate/endDate if available, otherwise fall back to dateStr
+      startDate: b.startDate || b.dateStr,
       startTimeMinutes: b.startTimeMinutes,
-      endDate: b.dateStr,
+      endDate: b.endDate || b.dateStr,
       endTimeMinutes: b.endTimeMinutes
     }));
+}
+
+/**
+ * Creates a multi-day breakdown block.
+ * Use this helper when creating breakdown blocks that span multiple days.
+ * 
+ * @param startDate - Start date in YYYY-MM-DD format
+ * @param startTimeMinutes - Start time in minutes from midnight
+ * @param endDate - End date in YYYY-MM-DD format
+ * @param endTimeMinutes - End time in minutes from midnight on the end date
+ * @returns A BreakdownBlock that can be used with calculateBreakdownStretch
+ */
+export function createMultiDayBreakdown(
+  startDate: string,
+  startTimeMinutes: number,
+  endDate: string,
+  endTimeMinutes: number
+): BreakdownBlock {
+  return {
+    startDate,
+    startTimeMinutes,
+    endDate,
+    endTimeMinutes
+  };
 }

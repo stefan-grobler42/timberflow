@@ -683,6 +683,8 @@ export const ProductionPlannerPage = () => {
         let finalScheduledJobs = cascadeResult.scheduledJobs;
         let allOverflows = [...cascadeResult.overflows];
         
+        let deferredWorkSegments: PlannerV2.DeferredWorkSegment[] = [];
+        
         if (breakdowns.length > 0) {
           console.log('[PLANNER] Applying breakdown stretching for', breakdowns.length, 'breakdowns');
           const stretchResult = PlannerV2.applyBreakdownStretchWithCascade(
@@ -692,7 +694,8 @@ export const ProductionPlannerPage = () => {
           );
           finalScheduledJobs = stretchResult.scheduledJobs;
           allOverflows = [...cascadeResult.overflows, ...stretchResult.overflows];
-          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs,', stretchResult.overflows.length, 'new overflows from stretch');
+          deferredWorkSegments = stretchResult.deferredWork || [];
+          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs,', stretchResult.overflows.length, 'new overflows from stretch,', deferredWorkSegments.length, 'deferred work segments');
         }
         
         const updates: Array<{
@@ -750,6 +753,132 @@ export const ProductionPlannerPage = () => {
                   plannedEndMinutes: scheduledJob.plannedEndTime ?? shift.endTime,
                   plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? 60,
                   breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
+                });
+              }
+            }
+          }
+        }
+        
+        if (deferredWorkSegments.length > 0) {
+          console.log('[PLANNER] Processing', deferredWorkSegments.length, 'deferred work segments from multi-day breakdowns');
+          
+          const blockOptions = buildBlockOptionsForOverflows();
+          const deferralOverflows: PlannerV2.OverflowEntry[] = [];
+          let sequenceOffset = 0;
+          
+          for (const deferred of deferredWorkSegments) {
+            const originalJob = allJobs.find(j => j.id === deferred.sourceJob.id);
+            const parentId = deferred.sourceJob.parentProductionId || deferred.sourceJob.id;
+            const existingRollovers = allJobs.filter(j => j.parentProductionId === parentId && j.rolloverSequence);
+            const nextSequence = existingRollovers.length + 1 + sequenceOffset;
+            sequenceOffset++;
+            
+            const deferralShiftSettings = overtimeByTeamDay[deferred.deferralDate]?.[updatedJigId];
+            const scheduleBlocksForDay = blockOptions.scheduleBlocksByTeamDay?.[updatedJigId]?.[deferred.deferralDate] || [];
+            
+            const deferralShift = PlannerV2.getShiftConfigWithBlocks(
+              deferralShiftSettings?.enabled ?? false,
+              deferralShiftSettings?.closeTime,
+              deferralShiftSettings?.earlyEnabled ?? false,
+              deferralShiftSettings?.earlyStartTime,
+              scheduleBlocksForDay
+            );
+            
+            const adjustedStartMinutes = Math.max(deferred.deferralStartMinutes, deferralShift.startTime);
+            
+            const availableMinutes = PlannerV2.getAvailableMinutes(adjustedStartMinutes, deferralShift);
+            
+            const minutesThatFit = Math.min(deferred.deferredMinutes, availableMinutes);
+            const overflowMinutes = deferred.deferredMinutes - minutesThatFit;
+            
+            const originalEfinks = deferred.sourceJob.estimatedEFinks || 0;
+            const totalOriginalDuration = deferred.sourceJob.plannedDurationMinutes || deferred.deferredMinutes;
+            const efinksProportion = totalOriginalDuration > 0 ? (minutesThatFit / totalOriginalDuration) : 0;
+            const segmentEfinks = Math.round(originalEfinks * efinksProportion * 100) / 100;
+            
+            const deferredEndTime = adjustedStartMinutes + minutesThatFit;
+            
+            console.log('[PLANNER] Creating deferred rollover for job', deferred.sourceJob.id, 
+              'on', deferred.deferralDate, 
+              'starting at', adjustedStartMinutes, 
+              'mins (', Math.floor(adjustedStartMinutes / 60), ':', adjustedStartMinutes % 60, ')',
+              'duration:', minutesThatFit, 'overflow:', overflowMinutes);
+            
+            const rolloverJobId = `${parentId}-rollover-${nextSequence}`;
+            
+            if (minutesThatFit > 0) {
+              updates.push({
+                jobId: rolloverJobId,
+                wipId: undefined,
+                teamId: updatedJigId,
+                workDate: deferred.deferralDate,
+                plannedStartMinutes: adjustedStartMinutes,
+                plannedEndMinutes: deferredEndTime,
+                plannedDurationMinutes: minutesThatFit,
+                breakAdjustmentMinutes: 0,
+                estimatedEfinks: segmentEfinks
+              });
+            }
+            
+            if (overflowMinutes > 0) {
+              const overflowEfinks = Math.round((originalEfinks - segmentEfinks) * 100) / 100;
+              deferralOverflows.push({
+                job: {
+                  ...deferred.sourceJob,
+                  id: rolloverJobId,
+                  plannedDateStr: deferred.deferralDate,
+                  jigId: updatedJigId,
+                  plannedDurationMinutes: overflowMinutes,
+                  customDurationMinutes: overflowMinutes,
+                  estimatedEFinks: overflowEfinks,
+                  parentProductionId: parentId,
+                  rolloverSequence: nextSequence
+                },
+                overflowMinutes
+              });
+            }
+          }
+          
+          if (deferralOverflows.length > 0) {
+            console.log('[PLANNER] Routing', deferralOverflows.length, 'deferral overflows through multi-day processing');
+            
+            const deferralMultiDayResult = PlannerV2.processMultiDayOverflows(
+              deferralOverflows,
+              allScheduledJobs,
+              overtimeByTeamDay,
+              blockOptions
+            );
+            
+            for (const scheduledJob of deferralMultiDayResult.scheduledJobs) {
+              const existingUpdate = updates.find(u => u.jobId === scheduledJob.id);
+              if (!existingUpdate && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
+                updates.push({
+                  jobId: scheduledJob.id,
+                  wipId: undefined,
+                  teamId: scheduledJob.jigId ?? updatedJigId,
+                  workDate: scheduledJob.plannedDateStr,
+                  plannedStartMinutes: scheduledJob.plannedStartTime ?? deferralMultiDayResult.scheduledJobs[0]?.plannedStartTime ?? 420,
+                  plannedEndMinutes: scheduledJob.plannedEndTime ?? 1020,
+                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? 60,
+                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0,
+                  estimatedEfinks: scheduledJob.estimatedEFinks
+                });
+              }
+            }
+            
+            for (const newRollover of deferralMultiDayResult.newRollovers) {
+              const existingUpdate = updates.find(u => u.jobId === newRollover.id);
+              if (!existingUpdate && newRollover.plannedDateStr) {
+                updates.push({
+                  jobId: newRollover.id,
+                  wipId: undefined,
+                  teamId: newRollover.jigId ?? updatedJigId,
+                  workDate: newRollover.plannedDateStr,
+                  plannedStartMinutes: newRollover.plannedStartTime ?? 420,
+                  plannedEndMinutes: newRollover.plannedEndTime ?? 1020,
+                  plannedDurationMinutes: newRollover.plannedDurationMinutes ?? newRollover.customDurationMinutes ?? 60,
+                  breakAdjustmentMinutes: newRollover.breakAdjustmentMinutes ?? 0,
+                  estimatedEfinks: newRollover.estimatedEFinks
                 });
               }
             }
