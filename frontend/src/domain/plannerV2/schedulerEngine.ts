@@ -621,3 +621,341 @@ export function isSequentialTo(
   const tolerance = 15; // 15 minutes tolerance for minor scheduling differences
   return nextJobStart <= expectedNextStart + tolerance;
 }
+
+/**
+ * Represents a breakdown block that can span single or multiple days.
+ * Breakdowns STRETCH jobs rather than reducing capacity.
+ */
+export interface BreakdownBlock {
+  startDate: string;
+  startTimeMinutes: number;
+  endDate: string;
+  endTimeMinutes: number;
+}
+
+/**
+ * Result of calculating how a breakdown affects a job's timing.
+ */
+export interface BreakdownStretchResult {
+  /** Total minutes the job is stretched by on this day */
+  stretchMinutes: number;
+  /** Whether the job work spills over to the next day due to breakdown + shift end */
+  spilloverToNextDay: boolean;
+  /** Minutes of work that spill over to the next day */
+  spilloverMinutes: number;
+}
+
+/**
+ * Calculates how much a job should be stretched due to breakdown overlaps.
+ * 
+ * BREAKDOWN BEHAVIOR:
+ * - If a breakdown occurs during a job, the job end time is stretched by the breakdown duration
+ * - If the stretched job extends past shift end, the remaining work spills to the next day
+ * - Multi-day breakdowns are handled by considering the breakdown portion on each day
+ * 
+ * Example: Job runs 07:00-15:00 (8 hours work), breakdown 10:00-12:00 (2 hours)
+ * Result: Job now ends at 17:00 (stretched by 2 hours)
+ * 
+ * @param jobStartDate - The date the job is scheduled (YYYY-MM-DD)
+ * @param jobStartMinutes - Job start time in minutes from midnight
+ * @param jobEndMinutes - Job end time in minutes from midnight (before breakdown stretch)
+ * @param shiftEndMinutes - Shift end time in minutes from midnight
+ * @param breakdowns - Array of breakdown blocks to check for overlap
+ * @returns Stretch information including spillover details
+ */
+export function calculateBreakdownStretch(
+  jobStartDate: string,
+  jobStartMinutes: number,
+  jobEndMinutes: number,
+  shiftEndMinutes: number,
+  breakdowns: BreakdownBlock[]
+): BreakdownStretchResult {
+  let stretchMinutes = 0;
+  
+  for (const breakdown of breakdowns) {
+    // Calculate the effective breakdown window for this job's date
+    let breakdownStart: number | null = null;
+    let breakdownEnd: number | null = null;
+    
+    if (breakdown.startDate === jobStartDate && breakdown.endDate === jobStartDate) {
+      // Breakdown is entirely on the same day
+      breakdownStart = breakdown.startTimeMinutes;
+      breakdownEnd = breakdown.endTimeMinutes;
+    } else if (breakdown.startDate === jobStartDate && breakdown.endDate > jobStartDate) {
+      // Breakdown starts on this day and extends to future days
+      // On the start day, breakdown goes from start time to end of day (or shift end)
+      breakdownStart = breakdown.startTimeMinutes;
+      breakdownEnd = shiftEndMinutes; // Breakdown extends through rest of shift
+    } else if (breakdown.startDate < jobStartDate && breakdown.endDate === jobStartDate) {
+      // Breakdown started on a previous day and ends on this day
+      // On the end day, breakdown goes from start of day to end time
+      breakdownStart = 0; // Start of day
+      breakdownEnd = breakdown.endTimeMinutes;
+    } else if (breakdown.startDate < jobStartDate && breakdown.endDate > jobStartDate) {
+      // Breakdown spans this entire day (started before, ends after)
+      // Entire shift is blocked
+      breakdownStart = 0;
+      breakdownEnd = shiftEndMinutes;
+    } else {
+      // Breakdown doesn't affect this day
+      continue;
+    }
+    
+    if (breakdownStart === null || breakdownEnd === null) {
+      continue;
+    }
+    
+    // Calculate overlap between job and breakdown
+    // Overlap exists if breakdown starts before job ends AND breakdown ends after job starts
+    if (breakdownStart < jobEndMinutes && breakdownEnd > jobStartMinutes) {
+      const overlapStart = Math.max(breakdownStart, jobStartMinutes);
+      const overlapEnd = Math.min(breakdownEnd, jobEndMinutes);
+      const overlapMinutes = Math.max(0, overlapEnd - overlapStart);
+      stretchMinutes += overlapMinutes;
+    }
+  }
+  
+  // Calculate if the stretched job extends past shift end
+  const stretchedEndTime = jobEndMinutes + stretchMinutes;
+  let spilloverToNextDay = false;
+  let spilloverMinutes = 0;
+  
+  if (stretchedEndTime > shiftEndMinutes) {
+    spilloverToNextDay = true;
+    spilloverMinutes = stretchedEndTime - shiftEndMinutes;
+  }
+  
+  return {
+    stretchMinutes,
+    spilloverToNextDay,
+    spilloverMinutes
+  };
+}
+
+/**
+ * Applies breakdown stretching to a scheduled job's end time.
+ * This should be called after initial scheduling to adjust for breakdowns.
+ * 
+ * @param job - The scheduled job to adjust
+ * @param shiftEndMinutes - The shift end time in minutes from midnight
+ * @param breakdowns - Array of breakdown blocks for this team/day
+ * @returns Updated job with stretched end time and breakdown info
+ */
+export function applyBreakdownStretch(
+  job: ScheduledJob,
+  shiftEndMinutes: number,
+  breakdowns: BreakdownBlock[]
+): { 
+  stretchedJob: ScheduledJob; 
+  spilloverMinutes: number;
+  stretchMinutes: number;
+} {
+  if (!job.plannedDateStr || job.plannedStartTime === null || job.plannedEndTime === null) {
+    return { 
+      stretchedJob: job, 
+      spilloverMinutes: 0,
+      stretchMinutes: 0
+    };
+  }
+  
+  const result = calculateBreakdownStretch(
+    job.plannedDateStr,
+    job.plannedStartTime,
+    job.plannedEndTime,
+    shiftEndMinutes,
+    breakdowns
+  );
+  
+  if (result.stretchMinutes === 0) {
+    return { 
+      stretchedJob: job, 
+      spilloverMinutes: 0,
+      stretchMinutes: 0
+    };
+  }
+  
+  // Apply the stretch to the job's end time
+  // Cap at shift end - spillover is handled separately
+  const stretchedEndTime = Math.min(
+    job.plannedEndTime + result.stretchMinutes,
+    shiftEndMinutes
+  );
+  
+  const stretchedJob: ScheduledJob = {
+    ...job,
+    plannedEndTime: stretchedEndTime,
+    breakAdjustmentMinutes: (job.breakAdjustmentMinutes ?? 0) + result.stretchMinutes
+  };
+  
+  return {
+    stretchedJob,
+    spilloverMinutes: result.spilloverMinutes,
+    stretchMinutes: result.stretchMinutes
+  };
+}
+
+/**
+ * Filters breakdown blocks from a list of schedule blocks.
+ * Use this to extract breakdowns for stretch calculation.
+ */
+export function extractBreakdowns(
+  scheduleBlocks: Array<{ 
+    blockType: string; 
+    startDate: string;
+    startTimeMinutes: number; 
+    endDate: string;
+    endTimeMinutes: number 
+  }>
+): BreakdownBlock[] {
+  return scheduleBlocks
+    .filter(b => b.blockType === 'Breakdown')
+    .map(b => ({
+      startDate: b.startDate,
+      startTimeMinutes: b.startTimeMinutes,
+      endDate: b.endDate,
+      endTimeMinutes: b.endTimeMinutes
+    }));
+}
+
+/**
+ * Applies breakdown stretching to all jobs on a day, with cascade effect.
+ * 
+ * WORKFLOW:
+ * 1. Apply breakdown stretching to each job (extends end time)
+ * 2. Cascade subsequent jobs forward based on stretched end times
+ * 3. Track spillover for jobs pushed past shift end
+ * 
+ * @param jobs - Jobs scheduled on this day (already sorted by start time)
+ * @param shift - Shift configuration for the day  
+ * @param breakdowns - Breakdown blocks for this team on this day
+ * @returns Updated jobs with breakdown stretching applied and any overflows
+ */
+export function applyBreakdownStretchWithCascade(
+  jobs: ScheduledJob[],
+  shift: ShiftConfig,
+  breakdowns: BreakdownBlock[]
+): CascadeResult {
+  if (breakdowns.length === 0 || jobs.length === 0) {
+    return { scheduledJobs: [...jobs], overflows: [] };
+  }
+  
+  const scheduledJobs: ScheduledJob[] = [];
+  const overflows: OverflowEntry[] = [];
+  
+  // Sort jobs by start time to ensure proper cascading
+  const sortedJobs = [...jobs].sort(
+    (a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0)
+  );
+  
+  for (let i = 0; i < sortedJobs.length; i++) {
+    const job = sortedJobs[i];
+    
+    if (job.plannedStartTime === null || job.plannedEndTime === null) {
+      scheduledJobs.push({ ...job });
+      continue;
+    }
+    
+    // Determine if this job needs to cascade forward due to previous job's stretch
+    let effectiveStartTime = job.plannedStartTime;
+    
+    if (i > 0) {
+      const prevJob = scheduledJobs[scheduledJobs.length - 1];
+      const prevEndTime = prevJob?.plannedEndTime ?? shift.startTime;
+      
+      // If current job starts before the previous job ends (after stretch), cascade it forward
+      const expectedNextStart = prevEndTime + BUFFER_MINUTES;
+      if (effectiveStartTime < expectedNextStart && prevEndTime > job.plannedStartTime - BUFFER_MINUTES) {
+        effectiveStartTime = getNextValidStartTime(expectedNextStart, shift);
+      }
+    }
+    
+    // Check if job is pushed past shift end
+    if (effectiveStartTime >= shift.endTime) {
+      const jobDuration = getJobDuration(job);
+      overflows.push({
+        job: { ...job },
+        overflowMinutes: jobDuration
+      });
+      continue;
+    }
+    
+    // Calculate the original job end time at the new start position
+    const workDuration = getJobDuration(job);
+    const baseEndTime = effectiveStartTime + workDuration;
+    
+    // Apply breakdown stretch to this job
+    const stretchResult = calculateBreakdownStretch(
+      job.plannedDateStr!,
+      effectiveStartTime,
+      baseEndTime,
+      shift.endTime,
+      breakdowns
+    );
+    
+    const stretchedEndTime = baseEndTime + stretchResult.stretchMinutes;
+    
+    // Cap end time at shift end; spillover becomes overflow
+    const cappedEndTime = Math.min(stretchedEndTime, shift.endTime);
+    
+    const stretchedJob: ScheduledJob = {
+      ...job,
+      plannedStartTime: effectiveStartTime,
+      plannedEndTime: cappedEndTime,
+      breakAdjustmentMinutes: (job.breakAdjustmentMinutes ?? 0) + stretchResult.stretchMinutes
+    };
+    
+    scheduledJobs.push(stretchedJob);
+    
+    // Track overflow if job extends past shift end
+    if (stretchResult.spilloverToNextDay && stretchResult.spilloverMinutes > 0) {
+      overflows.push({
+        job: stretchedJob,
+        overflowMinutes: stretchResult.spilloverMinutes
+      });
+    }
+  }
+  
+  return { scheduledJobs, overflows };
+}
+
+/**
+ * Gets breakdown blocks that affect a specific team on a specific date.
+ * Uses the standard ScheduleBlock format where each block has a single dateStr.
+ * 
+ * @param scheduleBlocks - All schedule blocks
+ * @param teamId - The team ID to filter for
+ * @param dateStr - The date to check (YYYY-MM-DD format)
+ * @returns Breakdown blocks that affect this team on this date (converted to BreakdownBlock format)
+ */
+export function getBreakdownsForTeamDay(
+  scheduleBlocks: Array<{
+    blockType: string;
+    teamId?: string | null;
+    dateStr: string;
+    startTimeMinutes: number;
+    endTimeMinutes: number;
+  }>,
+  teamId: string | null,
+  dateStr: string
+): BreakdownBlock[] {
+  return scheduleBlocks
+    .filter(b => {
+      // Only include Breakdown type
+      if (b.blockType !== 'Breakdown') return false;
+      
+      // Team must match (null/undefined means applies to all teams)
+      if (b.teamId !== null && b.teamId !== undefined && b.teamId !== teamId) {
+        return false;
+      }
+      
+      // Check if breakdown is on this date
+      return b.dateStr === dateStr;
+    })
+    .map(b => ({
+      // For single-day blocks, startDate and endDate are the same
+      startDate: b.dateStr,
+      startTimeMinutes: b.startTimeMinutes,
+      endDate: b.dateStr,
+      endTimeMinutes: b.endTimeMinutes
+    }));
+}

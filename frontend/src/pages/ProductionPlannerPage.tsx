@@ -677,6 +677,24 @@ export const ProductionPlannerPage = () => {
         
         console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled,', cascadeResult.overflows.length, 'overflows');
         
+        // Apply breakdown stretching to scheduled jobs
+        // Breakdowns STRETCH jobs rather than reducing capacity
+        const breakdowns = PlannerV2.getBreakdownsForTeamDay(scheduleBlocks, updatedJigId, dateStr);
+        let finalScheduledJobs = cascadeResult.scheduledJobs;
+        let allOverflows = [...cascadeResult.overflows];
+        
+        if (breakdowns.length > 0) {
+          console.log('[PLANNER] Applying breakdown stretching for', breakdowns.length, 'breakdowns');
+          const stretchResult = PlannerV2.applyBreakdownStretchWithCascade(
+            cascadeResult.scheduledJobs,
+            shift,
+            breakdowns
+          );
+          finalScheduledJobs = stretchResult.scheduledJobs;
+          allOverflows = [...cascadeResult.overflows, ...stretchResult.overflows];
+          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs,', stretchResult.overflows.length, 'new overflows from stretch');
+        }
+        
         const updates: Array<{
           jobId: string;
           wipId?: string;
@@ -688,7 +706,7 @@ export const ProductionPlannerPage = () => {
           breakAdjustmentMinutes: number;
         }> = [];
         
-        for (const scheduledJob of cascadeResult.scheduledJobs) {
+        for (const scheduledJob of finalScheduledJobs) {
           const originalJob = allJobs.find(j => j.id === scheduledJob.id);
           if (originalJob) {
             updates.push({
@@ -704,13 +722,13 @@ export const ProductionPlannerPage = () => {
           }
         }
         
-        if (cascadeResult.overflows.length > 0) {
-          console.log('[PLANNER] Processing', cascadeResult.overflows.length, 'multi-day overflows');
+        if (allOverflows.length > 0) {
+          console.log('[PLANNER] Processing', allOverflows.length, 'multi-day overflows');
           
           const allScheduledJobs = allJobs.map(j => toScheduledJob(j));
           
           const multiDayResult = PlannerV2.processMultiDayOverflows(
-            cascadeResult.overflows,
+            allOverflows,
             allScheduledJobs,
             overtimeByTeamDay,
             buildBlockOptionsForOverflows()

@@ -318,7 +318,9 @@ export function getNextValidStartTime(afterTime: number, shift: ShiftConfig): nu
 
 /**
  * Gets shift configuration with schedule blocks treated as additional breaks.
- * Partial blocks (Breakdown, MaterialShortage, GeneralDelay) reduce available time.
+ * Only MaterialShortage and GeneralDelay reduce available time (treated as breaks).
+ * Breakdowns are NOT included here - they STRETCH jobs rather than reducing capacity.
+ * Breakdowns are handled separately via calculateBreakdownStretch in schedulerEngine.
  */
 export function getShiftConfigWithBlocks(
   overtimeEnabled: boolean,
@@ -329,7 +331,13 @@ export function getShiftConfigWithBlocks(
 ): ShiftConfig {
   const baseConfig = getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime);
   
-  const blockBreaks: Break[] = scheduleBlocks.map(b => ({
+  // Filter OUT Breakdown blocks - they stretch jobs, not reduce capacity
+  // Only MaterialShortage and GeneralDelay should reduce capacity (be treated as breaks)
+  const capacityReducingBlocks = scheduleBlocks.filter(
+    b => b.blockType !== 'Breakdown'
+  );
+  
+  const blockBreaks: Break[] = capacityReducingBlocks.map(b => ({
     name: b.blockType,
     start: b.startTimeMinutes,
     end: b.endTimeMinutes,
