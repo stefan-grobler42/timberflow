@@ -532,3 +532,26 @@ export function getNextAvailableTime(
   
   return nextTime;
 }
+
+/**
+ * Checks if a job is "sequential" to a previous job.
+ * A job is sequential if it starts within a reasonable tolerance of the expected
+ * next start time (buffer + break adjustments).
+ * 
+ * Jobs with large gaps (e.g., pre-booked for later in the day) are NOT sequential
+ * and should not cascade when the previous job resizes.
+ * 
+ * @param previousJobEnd - The end time of the previous job in minutes from midnight
+ * @param nextJobStart - The start time of the next job in minutes from midnight
+ * @param shift - The shift configuration with breaks
+ * @returns true if the next job is sequential (should cascade), false if there's a gap
+ */
+export function isSequentialTo(
+  previousJobEnd: number,
+  nextJobStart: number,
+  shift: ShiftConfig
+): boolean {
+  const expectedNextStart = getNextStartTimeAfterJob(previousJobEnd, shift);
+  const tolerance = 15; // 15 minutes tolerance for minor scheduling differences
+  return nextJobStart <= expectedNextStart + tolerance;
+}

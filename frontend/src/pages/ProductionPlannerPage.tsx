@@ -444,6 +444,7 @@ export const ProductionPlannerPage = () => {
       plannedDurationMinutes: number;
       breakAdjustmentMinutes: number;
       customDurationMinutes?: number;
+      estimatedEfinks?: number;
     }>
   ): Promise<boolean> => {
     try {
@@ -454,19 +455,24 @@ export const ProductionPlannerPage = () => {
 
       for (const update of updates) {
         if (update.wipId) {
-          wipUpdates.push({
-            id: update.wipId,
-            data: {
-              teamId: update.teamId,
-              workDate: update.workDate,
-              plannedStartMinutes: update.plannedStartMinutes,
-              plannedEndMinutes: update.plannedEndMinutes,
-              plannedDurationMinutes: update.plannedDurationMinutes,
-              breakAdjustmentMinutes: update.breakAdjustmentMinutes
-            }
-          });
+          const updateData: UpdateTeamWorkItemDto = {
+            teamId: update.teamId,
+            workDate: update.workDate,
+            plannedStartMinutes: update.plannedStartMinutes,
+            plannedEndMinutes: update.plannedEndMinutes,
+            plannedDurationMinutes: update.plannedDurationMinutes,
+            breakAdjustmentMinutes: update.breakAdjustmentMinutes
+          };
+          // Include estimatedEfinks if provided (for resize/rollover operations)
+          if (update.estimatedEfinks !== undefined) {
+            (updateData as any).estimatedEfinks = update.estimatedEfinks;
+          }
+          if (update.customDurationMinutes !== undefined) {
+            (updateData as any).customDurationMinutes = update.customDurationMinutes;
+          }
+          wipUpdates.push({ id: update.wipId, data: updateData });
         } else {
-          wipCreates.push({
+          const createData: CreateTeamWorkItemDto = {
             productionId: update.jobId,
             teamId: update.teamId,
             workDate: update.workDate,
@@ -476,7 +482,15 @@ export const ProductionPlannerPage = () => {
             plannedDurationMinutes: update.plannedDurationMinutes,
             breakAdjustmentMinutes: update.breakAdjustmentMinutes,
             status: 'scheduled'
-          });
+          };
+          // Include estimatedEfinks if provided
+          if (update.estimatedEfinks !== undefined) {
+            (createData as any).estimatedEfinks = update.estimatedEfinks;
+          }
+          if (update.customDurationMinutes !== undefined) {
+            (createData as any).customDurationMinutes = update.customDurationMinutes;
+          }
+          wipCreates.push(createData);
         }
       }
 
@@ -503,7 +517,8 @@ export const ProductionPlannerPage = () => {
               plannedEndTime: update.plannedEndMinutes,
               plannedDurationMinutes: update.plannedDurationMinutes,
               breakAdjustmentMinutes: update.breakAdjustmentMinutes,
-              customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes
+              customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes,
+              estimatedEFinks: update.estimatedEfinks ?? j.estimatedEFinks
             };
           }
           return j;
@@ -939,14 +954,29 @@ export const ProductionPlannerPage = () => {
                 estimatedEfinks: childEfinks
               });
               
-              // CASCADE JOBS ON CHILD DAY - jobs after the child need to shift
-              const childDayJobs = allJobs.filter(
+              // CASCADE JOBS ON CHILD DAY - only cascade jobs in the sequential chain
+              const allChildDayJobs = allJobs.filter(
                 j => j.plannedDateStr === childDateStr && 
                      j.jigId === jigId && 
                      j.id !== existingRolloverChild.id &&
                      !j.productionComplete &&
                      (j.plannedStartTime ?? 0) > (existingRolloverChild.plannedStartTime ?? 0)
               ).sort((a, b) => (a.plannedStartTime ?? childShift.startTime) - (b.plannedStartTime ?? childShift.startTime));
+              
+              // Build the sequential chain for child day cascade
+              const childDayJobs: typeof allChildDayJobs = [];
+              let childPreviousEndTime = childTiming.endTime;
+              
+              for (const cdJob of allChildDayJobs) {
+                const cdJobStart = cdJob.plannedStartTime ?? 0;
+                if (PlannerV2.isSequentialTo(childPreviousEndTime, cdJobStart, childShift)) {
+                  childDayJobs.push(cdJob);
+                  childPreviousEndTime = cdJob.plannedEndTime ?? cdJobStart;
+                } else {
+                  console.log(`[RESIZE] Gap detected on child day before job ${cdJob.orderNumber}, stopping cascade`);
+                  break;
+                }
+              }
               
               if (childDayJobs.length > 0) {
                 console.log(`[RESIZE] Cascading ${childDayJobs.length} jobs on child day ${childDateStr}`);
@@ -979,7 +1009,7 @@ export const ProductionPlannerPage = () => {
                     const cdTruncatedEfinks = availableForCd > 0 
                       ? PlannerV2.roundEfinks(cdTotalEfinks * (availableForCd / cdJobDuration))
                       : 0;
-                    const cdOverflowEfinks = PlannerV2.roundEfinks(cdTotalEfinks - cdTruncatedEfinks);
+                    // Note: overflow E-Finks will be calculated when rollover is created
                     
                     // Track overflow with child's next working day, not parent's
                     const cdNextDate = PlannerV2.getNextWorkingDay(childDateStr);
@@ -1018,7 +1048,7 @@ export const ProductionPlannerPage = () => {
               
               // Proportional E-Finks for what fits on child day
               const childDayEfinks = PlannerV2.roundEfinks(childEfinks * (availableOnChildDay / newRolloverDuration));
-              const grandchildEfinks = PlannerV2.roundEfinks(childEfinks - childDayEfinks);
+              // Note: grandchild E-Finks will be calculated when rollover is created via handleJobRollover
               
               updates.push({
                 jobId: existingRolloverChild.id,
@@ -1048,6 +1078,7 @@ export const ProductionPlannerPage = () => {
           }
           
           // Now cascade subsequent jobs on the SAME day as parent
+          // Only cascade jobs that are part of the "sequential chain" (no gaps)
           const existingJobsOnDay = allJobs.filter(
             j => j.plannedDateStr === dateStr && 
                  j.jigId === jigId && 
@@ -1056,9 +1087,27 @@ export const ProductionPlannerPage = () => {
                  !j.productionComplete
           ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
           
-          const subsequentJobs = existingJobsOnDay.filter(
+          // Get all jobs after the resized job, sorted by start time
+          const allSubsequentJobs = existingJobsOnDay.filter(
             j => (j.plannedStartTime ?? 0) > (job.plannedStartTime ?? 0)
           );
+          
+          // Build the sequential chain: only include jobs that follow sequentially
+          // Stop when we encounter a gap (job that is NOT sequential to its predecessor)
+          const subsequentJobs: typeof allSubsequentJobs = [];
+          let previousEndTime = parentTiming.endTime;
+          
+          for (const subJob of allSubsequentJobs) {
+            const subJobStart = subJob.plannedStartTime ?? 0;
+            if (PlannerV2.isSequentialTo(previousEndTime, subJobStart, shift)) {
+              subsequentJobs.push(subJob);
+              previousEndTime = subJob.plannedEndTime ?? subJobStart;
+            } else {
+              // Gap detected - stop cascading
+              console.log(`[RESIZE] Gap detected before job ${subJob.orderNumber} (starts at ${subJobStart}, expected ${previousEndTime + 30}), stopping cascade`);
+              break;
+            }
+          }
           
           let nextStartTime = PlannerV2.getNextAvailableTime(parentTiming.endTime, shift) ?? shift.endTime;
           
@@ -1205,6 +1254,7 @@ export const ProductionPlannerPage = () => {
             plannedDurationMinutes: number;
             breakAdjustmentMinutes: number;
             customDurationMinutes?: number;
+            estimatedEfinks?: number;
           }> = [];
           
           updates.push({
