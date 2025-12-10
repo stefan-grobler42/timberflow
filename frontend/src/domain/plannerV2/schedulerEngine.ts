@@ -12,7 +12,9 @@ import {
   calculateEndTime, 
   isInBreak,
   getNextValidStartTime,
-  getAvailableMinutes
+  getAvailableMinutes,
+  getNextWorkingDayWithBlocks,
+  getShiftConfigWithBlocks
 } from './shiftCalendar';
 
 /**
@@ -289,12 +291,26 @@ export function createRolloverSegment(
 }
 
 /**
+ * Options for block-aware overflow processing.
+ */
+export interface MultiDayOverflowOptions {
+  /** Full-day block dates per team (team ID -> array of date strings) */
+  fullDayBlockDatesByTeam?: Record<string, string[]>;
+  /** Partial schedule blocks per team per day for shift config (team ID -> date -> blocks) */
+  scheduleBlocksByTeamDay?: Record<string, Record<string, Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>>>;
+}
+
+/**
  * Processes multi-day overflow cascading.
+ * BLOCK-AWARE: When options are provided, uses block-aware helpers to:
+ * - Skip full-day blocked dates when finding next working day
+ * - Include partial schedule blocks as breaks in shift config
  */
 export function processMultiDayOverflows(
   overflows: OverflowEntry[],
   allJobs: ScheduledJob[],
-  overtimeByTeamDay: Record<string, Record<string, OvertimeSettings>>
+  overtimeByTeamDay: Record<string, Record<string, OvertimeSettings>>,
+  options?: MultiDayOverflowOptions
 ): MultiDayCascadeResult {
   const affectedDays = new Set<string>();
   const newRollovers: ScheduledJob[] = [];
@@ -323,7 +339,13 @@ export function processMultiDayOverflows(
     
     affectedDays.add(sourceDate);
     
-    const targetDate = getNextWorkingDay(sourceDate);
+    const teamId = overflow.job.jigId || '';
+    
+    // Use block-aware next working day if full-day blocks are provided
+    const fullDayBlocks = options?.fullDayBlockDatesByTeam?.[teamId] || [];
+    const targetDate = fullDayBlocks.length > 0
+      ? getNextWorkingDayWithBlocks(sourceDate, fullDayBlocks)
+      : getNextWorkingDay(sourceDate);
     affectedDays.add(targetDate);
     
     const parentId = overflow.job.parentProductionId || overflow.job.id;
@@ -338,9 +360,19 @@ export function processMultiDayOverflows(
       nextSequence
     );
     
-    const teamId = rollover.jigId || '';
     const dayTeamOvertime = overtimeByTeamDay[targetDate]?.[teamId] || { enabled: false, closeTime: 1020 };
-    const dayShift = getShiftConfig(dayTeamOvertime.enabled, dayTeamOvertime.closeTime);
+    
+    // Use block-aware shift config if schedule blocks are provided
+    const scheduleBlocks = options?.scheduleBlocksByTeamDay?.[teamId]?.[targetDate] || [];
+    const dayShift = scheduleBlocks.length > 0
+      ? getShiftConfigWithBlocks(
+          dayTeamOvertime.enabled,
+          dayTeamOvertime.closeTime,
+          false, // earlyOtEnabled - not available in OvertimeSettings, use default
+          undefined, // earlyOtStartTime
+          scheduleBlocks
+        )
+      : getShiftConfig(dayTeamOvertime.enabled, dayTeamOvertime.closeTime);
     
     const dayJobs = scheduledJobs
       .filter(j => j.plannedDateStr === targetDate && j.jigId === rollover.jigId)

@@ -432,6 +432,67 @@ export const ProductionPlannerPage = () => {
     productionComplete: job.productionComplete
   }), []);
 
+  // Helper to get full-day blocked dates for a team (PublicHoliday, Maintenance)
+  const getFullDayBlockDates = useCallback((teamId: string | null): string[] => {
+    const fullDayBlockTypes = ['PublicHoliday', 'Maintenance'];
+    return scheduleBlocks
+      .filter(block => 
+        fullDayBlockTypes.includes(block.blockType) &&
+        (block.teamId === null || block.teamId === undefined || block.teamId === teamId)
+      )
+      .map(block => block.dateStr);
+  }, [scheduleBlocks]);
+
+  // Build block options for processMultiDayOverflows (block-aware scheduling)
+  const buildBlockOptionsForOverflows = useCallback((): PlannerV2.MultiDayOverflowOptions => {
+    const fullDayBlockTypes = ['PublicHoliday', 'Maintenance'];
+    const partialBlockTypes = ['Breakdown', 'MaterialShortage', 'GeneralDelay'];
+    
+    // Build fullDayBlockDatesByTeam: team ID -> array of blocked dates
+    const fullDayBlockDatesByTeam: Record<string, string[]> = {};
+    
+    // Get all unique team IDs from jig teams
+    const teamIds = jigTeams.map(j => j.id);
+    teamIds.push(''); // Include empty string for global blocks
+    
+    for (const teamId of teamIds) {
+      const blockedDates = scheduleBlocks
+        .filter(block => 
+          fullDayBlockTypes.includes(block.blockType) &&
+          (block.teamId === null || block.teamId === undefined || block.teamId === teamId)
+        )
+        .map(block => block.dateStr);
+      if (blockedDates.length > 0) {
+        fullDayBlockDatesByTeam[teamId] = blockedDates;
+      }
+    }
+    
+    // Build scheduleBlocksByTeamDay: team ID -> date -> partial blocks
+    const scheduleBlocksByTeamDay: Record<string, Record<string, Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>>> = {};
+    
+    for (const block of scheduleBlocks) {
+      if (!partialBlockTypes.includes(block.blockType)) continue;
+      
+      const teamId = block.teamId || '';
+      const dateStr = block.dateStr;
+      
+      if (!scheduleBlocksByTeamDay[teamId]) {
+        scheduleBlocksByTeamDay[teamId] = {};
+      }
+      if (!scheduleBlocksByTeamDay[teamId][dateStr]) {
+        scheduleBlocksByTeamDay[teamId][dateStr] = [];
+      }
+      
+      scheduleBlocksByTeamDay[teamId][dateStr].push({
+        blockType: block.blockType,
+        startTimeMinutes: block.startTimeMinutes,
+        endTimeMinutes: block.endTimeMinutes
+      });
+    }
+    
+    return { fullDayBlockDatesByTeam, scheduleBlocksByTeamDay };
+  }, [scheduleBlocks, jigTeams]);
+
   // Save multiple job updates (for cascade operations)
   const saveMultipleJobUpdates = useCallback(async (
     updates: Array<{
@@ -651,7 +712,8 @@ export const ProductionPlannerPage = () => {
           const multiDayResult = PlannerV2.processMultiDayOverflows(
             cascadeResult.overflows,
             allScheduledJobs,
-            overtimeByTeamDay
+            overtimeByTeamDay,
+            buildBlockOptionsForOverflows()
           );
           
           console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected');
@@ -1012,7 +1074,7 @@ export const ProductionPlannerPage = () => {
                     // Note: overflow E-Finks will be calculated when rollover is created
                     
                     // Track overflow with child's next working day, not parent's
-                    const cdNextDate = PlannerV2.getNextWorkingDay(childDateStr);
+                    const cdNextDate = PlannerV2.getNextWorkingDayWithBlocks(childDateStr, getFullDayBlockDates(jigId));
                     overflows.push({ 
                       job: cdJob, 
                       overflowMinutes: cdJobDuration - availableForCd,
@@ -1071,7 +1133,7 @@ export const ProductionPlannerPage = () => {
               setOperationMessage('');
               
               // Trigger rollover for the child (creates sequence+2)
-              const grandchildDateStr = PlannerV2.getNextWorkingDay(childDateStr);
+              const grandchildDateStr = PlannerV2.getNextWorkingDayWithBlocks(childDateStr, getFullDayBlockDates(jigId));
               await handleJobRollover(existingRolloverChild.id, childOverflow, grandchildDateStr, jigId);
               return; // handleJobRollover will reload data
             }
@@ -1138,7 +1200,7 @@ export const ProductionPlannerPage = () => {
               overflows.push({ 
                 job: subJob, 
                 overflowMinutes: subJobDuration - availableForSub,
-                targetDate: PlannerV2.getNextWorkingDay(dateStr)  // Parent's next day
+                targetDate: PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId))  // Parent's next day
               });
               
               // Schedule what fits on this day with TRUNCATED duration and E-Finks
@@ -1173,7 +1235,7 @@ export const ProductionPlannerPage = () => {
             
             for (const overflow of overflows) {
               // Use the targetDate from the overflow if available, otherwise fallback to parent's next day
-              const targetDate = overflow.targetDate ?? PlannerV2.getNextWorkingDay(dateStr);
+              const targetDate = overflow.targetDate ?? PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
               await handleJobRollover(overflow.job.id, overflow.overflowMinutes, targetDate, jigId);
             }
             return; // handleJobRollover reloads data
@@ -1221,7 +1283,7 @@ export const ProductionPlannerPage = () => {
             
             // Now trigger rollover for this job
             const overflowMinutes = roundedDuration - availableTime;
-            const nextDateStr = PlannerV2.getNextWorkingDay(dateStr);
+            const nextDateStr = PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
             
             // Close loading overlay before calling handleJobRollover (it has its own)
             setOperationInProgress(false);
@@ -1311,7 +1373,7 @@ export const ProductionPlannerPage = () => {
                 
                 // Trigger rollover for this subsequent job
                 const overflowMinutes = jobDuration - availableForSub;
-                const nextDateStr = PlannerV2.getNextWorkingDay(dateStr);
+                const nextDateStr = PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
                 
                 // First update this job's position with TRUNCATED duration to match what fits today
                 const truncatedDuration = Math.max(15, availableForSub);

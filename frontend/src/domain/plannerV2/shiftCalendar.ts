@@ -315,3 +315,48 @@ export function getNextValidStartTime(afterTime: number, shift: ShiftConfig): nu
   
   return startTime;
 }
+
+/**
+ * Gets shift configuration with schedule blocks treated as additional breaks.
+ * Partial blocks (Breakdown, MaterialShortage, GeneralDelay) reduce available time.
+ */
+export function getShiftConfigWithBlocks(
+  overtimeEnabled: boolean,
+  customCloseTime: number | undefined,
+  earlyOtEnabled: boolean,
+  earlyOtStartTime: number | undefined,
+  scheduleBlocks: Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>
+): ShiftConfig {
+  const baseConfig = getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime);
+  
+  const blockBreaks: Break[] = scheduleBlocks.map(b => ({
+    name: b.blockType,
+    start: b.startTimeMinutes,
+    end: b.endTimeMinutes,
+    duration: b.endTimeMinutes - b.startTimeMinutes
+  }));
+  
+  return {
+    ...baseConfig,
+    breaks: [...baseConfig.breaks, ...blockBreaks].sort((a, b) => a.start - b.start)
+  };
+}
+
+/**
+ * Gets the next working day, skipping weekends AND fully blocked dates.
+ * Full-day blocks (PublicHoliday, Maintenance) cause the date to be skipped entirely.
+ */
+export function getNextWorkingDayWithBlocks(
+  fromDateStr: string,
+  fullDayBlockDates: string[]
+): string {
+  let nextDate = getNextWorkingDay(fromDateStr);
+  
+  let iterations = 0;
+  while (fullDayBlockDates.includes(nextDate) && iterations < 30) {
+    nextDate = getNextWorkingDay(nextDate);
+    iterations++;
+  }
+  
+  return nextDate;
+}
