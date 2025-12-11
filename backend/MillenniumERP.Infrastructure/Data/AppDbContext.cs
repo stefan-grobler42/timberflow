@@ -59,6 +59,11 @@ public class AppDbContext : DbContext
     // Team Work Items (WIP) for active job scheduling
     public DbSet<TeamWorkItem> TeamWorkItems { get; set; }
     
+    // Waterfall Planner - continuous job allocations
+    public DbSet<JobAllocation> JobAllocations { get; set; }
+    public DbSet<JobWorkLog> JobWorkLogs { get; set; }
+    public DbSet<TeamDaySettings> TeamDaySettings { get; set; }
+    
     // Dynamics 365 standard entities
     public DbSet<Account> Accounts { get; set; }
     public DbSet<D365Contact> D365Contacts { get; set; }
@@ -596,6 +601,84 @@ public class AppDbContext : DbContext
             entity.Property(e => e.EntityName).HasMaxLength(100).IsRequired();
             entity.Property(e => e.LastAttemptStatus).HasMaxLength(50).IsRequired();
             entity.HasIndex(e => e.EntityName);
+        });
+
+        // JobAllocation configuration - Waterfall planner continuous allocations
+        modelBuilder.Entity<JobAllocation>(entity =>
+        {
+            entity.ToTable("job_allocations");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.TeamId, e.SpanStartDate });
+            entity.HasIndex(e => e.ProductionId);
+            entity.HasIndex(e => e.Status);
+
+            entity.Property(e => e.EstimatedEfinks).HasPrecision(18, 4);
+            entity.Property(e => e.ActualEfinks).HasPrecision(18, 4);
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("scheduled");
+
+            entity.HasOne(e => e.Production)
+                  .WithMany()
+                  .HasForeignKey(e => e.ProductionId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // JobWorkLog configuration - Daily time tracking per allocation
+        modelBuilder.Entity<JobWorkLog>(entity =>
+        {
+            entity.ToTable("job_work_logs");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.AllocationId, e.WorkDate });
+            entity.HasIndex(e => e.WorkDate);
+
+            entity.Property(e => e.EfinksCompleted).HasPrecision(18, 4);
+
+            entity.HasOne(e => e.Allocation)
+                  .WithMany()
+                  .HasForeignKey(e => e.AllocationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Leader)
+                  .WithMany()
+                  .HasForeignKey(e => e.LeaderId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Helper1)
+                  .WithMany()
+                  .HasForeignKey(e => e.Helper1Id)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Helper2)
+                  .WithMany()
+                  .HasForeignKey(e => e.Helper2Id)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Helper3)
+                  .WithMany()
+                  .HasForeignKey(e => e.Helper3Id)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.Helper4)
+                  .WithMany()
+                  .HasForeignKey(e => e.Helper4Id)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // TeamDaySettings configuration - OT toggles per team per day
+        modelBuilder.Entity<TeamDaySettings>(entity =>
+        {
+            entity.ToTable("team_day_settings");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.TeamId, e.WorkDate }).IsUnique();
+
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // Apply UTC DateTime converter to all DateTime and DateTime? properties
