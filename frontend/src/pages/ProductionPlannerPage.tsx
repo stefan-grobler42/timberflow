@@ -197,6 +197,8 @@ export const ProductionPlannerPage = () => {
         
         if (existing) {
           // Merge: any enabled wins, max closeTime, min earlyStartTime
+          // NOTE: This uses OR logic - if ANY WIP has OT enabled, the day shows as OT enabled
+          // The fix for toggle reverting is in the update code which now updates ALL jobs on the day/team
           restoredOTState[dayStr][teamId] = {
             enabled: existing.enabled || newEnabled,
             closeTime: Math.max(existing.closeTime, newCloseTime),
@@ -707,6 +709,7 @@ export const ProductionPlannerPage = () => {
           plannedEndMinutes: number;
           plannedDurationMinutes: number;
           breakAdjustmentMinutes: number;
+          estimatedEfinks?: number;
         }> = [];
         
         for (const scheduledJob of finalScheduledJobs) {
@@ -767,7 +770,6 @@ export const ProductionPlannerPage = () => {
           let sequenceOffset = 0;
           
           for (const deferred of deferredWorkSegments) {
-            const originalJob = allJobs.find(j => j.id === deferred.sourceJob.id);
             const parentId = deferred.sourceJob.parentProductionId || deferred.sourceJob.id;
             const existingRollovers = allJobs.filter(j => j.parentProductionId === parentId && j.rolloverSequence);
             const nextSequence = existingRollovers.length + 1 + sequenceOffset;
@@ -842,9 +844,10 @@ export const ProductionPlannerPage = () => {
           if (deferralOverflows.length > 0) {
             console.log('[PLANNER] Routing', deferralOverflows.length, 'deferral overflows through multi-day processing');
             
+            const allScheduledJobsForDeferral = allJobs.map(j => toScheduledJob(j));
             const deferralMultiDayResult = PlannerV2.processMultiDayOverflows(
               deferralOverflows,
-              allScheduledJobs,
+              allScheduledJobsForDeferral,
               overtimeByTeamDay,
               blockOptions
             );
@@ -2070,6 +2073,21 @@ export const ProductionPlannerPage = () => {
         console.log(`[PLANNER] ✓ WIP overtime settings disabled for ${nonRolloverJobsOff.length} non-rollover jobs`);
       }
       
+      // CATCH-ALL: Ensure ALL remaining WIP records on this day/team have OT disabled
+      // This prevents toggle from reverting due to stale OT flags on any missed jobs
+      const allWipIdsOnDayTeam = affectedJobs.map(j => j.wipId).filter((id): id is string => !!id);
+      if (allWipIdsOnDayTeam.length > 0) {
+        const catchAllUpdates = allWipIdsOnDayTeam.map(wipId => ({
+          id: wipId,
+          data: {
+            overtimeEnabled: false,
+            dayEndMinutes: 1020
+          } as UpdateTeamWorkItemDto
+        }));
+        await teamWorkItemService.batchUpdate(catchAllUpdates);
+        console.log(`[PLANNER] ✓ Catch-all: ensured OT disabled for ALL ${allWipIdsOnDayTeam.length} WIP records on ${dayStr}/${teamId}`);
+      }
+      
       // Reload data to reflect all changes
       await loadData();
       
@@ -2244,6 +2262,7 @@ export const ProductionPlannerPage = () => {
           finalEFinks = parentEfinks;
           
           // Queue rollover child update
+          // CRITICAL: Cap rollover duration to what fits on its day to prevent overflow prompt
           if (rolloverChild.wipId) {
             const rolloverDateStr = rolloverChild.plannedDateStr!;
             const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
@@ -2254,19 +2273,37 @@ export const ProductionPlannerPage = () => {
               rolloverTeamOvertime?.earlyStartTime
             );
             const rolloverStartTime = rolloverChild.plannedStartTime ?? rolloverShift.startTime;
-            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
+            
+            // Calculate available time on the rollover day
+            const rolloverAvailableTime = PlannerV2.getAvailableMinutes(rolloverStartTime, rolloverShift);
+            
+            // Cap the rollover duration to what fits on its day
+            // If it exceeds, the user will need to manually create a second rollover
+            const cappedRolloverDuration = Math.min(newRolloverDuration, rolloverAvailableTime);
+            const rolloverExcess = newRolloverDuration - cappedRolloverDuration;
+            
+            if (rolloverExcess > 0) {
+              console.log(`[EARLY-OT] WARNING: Rollover would need ${newRolloverDuration}m but only ${rolloverAvailableTime}m available. Capping to ${cappedRolloverDuration}m, ${rolloverExcess}m would overflow.`);
+            }
+            
+            // Recalculate E-Finks for the capped duration
+            const cappedChildEfinks = rolloverExcess > 0 
+              ? Math.round((childEfinks * cappedRolloverDuration / newRolloverDuration) * 100) / 100
+              : childEfinks;
+            
+            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, cappedRolloverDuration, rolloverShift);
             
             rolloverChildUpdates.push({
               id: rolloverChild.wipId,
               data: {
-                plannedDurationMinutes: newRolloverDuration,
+                plannedDurationMinutes: cappedRolloverDuration,
                 plannedEndMinutes: rolloverTiming.endTime,
                 breakAdjustmentMinutes: rolloverTiming.breakMinutes,
-                estimatedEfinks: childEfinks,
-                customDurationMinutes: newRolloverDuration
+                estimatedEfinks: cappedChildEfinks,
+                customDurationMinutes: cappedRolloverDuration
               }
             });
-            console.log(`[EARLY-OT] Queued rollover child update: ${newRolloverDuration}m, ${childEfinks} E-Finks`);
+            console.log(`[EARLY-OT] Queued rollover child update: ${cappedRolloverDuration}m (capped from ${newRolloverDuration}m), ${cappedChildEfinks} E-Finks`);
           }
         }
         
