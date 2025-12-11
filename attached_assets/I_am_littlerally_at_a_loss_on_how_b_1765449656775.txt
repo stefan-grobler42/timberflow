@@ -1,0 +1,24 @@
+I am littlerally at a loss on how better to explain what is required for this app I have burnt through money like crazy with multiplke redesigns and re factoring and all the while it doesnt work.
+
+This app is as basic as anything its embarrasing that the AI cannot get it right.
+
+Main Production planner page & Unallocated Column runs from Production Table on the planned date with the estimated e-finks. When I move a job from Unallocated column to one of the teams it creates a clone of the record in that team table and flags the production record to no longer shot in the unallocated column. If I double click on the record it must open the cloned record that lives in the team table. (The form can be identical to the production table form just with a WIP designation in the header. The fucking app is still opening the production record.
+
+I then need to be able to schedule jobs from unallocated into their relevant teams and days.
+
+All I want here is that the system looks at the last completed job and then opens up future days infinitely forward.
+
+The system used a estimated E-fink target of 80 e-finks for a normal 8:45 hour day to calculated the size of the block of the job based on its estimated e-finks. It then uses certain scheduling logic which lives in settings to book the jobs so they dont start or end on a break which also lives in settings and that the jobs dont overlap and that jobs run in sequence.
+
+The way I see it is that I have an endless table with days and hours and in those days and hours the working hours and breaks are open to be used and all non working days and hours are blanked out as non working, including Saturdays qand sundays. Each day of the week has two toggles for early overtime and late overtime and if toggled they open more available booking space earlier and later depending. On saturdays and sundays a single toggle to activate OT and specify a finish time to open space on that day to be booked. 
+
+You then start allocating incomplete orders to a team for a specific day where you planning to make that job. and proceed booking jobs available for booking so that you can plan when the job will be made on what jig and then you can commit to clients based on the planned date. Thats the whole point of the planner.
+
+The way I see it is that the long list of days and hours it endless and I can put in a job in the available space if it fits then great I can either leave it alone on the day or book a job to start after it. If the day overflows the amount of available hours on that day it simply spills over to the next available hours down the list. Any change to a job then effects the other job if a job is made earlier than more time is available later if you work later then theres more time available. if a job takes longer than it should then it gets bigger displacing any other jobs after it. if it gets smaller it shrinks pulling any other jobs down the line forward. The planner is infinite its not locked down by a Year, day, week or month. I can continue adding jobs in the available space as long as the space is available. A roll over is just a fancy word the reality is that the card just starts on one day and continues on thne next and the next and the next infinitely until its completed, this spill over keeps pushing jobs booked after it out later and later down the line.
+
+Its like a waterfall the more you do behind the more the water moves forward if the water behind stops then the water flows backwards its ebb and flow
+
+Simple examples 
+I can book a job on the 22nd of the month on the first of the month if I know its coming. Then as new orders come in I book them after the job before them in the queue, as those jobs are done they will grow or shrink depending on the time spent and then they will effect the next in line which will effect the next in line which will effect the next in line endlessly until there is no more next in line to effect. Because production and sales is dynamic at any point a job can be added or removed from the queue pushing the queue forward or pulling it back overtime can be added opening more hours and pulling the queue back overtime can be cancelled pushing the que forward again.
+
+I simply want a timeline where I can allocate blocks before after regardless and as changes are made the other blocks move around on the timeline accordingly. If I didn't have to create a rollover job then I would and I would have the block stop on the last available hour then continue on the next available hour moving fluidly across days and hours no fancy logic just use available hours
