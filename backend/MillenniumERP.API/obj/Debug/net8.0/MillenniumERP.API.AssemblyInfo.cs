@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("MillenniumERP.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+4b015119817674d62c3c624d62a9f799f6e6567f")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f0d9fefc1b1d1bf48752a36b46a2fccae8b6af01")]
 [assembly: System.Reflection.AssemblyProductAttribute("MillenniumERP.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("MillenniumERP.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
