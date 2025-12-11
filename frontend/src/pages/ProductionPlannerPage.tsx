@@ -2351,13 +2351,30 @@ export const ProductionPlannerPage = () => {
       }
       console.log('[ROLLOVER] Found job:', job.orderNumber, 'jigId:', job.jigId);
 
-      // Fetch the full production record to get all fields for cloning
-      const fullProduction = await productionService.getById(jobId);
-      if (!fullProduction) {
-        console.error('[PLANNER] Could not fetch full production data for rollover');
-        return;
+      // Check if this is a WIP-only rollover (ID starts with "wip-")
+      const isWipOnlyJob = jobId.startsWith('wip-');
+      const actualWipId = isWipOnlyJob ? jobId.substring(4) : undefined;
+      console.log('[ROLLOVER] Is WIP-only job:', isWipOnlyJob, 'actualWipId:', actualWipId);
+
+      // For WIP-only jobs, we use the job's display fields directly (already loaded from WIP)
+      // For production-backed jobs, fetch the full production record
+      let fullProduction: { jigId?: string | null; orderNo?: string | null } | null = null;
+      if (!isWipOnlyJob) {
+        fullProduction = await productionService.getById(jobId);
+        if (!fullProduction) {
+          console.error('[PLANNER] Could not fetch full production data for rollover');
+          return;
+        }
+        console.log('[ROLLOVER] Full production jigId:', fullProduction.jigId);
+      } else {
+        // For WIP-only jobs, construct a minimal object from job fields
+        // WIP-only rollovers already have display fields - no orderNo needed for further rollovers
+        fullProduction = {
+          jigId: job.jigId,
+          orderNo: undefined
+        };
+        console.log('[ROLLOVER] WIP-only job - using job fields, jigId:', job.jigId);
       }
-      console.log('[ROLLOVER] Full production jigId:', fullProduction.jigId);
 
       // BUG FIX: Calculate available time using getAvailableMinutes instead of subtracting overflow
       // The overflow calculation includes break visual time, but we need WORK TIME only
@@ -2413,8 +2430,9 @@ export const ProductionPlannerPage = () => {
       // No Production record is created until job completion
       
       // Look up the original job's WIP record from API if not in local state
-      let originalWipId = job.wipId;
-      if (!originalWipId && preservedJigId) {
+      // For WIP-only jobs, we already have the WIP ID from the job ID prefix
+      let originalWipId = job.wipId || actualWipId;
+      if (!originalWipId && preservedJigId && !isWipOnlyJob) {
         console.log('[ROLLOVER] wipId not in local state, looking up from API...');
         try {
           const wipRecords = await teamWorkItemService.getByProductionId(jobId);
@@ -2426,6 +2444,7 @@ export const ProductionPlannerPage = () => {
           console.log('[ROLLOVER] Could not look up WIP record:', lookupErr);
         }
       }
+      console.log('[ROLLOVER] originalWipId resolved to:', originalWipId);
       
       // If existing rollover child exists, DELETE it first
       // Check if it's a WIP-only rollover (no productionId) or has a Production record
@@ -2556,9 +2575,10 @@ export const ProductionPlannerPage = () => {
           parentWipId: originalWipId,
           customDurationMinutes: overflowMinutes,
           // WIP-first fields - copy display data from parent
+          // For parentProductionId: use rootParentId since jobId might be "wip-xxx" for WIP-only jobs
           isRolloverOnly: true,
           rootProductionId: rootParentId,
-          parentProductionId: jobId,
+          parentProductionId: isWipOnlyJob ? job.parentProductionId : jobId,
           orderNumber: job.orderNumber,
           customerName: job.customer,
           productionName: rolloverName,
