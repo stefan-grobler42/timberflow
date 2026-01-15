@@ -22,7 +22,16 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 ### Technical Implementations
 -   **Backend**: ASP.NET Core 8 Web API, layered structure (Controllers → Services → Data), separate DTOs, PostgreSQL with Entity Framework Core (Npgsql driver).
 -   **Database**: PostgreSQL is the primary database, replacing SQLite for production persistence.
--   **Production Planner**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs.
+-   **Waterfall Production Planner** (`/waterfall-planner`): Simplified continuous-flow scheduler where jobs span across days seamlessly.
+    -   **Continuous Spans**: Jobs flow through available working hours as single continuous units, automatically cascading across days based on duration
+    -   **Database Tables**: `JobAllocation` (continuous job spans with start/end dates and times), `TeamDaySettings` (per-team per-day overtime toggles), `JobWorkLog` (daily time tracking)
+    -   **Views**: Month → Week → Day drill-down with infinite scrolling; day view shows team columns with allocated jobs
+    -   **Overtime Toggles**: Early OT (05:00-07:00) and Late OT (17:00-19:00) per team per day via TeamDaySettings
+    -   **Schedule Block Integration**: Blocks for holidays, breakdowns, material shortages integrated into scheduler capacity calculations
+    -   **Time Logging**: TimeLoggingPanel component for logging actual work done (start/end times, E-Finks completed, staff assignments, notes)
+    -   **Reporting Endpoints**: `/api/jobworklogs/report/team-efficiency` (team performance metrics), `/api/jobworklogs/report/accuracy-analysis` (estimated vs actual E-Finks comparison)
+    -   **Key Files**: `frontend/src/pages/WaterfallPlannerPage.tsx`, `frontend/src/domain/waterfallScheduler/`, `backend/MillenniumERP.API/Controllers/JobAllocationsController.cs`, `backend/MillenniumERP.API/Controllers/JobWorkLogsController.cs`
+-   **Production Planner (Legacy)**: Three-level hierarchical planner (Month → Week → Day views) with team-based calendar, drag-and-drop allocation, capacity indicators, and visual differentiation for completed jobs.
     -   **WIP-First Architecture**: TeamWorkItem table is the single source of truth for all allocated jobs during planning/production phase. Production records are READ-ONLY during planning.
         -   **Production.IsInWip Flag**: Boolean flag on Production table. Set to `true` when job is allocated to a team (WIP created), set to `false` when de-allocated. Unallocated column filters to `WHERE isInWip = false`.
         -   **Read-Only Productions**: Production.NewEstimatedefinks and other planning fields are NEVER modified during allocation, rollover creation, OT toggle, or resize operations. Only WIP.EstimatedEfinks is modified during planning.
