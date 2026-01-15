@@ -1,4 +1,5 @@
-import { Stack, Nav } from '@fluentui/react';
+import { useState } from 'react';
+import { Stack, Nav, IconButton } from '@fluentui/react';
 import type { INavLinkGroup } from '@fluentui/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GlobalSearch } from './GlobalSearch';
@@ -10,6 +11,7 @@ interface LayoutProps {
 export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const navLinkGroups: INavLinkGroup[] = [
     {
@@ -272,75 +274,137 @@ export const Layout = ({ children }: LayoutProps) => {
         <Stack.Item
           styles={{
             root: {
-              width: 250,
-              minWidth: 250,
+              width: sidebarCollapsed ? 0 : 250,
+              minWidth: sidebarCollapsed ? 0 : 250,
               flexShrink: 0,
               backgroundColor: '#f3f2f1',
-              borderRight: '1px solid #e1dfdd',
+              borderRight: sidebarCollapsed ? 'none' : '1px solid #e1dfdd',
               overflowY: 'auto',
+              overflowX: 'hidden',
+              transition: 'width 0.2s ease, min-width 0.2s ease',
             },
           }}
         >
-          <Nav
-            groups={navLinkGroups}
-            selectedKey={location.pathname.substring(1)}
-            onLinkClick={handleLinkClick}
+          {!sidebarCollapsed && (
+            <>
+              <Stack 
+                horizontal 
+                horizontalAlign="end" 
+                styles={{ 
+                  root: { 
+                    padding: '8px 8px 0 8px',
+                    borderBottom: '1px solid #e1dfdd',
+                  } 
+                }}
+              >
+                <IconButton
+                  iconProps={{ iconName: 'ChevronLeft' }}
+                  title="Close sidebar"
+                  ariaLabel="Close sidebar"
+                  onClick={() => setSidebarCollapsed(true)}
+                  styles={{
+                    root: {
+                      color: '#605e5c',
+                    },
+                    rootHovered: {
+                      backgroundColor: '#edebe9',
+                    },
+                  }}
+                />
+              </Stack>
+              <Nav
+                groups={navLinkGroups}
+                selectedKey={location.pathname.substring(1)}
+                onLinkClick={handleLinkClick}
+                styles={{
+                  root: {
+                    width: 250,
+                    '& .ms-Nav-groupHeader': {
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: '#605e5c',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      padding: '8px 12px',
+                    },
+                  },
+                  groupContent: {
+                    marginBottom: 0,
+                  },
+                  group: {
+                    marginTop: 8,
+                  },
+                  link: {
+                    backgroundColor: 'transparent',
+                    color: '#323130',
+                    fontSize: 14,
+                    height: 40,
+                    lineHeight: 40,
+                    selectors: {
+                      ':hover': {
+                        backgroundColor: '#edebe9',
+                        color: '#323130',
+                      },
+                      '.is-selected': {
+                        backgroundColor: '#59AAD5',
+                        color: 'white',
+                      },
+                      '.is-selected:hover': {
+                        backgroundColor: '#4a99c4',
+                        color: 'white',
+                      },
+                    },
+                  },
+                  compositeLink: {
+                    backgroundColor: 'transparent',
+                    selectors: {
+                      ':hover': {
+                        backgroundColor: '#edebe9',
+                      },
+                      '.is-selected': {
+                        backgroundColor: '#59AAD5',
+                      },
+                      '.is-selected:hover': {
+                        backgroundColor: '#4a99c4',
+                      },
+                    },
+                  },
+                }}
+              />
+            </>
+          )}
+        </Stack.Item>
+        
+        {sidebarCollapsed && (
+          <Stack.Item
             styles={{
               root: {
-                width: 250,
-                '& .ms-Nav-groupHeader': {
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: '#605e5c',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.5px',
-                  padding: '8px 12px',
-                },
-              },
-              groupContent: {
-                marginBottom: 0,
-              },
-              group: {
-                marginTop: 8,
-              },
-              link: {
-                backgroundColor: 'transparent',
-                color: '#323130',
-                fontSize: 14,
-                height: 40,
-                lineHeight: 40,
-                selectors: {
-                  ':hover': {
-                    backgroundColor: '#edebe9',
-                    color: '#323130',
-                  },
-                  '.is-selected': {
-                    backgroundColor: '#59AAD5',
-                    color: 'white',
-                  },
-                  '.is-selected:hover': {
-                    backgroundColor: '#4a99c4',
-                    color: 'white',
-                  },
-                },
-              },
-              compositeLink: {
-                backgroundColor: 'transparent',
-                selectors: {
-                  ':hover': {
-                    backgroundColor: '#edebe9',
-                  },
-                  '.is-selected': {
-                    backgroundColor: '#59AAD5',
-                  },
-                  '.is-selected:hover': {
-                    backgroundColor: '#4a99c4',
-                  },
-                },
+                position: 'absolute',
+                left: 0,
+                top: 68,
+                zIndex: 10,
               },
             }}
-          />
-        </Stack.Item>
+          >
+            <IconButton
+              iconProps={{ iconName: 'GlobalNavButton' }}
+              title="Open sidebar"
+              ariaLabel="Open sidebar"
+              onClick={() => setSidebarCollapsed(false)}
+              styles={{
+                root: {
+                  backgroundColor: '#f3f2f1',
+                  borderRadius: '0 4px 4px 0',
+                  border: '1px solid #e1dfdd',
+                  borderLeft: 'none',
+                },
+                rootHovered: {
+                  backgroundColor: '#edebe9',
+                },
+              }}
+            />
+          </Stack.Item>
+        )}
 
         <Stack.Item
           grow
