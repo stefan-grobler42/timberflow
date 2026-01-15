@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Stack, Text, CommandBar, Spinner, MessageBar, MessageBarType,
-  Toggle, IconButton, mergeStyles
+  Toggle, IconButton, mergeStyles, Dropdown
 } from '@fluentui/react';
-import type { ICommandBarItemProps } from '@fluentui/react';
+import type { ICommandBarItemProps, IDropdownOption } from '@fluentui/react';
 import { jigService, scheduleBlockService, type ScheduleBlock } from '../services/millenniumServices';
 import { productionService } from '../services/d365Services';
 import { jobAllocationService, type JobAllocationDto, type CreateJobAllocationDto } from '../services/jobAllocationService';
@@ -283,6 +283,69 @@ export const WaterfallPlannerPage = () => {
       setOperationInProgress(false);
     }
   }, [daySettings]);
+
+  const handleOtTimeChange = useCallback(async (teamId: string, dateStr: string, type: 'early' | 'late', minutes: number) => {
+    setOperationInProgress(true);
+    try {
+      const key = `${teamId}|${dateStr}`;
+      const existing = daySettings.get(key);
+      
+      const dto = {
+        teamId,
+        workDate: dateStr,
+        earlyOtEnabled: existing?.earlyOtEnabled ?? false,
+        earlyOtStartMinutes: type === 'early' ? minutes : (existing?.earlyOtStartMinutes ?? EARLY_OT_DEFAULT_START),
+        lateOtEnabled: existing?.lateOtEnabled ?? false,
+        lateOtEndMinutes: type === 'late' ? minutes : (existing?.lateOtEndMinutes ?? LATE_OT_DEFAULT_END),
+        isWorkingDay: existing?.isWorkingDay ?? true
+      };
+
+      const result = await teamDaySettingsService.upsert(dto);
+      
+      setDaySettings(prev => {
+        const next = new Map(prev);
+        next.set(key, result);
+        return next;
+      });
+    } catch (err) {
+      console.error('Failed to update OT time:', err);
+      setError('Failed to update overtime time');
+    } finally {
+      setOperationInProgress(false);
+    }
+  }, [daySettings]);
+
+  const earlyOtTimeOptions: IDropdownOption[] = useMemo(() => {
+    const options: IDropdownOption[] = [];
+    for (let h = 5; h <= 7; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const minutes = h * 60 + m;
+        if (minutes >= 300 && minutes <= 420) {
+          options.push({ key: minutes, text: formatTime(minutes) });
+        }
+      }
+    }
+    return options;
+  }, []);
+
+  const lateOtTimeOptions: IDropdownOption[] = useMemo(() => {
+    const options: IDropdownOption[] = [];
+    for (let h = 17; h <= 20; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const minutes = h * 60 + m;
+        if (minutes >= 1020 && minutes <= 1200) {
+          options.push({ key: minutes, text: formatTime(minutes) });
+        }
+      }
+    }
+    return options;
+  }, []);
+
+  const breakSlots = useMemo(() => [
+    { startMinutes: 9 * 60, endMinutes: 9 * 60 + 15, label: 'Tea', color: '#d4edda' },
+    { startMinutes: 12 * 60, endMinutes: 12 * 60 + 30, label: 'Lunch', color: '#fff3cd' },
+    { startMinutes: 17 * 60, endMinutes: 17 * 60 + 30, label: 'Dinner', color: '#f8d7da' }
+  ], []);
 
   const handleDragStart = useCallback((jobId: string) => {
     setDraggedJobId(jobId);
@@ -602,8 +665,6 @@ export const WaterfallPlannerPage = () => {
                       key={dateStr}
                       className={dayCellClass}
                       style={{ opacity: isCurrentMonthDay ? 1 : 0.5 }}
-                      onDragOver={handleDragOver}
-                      onDrop={() => teams.length > 0 && handleDropOnTeamDay(teams[0].id, dateStr)}
                     >
                       <div
                         className={isWeekendDay ? weekendHeaderClass : dayHeaderClass}
@@ -617,24 +678,28 @@ export const WaterfallPlannerPage = () => {
                         {teams.map(team => {
                           const count = getJobCountForTeamDay(team.id, dateStr);
                           const efinks = getTotalEfinksForTeamDay(team.id, dateStr);
-                          if (count === 0) return null;
                           return (
                             <Stack
                               key={team.id}
                               horizontal
                               horizontalAlign="space-between"
+                              onDragOver={handleDragOver}
+                              onDrop={(e) => { e.stopPropagation(); handleDropOnTeamDay(team.id, dateStr); }}
                               styles={{
                                 root: {
                                   padding: '2px 6px',
-                                  backgroundColor: team.colour || '#0078d4',
+                                  backgroundColor: count > 0 ? (team.colour || '#0078d4') : '#e1dfdd',
                                   borderRadius: 2,
-                                  color: 'white',
-                                  fontSize: 11
+                                  color: count > 0 ? 'white' : '#666',
+                                  fontSize: 11,
+                                  cursor: 'pointer',
+                                  minHeight: 18,
+                                  ':hover': { backgroundColor: team.colour || '#0078d4', color: 'white' }
                                 }
                               }}
                             >
-                              <Text variant="tiny" styles={{ root: { color: 'white' } }}>{team.name}</Text>
-                              <Text variant="tiny" styles={{ root: { color: 'white' } }}>{count} ({efinks})</Text>
+                              <Text variant="tiny" styles={{ root: { color: 'inherit' } }}>{team.name}</Text>
+                              {count > 0 && <Text variant="tiny" styles={{ root: { color: 'inherit' } }}>{count} ({efinks})</Text>}
                             </Stack>
                           );
                         })}
@@ -775,21 +840,41 @@ export const WaterfallPlannerPage = () => {
                   <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
                     {team.name}
                   </Text>
-                  <Stack horizontal tokens={{ childrenGap: 12 }} styles={{ root: { marginTop: 8 } }}>
-                    <Toggle
-                      label="Early OT"
-                      inlineLabel
-                      checked={settings.earlyOtEnabled}
-                      onChange={(_, checked) => handleOtToggle(team.id, selectedDay, 'early', !!checked)}
-                      styles={{ root: { marginBottom: 0 }, label: { fontSize: 11, color: 'white' } }}
-                    />
-                    <Toggle
-                      label="Late OT"
-                      inlineLabel
-                      checked={settings.lateOtEnabled}
-                      onChange={(_, checked) => handleOtToggle(team.id, selectedDay, 'late', !!checked)}
-                      styles={{ root: { marginBottom: 0 }, label: { fontSize: 11, color: 'white' } }}
-                    />
+                  <Stack horizontal tokens={{ childrenGap: 16 }} styles={{ root: { marginTop: 8 } }} wrap>
+                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                      <Toggle
+                        label="Early OT"
+                        inlineLabel
+                        checked={settings.earlyOtEnabled}
+                        onChange={(_, checked) => handleOtToggle(team.id, selectedDay, 'early', !!checked)}
+                        styles={{ root: { marginBottom: 0 }, label: { fontSize: 11, color: 'white' } }}
+                      />
+                      {settings.earlyOtEnabled && (
+                        <Dropdown
+                          options={earlyOtTimeOptions}
+                          selectedKey={settings.earlyOtStartMinutes ?? EARLY_OT_DEFAULT_START}
+                          onChange={(_, opt) => opt && handleOtTimeChange(team.id, selectedDay, 'early', opt.key as number)}
+                          styles={{ root: { width: 80 }, title: { fontSize: 11, minHeight: 24, lineHeight: 24, padding: '0 8px' }, dropdown: { minHeight: 24 } }}
+                        />
+                      )}
+                    </Stack>
+                    <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                      <Toggle
+                        label="Late OT"
+                        inlineLabel
+                        checked={settings.lateOtEnabled}
+                        onChange={(_, checked) => handleOtToggle(team.id, selectedDay, 'late', !!checked)}
+                        styles={{ root: { marginBottom: 0 }, label: { fontSize: 11, color: 'white' } }}
+                      />
+                      {settings.lateOtEnabled && (
+                        <Dropdown
+                          options={lateOtTimeOptions}
+                          selectedKey={settings.lateOtEndMinutes ?? LATE_OT_DEFAULT_END}
+                          onChange={(_, opt) => opt && handleOtTimeChange(team.id, selectedDay, 'late', opt.key as number)}
+                          styles={{ root: { width: 80 }, title: { fontSize: 11, minHeight: 24, lineHeight: 24, padding: '0 8px' }, dropdown: { minHeight: 24 } }}
+                        />
+                      )}
+                    </Stack>
                   </Stack>
                   <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)', marginTop: 4 } }}>
                     Working: {formatTime(dayCapacity.workingHours.startMinutes)} - {formatTime(dayCapacity.workingHours.endMinutes)}
@@ -819,6 +904,36 @@ export const WaterfallPlannerPage = () => {
                       {formatTime(h * 60)}
                     </div>
                   ))}
+
+                  {breakSlots.map((brk, idx) => {
+                    const showDinner = brk.label === 'Dinner' && settings.lateOtEnabled;
+                    if (brk.label === 'Dinner' && !showDinner) return null;
+                    const top = ((brk.startMinutes / 60) - 6) * 40;
+                    const height = ((brk.endMinutes - brk.startMinutes) / 60) * 40;
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          position: 'absolute',
+                          top,
+                          left: 40,
+                          right: 8,
+                          height,
+                          backgroundColor: brk.color,
+                          borderRadius: 2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: 10,
+                          color: '#666',
+                          zIndex: 1,
+                          opacity: 0.8
+                        }}
+                      >
+                        {brk.label}
+                      </div>
+                    );
+                  })}
 
                   {teamJobs.map(job => {
                     const startMinutes = job.spanStartMinutes ?? DEFAULT_WORKING_HOURS.startMinutes;
