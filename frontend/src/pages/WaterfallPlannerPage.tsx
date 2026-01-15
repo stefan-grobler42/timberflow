@@ -4,7 +4,7 @@ import {
   Toggle, IconButton, mergeStyles
 } from '@fluentui/react';
 import type { ICommandBarItemProps } from '@fluentui/react';
-import { jigService } from '../services/millenniumServices';
+import { jigService, scheduleBlockService, type ScheduleBlock } from '../services/millenniumServices';
 import { productionService } from '../services/d365Services';
 import { jobAllocationService, type JobAllocationDto, type CreateJobAllocationDto } from '../services/jobAllocationService';
 import { teamDaySettingsService, type TeamDaySettingsDto } from '../services/teamDaySettingsService';
@@ -150,6 +150,7 @@ export const WaterfallPlannerPage = () => {
   const [unallocatedJobs, setUnallocatedJobs] = useState<UnallocatedJob[]>([]);
   const [allocations, setAllocations] = useState<JobAllocationDto[]>([]);
   const [daySettings, setDaySettings] = useState<Map<string, TeamDaySettingsDto>>(new Map());
+  const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   
   const [viewMode, setViewMode] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -167,11 +168,12 @@ export const WaterfallPlannerPage = () => {
       const dateFrom = formatDateStr(new Date(today.getFullYear(), today.getMonth() - 3, 1));
       const dateTo = formatDateStr(new Date(today.getFullYear(), today.getMonth() + 6, 0));
 
-      const [teamsData, productionsData, allocationsData, settingsData] = await Promise.all([
+      const [teamsData, productionsData, allocationsData, settingsData, blocksData] = await Promise.all([
         jigService.getAll(),
         productionService.getForPlanner({ dateFrom, dateTo }),
         jobAllocationService.getAll({ dateFrom, dateTo }),
-        teamDaySettingsService.getRange({ dateFrom, dateTo })
+        teamDaySettingsService.getRange({ dateFrom, dateTo }),
+        scheduleBlockService.getAll({ dateFrom, dateTo })
       ]);
 
       setTeams(teamsData.sort((a: Jig, b: Jig) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0)));
@@ -199,6 +201,7 @@ export const WaterfallPlannerPage = () => {
         settingsMap.set(`${s.teamId}|${s.workDate}`, s);
       }
       setDaySettings(settingsMap);
+      setScheduleBlocks(blocksData);
 
     } catch (err) {
       console.error('Error loading data:', err);
@@ -229,6 +232,22 @@ export const WaterfallPlannerPage = () => {
       lateOtEnabled: false
     };
   }, [daySettings]);
+
+  const getBlocksForDate = useCallback((teamId: string, dateStr: string) => {
+    return scheduleBlocks
+      .filter(block => {
+        const matchesDate = block.dateStr === dateStr;
+        const matchesTeam = block.teamId === null || block.teamId === teamId;
+        return matchesDate && matchesTeam;
+      })
+      .map(block => ({
+        id: block.id,
+        type: block.blockType,
+        startMinutes: block.startTimeMinutes ?? 0,
+        endMinutes: block.endTimeMinutes ?? 0,
+        isFullDay: block.blockType === 'PublicHoliday'
+      }));
+  }, [scheduleBlocks]);
 
   const handleOtToggle = useCallback(async (teamId: string, dateStr: string, type: 'early' | 'late', enabled: boolean) => {
     setOperationInProgress(true);
@@ -293,13 +312,15 @@ export const WaterfallPlannerPage = () => {
         : teamAllocations.length + 1;
 
       const settings = getDaySettingsForDate(teamId, dateStr);
+      const blocks = getBlocksForDate(teamId, dateStr);
       const dayCapacity = getDayCapacity(
         dateStr,
         settings.earlyOtEnabled,
         settings.earlyOtStartMinutes,
         settings.lateOtEnabled,
         settings.lateOtEndMinutes,
-        []
+        blocks,
+        settings.isWorkingDay
       );
 
       let startMinutes = dayCapacity.workingHours.startMinutes;
@@ -329,7 +350,7 @@ export const WaterfallPlannerPage = () => {
       };
 
       const getDaySettingsFn = (d: string): DaySettings => getDaySettingsForDate(teamId, d);
-      const getBlocksFn = () => [];
+      const getBlocksFn = (d: string) => getBlocksForDate(teamId, d);
 
       const scheduleResult = scheduleJob(tempAllocation, getDaySettingsFn, getBlocksFn, teamAverageEfinks);
 
@@ -361,7 +382,7 @@ export const WaterfallPlannerPage = () => {
       setDraggedJobId(null);
       setOperationInProgress(false);
     }
-  }, [draggedJobId, unallocatedJobs, allocations, getDaySettingsForDate, teams]);
+  }, [draggedJobId, unallocatedJobs, allocations, getDaySettingsForDate, getBlocksForDate, teams]);
 
   const handleDeleteAllocation = useCallback(async (allocationId: string) => {
     setOperationInProgress(true);
