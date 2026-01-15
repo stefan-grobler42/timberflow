@@ -12,6 +12,7 @@ import type { Jig } from '../types/millennium';
 import { eFinksToMinutes, scheduleJob, type DaySettings } from '../domain/waterfallScheduler/scheduler';
 import { getDayCapacity, addDays } from '../domain/waterfallScheduler/dayCapacity';
 import { EARLY_OT_DEFAULT_START, LATE_OT_DEFAULT_END, type JobAllocation } from '../domain/waterfallScheduler/types';
+import { TimeLoggingPanel } from '../components/WaterfallPlanner/TimeLoggingPanel';
 
 type ViewMode = 'month' | 'week' | 'day';
 
@@ -159,6 +160,9 @@ export const WaterfallPlannerPage = () => {
   
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
   const [operationInProgress, setOperationInProgress] = useState(false);
+  
+  const [selectedAllocation, setSelectedAllocation] = useState<JobAllocationDto | null>(null);
+  const [timeLogPanelOpen, setTimeLogPanelOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -395,6 +399,16 @@ export const WaterfallPlannerPage = () => {
     } finally {
       setOperationInProgress(false);
     }
+  }, []);
+
+  const handleOpenTimeLog = useCallback((allocation: JobAllocationDto) => {
+    setSelectedAllocation(allocation);
+    setTimeLogPanelOpen(true);
+  }, []);
+
+  const handleCloseTimeLog = useCallback(() => {
+    setTimeLogPanelOpen(false);
+    setSelectedAllocation(null);
   }, []);
 
   const daysInView = useMemo(() => {
@@ -836,11 +850,20 @@ export const WaterfallPlannerPage = () => {
                           <Text variant="tiny" styles={{ root: { fontWeight: 600, color: 'white' } }}>
                             {job.orderNumber}
                           </Text>
-                          <IconButton
-                            iconProps={{ iconName: 'Delete' }}
-                            styles={{ root: { height: 14, width: 14 }, icon: { fontSize: 10, color: 'white' } }}
-                            onClick={() => handleDeleteAllocation(job.id)}
-                          />
+                          <Stack horizontal tokens={{ childrenGap: 4 }}>
+                            <IconButton
+                              iconProps={{ iconName: 'Clock' }}
+                              title="Log Time"
+                              styles={{ root: { height: 14, width: 14 }, icon: { fontSize: 10, color: 'white' } }}
+                              onClick={(e) => { e.stopPropagation(); handleOpenTimeLog(job); }}
+                            />
+                            <IconButton
+                              iconProps={{ iconName: 'Delete' }}
+                              title="Remove"
+                              styles={{ root: { height: 14, width: 14 }, icon: { fontSize: 10, color: 'white' } }}
+                              onClick={(e) => { e.stopPropagation(); handleDeleteAllocation(job.id); }}
+                            />
+                          </Stack>
                         </Stack>
                         <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
                           {job.customerName}
@@ -927,6 +950,14 @@ export const WaterfallPlannerPage = () => {
           {viewMode === 'day' && renderDayView()}
         </div>
       </div>
+
+      <TimeLoggingPanel
+        isOpen={timeLogPanelOpen}
+        onDismiss={handleCloseTimeLog}
+        allocation={selectedAllocation}
+        workDate={selectedDay || formatDateStr(new Date())}
+        onSaved={loadData}
+      />
     </div>
   );
 };

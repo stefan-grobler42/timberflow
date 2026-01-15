@@ -179,6 +179,120 @@ public class JobWorkLogsController : ControllerBase
         return Ok(MapToDto(result!));
     }
 
+    [HttpGet("report/team-efficiency")]
+    public async Task<ActionResult<object>> GetTeamEfficiencyReport(
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null)
+    {
+        var fromDate = DateTime.TryParse(dateFrom, out var from) ? from : DateTime.UtcNow.AddMonths(-3);
+        var toDate = DateTime.TryParse(dateTo, out var to) ? to : DateTime.UtcNow;
+
+        var logs = await _context.JobWorkLogs
+            .Include(l => l.Allocation)
+            .ThenInclude(a => a!.Team)
+            .Where(l => l.WorkDate >= fromDate && l.WorkDate <= toDate)
+            .Where(l => l.EfinksCompleted.HasValue && l.ActualDurationMinutes.HasValue)
+            .ToListAsync();
+
+        var teamStats = logs
+            .Where(l => l.Allocation?.Team != null)
+            .GroupBy(l => new { TeamId = l.Allocation!.TeamId, TeamName = l.Allocation!.Team!.Name })
+            .Select(g => new
+            {
+                teamId = g.Key.TeamId,
+                teamName = g.Key.TeamName,
+                totalJobsLogged = g.Count(),
+                totalEfinksCompleted = g.Sum(l => l.EfinksCompleted ?? 0),
+                totalActualMinutes = g.Sum(l => l.ActualDurationMinutes ?? 0),
+                averageEfinksPerHour = g.Sum(l => l.ActualDurationMinutes ?? 0) > 0
+                    ? Math.Round((double)(g.Sum(l => l.EfinksCompleted ?? 0) / (g.Sum(l => l.ActualDurationMinutes ?? 0) / 60.0m)), 2)
+                    : 0,
+                suggestedAverageEfinks = g.Sum(l => l.ActualDurationMinutes ?? 0) > 0
+                    ? Math.Round((double)(g.Sum(l => l.EfinksCompleted ?? 0) / (g.Sum(l => l.ActualDurationMinutes ?? 0) / 480.0m)), 0)
+                    : 80
+            })
+            .OrderByDescending(t => t.averageEfinksPerHour)
+            .ToList();
+
+        var summary = new
+        {
+            dateFrom = fromDate.ToString("yyyy-MM-dd"),
+            dateTo = toDate.ToString("yyyy-MM-dd"),
+            totalLogsAnalyzed = logs.Count,
+            teamEfficiency = teamStats
+        };
+
+        _logger.LogInformation("Team efficiency report generated for {DateFrom} to {DateTo} with {Count} teams",
+            fromDate.ToString("yyyy-MM-dd"), toDate.ToString("yyyy-MM-dd"), teamStats.Count);
+
+        return Ok(summary);
+    }
+
+    [HttpGet("report/accuracy-analysis")]
+    public async Task<ActionResult<object>> GetAccuracyAnalysis(
+        [FromQuery] string? dateFrom = null,
+        [FromQuery] string? dateTo = null)
+    {
+        var fromDate = DateTime.TryParse(dateFrom, out var from) ? from : DateTime.UtcNow.AddMonths(-3);
+        var toDate = DateTime.TryParse(dateTo, out var to) ? to : DateTime.UtcNow;
+
+        var allocationsWithLogs = await _context.JobAllocations
+            .Include(a => a.Team)
+            .Include(a => a.WorkLogs)
+            .Where(a => a.SpanStartDate >= fromDate && a.SpanStartDate <= toDate)
+            .Where(a => a.WorkLogs.Any(l => l.EfinksCompleted.HasValue))
+            .ToListAsync();
+
+        var analysisData = allocationsWithLogs.Select(a => 
+        {
+            var totalActualEfinks = a.WorkLogs.Sum(l => l.EfinksCompleted ?? 0);
+            var totalActualMinutes = a.WorkLogs.Sum(l => l.ActualDurationMinutes ?? 0);
+            var estimatedEfinks = a.EstimatedEfinks;
+            var estimatedMinutes = a.EstimatedDurationMinutes;
+
+            return new
+            {
+                allocationId = a.Id,
+                orderNumber = a.OrderNumber,
+                teamName = a.Team?.Name,
+                estimatedEfinks = estimatedEfinks,
+                actualEfinks = totalActualEfinks,
+                eFinksVariance = totalActualEfinks - estimatedEfinks,
+                eFinksAccuracyPercent = estimatedEfinks > 0 
+                    ? Math.Round((double)(totalActualEfinks / estimatedEfinks * 100), 1)
+                    : 0,
+                estimatedMinutes = estimatedMinutes,
+                actualMinutes = totalActualMinutes,
+                minutesVariance = totalActualMinutes - estimatedMinutes
+            };
+        })
+        .OrderBy(a => a.eFinksAccuracyPercent)
+        .ToList();
+
+        var overEstimated = analysisData.Count(a => a.eFinksAccuracyPercent < 90);
+        var accurate = analysisData.Count(a => a.eFinksAccuracyPercent >= 90 && a.eFinksAccuracyPercent <= 110);
+        var underEstimated = analysisData.Count(a => a.eFinksAccuracyPercent > 110);
+
+        var summary = new
+        {
+            dateFrom = fromDate.ToString("yyyy-MM-dd"),
+            dateTo = toDate.ToString("yyyy-MM-dd"),
+            totalJobsAnalyzed = analysisData.Count,
+            overEstimatedJobs = overEstimated,
+            accurateJobs = accurate,
+            underEstimatedJobs = underEstimated,
+            averageAccuracyPercent = analysisData.Count > 0
+                ? Math.Round(analysisData.Average(a => a.eFinksAccuracyPercent), 1)
+                : 0,
+            jobs = analysisData.Take(100).ToList()
+        };
+
+        _logger.LogInformation("Accuracy analysis report generated for {DateFrom} to {DateTo} with {Count} jobs",
+            fromDate.ToString("yyyy-MM-dd"), toDate.ToString("yyyy-MM-dd"), analysisData.Count);
+
+        return Ok(summary);
+    }
+
     private static JobWorkLogDto MapToDto(JobWorkLog log)
     {
         return new JobWorkLogDto

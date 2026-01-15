@@ -92,5 +92,7 @@ namespace MillenniumERP.Domain.Entities
 
         [ForeignKey("TeamId")]
         public Jig? Team { get; set; }
+
+        public ICollection<JobWorkLog> WorkLogs { get; set; } = new List<JobWorkLog>();
     }
 }
