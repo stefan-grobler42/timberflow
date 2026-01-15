@@ -853,7 +853,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       </Stack>
 
       {/* Main layout: Planner grid + Unallocated column attached on right */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'auto' }}>
+      <div style={{ display: 'flex', flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
         {/* Planner grid (time column + team columns) */}
         <div style={{ display: 'flex', flex: 1 }}>
           {/* Time header column */}
@@ -946,7 +946,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const teamTimelineSegments = generateVisibleTimelineSegmentsMinutes(teamWorkingMinutes);
 
           return (
-            <Stack key={jig.id} styles={{ root: { flex: 1, minWidth: 180, borderRight: '1px solid #ddd' } }}>
+            <Stack key={jig.id} styles={{ root: { flex: 1, minWidth: 0, borderRight: '1px solid #ddd' } }}>
               {/* Overtime controls - positioned above header */}
               <Stack>
                 {/* Early OT row - 24px height + 1px border = 25px total */}
