@@ -11,7 +11,7 @@ import { teamDaySettingsService, type TeamDaySettingsDto } from '../services/tea
 import type { Jig } from '../types/millennium';
 import { eFinksToMinutes, scheduleJob, type DaySettings } from '../domain/waterfallScheduler/scheduler';
 import { getDayCapacity, addDays } from '../domain/waterfallScheduler/dayCapacity';
-import { EARLY_OT_DEFAULT_START, LATE_OT_DEFAULT_END, type JobAllocation } from '../domain/waterfallScheduler/types';
+import { EARLY_OT_DEFAULT_START, LATE_OT_DEFAULT_END, DEFAULT_WORKING_HOURS, type JobAllocation } from '../domain/waterfallScheduler/types';
 import { TimeLoggingPanel } from '../components/WaterfallPlanner/TimeLoggingPanel';
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -425,7 +425,8 @@ export const WaterfallPlannerPage = () => {
   const allocationsByTeamAndDate = useMemo(() => {
     const map = new Map<string, JobAllocationDto[]>();
     for (const alloc of allocations) {
-      const key = `${alloc.teamId}|${alloc.spanStartDate}`;
+      const dateOnly = alloc.spanStartDate.substring(0, 10);
+      const key = `${alloc.teamId}|${dateOnly}`;
       const existing = map.get(key) || [];
       existing.push(alloc);
       map.set(key, existing);
