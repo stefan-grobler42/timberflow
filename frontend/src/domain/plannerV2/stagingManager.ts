@@ -475,13 +475,11 @@ export function getStagingSummary(state: StagingState): {
   total: number;
   allocations: number;
   cascades: number;
-  rollovers: number;
   unallocations: number;
   affectedDays: number;
 } {
   let allocations = 0;
   let cascades = 0;
-  let rollovers = 0;
   let unallocations = 0;
   
   for (const change of state.stagedChanges.values()) {
@@ -491,9 +489,6 @@ export function getStagingSummary(state: StagingState): {
         break;
       case 'cascade':
         cascades++;
-        break;
-      case 'rollover':
-        rollovers++;
         break;
       case 'unallocate':
         unallocations++;
@@ -505,7 +500,6 @@ export function getStagingSummary(state: StagingState): {
     total: state.stagedChanges.size,
     allocations,
     cascades,
-    rollovers,
     unallocations,
     affectedDays: state.affectedDates.size
   };

@@ -1,4 +1,4 @@
-import { Stack, Text, Spinner, Toggle, Dropdown, Dialog, DialogType, DialogFooter, PrimaryButton, DefaultButton, IconButton } from '@fluentui/react';
+import { Stack, Text, Spinner, Toggle, Dropdown, IconButton } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
@@ -31,8 +31,6 @@ interface Job {
   jigId: string | null;
   productionComplete: boolean;
   customDurationMinutes?: number;
-  parentProductionId?: string | null;
-  rolloverSequence?: number;
   createdOn?: string;
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
@@ -69,14 +67,6 @@ interface JobPositionInfo {
   totalBreakMinutes: number;
 }
 
-interface OverflowInfo {
-  jobId: string;
-  jobName: string;
-  orderNumber: string;
-  overflowMinutes: number;
-  jigId: string | null;
-  jigName: string;
-}
 
 interface TeamOvertimeSettings {
   enabled: boolean;
@@ -90,7 +80,6 @@ interface DayViewProps {
   jobs: Job[];
   allJobs: Job[];
   jigTeams: Jig[];
-  chainJobsMap: Map<string, Job[]>;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
@@ -98,7 +87,6 @@ interface DayViewProps {
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
-  onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
   onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: number, additionalMinutes?: number) => void;
   onTeamEarlyOvertimeChange?: (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => void;
@@ -115,7 +103,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   jobs,
   allJobs: _allJobs,
   jigTeams,
-  chainJobsMap,
   onDragStart,
   onDragOver,
   onDrop,
@@ -123,7 +110,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onJobDurationChange,
   onJobDurationReset,
   onTeamDoubleClick,
-  onJobRollover,
   overtimeByTeam = {},
   onTeamOvertimeChange,
   onTeamEarlyOvertimeChange,
@@ -140,9 +126,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
-  const [overflowDialogOpen, setOverflowDialogOpen] = useState(false);
-  const [currentOverflow, setCurrentOverflow] = useState<OverflowInfo | null>(null);
-  const [overflowingJobs, setOverflowingJobs] = useState<Set<string>>(new Set());
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
@@ -440,27 +423,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);
   }, [jobs, dayStr]);
 
-  // chainJobsMap is now passed from parent (computed from baseJobs for stability)
-
   const getJobsForDateAndJig = (_dateStr: string, jigId: string) => {
     return jobsByJig.get(jigId) || [];
   };
 
-  const getUnallocatedJobsForDate = (_dateStr: string) => {
-    return unallocatedJobs;
-  };
-
-  const isLastInChain = useCallback((job: Job): boolean => {
-    const rootId = job.parentProductionId || job.id;
-    const chainJobs = chainJobsMap.get(rootId) || [];
-    
-    if (chainJobs.length <= 1) return true;
-    
-    const maxSequence = Math.max(...chainJobs.map(j => j.rolloverSequence || 0));
-    const jobSequence = job.rolloverSequence || 0;
-    
-    return jobSequence === maxSequence;
-  }, [chainJobsMap]);
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -501,40 +467,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       
       const finalDuration = currentResizeDuration.current;
       if (finalDuration > 0 && onJobDurationChange) {
-        // Clear the local customDurations entry - the parent will stage the change
         setCustomDurations(prev => {
           const next = { ...prev };
           delete next[jobId];
           return next;
         });
         onJobDurationChange(jobId, finalDuration);
-        
-        const job = jobs.find(j => j.id === jobId);
-        if (job && isLastInChain(job)) {
-          const jigJobs = job.jigId 
-            ? getJobsForDateAndJig(dayStr, job.jigId)
-            : getUnallocatedJobsForDate(dayStr);
-          
-          const jobsWithUpdatedDuration = jigJobs.map(j => 
-            j.id === jobId ? { ...j, customDurationMinutes: finalDuration } : j
-          );
-          
-          const { overflowing, overflowDetails } = checkJobOverflow(jobsWithUpdatedDuration, job.jigId);
-          
-          if (overflowing.has(jobId) && overflowDetails.get(jobId)) {
-            const overflowAmount = overflowDetails.get(jobId) || 0;
-            const jigName = job.jigId ? (jigTeams.find(j => j.id === job.jigId)?.name || 'Unknown Team') : 'Unallocated';
-            setCurrentOverflow({
-              jobId: job.id,
-              jobName: job.name,
-              orderNumber: job.orderNumber,
-              overflowMinutes: overflowAmount,
-              jigId: job.jigId,
-              jigName
-            });
-            setOverflowDialogOpen(true);
-          }
-        }
       }
     };
 
@@ -587,105 +525,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return positions;
   };
 
-  const getNextDateStr = (dateStr: string): string => {
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + 1);
-    return date.toISOString().split('T')[0];
-  };
 
-  const getWorkingEndMinutes = (): number => {
-    if (!workingHours) return 17 * 60;
-    return workingHours.end * 60;
-  };
-
-  const checkJobOverflow = useCallback((jigJobs: Job[], jigId: string | null): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
-    const overflowing = new Set<string>();
-    const overflowDetails = new Map<string, number>();
-    
-    // CRITICAL: Use team-specific OT end time, not base working hours
-    // This prevents OT toggle from re-triggering rollover dialogs
-    let workingEnd = getWorkingEndMinutes(); // base 17:00 = 1020
-    if (jigId) {
-      const teamOT = getTeamOvertime(jigId);
-      if (teamOT.enabled && teamOT.closeTime) {
-        workingEnd = teamOT.closeTime; // OT end time (e.g., 1140 = 19:00)
-      }
-    }
-    
-    const workingHoursOffset = getWorkingHoursOffset();
-
-    // CALENDAR-STYLE: Check each job independently at its stored position
-    for (const job of jigJobs) {
-      const baseDuration = getBaseDurationMinutes(job);
-      const jobStart = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
-      
-      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration);
-      const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
-      
-      const jobEndMinutes = jobStart + baseDuration + totalBreakMinutes;
-      
-      if (jobEndMinutes > workingEnd) {
-        overflowing.add(job.id);
-        const overflowAmount = jobEndMinutes - workingEnd;
-        overflowDetails.set(job.id, overflowAmount);
-      }
-    }
-
-    return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations, getBaseDuration, getTeamOvertime]);
-
-  useEffect(() => {
-    if (!workingHours) return;
-    
-    const allOverflowing = new Set<string>();
-    
-    jigTeams.forEach(jig => {
-      const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
-      const { overflowing } = checkJobOverflow(jigJobs, jig.id);
-      overflowing.forEach(id => allOverflowing.add(id));
-    });
-    
-    const unallocatedJobsList = getUnallocatedJobsForDate(dayStr);
-    const { overflowing: unallocOverflow } = checkJobOverflow(unallocatedJobsList, null);
-    unallocOverflow.forEach(id => allOverflowing.add(id));
-    
-    setOverflowingJobs(allOverflowing);
-  }, [jobs, workingHours, breakSlots, customDurations, dayStr, jigTeams, checkJobOverflow]);
-
-  const handleOverflowClick = (job: Job, jigId: string | null, overflowMinutes: number) => {
-    const jigName = jigId ? (jigTeams.find(j => j.id === jigId)?.name || 'Unknown Team') : 'Unallocated';
-    setCurrentOverflow({
-      jobId: job.id,
-      jobName: job.name,
-      orderNumber: job.orderNumber,
-      overflowMinutes,
-      jigId,
-      jigName
-    });
-    setOverflowDialogOpen(true);
-  };
-
-  const handleRollover = () => {
-    if (currentOverflow && onJobRollover) {
-      const nextDateStr = getNextDateStr(dayStr);
-      onJobRollover(currentOverflow.jobId, currentOverflow.overflowMinutes, nextDateStr, currentOverflow.jigId);
-    }
-    setOverflowDialogOpen(false);
-    setCurrentOverflow(null);
-  };
-
-  const handleReduceTime = () => {
-    if (currentOverflow) {
-      const job = jobs.find(j => j.id === currentOverflow.jobId);
-      if (job && onJobDurationChange) {
-        const currentDuration = getBaseDurationMinutes(job);
-        const reducedDuration = Math.max(PlannerV2.MIN_DURATION, currentDuration - currentOverflow.overflowMinutes);
-        onJobDurationChange(currentOverflow.jobId, reducedDuration);
-      }
-    }
-    setOverflowDialogOpen(false);
-    setCurrentOverflow(null);
-  };
 
   const calculateDropZones = useCallback((jigId: string): { position: number; afterJobId: string | null }[] => {
     if (!workingHours) return [];
@@ -1447,30 +1287,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   })}
 
                 {/* Job blocks */}
-                {(() => {
-                  const { overflowDetails } = checkJobOverflow(jigJobs, jig.id);
-                  const workingEnd = getWorkingEndMinutes();
-                  
-                  return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
-                    const isOverflowing = overflowingJobs.has(job.id);
-                    const overflowMinutes = overflowDetails.get(job.id) || 0;
-                    const maxHeight = Math.max(0, (workingEnd - top) * PlannerV2.PIXELS_PER_MINUTE - 4);
-                    const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
-                    
+                {calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const getBackground = () => {
-                      if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                     };
                     
                     const getBorder = () => {
-                      if (isOverflowing) return '2px solid #ff4444';
                       if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
                       return '1px solid rgba(255, 255, 255, 0.3)';
                     };
                     
                     const getBoxShadow = () => {
-                      if (isOverflowing) return '0 4px 12px rgba(198, 40, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
                     };
@@ -1483,24 +1311,19 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         draggable={canInteract}
                         onDragStart={() => canInteract && onDragStart(job.id)}
                         onDoubleClick={() => onJobDoubleClick(job.id)}
-                        onClick={() => {
-                          if (isOverflowing) {
-                            handleOverflowClick(job, jig.id, overflowMinutes);
-                          }
-                        }}
                         style={{
                           position: 'absolute',
                           top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                           left: 4,
                           right: 4,
-                          height: clampedHeight,
+                          height: height,
                           padding: 8,
                           boxSizing: 'border-box',
                           background: getBackground(),
                           color: job.productionComplete ? '#555' : 'white',
                           borderRadius: 6,
                           border: getBorder(),
-                          cursor: isOverflowing ? 'pointer' : (resizingJob ? 'ns-resize' : 'grab'),
+                          cursor: resizingJob ? 'ns-resize' : 'grab',
                           zIndex: resizingJob === job.id ? 100 : 10,
                           boxShadow: getBoxShadow(),
                           opacity: job.productionComplete ? 0.7 : 1,
@@ -1541,24 +1364,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             }}
                           />
                         )}
-                        {/* Overflow indicator */}
-                        {isOverflowing && (
-                          <Text styles={{ 
-                            root: { 
-                              position: 'absolute',
-                              top: 2,
-                              right: hasManualResize(job) && onJobDurationReset ? 26 : 4,
-                              color: '#ffff00', 
-                              fontWeight: 700, 
-                              fontSize: 18, 
-                              lineHeight: 1 
-                            } 
-                          }}>!</Text>
-                        )}
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
                             <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                              {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
+                              {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
                             </Text>
                             <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                               {job.customer}
@@ -1575,14 +1384,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               : `(${formatDuration(getBaseDurationMinutes(job))})`
                             }
                           </Text>
-                          {isOverflowing && (
-                            <Text variant="tiny" styles={{ root: { color: '#ffff00', fontWeight: 600 } }}>
-                              Overflow: {formatDuration(overflowMinutes)}
-                            </Text>
-                          )}
                         </Stack>
-                        {/* Resize handle - only show if job is last in chain and not completed */}
-                        {isLastInChain(job) && !job.productionComplete && (
+                        {/* Resize handle - bottom only, not completed */}
+                        {!job.productionComplete && (
                           <div
                             onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                             style={{
@@ -1610,8 +1414,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         )}
                       </div>
                     );
-                  });
-                })()}
+                  })}
               </div>
             </Stack>
           );
@@ -1690,25 +1493,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         )}
       </div>
 
-      {/* Overflow Dialog */}
-      <Dialog
-        hidden={!overflowDialogOpen}
-        onDismiss={() => setOverflowDialogOpen(false)}
-        dialogContentProps={{
-          type: DialogType.normal,
-          title: 'Job Exceeds Available Time',
-          subText: currentOverflow 
-            ? `Order "${currentOverflow.orderNumber}" on ${currentOverflow.jigName} exceeds the available time by ${formatDuration(currentOverflow.overflowMinutes)}. How would you like to handle this?`
-            : ''
-        }}
-        modalProps={{ isBlocking: true }}
-      >
-        <DialogFooter>
-          <PrimaryButton onClick={handleRollover} text="Roll Over to Next Day" />
-          <DefaultButton onClick={handleReduceTime} text="Reduce Time to Fit" />
-          <DefaultButton onClick={() => setOverflowDialogOpen(false)} text="Cancel" />
-        </DialogFooter>
-      </Dialog>
     </Stack>
   );
 };

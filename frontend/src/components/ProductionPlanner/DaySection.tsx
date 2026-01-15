@@ -1,6 +1,6 @@
 import { Stack, Text, Toggle, Dropdown, IconButton, Spinner } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
-import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
+import { useState, useCallback, useRef, useMemo, memo } from 'react';
 import { useDayShiftConfig, type BreakSlot } from '../../contexts/ShiftConfigContext';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
@@ -42,8 +42,6 @@ interface Job {
   jigId: string | null;
   productionComplete: boolean;
   customDurationMinutes?: number;
-  parentProductionId?: string | null;
-  rolloverSequence?: number;
   createdOn?: string;
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
@@ -82,7 +80,6 @@ interface DaySectionProps {
   jobs: Job[];
   allJobs: Job[];
   jigTeams: Jig[];
-  chainJobsMap: Map<string, Job[]>;
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
@@ -91,7 +88,6 @@ interface DaySectionProps {
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
-  onJobRollover?: (jobId: string, overflowMinutes: number, nextDateStr: string, jigId: string | null) => void;
   globalStaging?: PlannerV2.StagingState;
   scheduleBlocks?: ScheduleBlock[];
   onBlockClick?: (block: ScheduleBlock) => void;
@@ -111,7 +107,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
   jobs,
   allJobs: _allJobs,
   jigTeams,
-  chainJobsMap,
   onDragStart,
   onDragOver,
   onDrop,
@@ -120,7 +115,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
   onJobDurationChange,
   onJobDurationReset,
   onTeamDoubleClick,
-  onJobRollover: _onJobRollover,
   globalStaging,
   scheduleBlocks = [],
   onBlockClick,
@@ -136,7 +130,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
   
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
-  const [overflowingJobs, setOverflowingJobs] = useState<Set<string>>(new Set());
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
@@ -275,17 +268,9 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
     return jobs.filter(j => j.plannedDateStr === dateStr && !j.jigId);
   }, [jobs, dateStr]);
 
-  const isLastInChain = useCallback((job: Job): boolean => {
-    const rootId = job.parentProductionId || job.id;
-    const chainJobs = chainJobsMap.get(rootId) || [];
-    
-    if (chainJobs.length <= 1) return true;
-    
-    const maxSequence = Math.max(...chainJobs.map(j => j.rolloverSequence || 0));
-    const jobSequence = job.rolloverSequence || 0;
-    
-    return jobSequence === maxSequence;
-  }, [chainJobsMap]);
+  const isLastInChain = useCallback((_job: Job): boolean => {
+    return true;
+  }, []);
 
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
@@ -346,13 +331,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
     return start * 60;
   };
 
-  const getWorkingEndMinutes = (): number => {
-    if (!workingHours) return 17 * 60;
-    let end = workingHours.end;
-    if (lateOtEnabled) end += 2;
-    return end * 60;
-  };
-
   const getBaseDurationMinutes = (job: Job): number => {
     return getBaseDuration(job);
   };
@@ -404,48 +382,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
       return `+${totalMinutes}m (${labels.join(' + ')})`;
     }
   };
-
-  const checkJobOverflow = useCallback((jigJobs: Job[]): { overflowing: Set<string>; overflowDetails: Map<string, number> } => {
-    const overflowing = new Set<string>();
-    const overflowDetails = new Map<string, number>();
-    const workingEnd = getWorkingEndMinutes();
-    const workingHoursOffset = getWorkingHoursOffset();
-
-    for (const job of jigJobs) {
-      const baseDuration = getBaseDurationMinutes(job);
-      const jobStart = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
-      
-      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration);
-      const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
-      
-      const jobEndMinutes = jobStart + baseDuration + totalBreakMinutes;
-      
-      if (jobEndMinutes > workingEnd) {
-        overflowing.add(job.id);
-        const overflowAmount = jobEndMinutes - workingEnd;
-        overflowDetails.set(job.id, overflowAmount);
-      }
-    }
-
-    return { overflowing, overflowDetails };
-  }, [workingHours, breakSlots, customDurations, lateOtEnabled, earlyOtEnabled]);
-
-  useEffect(() => {
-    if (!workingHours) return;
-    
-    const allOverflowing = new Set<string>();
-    
-    jigTeams.forEach(jig => {
-      const jigJobs = jobsByJig.get(jig.id) || [];
-      const { overflowing } = checkJobOverflow(jigJobs);
-      overflowing.forEach(id => allOverflowing.add(id));
-    });
-    
-    const { overflowing: unallocOverflow } = checkJobOverflow(unallocatedJobs);
-    unallocOverflow.forEach(id => allOverflowing.add(id));
-    
-    setOverflowingJobs(allOverflowing);
-  }, [jobs, workingHours, checkJobOverflow, jigTeams, jobsByJig, unallocatedJobs]);
 
   const handleTimelineDragOver = useCallback((e: React.DragEvent, jigId: string) => {
     e.preventDefault();
@@ -807,21 +743,13 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                     })}
 
                   {(() => {
-                    const { overflowDetails } = checkJobOverflow(jigJobs);
-                    const workingEnd = getWorkingEndMinutes();
-                    
                     return calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
-                      const isOverflowing = overflowingJobs.has(job.id);
-                      const overflowMinutes = overflowDetails.get(job.id) || 0;
                       const adjustedTop = (top - visibleStart * 60) * PlannerV2.PIXELS_PER_MINUTE + 4;
-                      const maxHeight = Math.max(0, (workingEnd - top) * PlannerV2.PIXELS_PER_MINUTE - 4);
-                      const clampedHeight = isOverflowing ? Math.min(height, maxHeight) : height;
                       const jobIsStaged = isJobStaged(job.id);
                       const jobIsPrimary = isPrimaryStaged(job.id);
                       
                       const getBackground = () => {
                         if (jobIsStaged) return 'linear-gradient(135deg, rgba(255, 185, 0, 0.95), rgba(200, 140, 0, 0.85))';
-                        if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
                         if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                         return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                       };
@@ -829,7 +757,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                       const getBorder = () => {
                         if (jobIsPrimary) return '3px solid #ffb900';
                         if (jobIsStaged) return '2px dashed #ffb900';
-                        if (isOverflowing) return '2px solid #ff4444';
                         if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
                         return '1px solid rgba(255, 255, 255, 0.3)';
                       };
@@ -850,7 +777,7 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                             top: adjustedTop,
                             left: 4,
                             right: 4,
-                            height: clampedHeight,
+                            height: height,
                             padding: 8,
                             background: getBackground(),
                             color: jobIsStaged ? '#333' : (job.productionComplete ? '#555' : 'white'),
@@ -913,20 +840,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                             />
                           )}
 
-                          {isOverflowing && (
-                            <Text styles={{ 
-                              root: { 
-                                position: 'absolute',
-                                top: 2,
-                                right: hasManualResize(job) && onJobDurationReset ? 26 : 4,
-                                color: '#ffff00', 
-                                fontWeight: 700, 
-                                fontSize: 18, 
-                                lineHeight: 1 
-                              } 
-                            }}>!</Text>
-                          )}
-
                           <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                             <Stack>
                               <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
@@ -948,11 +861,6 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                             {breakAdditions.length > 0 && (
                               <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
                                 {formatBreakAdditions(breakAdditions)}
-                              </Text>
-                            )}
-                            {isOverflowing && (
-                              <Text variant="tiny" styles={{ root: { color: '#ffff00', fontWeight: 600 } }}>
-                                +{formatDuration(overflowMinutes)}
                               </Text>
                             )}
                           </Stack>

@@ -5,6 +5,8 @@
 
 /**
  * Represents a scheduled production job on the planner.
+ * CONTINUOUS FLOW MODEL: Jobs are single blocks that span their full duration.
+ * No parent/child relationships or rollover segments.
  */
 export interface ScheduledJob {
   /** Unique identifier for the job */
@@ -29,10 +31,6 @@ export interface ScheduledJob {
   customDurationMinutes: number | null;
   /** Minutes added due to breaks spanned by this job */
   breakAdjustmentMinutes: number | null;
-  /** Parent production ID for rollover jobs */
-  parentProductionId: string | null;
-  /** Sequence number for rollover parts (1 = first day, 2 = second day, etc.) */
-  rolloverSequence: number;
   /** Whether production is complete */
   productionComplete: boolean;
 }
@@ -76,7 +74,7 @@ export interface OvertimeSettings {
 /**
  * Enum for types of changes that can be staged.
  */
-export type ChangeType = 'allocate' | 'cascade' | 'rollover' | 'unallocate' | 'resize';
+export type ChangeType = 'allocate' | 'cascade' | 'unallocate' | 'resize';
 
 /**
  * Represents a staged change to a job before it's committed.
@@ -125,6 +123,7 @@ export interface EndTimeResult {
 
 /**
  * Summary of job timing after scheduling calculations.
+ * CONTINUOUS FLOW: Jobs are single blocks - no overflow to next day.
  */
 export interface JobTimingSummary {
   /** Start time in minutes from midnight */
@@ -137,6 +136,4 @@ export interface JobTimingSummary {
   totalDuration: number;
   /** Break minutes included in the job span */
   breakMinutes: number;
-  /** Minutes that overflow to next day (if any) */
-  overflowMinutes: number;
 }

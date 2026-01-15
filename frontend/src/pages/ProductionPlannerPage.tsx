@@ -36,8 +36,6 @@ interface Job {
   plannedDateStr: string | null;
   jigId: string | null;
   productionComplete: boolean;
-  parentProductionId?: string;
-  rolloverSequence?: number;
   createdOn?: string;
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
@@ -163,7 +161,6 @@ export const ProductionPlannerPage = () => {
       
       const wipByProductionId = new Map<string, typeof wipItems[0]>();
       for (const wip of wipItems) {
-        // Only map WIP items that have a productionId (not WIP-only rollovers)
         if (wip.productionId) {
           wipByProductionId.set(wip.productionId, wip);
         }
@@ -241,8 +238,6 @@ export const ProductionPlannerPage = () => {
               plannedDateStr: formatIsoDateLocal(wipData.workDate),
               jigId: wipData.teamId || null,
               productionComplete: p.productionComplete === true,
-              parentProductionId: p.parentProductionId || undefined,
-              rolloverSequence: wipData.rolloverSequence || p.rolloverSequence || undefined,
               createdOn: p.createdOn || undefined,
               plannedStartTime: wipData.plannedStartMinutes !== undefined ? wipData.plannedStartMinutes : null,
               plannedEndTime: wipData.plannedEndMinutes !== undefined ? wipData.plannedEndMinutes : null,
@@ -265,8 +260,6 @@ export const ProductionPlannerPage = () => {
             plannedDateStr: p.productionPlannedDate ? formatIsoDateLocal(p.productionPlannedDate) : null,
             jigId: null,
             productionComplete: p.productionComplete === true,
-            parentProductionId: p.parentProductionId || undefined,
-            rolloverSequence: undefined,
             createdOn: p.createdOn || undefined,
             plannedStartTime: null,
             plannedEndTime: null,
@@ -277,39 +270,6 @@ export const ProductionPlannerPage = () => {
         
         const allocatedCount = jobList.filter(j => j.wipId).length;
         console.log(`[PLANNER] ✓ Mapped ${jobList.length} production jobs (${allocatedCount} allocated via WIP, ${jobList.filter(j => j.productionComplete).length} completed)`);
-        
-        // WIP-FIRST: Add WIP-only rollover records (no Production record yet)
-        // A WIP-only record is one where productionId is null/undefined (regardless of isRolloverOnly flag)
-        const wipOnlyRollovers = wipItems.filter(wip => !wip.productionId);
-        console.log(`[PLANNER] Found ${wipOnlyRollovers.length} WIP-only records to add (productionId is null)`);
-        
-        for (const wip of wipOnlyRollovers) {
-          const wipOnlyJob: Job = {
-            id: `wip-${wip.id}`, // Use wip prefix to distinguish from production IDs
-            name: wip.productionName || 'Rollover',
-            orderNumber: wip.orderNumber || 'N/A',
-            customer: wip.customerName || 'Unknown',
-            estimatedEFinks: wip.estimatedEfinks || 0,
-            customDurationMinutes: wip.customDurationMinutes ?? undefined,
-            plannedDateStr: formatIsoDateLocal(wip.workDate),
-            jigId: wip.teamId || null,
-            productionComplete: false,
-            parentProductionId: wip.parentProductionId ?? undefined,
-            rolloverSequence: wip.rolloverSequence || undefined,
-            createdOn: wip.createdOn || undefined,
-            plannedStartTime: wip.plannedStartMinutes !== undefined ? wip.plannedStartMinutes : null,
-            plannedEndTime: wip.plannedEndMinutes !== undefined ? wip.plannedEndMinutes : null,
-            plannedDurationMinutes: wip.plannedDurationMinutes !== undefined ? wip.plannedDurationMinutes : null,
-            breakAdjustmentMinutes: wip.breakAdjustmentMinutes !== undefined ? wip.breakAdjustmentMinutes : null,
-            wipId: wip.id,
-            dayStartMinutes: wip.dayStartMinutes !== undefined ? wip.dayStartMinutes : undefined,
-            dayEndMinutes: wip.dayEndMinutes !== undefined ? wip.dayEndMinutes : undefined,
-            overtimeEnabled: wip.overtimeEnabled !== undefined ? wip.overtimeEnabled : undefined
-          };
-          jobList.push(wipOnlyJob);
-        }
-        
-        console.log(`[PLANNER] ✓ Total jobs after adding WIP-only rollovers: ${jobList.length}`);
       } catch (mapErr) {
         console.error('[PLANNER] ✗ Job mapping FAILED:', mapErr);
         throw mapErr;
@@ -398,20 +358,7 @@ export const ProductionPlannerPage = () => {
     return [...jobs, ...unallocatedOrders];
   }, [jobs, unallocatedOrders]);
 
-  // Chain jobs map - stable, only changes when baseJobs changes (not on staging updates)
-  // This is used for rollover chain detection and doesn't need staging overlays
-  const chainJobsMap = useMemo(() => {
-    const map = new Map<string, Job[]>();
-    for (const job of baseJobs) {
-      const rootId = job.parentProductionId || job.id;
-      const existing = map.get(rootId) || [];
-      existing.push(job);
-      map.set(rootId, existing);
-    }
-    return map;
-  }, [baseJobs]);
-
-  // All jobs is simply the combination of jobs and unallocated orders (no staging overlay)
+  // All jobs is simply the combination of jobs and unallocated orders
   const allJobs = useMemo(() => baseJobs, [baseJobs]);
 
   // Convert Job to ScheduledJob for plannerV2
@@ -427,8 +374,6 @@ export const ProductionPlannerPage = () => {
     plannedDurationMinutes: job.plannedDurationMinutes ?? null,
     customDurationMinutes: job.customDurationMinutes ?? null,
     breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
-    parentProductionId: job.parentProductionId ?? null,
-    rolloverSequence: job.rolloverSequence ?? 0,
     productionComplete: job.productionComplete
   }), []);
 
@@ -443,55 +388,6 @@ export const ProductionPlannerPage = () => {
       .map(block => block.dateStr);
   }, [scheduleBlocks]);
 
-  // Build block options for processMultiDayOverflows (block-aware scheduling)
-  const buildBlockOptionsForOverflows = useCallback((): PlannerV2.MultiDayOverflowOptions => {
-    const fullDayBlockTypes = ['PublicHoliday', 'Maintenance'];
-    const partialBlockTypes = ['Breakdown', 'MaterialShortage', 'GeneralDelay'];
-    
-    // Build fullDayBlockDatesByTeam: team ID -> array of blocked dates
-    const fullDayBlockDatesByTeam: Record<string, string[]> = {};
-    
-    // Get all unique team IDs from jig teams
-    const teamIds = jigTeams.map(j => j.id);
-    teamIds.push(''); // Include empty string for global blocks
-    
-    for (const teamId of teamIds) {
-      const blockedDates = scheduleBlocks
-        .filter(block => 
-          fullDayBlockTypes.includes(block.blockType) &&
-          (block.teamId === null || block.teamId === undefined || block.teamId === teamId)
-        )
-        .map(block => block.dateStr);
-      if (blockedDates.length > 0) {
-        fullDayBlockDatesByTeam[teamId] = blockedDates;
-      }
-    }
-    
-    // Build scheduleBlocksByTeamDay: team ID -> date -> partial blocks
-    const scheduleBlocksByTeamDay: Record<string, Record<string, Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>>> = {};
-    
-    for (const block of scheduleBlocks) {
-      if (!partialBlockTypes.includes(block.blockType)) continue;
-      
-      const teamId = block.teamId || '';
-      const dateStr = block.dateStr;
-      
-      if (!scheduleBlocksByTeamDay[teamId]) {
-        scheduleBlocksByTeamDay[teamId] = {};
-      }
-      if (!scheduleBlocksByTeamDay[teamId][dateStr]) {
-        scheduleBlocksByTeamDay[teamId][dateStr] = [];
-      }
-      
-      scheduleBlocksByTeamDay[teamId][dateStr].push({
-        blockType: block.blockType,
-        startTimeMinutes: block.startTimeMinutes,
-        endTimeMinutes: block.endTimeMinutes
-      });
-    }
-    
-    return { fullDayBlockDatesByTeam, scheduleBlocksByTeamDay };
-  }, [scheduleBlocks, jigTeams]);
 
   // Save multiple job updates (for cascade operations)
   const saveMultipleJobUpdates = useCallback(async (
@@ -675,15 +571,12 @@ export const ProductionPlannerPage = () => {
         
         const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
         
-        console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled,', cascadeResult.overflows.length, 'overflows');
+        console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled - CONTINUOUS FLOW (no overflows)');
         
         // Apply breakdown stretching to scheduled jobs
         // Breakdowns STRETCH jobs rather than reducing capacity
         const breakdowns = PlannerV2.getBreakdownsForTeamDay(scheduleBlocks, updatedJigId, dateStr);
         let finalScheduledJobs = cascadeResult.scheduledJobs;
-        let allOverflows = [...cascadeResult.overflows];
-        
-        let deferredWorkSegments: PlannerV2.DeferredWorkSegment[] = [];
         
         if (breakdowns.length > 0) {
           console.log('[PLANNER] Applying breakdown stretching for', breakdowns.length, 'breakdowns');
@@ -693,9 +586,7 @@ export const ProductionPlannerPage = () => {
             breakdowns
           );
           finalScheduledJobs = stretchResult.scheduledJobs;
-          allOverflows = [...cascadeResult.overflows, ...stretchResult.overflows];
-          deferredWorkSegments = stretchResult.deferredWork || [];
-          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs,', stretchResult.overflows.length, 'new overflows from stretch,', deferredWorkSegments.length, 'deferred work segments');
+          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs - CONTINUOUS FLOW (no rollovers)');
         }
         
         const updates: Array<{
@@ -722,166 +613,6 @@ export const ProductionPlannerPage = () => {
               plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? teamSpecificDuration,
               breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
             });
-          }
-        }
-        
-        if (allOverflows.length > 0) {
-          console.log('[PLANNER] Processing', allOverflows.length, 'multi-day overflows');
-          
-          const allScheduledJobs = allJobs.map(j => toScheduledJob(j));
-          
-          const multiDayResult = PlannerV2.processMultiDayOverflows(
-            allOverflows,
-            allScheduledJobs,
-            overtimeByTeamDay,
-            buildBlockOptionsForOverflows()
-          );
-          
-          console.log('[PLANNER] Multi-day result:', multiDayResult.affectedDays.length, 'days affected');
-          
-          for (const scheduledJob of multiDayResult.scheduledJobs) {
-            const originalJob = allJobs.find(j => j.id === scheduledJob.id);
-            if (originalJob && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
-              const existingUpdate = updates.find(u => u.jobId === scheduledJob.id);
-              if (!existingUpdate) {
-                updates.push({
-                  jobId: scheduledJob.id,
-                  wipId: originalJob.wipId,
-                  teamId: scheduledJob.jigId ?? updatedJigId,
-                  workDate: scheduledJob.plannedDateStr,
-                  plannedStartMinutes: scheduledJob.plannedStartTime ?? shift.startTime,
-                  plannedEndMinutes: scheduledJob.plannedEndTime ?? shift.endTime,
-                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? 60,
-                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
-                });
-              }
-            }
-          }
-        }
-        
-        if (deferredWorkSegments.length > 0) {
-          console.log('[PLANNER] Processing', deferredWorkSegments.length, 'deferred work segments from multi-day breakdowns');
-          
-          const blockOptions = buildBlockOptionsForOverflows();
-          const deferralOverflows: PlannerV2.OverflowEntry[] = [];
-          let sequenceOffset = 0;
-          
-          for (const deferred of deferredWorkSegments) {
-            const originalJob = allJobs.find(j => j.id === deferred.sourceJob.id);
-            const parentId = deferred.sourceJob.parentProductionId || deferred.sourceJob.id;
-            const existingRollovers = allJobs.filter(j => j.parentProductionId === parentId && j.rolloverSequence);
-            const nextSequence = existingRollovers.length + 1 + sequenceOffset;
-            sequenceOffset++;
-            
-            const deferralShiftSettings = overtimeByTeamDay[deferred.deferralDate]?.[updatedJigId];
-            const scheduleBlocksForDay = blockOptions.scheduleBlocksByTeamDay?.[updatedJigId]?.[deferred.deferralDate] || [];
-            
-            const deferralShift = PlannerV2.getShiftConfigWithBlocks(
-              deferralShiftSettings?.enabled ?? false,
-              deferralShiftSettings?.closeTime,
-              deferralShiftSettings?.earlyEnabled ?? false,
-              deferralShiftSettings?.earlyStartTime,
-              scheduleBlocksForDay
-            );
-            
-            const adjustedStartMinutes = Math.max(deferred.deferralStartMinutes, deferralShift.startTime);
-            
-            const availableMinutes = PlannerV2.getAvailableMinutes(adjustedStartMinutes, deferralShift);
-            
-            const minutesThatFit = Math.min(deferred.deferredMinutes, availableMinutes);
-            const overflowMinutes = deferred.deferredMinutes - minutesThatFit;
-            
-            const originalEfinks = deferred.sourceJob.estimatedEFinks || 0;
-            const totalOriginalDuration = deferred.sourceJob.plannedDurationMinutes || deferred.deferredMinutes;
-            const efinksProportion = totalOriginalDuration > 0 ? (minutesThatFit / totalOriginalDuration) : 0;
-            const segmentEfinks = Math.round(originalEfinks * efinksProportion * 100) / 100;
-            
-            const deferredEndTime = adjustedStartMinutes + minutesThatFit;
-            
-            console.log('[PLANNER] Creating deferred rollover for job', deferred.sourceJob.id, 
-              'on', deferred.deferralDate, 
-              'starting at', adjustedStartMinutes, 
-              'mins (', Math.floor(adjustedStartMinutes / 60), ':', adjustedStartMinutes % 60, ')',
-              'duration:', minutesThatFit, 'overflow:', overflowMinutes);
-            
-            const rolloverJobId = `${parentId}-rollover-${nextSequence}`;
-            
-            if (minutesThatFit > 0) {
-              updates.push({
-                jobId: rolloverJobId,
-                wipId: undefined,
-                teamId: updatedJigId,
-                workDate: deferred.deferralDate,
-                plannedStartMinutes: adjustedStartMinutes,
-                plannedEndMinutes: deferredEndTime,
-                plannedDurationMinutes: minutesThatFit,
-                breakAdjustmentMinutes: 0,
-                estimatedEfinks: segmentEfinks
-              });
-            }
-            
-            if (overflowMinutes > 0) {
-              const overflowEfinks = Math.round((originalEfinks - segmentEfinks) * 100) / 100;
-              deferralOverflows.push({
-                job: {
-                  ...deferred.sourceJob,
-                  id: rolloverJobId,
-                  plannedDateStr: deferred.deferralDate,
-                  jigId: updatedJigId,
-                  plannedDurationMinutes: overflowMinutes,
-                  customDurationMinutes: overflowMinutes,
-                  estimatedEFinks: overflowEfinks,
-                  parentProductionId: parentId,
-                  rolloverSequence: nextSequence
-                },
-                overflowMinutes
-              });
-            }
-          }
-          
-          if (deferralOverflows.length > 0) {
-            console.log('[PLANNER] Routing', deferralOverflows.length, 'deferral overflows through multi-day processing');
-            
-            const deferralMultiDayResult = PlannerV2.processMultiDayOverflows(
-              deferralOverflows,
-              allScheduledJobs,
-              overtimeByTeamDay,
-              blockOptions
-            );
-            
-            for (const scheduledJob of deferralMultiDayResult.scheduledJobs) {
-              const existingUpdate = updates.find(u => u.jobId === scheduledJob.id);
-              if (!existingUpdate && scheduledJob.plannedDateStr && scheduledJob.plannedStartTime !== null) {
-                updates.push({
-                  jobId: scheduledJob.id,
-                  wipId: undefined,
-                  teamId: scheduledJob.jigId ?? updatedJigId,
-                  workDate: scheduledJob.plannedDateStr,
-                  plannedStartMinutes: scheduledJob.plannedStartTime ?? deferralMultiDayResult.scheduledJobs[0]?.plannedStartTime ?? 420,
-                  plannedEndMinutes: scheduledJob.plannedEndTime ?? 1020,
-                  plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? 60,
-                  breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0,
-                  estimatedEfinks: scheduledJob.estimatedEFinks
-                });
-              }
-            }
-            
-            for (const newRollover of deferralMultiDayResult.newRollovers) {
-              const existingUpdate = updates.find(u => u.jobId === newRollover.id);
-              if (!existingUpdate && newRollover.plannedDateStr) {
-                updates.push({
-                  jobId: newRollover.id,
-                  wipId: undefined,
-                  teamId: newRollover.jigId ?? updatedJigId,
-                  workDate: newRollover.plannedDateStr,
-                  plannedStartMinutes: newRollover.plannedStartTime ?? 420,
-                  plannedEndMinutes: newRollover.plannedEndTime ?? 1020,
-                  plannedDurationMinutes: newRollover.plannedDurationMinutes ?? newRollover.customDurationMinutes ?? 60,
-                  breakAdjustmentMinutes: newRollover.breakAdjustmentMinutes ?? 0,
-                  estimatedEfinks: newRollover.estimatedEFinks
-                });
-              }
-            }
           }
         }
         
@@ -1056,391 +787,12 @@ export const ProductionPlannerPage = () => {
           teamOvertime?.earlyStartTime
         );
         
-        // Check if this job has an existing rollover child
-        const rootParentId = job.parentProductionId || job.id;
-        const currentSequence = job.rolloverSequence || 0;
-        const existingRolloverChild = allJobs.find(j => 
-          j.parentProductionId === rootParentId && 
-          (j.rolloverSequence || 0) === currentSequence + 1
-        );
+        console.log(`[RESIZE] Job ${job.orderNumber} resize to ${roundedDuration}m - CONTINUOUS FLOW (no rollovers)`);
         
-        console.log(`[RESIZE] Job ${job.orderNumber} resize to ${roundedDuration}m, has rollover child: ${!!existingRolloverChild}`);
+        // CONTINUOUS FLOW: Simply resize the job - no rollover handling
+        const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
         
-        // SCENARIO 1: Job has existing rollover child - REDISTRIBUTE instead of creating new
-        if (existingRolloverChild) {
-          console.log(`[RESIZE] Redistributing between parent and existing rollover child`);
-          
-          const rolloverDuration = existingRolloverChild.customDurationMinutes ?? 
-            existingRolloverChild.plannedDurationMinutes ?? 
-            Math.round(existingRolloverChild.estimatedEFinks * 6.5625);
-          const currentDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
-            Math.round(job.estimatedEFinks * 6.5625);
-          const totalChainDuration = currentDuration + rolloverDuration;
-          const totalEFinks = job.estimatedEFinks + existingRolloverChild.estimatedEFinks;
-          
-          // Calculate available time from job's start position
-          const availableTime = PlannerV2.getAvailableMinutes(job.plannedStartTime, shift);
-          
-          // Parent takes what user requested, capped by available time
-          const newParentDuration = Math.min(roundedDuration, availableTime);
-          
-          // Child gets the remainder of the total chain
-          let newRolloverDuration = totalChainDuration - newParentDuration;
-          
-          // If child would become negative, parent is taking too much - use all available
-          if (newRolloverDuration < 0) {
-            newRolloverDuration = 0;
-          }
-          
-          console.log(`[RESIZE] Chain: ${currentDuration}m + ${rolloverDuration}m = ${totalChainDuration}m`);
-          console.log(`[RESIZE] New split: parent=${newParentDuration}m, child=${newRolloverDuration}m`);
-          
-          // Redistribute E-Finks proportionally
-          const { parentEfinks, childEfinks } = PlannerV2.redistributeEfinks(totalEFinks, newParentDuration, newRolloverDuration);
-          
-          // Update parent timing
-          const parentTiming = PlannerV2.calculateEndTime(job.plannedStartTime, newParentDuration, shift);
-          
-          // Build updates for parent
-          const updates: Array<{
-            jobId: string;
-            wipId?: string;
-            teamId: string;
-            workDate: string;
-            plannedStartMinutes: number;
-            plannedEndMinutes: number;
-            plannedDurationMinutes: number;
-            breakAdjustmentMinutes: number;
-            customDurationMinutes?: number;
-            estimatedEfinks?: number;
-          }> = [];
-          
-          updates.push({
-            jobId: job.id,
-            wipId: job.wipId,
-            teamId: jigId,
-            workDate: dateStr,
-            plannedStartMinutes: job.plannedStartTime,
-            plannedEndMinutes: parentTiming.endTime,
-            plannedDurationMinutes: newParentDuration,
-            breakAdjustmentMinutes: parentTiming.breakMinutes,
-            customDurationMinutes: newParentDuration,
-            estimatedEfinks: parentEfinks
-          });
-          
-          // Track overflows for multi-day cascade (declared early for child-day cascade)
-          const overflows: { job: typeof allJobs[0]; overflowMinutes: number; targetDate?: string }[] = [];
-          
-          // Update rollover child - check if it needs to span multiple days
-          if (existingRolloverChild.wipId || existingRolloverChild.id.startsWith('wip-')) {
-            const childDateStr = existingRolloverChild.plannedDateStr!;
-            const childTeamOvertime = overtimeByTeamDay[childDateStr]?.[jigId];
-            const childShift = PlannerV2.getShiftConfig(
-              childTeamOvertime?.enabled,
-              childTeamOvertime?.closeTime,
-              childTeamOvertime?.earlyEnabled,
-              childTeamOvertime?.earlyStartTime
-            );
-            
-            const childStartTime = existingRolloverChild.plannedStartTime ?? childShift.startTime;
-            const availableOnChildDay = PlannerV2.getAvailableMinutes(childStartTime, childShift);
-            
-            // Check if child can fit on its day
-            if (newRolloverDuration <= availableOnChildDay) {
-              // Child fits on its current day
-              const childTiming = PlannerV2.calculateEndTime(childStartTime, newRolloverDuration, childShift);
-              
-              updates.push({
-                jobId: existingRolloverChild.id,
-                wipId: existingRolloverChild.wipId || (existingRolloverChild.id.startsWith('wip-') ? existingRolloverChild.id.substring(4) : undefined),
-                teamId: jigId,
-                workDate: childDateStr,
-                plannedStartMinutes: childStartTime,
-                plannedEndMinutes: childTiming.endTime,
-                plannedDurationMinutes: newRolloverDuration,
-                breakAdjustmentMinutes: childTiming.breakMinutes,
-                customDurationMinutes: newRolloverDuration,
-                estimatedEfinks: childEfinks
-              });
-              
-              // CASCADE JOBS ON CHILD DAY - only cascade jobs in the sequential chain
-              const allChildDayJobs = allJobs.filter(
-                j => j.plannedDateStr === childDateStr && 
-                     j.jigId === jigId && 
-                     j.id !== existingRolloverChild.id &&
-                     !j.productionComplete &&
-                     (j.plannedStartTime ?? 0) > (existingRolloverChild.plannedStartTime ?? 0)
-              ).sort((a, b) => (a.plannedStartTime ?? childShift.startTime) - (b.plannedStartTime ?? childShift.startTime));
-              
-              // Build the sequential chain for child day cascade
-              const childDayJobs: typeof allChildDayJobs = [];
-              let childPreviousEndTime = childTiming.endTime;
-              
-              for (const cdJob of allChildDayJobs) {
-                const cdJobStart = cdJob.plannedStartTime ?? 0;
-                if (PlannerV2.isSequentialTo(childPreviousEndTime, cdJobStart, childShift)) {
-                  childDayJobs.push(cdJob);
-                  childPreviousEndTime = cdJob.plannedEndTime ?? cdJobStart;
-                } else {
-                  console.log(`[RESIZE] Gap detected on child day before job ${cdJob.orderNumber}, stopping cascade`);
-                  break;
-                }
-              }
-              
-              if (childDayJobs.length > 0) {
-                console.log(`[RESIZE] Cascading ${childDayJobs.length} jobs on child day ${childDateStr}`);
-                let childNextStart = PlannerV2.getNextAvailableTime(childTiming.endTime, childShift) ?? childShift.endTime;
-                
-                for (const cdJob of childDayJobs) {
-                  const cdJobDuration = cdJob.customDurationMinutes ?? cdJob.plannedDurationMinutes ?? 
-                    Math.round(cdJob.estimatedEFinks * 6.5625);
-                  const availableForCd = PlannerV2.getAvailableMinutes(childNextStart, childShift);
-                  
-                  if (cdJobDuration <= availableForCd) {
-                    const cdTiming = PlannerV2.calculateEndTime(childNextStart, cdJobDuration, childShift);
-                    updates.push({
-                      jobId: cdJob.id,
-                      wipId: cdJob.wipId,
-                      teamId: jigId,
-                      workDate: childDateStr,
-                      plannedStartMinutes: childNextStart,
-                      plannedEndMinutes: cdTiming.endTime,
-                      plannedDurationMinutes: cdJobDuration,
-                      breakAdjustmentMinutes: cdTiming.breakMinutes
-                    });
-                    childNextStart = PlannerV2.getNextAvailableTime(cdTiming.endTime, childShift) ?? childShift.endTime;
-                  } else {
-                    // Child day job overflows - track for rollover with CHILD's date
-                    console.log(`[RESIZE] Child day job ${cdJob.orderNumber} pushed past end of child day ${childDateStr}`);
-                    
-                    // Calculate truncated E-Finks for what fits
-                    const cdTotalEfinks = cdJob.estimatedEFinks;
-                    const cdTruncatedEfinks = availableForCd > 0 
-                      ? PlannerV2.roundEfinks(cdTotalEfinks * (availableForCd / cdJobDuration))
-                      : 0;
-                    // Note: overflow E-Finks will be calculated when rollover is created
-                    
-                    // Track overflow with child's next working day, not parent's
-                    const cdNextDate = PlannerV2.getNextWorkingDayWithBlocks(childDateStr, getFullDayBlockDates(jigId));
-                    overflows.push({ 
-                      job: cdJob, 
-                      overflowMinutes: cdJobDuration - availableForCd,
-                      targetDate: cdNextDate  // Use child's next day
-                    });
-                    
-                    if (availableForCd > 0) {
-                      const cdTiming = PlannerV2.calculateEndTime(childNextStart, availableForCd, childShift);
-                      updates.push({
-                        jobId: cdJob.id,
-                        wipId: cdJob.wipId,
-                        teamId: jigId,
-                        workDate: childDateStr,
-                        plannedStartMinutes: childNextStart,
-                        plannedEndMinutes: cdTiming.endTime,
-                        plannedDurationMinutes: availableForCd, // Save truncated duration
-                        breakAdjustmentMinutes: cdTiming.breakMinutes,
-                        customDurationMinutes: availableForCd,
-                        estimatedEfinks: cdTruncatedEfinks
-                      });
-                    }
-                    childNextStart = childShift.endTime;
-                  }
-                }
-              }
-            } else {
-              // Child overflows its day - needs its own rollover (SCENARIO 3: multi-day)
-              console.log(`[RESIZE] Child rollover overflows (${newRolloverDuration}m > ${availableOnChildDay}m available), creating multi-day chain`);
-              
-              // Update child to max it can fit
-              const childTiming = PlannerV2.calculateEndTime(childStartTime, availableOnChildDay, childShift);
-              const childOverflow = newRolloverDuration - availableOnChildDay;
-              
-              // Proportional E-Finks for what fits on child day
-              const childDayEfinks = PlannerV2.roundEfinks(childEfinks * (availableOnChildDay / newRolloverDuration));
-              // Note: grandchild E-Finks will be calculated when rollover is created via handleJobRollover
-              
-              updates.push({
-                jobId: existingRolloverChild.id,
-                wipId: existingRolloverChild.wipId || (existingRolloverChild.id.startsWith('wip-') ? existingRolloverChild.id.substring(4) : undefined),
-                teamId: jigId,
-                workDate: childDateStr,
-                plannedStartMinutes: childStartTime,
-                plannedEndMinutes: childTiming.endTime,
-                plannedDurationMinutes: availableOnChildDay,
-                breakAdjustmentMinutes: childTiming.breakMinutes,
-                customDurationMinutes: availableOnChildDay,
-                estimatedEfinks: childDayEfinks
-              });
-              
-              // Save updates so far, then trigger rollover for the child overflow
-              await saveMultipleJobUpdates(updates);
-              console.log('[RESIZE] ✓ Saved parent and child updates, now creating grandchild rollover');
-              
-              setOperationInProgress(false);
-              setOperationMessage('');
-              
-              // Trigger rollover for the child (creates sequence+2)
-              const grandchildDateStr = PlannerV2.getNextWorkingDayWithBlocks(childDateStr, getFullDayBlockDates(jigId));
-              await handleJobRollover(existingRolloverChild.id, childOverflow, grandchildDateStr, jigId);
-              return; // handleJobRollover will reload data
-            }
-          }
-          
-          // Now cascade subsequent jobs on the SAME day as parent
-          // Only cascade jobs that are part of the "sequential chain" (no gaps)
-          const existingJobsOnDay = allJobs.filter(
-            j => j.plannedDateStr === dateStr && 
-                 j.jigId === jigId && 
-                 j.id !== job.id &&
-                 j.id !== existingRolloverChild.id &&
-                 !j.productionComplete
-          ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
-          
-          // Get all jobs after the resized job, sorted by start time
-          const allSubsequentJobs = existingJobsOnDay.filter(
-            j => (j.plannedStartTime ?? 0) > (job.plannedStartTime ?? 0)
-          );
-          
-          // Build the sequential chain: only include jobs that follow sequentially
-          // Stop when we encounter a gap (job that is NOT sequential to its predecessor)
-          const subsequentJobs: typeof allSubsequentJobs = [];
-          let previousEndTime = parentTiming.endTime;
-          
-          for (const subJob of allSubsequentJobs) {
-            const subJobStart = subJob.plannedStartTime ?? 0;
-            if (PlannerV2.isSequentialTo(previousEndTime, subJobStart, shift)) {
-              subsequentJobs.push(subJob);
-              previousEndTime = subJob.plannedEndTime ?? subJobStart;
-            } else {
-              // Gap detected - stop cascading
-              console.log(`[RESIZE] Gap detected before job ${subJob.orderNumber} (starts at ${subJobStart}, expected ${previousEndTime + 30}), stopping cascade`);
-              break;
-            }
-          }
-          
-          let nextStartTime = PlannerV2.getNextAvailableTime(parentTiming.endTime, shift) ?? shift.endTime;
-          
-          for (const subJob of subsequentJobs) {
-            const subJobDuration = subJob.customDurationMinutes ?? subJob.plannedDurationMinutes ?? 
-              Math.round(subJob.estimatedEFinks * 6.5625);
-            
-            // Check if this job would overflow past end of day
-            const availableForSub = PlannerV2.getAvailableMinutes(nextStartTime, shift);
-            
-            if (subJobDuration <= availableForSub) {
-              // Job fits on this day
-              const subTiming = PlannerV2.calculateEndTime(nextStartTime, subJobDuration, shift);
-              updates.push({
-                jobId: subJob.id,
-                wipId: subJob.wipId,
-                teamId: jigId,
-                workDate: dateStr,
-                plannedStartMinutes: nextStartTime,
-                plannedEndMinutes: subTiming.endTime,
-                plannedDurationMinutes: subJobDuration,
-                breakAdjustmentMinutes: subTiming.breakMinutes
-              });
-              nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
-            } else {
-              // Job overflows - track it for multi-day handling with parent's next day
-              console.log(`[RESIZE] Job ${subJob.orderNumber} pushed past end of day (needs ${subJobDuration}m, only ${availableForSub}m available)`);
-              overflows.push({ 
-                job: subJob, 
-                overflowMinutes: subJobDuration - availableForSub,
-                targetDate: PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId))  // Parent's next day
-              });
-              
-              // Schedule what fits on this day with TRUNCATED duration and E-Finks
-              if (availableForSub > 0) {
-                const subTiming = PlannerV2.calculateEndTime(nextStartTime, availableForSub, shift);
-                const truncatedEfinks = PlannerV2.roundEfinks(subJob.estimatedEFinks * (availableForSub / subJobDuration));
-                updates.push({
-                  jobId: subJob.id,
-                  wipId: subJob.wipId,
-                  teamId: jigId,
-                  workDate: dateStr,
-                  plannedStartMinutes: nextStartTime,
-                  plannedEndMinutes: subTiming.endTime,
-                  plannedDurationMinutes: availableForSub, // Save truncated duration
-                  breakAdjustmentMinutes: subTiming.breakMinutes,
-                  customDurationMinutes: availableForSub,
-                  estimatedEfinks: truncatedEfinks
-                });
-              }
-              nextStartTime = shift.endTime; // Can't schedule more after overflow
-            }
-          }
-          
-          await saveMultipleJobUpdates(updates);
-          console.log('[RESIZE] ✓ Saved redistribution with', updates.length, 'affected jobs');
-          
-          // Handle any overflows by creating rollovers
-          if (overflows.length > 0) {
-            console.log(`[RESIZE] Processing ${overflows.length} overflowed jobs`);
-            setOperationInProgress(false);
-            setOperationMessage('');
-            
-            for (const overflow of overflows) {
-              // Use the targetDate from the overflow if available, otherwise fallback to parent's next day
-              const targetDate = overflow.targetDate ?? PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
-              await handleJobRollover(overflow.job.id, overflow.overflowMinutes, targetDate, jigId);
-            }
-            return; // handleJobRollover reloads data
-          }
-          
-        } else {
-          // No existing rollover child - standard resize with cascade
-          const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
-          
-          // Check if THIS job now overflows past end of day
-          const availableTime = PlannerV2.getAvailableMinutes(job.plannedStartTime, shift);
-          const jobOverflows = roundedDuration > availableTime;
-          
-          console.log(`[RESIZE] Available time: ${availableTime}m, requested: ${roundedDuration}m, overflows: ${jobOverflows}`);
-          
-          if (jobOverflows) {
-            // SCENARIO 2 & 3: Job overflows - trigger rollover
-            console.log(`[RESIZE] Job overflows, calling handleJobRollover`);
-            // First update the job with the new duration
-            const updates: Array<{
-              jobId: string;
-              wipId?: string;
-              teamId: string;
-              workDate: string;
-              plannedStartMinutes: number;
-              plannedEndMinutes: number;
-              plannedDurationMinutes: number;
-              breakAdjustmentMinutes: number;
-              customDurationMinutes?: number;
-            }> = [];
-            
-            updates.push({
-              jobId: job.id,
-              wipId: job.wipId,
-              teamId: jigId,
-              workDate: dateStr,
-              plannedStartMinutes: job.plannedStartTime,
-              plannedEndMinutes: timing.endTime,
-              plannedDurationMinutes: roundedDuration,
-              breakAdjustmentMinutes: timing.breakMinutes,
-              customDurationMinutes: roundedDuration
-            });
-            
-            await saveMultipleJobUpdates(updates);
-            
-            // Now trigger rollover for this job
-            const overflowMinutes = roundedDuration - availableTime;
-            const nextDateStr = PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
-            
-            // Close loading overlay before calling handleJobRollover (it has its own)
-            setOperationInProgress(false);
-            setOperationMessage('');
-            
-            await handleJobRollover(job.id, overflowMinutes, nextDateStr, jigId);
-            return; // handleJobRollover will reload data
-          }
-          
-          // Standard case: Job fits, cascade subsequent jobs
+        // Standard resize with cascade - CONTINUOUS FLOW model allows jobs to extend past shift end
           const existingJobsOnDay = allJobs.filter(
             j => j.plannedDateStr === dateStr && 
                  j.jigId === jigId && 
@@ -1508,51 +860,30 @@ export const ProductionPlannerPage = () => {
                 
                 nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
               } else {
-                // SCENARIO 2: Subsequent job pushed past end of day
-                console.log(`[RESIZE] Subsequent job ${origJob.orderNumber} pushed past end of day`);
+                // CONTINUOUS FLOW: Job extends past shift end - just schedule it with full duration
+                console.log(`[RESIZE] Subsequent job ${origJob.orderNumber} extends past shift end - CONTINUOUS FLOW allows this`);
                 
-                // Save what we have so far
-                await saveMultipleJobUpdates(updates);
+                const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
                 
-                // Close loading overlay before calling handleJobRollover
-                setOperationInProgress(false);
-                setOperationMessage('');
-                
-                // Trigger rollover for this subsequent job
-                const overflowMinutes = jobDuration - availableForSub;
-                const nextDateStr = PlannerV2.getNextWorkingDayWithBlocks(dateStr, getFullDayBlockDates(jigId));
-                
-                // First update this job's position with TRUNCATED duration to match what fits today
-                const truncatedDuration = Math.max(15, availableForSub);
-                const subTiming = PlannerV2.calculateEndTime(nextStartTime, truncatedDuration, shift);
-                
-                // Calculate E-Finks for truncated portion
-                const totalEfinks = subsequentJob.estimatedEFinks;
-                const truncatedEfinks = PlannerV2.roundEfinks(totalEfinks * (truncatedDuration / jobDuration));
-                
-                await saveMultipleJobUpdates([{
+                updates.push({
                   jobId: subsequentJob.id,
                   wipId: origJob.wipId,
                   teamId: jigId,
                   workDate: dateStr,
                   plannedStartMinutes: nextStartTime,
                   plannedEndMinutes: subTiming.endTime,
-                  plannedDurationMinutes: truncatedDuration, // Save truncated duration
-                  breakAdjustmentMinutes: subTiming.breakMinutes,
-                  customDurationMinutes: truncatedDuration,
-                  estimatedEfinks: truncatedEfinks
-                }]);
+                  plannedDurationMinutes: jobDuration,
+                  breakAdjustmentMinutes: subTiming.breakMinutes
+                });
                 
-                await handleJobRollover(subsequentJob.id, overflowMinutes, nextDateStr, jigId);
-                return; // handleJobRollover will reload data
+                nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
               }
             }
           }
           
-          const success = await saveMultipleJobUpdates(updates);
-          if (success) {
-            console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
-          }
+        const success = await saveMultipleJobUpdates(updates);
+        if (success) {
+          console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
         }
       } catch (err) {
         console.error('[RESIZE] Error:', err);
@@ -1718,357 +1049,20 @@ export const ProductionPlannerPage = () => {
         existingEarlySettings?.earlyStartTime
       );
       
-      // ROLLOVER REDISTRIBUTION: When OT is enabled, extend first-day segments and shrink rollovers
-      // IMPORTANT: Do this BEFORE any rescheduling to preserve original WIP durations
-      if (enabled) {
-        console.log(`[OT-ROLLOVER] Checking for rollover chains to redistribute...`);
-        
-        // Find jobs on this day/team that are parents of rollover chains
-        for (const parentJob of affectedJobs) {
-          const rootParentId = parentJob.parentProductionId || parentJob.id;
-          const currentSequence = parentJob.rolloverSequence || 0;
-          
-          // Find rollover child (next segment in chain)
-          const rolloverChild = allJobs.find(j => 
-            j.parentProductionId === rootParentId && 
-            (j.rolloverSequence || 0) === currentSequence + 1
-          );
-          
-          if (!rolloverChild) continue;
-          
-          console.log(`[OT-ROLLOVER] Found rollover chain: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
-          
-          // CRITICAL: Calculate durations from planned start/end times for accuracy
-          // This avoids stale customDurationMinutes values
-          const parentStartTime = parentJob.plannedStartTime ?? newShift.startTime;
-          const parentEndTime = parentJob.plannedEndTime ?? (parentStartTime + 255);
-          const parentCurrentDuration = parentEndTime - parentStartTime - (parentJob.breakAdjustmentMinutes || 0);
-          
-          const rolloverStartTime = rolloverChild.plannedStartTime ?? 420;
-          const rolloverEndTime = rolloverChild.plannedEndTime ?? 1020;
-          const rolloverCurrentDuration = rolloverEndTime - rolloverStartTime - (rolloverChild.breakAdjustmentMinutes || 0);
-          
-          // Total work remaining in the chain
-          const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
-          
-          console.log(`[OT-ROLLOVER] Current parent WIP duration: ${parentCurrentDuration}m, Current rollover WIP duration: ${rolloverCurrentDuration}m, Total chain: ${totalChainDuration}m`);
-          
-          // Calculate how much time is available with OT
-          const availableWithOT = PlannerV2.getAvailableMinutes(parentStartTime, newShift);
-          const availableWithoutOT = PlannerV2.getAvailableMinutes(parentStartTime, oldShift);
-          
-          console.log(`[OT-ROLLOVER] Available without OT: ${availableWithoutOT}m, Available with OT: ${availableWithOT}m`);
-          
-          // Parent should FILL all available OT hours (up to the total chain duration)
-          // This stretches the parent to consume all available time, shrinking the rollover
-          const newParentDuration = Math.min(totalChainDuration, availableWithOT);
-          const newRolloverDuration = totalChainDuration - newParentDuration;
-          
-          // Calculate how much we're absorbing from the rollover
-          const timeToAbsorb = newParentDuration - parentCurrentDuration;
-          
-          if (timeToAbsorb <= 0) {
-            console.log(`[OT-ROLLOVER] Parent already at max capacity, no redistribution needed`);
-            continue;
-          }
-          
-          console.log(`[OT-ROLLOVER] Absorbing ${timeToAbsorb}m from rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
-          
-          // PROPORTIONAL E-FINKS REDISTRIBUTION with 2-decimal precision
-          // Total E-Finks must be preserved across the chain
-          const totalEFinks = parentJob.estimatedEFinks + rolloverChild.estimatedEFinks;
-          
-          // Calculate proportional E-Finks based on new durations using centralized utility
-          const { parentEfinks: newParentEFinks, childEfinks: newRolloverEFinks } = PlannerV2.redistributeEfinks(totalEFinks, newParentDuration, newRolloverDuration);
-          
-          console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
-          
-          // Update parent job with extended duration - recalculate end time with new duration
-          const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, newShift);
-          
-          // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
-          if (parentJob.wipId) {
-            await teamWorkItemService.batchUpdate([{
-              id: parentJob.wipId,
-              data: {
-                overtimeEnabled: enabled,
-                dayEndMinutes: closeTime,
-                plannedDurationMinutes: newParentDuration,
-                plannedEndMinutes: parentTiming.endTime,
-                breakAdjustmentMinutes: parentTiming.breakMinutes,
-                estimatedEfinks: newParentEFinks,
-                customDurationMinutes: newParentDuration
-              }
-            }]);
-            console.log(`[OT-ROLLOVER] ✓ Extended parent WIP to ${newParentDuration}m, ends at ${parentTiming.endTime}, efinks=${newParentEFinks}`);
-          }
-          
-          // Update or delete rollover
-          // Check if rollover is WIP-only (no Production record exists)
-          // WIP-only rollovers have IDs starting with "wip-" or are rollovers without a valid production ID
-          const isWipOnlyRollover = rolloverChild.id.startsWith('wip-');
-          
-          if (newRolloverDuration <= 0) {
-            // Rollover no longer needed - delete it
-            // Restore all E-Finks to parent
-            console.log(`[OT-ROLLOVER] Rollover fully absorbed, restoring all ${totalEFinks} E-Finks to parent`);
-            
-            // Calculate parent timing with total duration (parent absorbs all)
-            const totalParentDuration = parentCurrentDuration + rolloverCurrentDuration;
-            const fullParentTiming = PlannerV2.calculateEndTime(parentStartTime, totalParentDuration, newShift);
-            
-            // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
-            if (parentJob.wipId) {
-              await teamWorkItemService.batchUpdate([{
-                id: parentJob.wipId,
-                data: {
-                  overtimeEnabled: enabled,
-                  dayEndMinutes: closeTime,
-                  plannedDurationMinutes: totalParentDuration,
-                  plannedEndMinutes: fullParentTiming.endTime,
-                  breakAdjustmentMinutes: fullParentTiming.breakMinutes,
-                  estimatedEfinks: totalEFinks,
-                  customDurationMinutes: totalParentDuration
-                }
-              }]);
-              console.log(`[OT-ROLLOVER] ✓ Updated parent WIP with full duration=${totalParentDuration}m, efinks=${totalEFinks}`);
-            }
-            
-            // Delete WIP record first (if exists)
-            if (rolloverChild.wipId) {
-              await teamWorkItemService.delete(rolloverChild.wipId);
-              console.log(`[OT-ROLLOVER] ✓ Deleted rollover WIP`);
-            }
-            
-            // Delete Production record only if it exists (not WIP-only)
-            if (!isWipOnlyRollover) {
-              await productionService.delete(rolloverChild.id);
-              console.log(`[OT-ROLLOVER] ✓ Deleted rollover Production`);
-            }
-          } else {
-            // WIP-FIRST: Only update WIP record, NOT Production.newEstimateDefinks
-            // Update rollover WIP if exists - ALWAYS start at day's shift start time
-            if (rolloverChild.wipId) {
-              const rolloverDateStr = rolloverChild.plannedDateStr!;
-              const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
-              const rolloverShift = PlannerV2.getShiftConfig(
-                rolloverTeamOvertime?.enabled,
-                rolloverTeamOvertime?.closeTime,
-                rolloverTeamOvertime?.earlyEnabled,
-                rolloverTeamOvertime?.earlyStartTime
-              );
-              // Rollover should ALWAYS start at day's shift start time
-              const rolloverStartTime = rolloverShift.startTime;
-              const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
-              
-              console.log(`[OT-ROLLOVER] Resetting rollover to start at day start: ${rolloverStartTime}`);
-              
-              await teamWorkItemService.batchUpdate([{
-                id: rolloverChild.wipId,
-                data: {
-                  plannedStartMinutes: rolloverStartTime,
-                  plannedDurationMinutes: newRolloverDuration,
-                  plannedEndMinutes: rolloverTiming.endTime,
-                  breakAdjustmentMinutes: rolloverTiming.breakMinutes,
-                  estimatedEfinks: newRolloverEFinks,
-                  customDurationMinutes: newRolloverDuration
-                }
-              }]);
-              console.log(`[OT-ROLLOVER] ✓ Updated rollover WIP: start=${rolloverStartTime}, duration=${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
-            }
-          }
+      // CONTINUOUS FLOW: Simply update OT settings for all jobs - no rollover redistribution needed
+      console.log(`[OT] Updating OT settings for ${affectedJobs.length} jobs - CONTINUOUS FLOW model`);
+      
+      // Update all jobs with OT settings
+      const otUpdates = affectedJobs.map(job => ({
+        id: job.wipId!,
+        data: {
+          overtimeEnabled: enabled,
+          dayEndMinutes: enabled ? closeTime : 1020 // WORKING_END when OT disabled
         }
-        
-        // For jobs that are NOT part of rollover chains, just update OT settings
-        const nonRolloverJobs = affectedJobs.filter(job => {
-          const rootParentId = job.parentProductionId || job.id;
-          const currentSequence = job.rolloverSequence || 0;
-          // Check if this job has a rollover child
-          const hasRolloverChild = allJobs.some(j => 
-            j.parentProductionId === rootParentId && 
-            (j.rolloverSequence || 0) === currentSequence + 1
-          );
-          return !hasRolloverChild;
-        });
-        
-        if (nonRolloverJobs.length > 0) {
-          const nonRolloverUpdates = nonRolloverJobs.map(job => ({
-            id: job.wipId!,
-            data: {
-              overtimeEnabled: enabled,
-              dayEndMinutes: closeTime
-            }
-          }));
-          await teamWorkItemService.batchUpdate(nonRolloverUpdates);
-          console.log(`[PLANNER] ✓ Updated OT settings for ${nonRolloverJobs.length} non-rollover jobs`);
-        }
-        
-        // Reload data to reflect all changes
-        await loadData();
-        return; // Skip the regular state update since we're reloading
-      }
+      }));
       
-      // OT being DISABLED - redistribute time back from parent to rollover
-      console.log(`[OT-ROLLOVER] OT disabled - checking for rollover chains to redistribute back...`);
-      
-      // Get the shift without OT (standard hours)
-      const noOTShift = PlannerV2.getShiftConfig(
-        false, // no late OT
-        1020,  // default 17:00
-        existingEarlySettings?.earlyEnabled,
-        existingEarlySettings?.earlyStartTime
-      );
-      
-      // Find jobs on this day/team that are parents of rollover chains
-      for (const parentJob of affectedJobs) {
-        const rootParentId = parentJob.parentProductionId || parentJob.id;
-        const currentSequence = parentJob.rolloverSequence || 0;
-        
-        // Find rollover child (next segment in chain)
-        const rolloverChild = allJobs.find(j => 
-          j.parentProductionId === rootParentId && 
-          (j.rolloverSequence || 0) === currentSequence + 1
-        );
-        
-        if (!rolloverChild) continue;
-        
-        console.log(`[OT-ROLLOVER] Found rollover chain to redistribute back: ${parentJob.orderNumber} -> ${rolloverChild.orderNumber}`);
-        
-        // CRITICAL: Calculate durations from planned start/end times for accuracy
-        const parentStartTime = parentJob.plannedStartTime ?? noOTShift.startTime;
-        const parentEndTime = parentJob.plannedEndTime ?? (parentStartTime + 255);
-        const parentCurrentDuration = parentEndTime - parentStartTime - (parentJob.breakAdjustmentMinutes || 0);
-        
-        const rolloverStartTimeCalc = rolloverChild.plannedStartTime ?? 420;
-        const rolloverEndTimeCalc = rolloverChild.plannedEndTime ?? 1020;
-        const rolloverCurrentDuration = rolloverEndTimeCalc - rolloverStartTimeCalc - (rolloverChild.breakAdjustmentMinutes || 0);
-        
-        // Total work in the chain
-        const totalChainDuration = parentCurrentDuration + rolloverCurrentDuration;
-        
-        console.log(`[OT-ROLLOVER] Current parent duration: ${parentCurrentDuration}m, Current rollover duration: ${rolloverCurrentDuration}m, Total chain: ${totalChainDuration}m`);
-        
-        // Calculate how much time is available WITHOUT OT
-        const availableWithoutOT = PlannerV2.getAvailableMinutes(parentStartTime, noOTShift);
-        
-        console.log(`[OT-ROLLOVER] Available without OT: ${availableWithoutOT}m`);
-        
-        // Parent should SHRINK to fit within non-OT hours
-        // Any excess goes back to the rollover
-        const newParentDuration = Math.min(parentCurrentDuration, availableWithoutOT);
-        const excessTime = parentCurrentDuration - newParentDuration;
-        const newRolloverDuration = rolloverCurrentDuration + excessTime;
-        
-        // If there's excess time to redistribute to rollover
-        if (excessTime > 0) {
-          
-          console.log(`[OT-ROLLOVER] Redistributing ${excessTime}m back to rollover. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
-          
-          // PROPORTIONAL E-FINKS REDISTRIBUTION with 2-decimal precision
-          const totalEFinks = parentJob.estimatedEFinks + rolloverChild.estimatedEFinks;
-          
-          // Parent gets less E-Finks (less work time), rollover gets more
-          const { parentEfinks: newParentEFinks, childEfinks: newRolloverEFinks } = PlannerV2.redistributeEfinks(totalEFinks, newParentDuration, newRolloverDuration);
-          
-          console.log(`[OT-ROLLOVER] E-Finks redistribution: Total=${totalEFinks}, Parent=${newParentEFinks} (was ${parentJob.estimatedEFinks}), Rollover=${newRolloverEFinks} (was ${rolloverChild.estimatedEFinks})`);
-          
-          // WIP-FIRST: Only update WIP records, NOT Production.newEstimateDefinks
-          // Update parent WIP - CRITICAL: Set dayEndMinutes to WORKING_END (1020) not undefined
-          // so the restore logic doesn't default to 1140 (OT end time)
-          const parentTiming = PlannerV2.calculateEndTime(parentStartTime, newParentDuration, noOTShift);
-          if (parentJob.wipId) {
-            await teamWorkItemService.batchUpdate([{
-              id: parentJob.wipId,
-              data: {
-                overtimeEnabled: false,
-                dayEndMinutes: 1020, // WORKING_END - standard 17:00
-                plannedDurationMinutes: newParentDuration,
-                plannedEndMinutes: parentTiming.endTime,
-                breakAdjustmentMinutes: parentTiming.breakMinutes,
-                estimatedEfinks: newParentEFinks
-              }
-            }]);
-            console.log(`[OT-ROLLOVER] ✓ Shrunk parent WIP to ${newParentDuration}m, efinks=${newParentEFinks}`);
-          }
-          
-          // WIP-FIRST: Only update WIP, not Production.newEstimateDefinks
-          // Update rollover WIP - CRITICAL: Also set overtimeEnabled: false so loadData doesn't re-enable OT
-          if (rolloverChild.wipId) {
-            const rolloverDateStr = rolloverChild.plannedDateStr!;
-            const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
-            const rolloverShift = PlannerV2.getShiftConfig(
-              rolloverTeamOvertime?.enabled,
-              rolloverTeamOvertime?.closeTime,
-              rolloverTeamOvertime?.earlyEnabled,
-              rolloverTeamOvertime?.earlyStartTime
-            );
-            const rolloverStartTime = rolloverShift.startTime;
-            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
-            
-            await teamWorkItemService.batchUpdate([{
-              id: rolloverChild.wipId,
-              data: {
-                plannedStartMinutes: rolloverStartTime,
-                plannedDurationMinutes: newRolloverDuration,
-                plannedEndMinutes: rolloverTiming.endTime,
-                breakAdjustmentMinutes: rolloverTiming.breakMinutes,
-                estimatedEfinks: newRolloverEFinks,
-                customDurationMinutes: newRolloverDuration,
-                overtimeEnabled: false,
-                dayEndMinutes: 1020 // WORKING_END - standard 17:00
-              }
-            }]);
-            console.log(`[OT-ROLLOVER] ✓ Enlarged rollover WIP to ${newRolloverDuration}m, efinks=${newRolloverEFinks}`);
-          }
-        } else {
-          // Parent fits in standard hours, just update OT flag for both parent AND any rollover children
-          // CRITICAL: Set dayEndMinutes to 1020 (WORKING_END) not undefined
-          if (parentJob.wipId) {
-            await teamWorkItemService.batchUpdate([{
-              id: parentJob.wipId,
-              data: {
-                overtimeEnabled: false,
-                dayEndMinutes: 1020 // WORKING_END - standard 17:00
-              }
-            }]);
-          }
-          // Also update rollover child's OT flag if it exists
-          if (rolloverChild.wipId) {
-            await teamWorkItemService.batchUpdate([{
-              id: rolloverChild.wipId,
-              data: {
-                overtimeEnabled: false,
-                dayEndMinutes: 1020 // WORKING_END - standard 17:00
-              }
-            }]);
-          }
-        }
-      }
-      
-      // For jobs that are NOT part of rollover chains, just update OT settings
-      const nonRolloverJobsOff = affectedJobs.filter(job => {
-        const rootParentId = job.parentProductionId || job.id;
-        const currentSequence = job.rolloverSequence || 0;
-        const hasRolloverChild = allJobs.some(j => 
-          j.parentProductionId === rootParentId && 
-          (j.rolloverSequence || 0) === currentSequence + 1
-        );
-        return !hasRolloverChild;
-      });
-      
-      if (nonRolloverJobsOff.length > 0) {
-        // CRITICAL: Set dayEndMinutes to 1020 (WORKING_END) not undefined
-        // so the restore logic doesn't default to 1140 (OT end time)
-        const updates: { id: string; data: UpdateTeamWorkItemDto }[] = nonRolloverJobsOff.map(job => ({
-          id: job.wipId!,
-          data: {
-            overtimeEnabled: false,
-            dayEndMinutes: 1020 // WORKING_END - standard 17:00
-          }
-        }));
-        await teamWorkItemService.batchUpdate(updates);
-        console.log(`[PLANNER] ✓ WIP overtime settings disabled for ${nonRolloverJobsOff.length} non-rollover jobs`);
-      }
+      await teamWorkItemService.batchUpdate(otUpdates);
+      console.log(`[PLANNER] ✓ Updated OT settings for ${affectedJobs.length} jobs`);
       
       // Reload data to reflect all changes
       await loadData();
@@ -2151,8 +1145,6 @@ export const ProductionPlannerPage = () => {
         plannedDurationMinutes: job.plannedDurationMinutes ?? null,
         customDurationMinutes: job.customDurationMinutes ?? null,
         breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
-        parentProductionId: job.parentProductionId ?? null,
-        rolloverSequence: job.rolloverSequence ?? 0,
         productionComplete: job.productionComplete
       }));
       
@@ -2160,118 +1152,22 @@ export const ProductionPlannerPage = () => {
       const { scheduledJobs: rescheduledJobs } = PlannerV2.rescheduleDay(scheduledJobs, newShift);
       console.log(`[PLANNER] ✓ Recalculated ${rescheduledJobs.length} job positions with new early OT shift config`);
       
-      // Build a map of job ID to rescheduled timing
-      const rescheduledMap = new Map<string, PlannerV2.ScheduledJob>();
-      for (const rj of rescheduledJobs) {
-        rescheduledMap.set(rj.id, rj);
-      }
-      
-      // UNIFIED SCHEDULING: Both early OT enable and disable use the same approach
-      // Sort all jobs by sequence, then reschedule from the new start time
-      // This ensures proper ordering and prevents jobs from overlapping
-      
-      // Sort jobs by start time to maintain order
+      // CONTINUOUS FLOW: Sort jobs and reschedule sequentially from new start time
       const sortedJobs = [...affectedJobs].sort((a, b) => {
         return (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420);
       });
       
-      console.log(`[EARLY-OT] Processing ${sortedJobs.length} jobs in sequence order`);
+      console.log(`[EARLY-OT] Processing ${sortedJobs.length} jobs in sequence order - CONTINUOUS FLOW`);
       
-      // Build updates array and rollover child updates
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
-      const rolloverChildUpdates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
-      
-      // Track current position for sequential scheduling
       let nextStartTime = newShift.startTime;
       
-      for (let i = 0; i < sortedJobs.length; i++) {
-        const job = sortedJobs[i];
-        
-        // Find if this job has a rollover child (next segment in chain)
-        const rootParentId = job.parentProductionId || job.id;
-        const currentSequence = job.rolloverSequence || 0;
-        const rolloverChild = allJobs.find(j => 
-          j.parentProductionId === rootParentId && 
-          (j.rolloverSequence || 0) === currentSequence + 1
-        );
-        
-        // Get current job duration
-        const currentDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
+      for (const job of sortedJobs) {
+        const jobDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
           Math.round(job.estimatedEFinks * 6.5625);
         
-        let finalDuration = currentDuration;
-        let finalEFinks = job.estimatedEFinks;
-        
-        if (rolloverChild) {
-          // This job has a rollover child - need to redistribute time
-          const rolloverDuration = rolloverChild.customDurationMinutes ?? rolloverChild.plannedDurationMinutes ?? 
-            Math.round(rolloverChild.estimatedEFinks * 6.5625);
-          const totalChainDuration = currentDuration + rolloverDuration;
-          const totalEFinks = job.estimatedEFinks + rolloverChild.estimatedEFinks;
-          
-          console.log(`[EARLY-OT] Job ${job.orderNumber} has rollover child. Chain: ${currentDuration}m + ${rolloverDuration}m = ${totalChainDuration}m`);
-          
-          // Calculate available time from this job's position
-          // CRITICAL: Must account for SUBSEQUENT JOBS on same day to avoid stretching into their window
-          let availableTime = PlannerV2.getAvailableMinutes(nextStartTime, newShift);
-          
-          // Check if there's a next job on the same day - limit available time to gap before it
-          if (i + 1 < sortedJobs.length) {
-            // Calculate time needed for next job and all subsequent jobs
-            let remainingJobsMinutes = 0;
-            for (let j = i + 1; j < sortedJobs.length; j++) {
-              const futureJob = sortedJobs[j];
-              const futureDuration = futureJob.customDurationMinutes ?? futureJob.plannedDurationMinutes ?? 
-                Math.round(futureJob.estimatedEFinks * 6.5625);
-              remainingJobsMinutes += futureDuration + 30; // duration + buffer
-            }
-            // Available time is total day time minus what subsequent jobs need
-            const maxForThisJob = availableTime - remainingJobsMinutes;
-            availableTime = Math.max(currentDuration, maxForThisJob); // At least keep current duration
-            console.log(`[EARLY-OT] Capping available time to ${availableTime}m (${remainingJobsMinutes}m reserved for ${sortedJobs.length - i - 1} subsequent jobs)`);
-          }
-          
-          // Parent takes what it can fit (up to total chain duration, limited by available time)
-          const newParentDuration = Math.min(totalChainDuration, availableTime);
-          const newRolloverDuration = totalChainDuration - newParentDuration;
-          
-          console.log(`[EARLY-OT] Available from ${nextStartTime}: ${availableTime}m. New parent: ${newParentDuration}m, New rollover: ${newRolloverDuration}m`);
-          
-          // Redistribute E-Finks proportionally
-          const { parentEfinks, childEfinks } = PlannerV2.redistributeEfinks(totalEFinks, newParentDuration, newRolloverDuration);
-          
-          finalDuration = newParentDuration;
-          finalEFinks = parentEfinks;
-          
-          // Queue rollover child update
-          if (rolloverChild.wipId) {
-            const rolloverDateStr = rolloverChild.plannedDateStr!;
-            const rolloverTeamOvertime = overtimeByTeamDay[rolloverDateStr]?.[teamId];
-            const rolloverShift = PlannerV2.getShiftConfig(
-              rolloverTeamOvertime?.enabled,
-              rolloverTeamOvertime?.closeTime,
-              rolloverTeamOvertime?.earlyEnabled,
-              rolloverTeamOvertime?.earlyStartTime
-            );
-            const rolloverStartTime = rolloverChild.plannedStartTime ?? rolloverShift.startTime;
-            const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, newRolloverDuration, rolloverShift);
-            
-            rolloverChildUpdates.push({
-              id: rolloverChild.wipId,
-              data: {
-                plannedDurationMinutes: newRolloverDuration,
-                plannedEndMinutes: rolloverTiming.endTime,
-                breakAdjustmentMinutes: rolloverTiming.breakMinutes,
-                estimatedEfinks: childEfinks,
-                customDurationMinutes: newRolloverDuration
-              }
-            });
-            console.log(`[EARLY-OT] Queued rollover child update: ${newRolloverDuration}m, ${childEfinks} E-Finks`);
-          }
-        }
-        
         // Calculate timing for this job
-        const timing = PlannerV2.calculateEndTime(nextStartTime, finalDuration, newShift);
+        const timing = PlannerV2.calculateEndTime(nextStartTime, jobDuration, newShift);
         
         updates.push({
           id: job.wipId!,
@@ -2280,30 +1176,21 @@ export const ProductionPlannerPage = () => {
             dayStartMinutes: earlyEnabled ? earlyStartTime : undefined,
             plannedStartMinutes: nextStartTime,
             plannedEndMinutes: timing.endTime,
-            plannedDurationMinutes: finalDuration,
-            breakAdjustmentMinutes: timing.breakMinutes,
-            ...(rolloverChild && { 
-              estimatedEfinks: finalEFinks,
-              customDurationMinutes: finalDuration 
-            })
+            plannedDurationMinutes: jobDuration,
+            breakAdjustmentMinutes: timing.breakMinutes
           }
         });
         
-        // Next job starts after this one plus 30m buffer
+        // Next job starts after this one plus buffer
         nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, newShift) ?? newShift.endTime;
         
-        console.log(`[EARLY-OT] Scheduled ${job.orderNumber}: ${timing.endTime > 0 ? `ends at ${timing.endTime}` : 'at end'}, next starts at ${nextStartTime}`);
+        console.log(`[EARLY-OT] Scheduled ${job.orderNumber}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
       }
       
       // Persist all updates
       if (updates.length > 0) {
         await teamWorkItemService.batchUpdate(updates);
         console.log(`[PLANNER] ✓ Updated ${updates.length} jobs with early OT = ${earlyEnabled}`);
-      }
-      
-      if (rolloverChildUpdates.length > 0) {
-        await teamWorkItemService.batchUpdate(rolloverChildUpdates);
-        console.log(`[PLANNER] ✓ Updated ${rolloverChildUpdates.length} rollover children`);
       }
       
       // Reload data to reflect all changes
@@ -2331,275 +1218,6 @@ export const ProductionPlannerPage = () => {
 
   const getTeamOvertimeForDay = (dayStr: string): Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }> => {
     return overtimeByTeamDay[dayStr] || {};
-  };
-
-  const handleJobRollover = async (jobId: string, _overflowMinutes: number, nextDateStr: string, jigId: string | null) => {
-    try {
-      // Show loading overlay
-      setOperationInProgress(true);
-      setOperationMessage('Creating rollover...');
-      
-      console.log('[ROLLOVER] ========== Starting rollover ==========');
-      console.log('[ROLLOVER] Job ID:', jobId);
-      console.log('[ROLLOVER] Next date:', nextDateStr);
-      console.log('[ROLLOVER] Passed jigId:', jigId);
-      
-      const job = allJobs.find(j => j.id === jobId);
-      if (!job) {
-        console.log('[ROLLOVER] ✗ Job not found in allJobs');
-        return;
-      }
-      console.log('[ROLLOVER] Found job:', job.orderNumber, 'jigId:', job.jigId);
-
-      // Check if this is a WIP-only rollover (ID starts with "wip-")
-      const isWipOnlyJob = jobId.startsWith('wip-');
-      const actualWipId = isWipOnlyJob ? jobId.substring(4) : undefined;
-      console.log('[ROLLOVER] Is WIP-only job:', isWipOnlyJob, 'actualWipId:', actualWipId);
-
-      // For WIP-only jobs, we use the job's display fields directly (already loaded from WIP)
-      // For production-backed jobs, fetch the full production record
-      let fullProduction: { jigId?: string | null; orderNo?: string | null } | null = null;
-      if (!isWipOnlyJob) {
-        fullProduction = await productionService.getById(jobId);
-        if (!fullProduction) {
-          console.error('[PLANNER] Could not fetch full production data for rollover');
-          return;
-        }
-        console.log('[ROLLOVER] Full production jigId:', fullProduction.jigId);
-      } else {
-        // For WIP-only jobs, construct a minimal object from job fields
-        // WIP-only rollovers already have display fields - no orderNo needed for further rollovers
-        fullProduction = {
-          jigId: job.jigId,
-          orderNo: undefined
-        };
-        console.log('[ROLLOVER] WIP-only job - using job fields, jigId:', job.jigId);
-      }
-
-      // BUG FIX: Calculate available time using getAvailableMinutes instead of subtracting overflow
-      // The overflow calculation includes break visual time, but we need WORK TIME only
-      const preservedJigId = jigId ?? job.jigId;
-      const dateStr = job.plannedDateStr!;
-      const teamOvertime = overtimeByTeamDay[dateStr]?.[preservedJigId || ''];
-      const shift = PlannerV2.getShiftConfig(
-        teamOvertime?.enabled,
-        teamOvertime?.closeTime,
-        teamOvertime?.earlyEnabled,
-        teamOvertime?.earlyStartTime
-      );
-      
-      const jobStartTime = job.plannedStartTime ?? shift.startTime;
-      const currentDuration = job.plannedDurationMinutes ?? job.customDurationMinutes ?? Math.round(job.estimatedEFinks * 6.5625);
-      
-      // Calculate EXACTLY how much work time fits on day 1 (from job start to end of day)
-      const availableOnDay1 = PlannerV2.getAvailableMinutes(jobStartTime, shift);
-      const remainingDuration = Math.min(availableOnDay1, currentDuration);
-      const overflowMinutes = currentDuration - remainingDuration;
-      
-      console.log('[ROLLOVER] Duration calculation:', {
-        currentDuration,
-        jobStartTime,
-        shiftEnd: shift.endTime,
-        availableOnDay1,
-        remainingDuration,
-        overflowMinutes
-      });
-
-      // Determine the root parent ID for this job chain
-      const rootParentId = job.parentProductionId || jobId;
-      const currentSequence = job.rolloverSequence || 0;
-      console.log('[ROLLOVER] Root parent ID:', rootParentId);
-      console.log('[ROLLOVER] Current sequence:', currentSequence);
-
-      console.log('[ROLLOVER] Preserved jigId:', preservedJigId);
-
-      // BUG FIX 2: Check if a rollover child already exists for this job
-      // Look for jobs where parentProductionId matches rootParentId and rolloverSequence > currentSequence
-      const existingRollover = allJobs.find(j => 
-        j.parentProductionId === rootParentId && 
-        (j.rolloverSequence || 0) === currentSequence + 1
-      );
-      console.log('[ROLLOVER] Existing rollover found:', existingRollover?.id, existingRollover?.orderNumber);
-
-      // WIP-FIRST ARCHITECTURE: DO NOT update Production record during planning
-      // All rollover-related data (customDurationMinutes, rolloverSequence, teamId) 
-      // is stored in WIP records only until job completion
-      console.log('[ROLLOVER] WIP-first: Skipping Production update, all changes go to WIP only');
-
-      // WIP-FIRST ARCHITECTURE: Rollovers are created as WIP-only records initially
-      // No Production record is created until job completion
-      
-      // Look up the original job's WIP record from API if not in local state
-      // For WIP-only jobs, we already have the WIP ID from the job ID prefix
-      let originalWipId = job.wipId || actualWipId;
-      if (!originalWipId && preservedJigId && !isWipOnlyJob) {
-        console.log('[ROLLOVER] wipId not in local state, looking up from API...');
-        try {
-          const wipRecords = await teamWorkItemService.getByProductionId(jobId);
-          if (wipRecords && wipRecords.length > 0) {
-            originalWipId = wipRecords[0].id;
-            console.log('[ROLLOVER] Found WIP record from API:', originalWipId);
-          }
-        } catch (lookupErr) {
-          console.log('[ROLLOVER] Could not look up WIP record:', lookupErr);
-        }
-      }
-      console.log('[ROLLOVER] originalWipId resolved to:', originalWipId);
-      
-      // If existing rollover child exists, DELETE it first
-      // Check if it's a WIP-only rollover (no productionId) or has a Production record
-      if (existingRollover) {
-        console.log('[ROLLOVER] Deleting existing rollover:', existingRollover.id, existingRollover.orderNumber);
-        // For WIP-only rollovers (ID starts with "wip-"), delete via WIP service
-        // For Production-backed rollovers, delete via Production service
-        const isWipOnlyRollover = existingRollover.id.startsWith('wip-');
-        
-        if (isWipOnlyRollover) {
-          // Extract the actual WIP ID (after "wip-" prefix)
-          const actualWipId = existingRollover.id.substring(4); // Remove "wip-" prefix
-          await teamWorkItemService.delete(actualWipId);
-          console.log('[ROLLOVER] ✓ Existing WIP-only rollover deleted');
-        } else {
-          // This is a Production-backed rollover - delete Production (WIP will cascade)
-          await productionService.delete(existingRollover.id);
-          console.log('[ROLLOVER] ✓ Existing Production rollover deleted');
-        }
-      }
-      
-      // Calculate truncated timing for parent job
-      const truncatedDuration = Math.max(20, remainingDuration);
-      const originalStartTime = jobStartTime;
-      const originalTiming = PlannerV2.calculateEndTime(originalStartTime, truncatedDuration, shift);
-      
-      // Calculate E-Finks apportionment between parent and rollover
-      const totalEFinks = job.estimatedEFinks || 0;
-      const totalDuration = truncatedDuration + overflowMinutes;
-      const parentEFinks = totalDuration > 0 ? Math.round((truncatedDuration / totalDuration) * totalEFinks) : totalEFinks;
-      const rolloverEFinks = totalEFinks - parentEFinks; // Ensure they sum to total
-      
-      console.log('[ROLLOVER] E-Finks apportionment:', {
-        totalEFinks,
-        totalDuration,
-        parentDuration: truncatedDuration,
-        rolloverDuration: overflowMinutes,
-        parentEFinks,
-        rolloverEFinks
-      });
-      
-      // Update original job's WIP record with truncated timing AND reduced E-Finks (if WIP exists)
-      if (originalWipId) {
-        console.log('[ROLLOVER] Updating original WIP with truncated timing:', {
-          wipId: originalWipId,
-          start: originalStartTime,
-          end: originalTiming.endTime,
-          duration: truncatedDuration,
-          breaks: originalTiming.breakMinutes,
-          estimatedEfinks: parentEFinks
-        });
-        
-        await teamWorkItemService.batchUpdate([{
-          id: originalWipId,
-          data: {
-            plannedEndMinutes: originalTiming.endTime,
-            plannedDurationMinutes: truncatedDuration,
-            breakAdjustmentMinutes: originalTiming.breakMinutes,
-            estimatedEfinks: parentEFinks,
-            customDurationMinutes: truncatedDuration,
-            rolloverSequence: currentSequence // Track sequence in WIP
-          }
-        }]);
-        console.log('[ROLLOVER] ✓ Original WIP record updated with truncated timing, E-Finks, and rolloverSequence');
-      }
-      
-      // WIP-FIRST: Create WIP-only rollover record (NO Production record yet)
-      if (preservedJigId) {
-        // Get next day's overtime settings for rollover job scheduling
-        const nextDayTeamOvertime = overtimeByTeamDay[nextDateStr]?.[preservedJigId];
-        const nextDayShift = PlannerV2.getShiftConfig(
-          nextDayTeamOvertime?.enabled,
-          nextDayTeamOvertime?.closeTime,
-          nextDayTeamOvertime?.earlyEnabled,
-          nextDayTeamOvertime?.earlyStartTime
-        );
-        
-        // Find existing jobs on next day to determine start time
-        // CRITICAL: Exclude jobs from the SAME rollover chain - rollovers replace each other, don't stack
-        const existingJobsNextDay = allJobs.filter(
-          j => j.plannedDateStr === nextDateStr && 
-               j.jigId === preservedJigId && 
-               !j.productionComplete &&
-               // Exclude jobs from the same rollover chain
-               j.parentProductionId !== rootParentId &&
-               j.id !== rootParentId
-        ).sort((a, b) => (a.plannedStartTime ?? nextDayShift.startTime) - (b.plannedStartTime ?? nextDayShift.startTime));
-        
-        // Rollover ALWAYS starts at day's first available time
-        let rolloverStartTime = nextDayShift.startTime;
-        if (existingJobsNextDay.length > 0) {
-          const lastJob = existingJobsNextDay[existingJobsNextDay.length - 1];
-          const lastEndTime = lastJob.plannedEndTime ?? nextDayShift.startTime;
-          // Apply 30min buffer + near-break adjustment
-          rolloverStartTime = PlannerV2.getAdjustedStartTime(lastEndTime + PlannerV2.BUFFER_MINUTES, nextDayShift);
-        }
-        
-        console.log('[ROLLOVER] Calculated rollover start time:', rolloverStartTime, 
-          'existingJobsNextDay (non-chain):', existingJobsNextDay.length);
-        
-        const rolloverTiming = PlannerV2.calculateEndTime(rolloverStartTime, overflowMinutes, nextDayShift);
-        
-        // Create rollover name for display
-        const baseName = job.name?.replace(' (Rollover)', '').replace(' (Roll Over)', '') || job.orderNumber;
-        const rolloverName = `${baseName} (Rollover)`;
-        
-        // Create WIP-ONLY rollover record with all display fields
-        console.log('[ROLLOVER] Creating WIP-only rollover:', {
-          isRolloverOnly: true,
-          teamId: preservedJigId,
-          workDate: nextDateStr,
-          start: rolloverStartTime,
-          end: rolloverTiming.endTime,
-          duration: overflowMinutes,
-          productionName: rolloverName
-        });
-        
-        await teamWorkItemService.batchAllocate([{
-          productionId: null, // WIP-only - no Production record yet
-          teamId: preservedJigId,
-          workDate: nextDateStr,
-          sequence: existingJobsNextDay.length + 1,
-          plannedStartMinutes: rolloverStartTime,
-          plannedEndMinutes: rolloverTiming.endTime,
-          plannedDurationMinutes: overflowMinutes,
-          breakAdjustmentMinutes: rolloverTiming.breakMinutes,
-          rolloverSequence: currentSequence + 1,
-          parentWipId: originalWipId,
-          customDurationMinutes: overflowMinutes,
-          // WIP-first fields - copy display data from parent
-          // For parentProductionId: use rootParentId since jobId might be "wip-xxx" for WIP-only jobs
-          isRolloverOnly: true,
-          rootProductionId: rootParentId,
-          parentProductionId: isWipOnlyJob ? job.parentProductionId : jobId,
-          orderNumber: job.orderNumber,
-          customerName: job.customer,
-          productionName: rolloverName,
-          estimatedEfinks: rolloverEFinks,
-          salesOrderId: fullProduction.orderNo ?? undefined
-        }]);
-        console.log('[ROLLOVER] ✓ WIP-only rollover created');
-      } else {
-        console.log('[ROLLOVER] No team assignment - skipping WIP record creation');
-      }
-
-      console.log('[ROLLOVER] ========== Reloading data ==========');
-      await loadData();
-      console.log('[ROLLOVER] ========== Rollover complete ==========');
-    } catch (err) {
-      console.error('[PLANNER] ✗ Failed to roll over job:', err);
-      setError(`Failed to roll over job: ${err instanceof Error ? err.message : 'Unknown error'}`);
-    } finally {
-      setOperationInProgress(false);
-      setOperationMessage('');
-    }
   };
 
   const formatDate = (dateStr: string): string => {
@@ -3048,7 +1666,6 @@ export const ProductionPlannerPage = () => {
               jobs={allJobs}
               allJobs={allJobs}
               jigTeams={filteredJigTeams}
-              chainJobsMap={chainJobsMap}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
               onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
@@ -3056,7 +1673,6 @@ export const ProductionPlannerPage = () => {
               onJobDurationChange={handleJobDurationChange}
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
-              onJobRollover={handleJobRollover}
               overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}
               onTeamOvertimeChange={handleTeamOvertimeChange}
               onTeamEarlyOvertimeChange={handleTeamEarlyOvertimeChange}

@@ -11,8 +11,6 @@ interface Job {
   jigId: string | null;
   productionComplete: boolean;
   customDurationMinutes?: number;
-  parentProductionId?: string | null;
-  rolloverSequence?: number;
   createdOn?: string;
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
@@ -31,8 +29,6 @@ interface JobCardProps {
   height: number;
   baseHeight: number;
   breakAdditions: BreakAddition[];
-  isOverflowing: boolean;
-  overflowMinutes: number;
   isStaged: boolean;
   isPrimary: boolean;
   hasManualResize: boolean;
@@ -54,8 +50,6 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   height,
   baseHeight,
   breakAdditions,
-  isOverflowing,
-  overflowMinutes,
   isStaged,
   isPrimary,
   hasManualResize,
@@ -72,7 +66,6 @@ const JobCardComponent: React.FC<JobCardProps> = ({
 }) => {
   const getBackground = () => {
     if (isStaged) return 'linear-gradient(135deg, rgba(255, 185, 0, 0.95), rgba(200, 140, 0, 0.85))';
-    if (isOverflowing) return 'linear-gradient(135deg, rgba(198, 40, 40, 0.95), rgba(160, 30, 30, 0.85))';
     if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
     return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
   };
@@ -80,14 +73,12 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   const getBorder = () => {
     if (isPrimary) return '3px solid #ffb900';
     if (isStaged) return '2px dashed #ffb900';
-    if (isOverflowing) return '2px solid #ff4444';
     if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
     return '1px solid rgba(255, 255, 255, 0.3)';
   };
   
   const getBoxShadow = () => {
     if (isStaged) return '0 4px 16px rgba(255, 185, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
-    if (isOverflowing) return '0 4px 12px rgba(198, 40, 40, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
     if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
     return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
   };
@@ -109,7 +100,7 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         color: isStaged ? '#333' : (job.productionComplete ? '#555' : 'white'),
         borderRadius: 6,
         border: getBorder(),
-        cursor: isOverflowing ? 'pointer' : (isResizing ? 'ns-resize' : 'grab'),
+        cursor: isResizing ? 'ns-resize' : 'grab',
         zIndex: isStaged ? 200 : (isResizing ? 100 : 10),
         boxShadow: getBoxShadow(),
         opacity: job.productionComplete ? 0.7 : 1,
@@ -162,20 +153,6 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         />
       )}
       
-      {isOverflowing && (
-        <Text styles={{ 
-          root: { 
-            position: 'absolute',
-            top: 2,
-            right: hasManualResize && onResetDuration ? 26 : 4,
-            color: '#ffff00', 
-            fontWeight: 700, 
-            fontSize: 18, 
-            lineHeight: 1 
-          } 
-        }}>!</Text>
-      )}
-      
       <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
         <Stack>
           <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
@@ -197,11 +174,6 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         {breakAdditions.length > 0 && (
           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
             {formatBreakAdditions(breakAdditions)}
-          </Text>
-        )}
-        {isOverflowing && (
-          <Text variant="tiny" styles={{ root: { color: '#ffff00', fontWeight: 600 } }}>
-            Overflow: {formatDuration(overflowMinutes)}
           </Text>
         )}
       </Stack>
@@ -244,7 +216,6 @@ export const JobCard = memo(JobCardComponent, (prevProps, nextProps) => {
     prevProps.height === nextProps.height &&
     prevProps.isStaged === nextProps.isStaged &&
     prevProps.isPrimary === nextProps.isPrimary &&
-    prevProps.isOverflowing === nextProps.isOverflowing &&
     prevProps.hasManualResize === nextProps.hasManualResize &&
     prevProps.isResizing === nextProps.isResizing &&
     prevProps.job.plannedStartTime === nextProps.job.plannedStartTime &&
