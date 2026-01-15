@@ -8,6 +8,7 @@ import { MINUTES_PER_EFINK } from './types';
 import { getDayCapacity, addDays, isWeekend } from './dayCapacity';
 
 export interface DaySettings {
+  isWorkingDay?: boolean;
   earlyOtEnabled: boolean;
   earlyOtStartMinutes?: number;
   lateOtEnabled: boolean;
@@ -62,6 +63,7 @@ function getNextAvailableTime(time: number, dayCapacity: DayCapacity): number {
 function scheduleOnDay(
   allocationId: string,
   remainingWork: number,
+  totalDuration: number,
   totalEfinks: number,
   startMinutes: number,
   dayCapacity: DayCapacity,
@@ -112,7 +114,7 @@ function scheduleOnDay(
     return { slice: null, remainingWork, endMinutes: endTime };
   }
 
-  const sliceEfinks = (workDone / remainingWork) * totalEfinks * (remainingWork / (remainingWork));
+  const sliceEfinks = (workDone / totalDuration) * totalEfinks;
   const isLastDay = remainingWork - workDone <= 0;
 
   const slice: JobSlice = {
@@ -159,12 +161,14 @@ export function scheduleJob(
       settings.earlyOtStartMinutes,
       settings.lateOtEnabled,
       settings.lateOtEndMinutes,
-      blocks
+      blocks,
+      settings.isWorkingDay
     );
 
     const result = scheduleOnDay(
       allocation.id,
       remainingWork,
+      totalDuration,
       allocation.estimatedEfinks,
       currentStartMinutes,
       dayCapacity,

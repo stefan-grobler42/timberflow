@@ -217,6 +217,7 @@ export const WaterfallPlannerPage = () => {
     const settings = daySettings.get(key);
     if (settings) {
       return {
+        isWorkingDay: settings.isWorkingDay,
         earlyOtEnabled: settings.earlyOtEnabled,
         earlyOtStartMinutes: settings.earlyOtStartMinutes,
         lateOtEnabled: settings.lateOtEnabled,

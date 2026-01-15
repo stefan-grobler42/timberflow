@@ -90,12 +90,14 @@ export function getDayCapacity(
   earlyOtStartMinutes?: number,
   lateOtEnabled: boolean = false,
   lateOtEndMinutes?: number,
-  blocks: ScheduleBlockInfo[] = []
+  blocks: ScheduleBlockInfo[] = [],
+  explicitIsWorkingDay?: boolean
 ): DayCapacity {
   const weekend = isWeekend(dateStr);
 
   const hasOtOnWeekend = weekend && (earlyOtEnabled || lateOtEnabled);
-  const isWorkingDay = !weekend || hasOtOnWeekend;
+  const defaultIsWorkingDay = !weekend || hasOtOnWeekend;
+  const isWorkingDay = explicitIsWorkingDay !== undefined ? explicitIsWorkingDay : defaultIsWorkingDay;
 
   if (!isWorkingDay) {
     return {
