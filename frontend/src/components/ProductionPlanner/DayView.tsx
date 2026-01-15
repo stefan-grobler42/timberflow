@@ -842,8 +842,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
 
   return (
-    <Stack styles={{ root: { padding: '20px 20px 20px 0' } }}>
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 20 }} styles={{ root: { marginBottom: 20 } }}>
+    <Stack styles={{ root: { padding: '20px 20px 20px 0', height: '100%', overflow: 'hidden' } }}>
+      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 20 }} styles={{ root: { marginBottom: 20, flexShrink: 0 } }}>
         <Text variant="xLarge" styles={{ root: { fontWeight: 600 } }}>
           {formatDate(dayStr)}
         </Text>
@@ -853,9 +853,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       </Stack>
 
       {/* Main layout: Planner grid + Unallocated column attached on right */}
-      <div style={{ display: 'inline-flex' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'auto' }}>
         {/* Planner grid (time column + team columns) */}
-        <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', flex: 1 }}>
           {/* Time header column */}
           <Stack styles={{ root: { width: 100, flexShrink: 0, borderRight: '1px solid #ddd' } }}>
             {/* Merged blank cell spanning OT toggles + team header height (24 Early OT + 24 Late OT + 50 Team header = 98px, all border-box) */}
@@ -946,7 +946,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const teamTimelineSegments = generateVisibleTimelineSegmentsMinutes(teamWorkingMinutes);
 
           return (
-            <Stack key={jig.id} styles={{ root: { minWidth: 220, borderRight: '1px solid #ddd' } }}>
+            <Stack key={jig.id} styles={{ root: { flex: 1, minWidth: 180, borderRight: '1px solid #ddd' } }}>
               {/* Overtime controls - positioned above header */}
               <Stack>
                 {/* Early OT row - 24px height + 1px border = 25px total */}

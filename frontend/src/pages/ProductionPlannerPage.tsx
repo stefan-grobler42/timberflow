@@ -1470,7 +1470,7 @@ export const ProductionPlannerPage = () => {
   
   return (
     <ShiftConfigProvider>
-    <Stack styles={{ root: { minHeight: '100%', position: 'relative' } }}>
+    <Stack styles={{ root: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' } }}>
       {/* Loading overlay - blocks interactions during background operations */}
       {operationInProgress && (
         <div style={{
@@ -1556,7 +1556,7 @@ export const ProductionPlannerPage = () => {
 
       <CommandBar items={commandItems} />
 
-      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15 } }}>
+      <Stack horizontal styles={{ root: { flex: 1, marginTop: 20, gap: 15, overflow: 'hidden' } }}>
         <div
           onMouseEnter={() => setBasketCollapsed(false)}
           onMouseLeave={() => setBasketCollapsed(true)}
@@ -1632,7 +1632,7 @@ export const ProductionPlannerPage = () => {
           )}
         </div>
 
-        <Stack styles={{ root: { flex: 1, minWidth: 0 } }}>
+        <Stack styles={{ root: { flex: 1, minWidth: 0, overflow: 'auto' } }}>
           {viewMode === 'month' && (
             <MonthView
               daysInView={getDaysInView}
