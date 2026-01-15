@@ -14,6 +14,7 @@ import { PricingCalculationsPage } from './pages/PricingCalculationsPage';
 import { InstallationProgressPage } from './pages/InstallationProgressPage';
 import { ProductionPage } from './pages/ProductionPage';
 import { ProductionPlannerPage } from './pages/ProductionPlannerPage';
+import { WaterfallPlannerPage } from './pages/WaterfallPlannerPage';
 import { ProductionFormPage } from './pages/ProductionFormPage';
 import { LogisticsPage } from './pages/LogisticsPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
@@ -73,6 +74,7 @@ function App() {
           <Route path="/pricing" element={<PricingCalculationsPage />} />
           <Route path="/production" element={<ProductionPage />} />
           <Route path="/production-planner" element={<ProductionPlannerPage />} />
+          <Route path="/waterfall-planner" element={<WaterfallPlannerPage />} />
           <Route path="/production-planner/:id" element={<ProductionFormPage />} />
           <Route path="/jigs/:id" element={<JigFormPage />} />
           <Route path="/schedule-blocks" element={<ScheduleBlocksPage />} />

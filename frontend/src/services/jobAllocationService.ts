@@ -36,6 +36,8 @@ export interface CreateJobAllocationDto {
   estimatedDurationMinutes: number;
   spanStartDate: string;
   spanStartMinutes: number;
+  spanEndDate?: string;
+  spanEndMinutes?: number;
   queuePosition: number;
   salesOrderId?: string;
 }

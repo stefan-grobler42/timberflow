@@ -117,9 +117,15 @@ export const Layout = ({ children }: LayoutProps) => {
         },
         {
           key: 'production-planner',
-          name: 'Production Planner',
+          name: 'Production Planner (Legacy)',
           url: '/production-planner',
           icon: 'Calendar',
+        },
+        {
+          key: 'waterfall-planner',
+          name: 'Waterfall Planner',
+          url: '/waterfall-planner',
+          icon: 'Timeline',
         },
         {
           key: 'schedule-blocks',
