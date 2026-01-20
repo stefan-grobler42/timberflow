@@ -1405,9 +1405,36 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         )}
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
-                            <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                              {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
-                            </Text>
+                            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
+                              <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
+                                {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                              </Text>
+                              {(() => {
+                                const segmentInfo = getJobSegmentInfo(
+                                  job as JobInput,
+                                  dayStr,
+                                  jig.averageEfinks
+                                );
+                                if (segmentInfo && segmentInfo.isMultiDay) {
+                                  return (
+                                    <Text variant="tiny" styles={{ 
+                                      root: { 
+                                        backgroundColor: 'rgba(255, 140, 0, 0.9)',
+                                        color: 'white',
+                                        padding: '1px 4px',
+                                        borderRadius: 3,
+                                        fontSize: 9,
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap'
+                                      } 
+                                    }}>
+                                      Day {segmentInfo.segmentIndex + 1}/{segmentInfo.totalSegments}
+                                    </Text>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </Stack>
                             <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                               {job.customer}
                             </Text>
@@ -1424,43 +1451,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             }
                           </Text>
                         </Stack>
-                        {/* Day X/Y indicator at bottom for multi-day jobs */}
-                        {(() => {
+                        {/* Resize handle - only on last segment of multi-day jobs, not completed */}
+                        {!job.productionComplete && (() => {
                           const segmentInfo = getJobSegmentInfo(
                             job as JobInput,
                             dayStr,
                             jig.averageEfinks
                           );
-                          if (segmentInfo && segmentInfo.isMultiDay) {
-                            return (
-                              <div style={{ 
-                                position: 'absolute',
-                                bottom: job.productionComplete ? 8 : 16,
-                                left: 8,
-                                right: 8,
-                                display: 'flex',
-                                justifyContent: 'center'
-                              }}>
-                                <Text variant="tiny" styles={{ 
-                                  root: { 
-                                    backgroundColor: 'rgba(255, 140, 0, 0.9)',
-                                    color: 'white',
-                                    padding: '2px 8px',
-                                    borderRadius: 4,
-                                    fontSize: 10,
-                                    fontWeight: 600,
-                                    whiteSpace: 'nowrap'
-                                  } 
-                                }}>
-                                  Day {segmentInfo.segmentIndex + 1}/{segmentInfo.totalSegments}
-                                </Text>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                        {/* Resize handle - bottom only, not completed */}
-                        {!job.productionComplete && (
+                          const isLastSegment = !segmentInfo?.isMultiDay || segmentInfo.segmentIndex === segmentInfo.totalSegments - 1;
+                          return isLastSegment;
+                        })() && (
                           <div
                             onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                             style={{
