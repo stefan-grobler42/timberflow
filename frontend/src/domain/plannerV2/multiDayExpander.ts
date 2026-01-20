@@ -207,3 +207,48 @@ export function getTotalSegmentEfinksForDate(
   const segments = segmentMap.get(dateStr) || [];
   return segments.reduce((sum, seg) => sum + seg.segmentEfinks, 0);
 }
+
+/**
+ * Gets segment info for a specific job on a specific date.
+ * Useful for DayView to display "Day X/Y" indicators.
+ */
+export interface SegmentInfo {
+  segmentIndex: number;
+  totalSegments: number;
+  segmentEfinks: number;
+  isMultiDay: boolean;
+}
+
+export function getJobSegmentInfo(
+  job: JobInput,
+  viewDate: string,
+  teamAverageEfinks?: number
+): SegmentInfo | null {
+  if (!job.plannedDateStr) {
+    return null;
+  }
+  
+  const segments = expandJobToSegments(job, teamAverageEfinks);
+  
+  if (segments.length <= 1) {
+    return {
+      segmentIndex: 0,
+      totalSegments: 1,
+      segmentEfinks: job.estimatedEFinks,
+      isMultiDay: false
+    };
+  }
+  
+  const matchingSegment = segments.find(seg => seg.displayDate === viewDate);
+  
+  if (!matchingSegment) {
+    return null;
+  }
+  
+  return {
+    segmentIndex: matchingSegment.segmentIndex,
+    totalSegments: matchingSegment.totalSegments,
+    segmentEfinks: matchingSegment.segmentEfinks,
+    isMultiDay: true
+  };
+}

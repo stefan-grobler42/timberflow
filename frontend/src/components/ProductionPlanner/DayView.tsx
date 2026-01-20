@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
+import { getJobSegmentInfo, type JobInput } from '../../domain/plannerV2/multiDayExpander';
 
 const SCHEDULE_BLOCK_COLORS: Record<ScheduleBlockType, string> = {
   PublicHoliday: '#B3E5FC',
@@ -1404,9 +1405,36 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         )}
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
-                            <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                              {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
-                            </Text>
+                            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
+                              <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
+                                {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                              </Text>
+                              {(() => {
+                                const segmentInfo = getJobSegmentInfo(
+                                  job as JobInput,
+                                  dayStr,
+                                  jig.averageEfinks
+                                );
+                                if (segmentInfo && segmentInfo.isMultiDay) {
+                                  return (
+                                    <Text variant="tiny" styles={{ 
+                                      root: { 
+                                        backgroundColor: 'rgba(255, 140, 0, 0.9)',
+                                        color: 'white',
+                                        padding: '1px 4px',
+                                        borderRadius: 3,
+                                        fontSize: 9,
+                                        fontWeight: 600,
+                                        whiteSpace: 'nowrap'
+                                      } 
+                                    }}>
+                                      Day {segmentInfo.segmentIndex + 1}/{segmentInfo.totalSegments}
+                                    </Text>
+                                  );
+                                }
+                                return null;
+                              })()}
+                            </Stack>
                             <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                               {job.customer}
                             </Text>
