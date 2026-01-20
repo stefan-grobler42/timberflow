@@ -1484,41 +1484,45 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         })}
         </div>
 
-        {/* Unallocated column - attached to the right with small gap */}
-        {unallocatedJobs.length > 0 && (
-          <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
-            {/* Unallocated header */}
-            <Stack
-              styles={{
-                root: {
-                  height: 50,
-                  padding: '8px 12px',
-                  backgroundColor: '#c62828',
-                  color: 'white',
-                  borderBottom: '1px solid #ddd'
-                }
-              }}
-            >
-              <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
-                Unallocated
-              </Text>
-              <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                {unallocatedJobs.length} | {unallocatedEFinks} E-Finks
-              </Text>
-            </Stack>
-
-            {/* Unallocated jobs - stacked compact cards with same timeline height */}
-            <div
-              onDragOver={onDragOver}
-              onDrop={() => onDrop(dayStr, null)}
-              style={{
-                height: totalTimelineHeight,
-                overflowY: 'auto',
-                backgroundColor: '#ffebee',
-                padding: 6,
+        {/* Unallocated column - always visible on the right */}
+        <Stack styles={{ root: { width: 200, flexShrink: 0, marginLeft: 8, borderLeft: '2px solid #c62828' } }}>
+          {/* Unallocated header */}
+          <Stack
+            styles={{
+              root: {
+                height: 50,
+                padding: '8px 12px',
+                backgroundColor: '#c62828',
+                color: 'white',
                 borderBottom: '1px solid #ddd'
-              }}
-            >
+              }
+            }}
+          >
+            <Text variant="medium" styles={{ root: { color: 'white', fontWeight: 600 } }}>
+              Unallocated
+            </Text>
+            <Text variant="tiny" styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+              {unallocatedJobs.length} | {unallocatedEFinks} E-Finks
+            </Text>
+          </Stack>
+
+          {/* Unallocated jobs - stacked compact cards with same timeline height */}
+          <div
+            onDragOver={onDragOver}
+            onDrop={() => onDrop(dayStr, null)}
+            style={{
+              height: totalTimelineHeight,
+              overflowY: 'auto',
+              backgroundColor: '#ffebee',
+              padding: 6,
+              borderBottom: '1px solid #ddd'
+            }}
+          >
+            {unallocatedJobs.length === 0 ? (
+              <Text variant="small" styles={{ root: { color: '#999', fontStyle: 'italic', padding: 8 } }}>
+                No unallocated jobs
+              </Text>
+            ) : (
               <Stack tokens={{ childrenGap: 4 }}>
                 {unallocatedJobs.map(job => (
                   <div
@@ -1551,9 +1555,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   </div>
                 ))}
               </Stack>
-            </div>
-          </Stack>
-        )}
+            )}
+          </div>
+        </Stack>
       </div>
 
     </Stack>
