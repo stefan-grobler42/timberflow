@@ -947,10 +947,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
           return (
             <Stack key={jig.id} styles={{ root: { flex: '1 1 0', minWidth: 120, borderRight: '1px solid #ddd' } }}>
-              {/* Overtime controls - positioned above header */}
-              <Stack>
-                {/* Early OT row - 24px height + 1px border = 25px total */}
-                <Stack
+              {/* Fixed-height header container to match time column (98px) */}
+              <div style={{ height: 98, flexShrink: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+                {/* Overtime controls - positioned above header */}
+                <Stack>
+                  {/* Early OT row - 24px height */}
+                  <Stack
                   horizontal
                   verticalAlign="center"
                   horizontalAlign="center"
@@ -1102,6 +1104,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   {jigEFinks} E-Finks | {formatDuration(totalMinutes)}
                 </Text>
               </Stack>
+              </div>
 
               {/* Timeline background with break slots */}
               <div
