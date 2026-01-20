@@ -1,5 +1,6 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
+import * as PlannerV2 from '../../domain/plannerV2';
 
 interface Job {
   id: string;
@@ -10,6 +11,19 @@ interface Job {
   plannedDateStr: string | null;
   jigId: string | null;
   productionComplete: boolean;
+  plannedDurationMinutes?: number | null;
+  customDurationMinutes?: number | null;
+  plannedStartTime?: number | null;
+  plannedEndTime?: number | null;
+  breakAdjustmentMinutes?: number | null;
+  wipId?: string;
+}
+
+interface ExpandedJob extends Job {
+  segmentEfinks?: number;
+  segmentIndex?: number;
+  totalSegments?: number;
+  isLastSegment?: boolean;
 }
 
 interface Jig {
@@ -41,18 +55,37 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
   onDayClick,
   onTeamDoubleClick
 }) => {
+  const expandedJobsByDate = useMemo(() => {
+    return PlannerV2.expandJobsForDateRange(
+      jobs as PlannerV2.JobForSegmentExpansion[],
+      daysInView,
+      jigTeams,
+      {}
+    );
+  }, [jobs, daysInView, jigTeams]);
+
   const jobsByDateAndJig = useMemo(() => {
-    const map = new Map<string, Job[]>();
-    for (const job of jobs) {
-      if (job.plannedDateStr && job.jigId) {
-        const key = `${job.plannedDateStr}|${job.jigId}`;
-        const existing = map.get(key) || [];
-        existing.push(job);
-        map.set(key, existing);
+    const map = new Map<string, ExpandedJob[]>();
+    
+    for (const [dateStr, segments] of expandedJobsByDate) {
+      for (const segment of segments) {
+        if (segment.jigId) {
+          const key = `${dateStr}|${segment.jigId}`;
+          const existing = map.get(key) || [];
+          existing.push({
+            ...segment,
+            segmentEfinks: segment.segmentEfinks,
+            segmentIndex: segment.segmentIndex,
+            totalSegments: segment.totalSegments,
+            isLastSegment: segment.isLastSegment
+          } as ExpandedJob);
+          map.set(key, existing);
+        }
       }
     }
+    
     return map;
-  }, [jobs]);
+  }, [expandedJobsByDate]);
 
   const unallocatedByDate = useMemo(() => {
     const map = new Map<string, Job[]>();
@@ -68,14 +101,17 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
 
   const efinksByDate = useMemo(() => {
     const map = new Map<string, number>();
-    for (const job of jobs) {
-      if (job.plannedDateStr) {
-        const current = map.get(job.plannedDateStr) || 0;
-        map.set(job.plannedDateStr, current + job.estimatedEFinks);
+    
+    for (const [dateStr, segments] of expandedJobsByDate) {
+      let total = 0;
+      for (const segment of segments) {
+        total += segment.segmentEfinks;
       }
+      map.set(dateStr, Math.round(total * 100) / 100);
     }
+    
     return map;
-  }, [jobs]);
+  }, [expandedJobsByDate]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobsByDateAndJig.get(`${dateStr}|${jigId}`) || [];
@@ -249,7 +285,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
 
           {jigTeams.map(jigInfo => {
             const jigJobs = getJobsForDateAndJig(dateStr, jigInfo.id);
-            const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
+            const jigEFinks = jigJobs.reduce((sum, j) => sum + (j.segmentEfinks ?? j.estimatedEFinks), 0);
             const jigUtilization = (jigEFinks / 90) * 100;
             const jigFullyBooked = jigUtilization >= 90;
             const jigNearlyFull = jigUtilization >= 75;
@@ -315,14 +351,35 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                         opacity: job.productionComplete ? 0.8 : 1
                       }}
                     >
-                      <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
-                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
-                      </Text>
+                      <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                        <Text variant="tiny" styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
+                          {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
+                        </Text>
+                        {job.totalSegments && job.totalSegments > 1 && (
+                          <Text variant="tiny" styles={{ 
+                            root: { 
+                              backgroundColor: 'rgba(255, 140, 0, 0.9)',
+                              color: 'white',
+                              padding: '1px 4px',
+                              borderRadius: 3,
+                              fontSize: 9,
+                              fontWeight: 600,
+                              marginLeft: 4,
+                              whiteSpace: 'nowrap'
+                            } 
+                          }}>
+                            Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
+                          </Text>
+                        )}
+                      </Stack>
                       <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
                         {job.customer}
                       </Text>
                       <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                        {job.estimatedEFinks} E-Finks
+                        {job.segmentEfinks !== undefined 
+                          ? `${job.segmentEfinks.toFixed(1)} E-Finks${job.totalSegments && job.totalSegments > 1 ? ` (${job.estimatedEFinks} total)` : ''}`
+                          : `${job.estimatedEFinks} E-Finks`
+                        }
                       </Text>
                     </div>
                   ))}

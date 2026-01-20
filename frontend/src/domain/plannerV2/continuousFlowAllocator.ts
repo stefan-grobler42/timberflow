@@ -434,3 +434,74 @@ export function expandJobsForDay(
   
   return result.sort((a, b) => a.segmentStartTime - b.segmentStartTime);
 }
+
+/**
+ * Expands jobs across a date range for Week/Month view display.
+ * Returns jobs with their segments mapped to each day they span.
+ * 
+ * @param jobs - All jobs in the system
+ * @param dateRange - Array of date strings (YYYY-MM-DD) to check
+ * @param teams - Array of team objects with id and averageEfinks
+ * @param overtimeMap - Overtime settings by date/team
+ * @returns Map of dateStr -> array of job segments for that day
+ */
+export function expandJobsForDateRange(
+  jobs: JobForSegmentExpansion[],
+  dateRange: string[],
+  teams: Array<{ id: string; averageEfinks?: number }>,
+  overtimeMap: OvertimeSettingsMap = {}
+): Map<string, JobDaySegment[]> {
+  const result = new Map<string, JobDaySegment[]>();
+  
+  for (const dateStr of dateRange) {
+    const daySegments: JobDaySegment[] = [];
+    
+    for (const team of teams) {
+      const teamAverageEfinks = team.averageEfinks ?? 80;
+      const teamSegments = expandJobsForDay(
+        jobs,
+        dateStr,
+        team.id,
+        overtimeMap,
+        teamAverageEfinks
+      );
+      daySegments.push(...teamSegments);
+    }
+    
+    if (daySegments.length > 0) {
+      result.set(dateStr, daySegments);
+    }
+  }
+  
+  return result;
+}
+
+/**
+ * Gets E-Finks totals for a date considering multi-day job segments.
+ * This ensures Week/Month views show accurate daily workload.
+ */
+export function getSegmentEfinksForDate(
+  jobs: JobForSegmentExpansion[],
+  dateStr: string,
+  teams: Array<{ id: string; averageEfinks?: number }>,
+  overtimeMap: OvertimeSettingsMap = {}
+): number {
+  let total = 0;
+  
+  for (const team of teams) {
+    const teamAverageEfinks = team.averageEfinks ?? 80;
+    const segments = expandJobsForDay(
+      jobs,
+      dateStr,
+      team.id,
+      overtimeMap,
+      teamAverageEfinks
+    );
+    
+    for (const segment of segments) {
+      total += segment.segmentEfinks;
+    }
+  }
+  
+  return Math.round(total * 100) / 100;
+}
