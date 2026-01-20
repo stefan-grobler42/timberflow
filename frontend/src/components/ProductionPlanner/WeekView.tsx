@@ -1,5 +1,10 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
+import { 
+  expandJobsForDateRange, 
+  type JobInput, 
+  type ExpandedJobSegment 
+} from '../../domain/plannerV2/multiDayExpander';
 
 interface Job {
   id: string;
@@ -16,13 +21,6 @@ interface Job {
   plannedEndTime?: number | null;
   breakAdjustmentMinutes?: number | null;
   wipId?: string;
-}
-
-interface ExpandedJob extends Job {
-  segmentEfinks?: number;
-  segmentIndex?: number;
-  totalSegments?: number;
-  isLastSegment?: boolean;
 }
 
 interface Jig {
@@ -54,47 +52,55 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
   onDayClick,
   onTeamDoubleClick
 }) => {
-  const jobsByDateAndJig = useMemo(() => {
-    const map = new Map<string, ExpandedJob[]>();
-    for (const job of jobs) {
-      if (job.plannedDateStr && job.jigId) {
-        const key = `${job.plannedDateStr}|${job.jigId}`;
-        const existing = map.get(key) || [];
-        existing.push({
-          ...job,
-          segmentEfinks: job.estimatedEFinks,
-          segmentIndex: 0,
-          totalSegments: 1,
-          isLastSegment: true
-        } as ExpandedJob);
-        map.set(key, existing);
+  const { jobsByDateAndJig, unallocatedByDate, efinksByDate } = useMemo(() => {
+    if (daysInView.length === 0) {
+      return { 
+        jobsByDateAndJig: new Map<string, ExpandedJobSegment[]>(), 
+        unallocatedByDate: new Map<string, ExpandedJobSegment[]>(),
+        efinksByDate: new Map<string, number>()
+      };
+    }
+    
+    const startDate = daysInView[0];
+    const endDate = daysInView[daysInView.length - 1];
+    
+    const expandedMap = expandJobsForDateRange(
+      jobs as JobInput[],
+      jigTeams,
+      startDate,
+      endDate
+    );
+    
+    const byDateAndJig = new Map<string, ExpandedJobSegment[]>();
+    const unallocated = new Map<string, ExpandedJobSegment[]>();
+    
+    for (const [dateStr, segments] of expandedMap) {
+      for (const segment of segments) {
+        if (segment.jigId) {
+          const key = `${dateStr}|${segment.jigId}`;
+          const existing = byDateAndJig.get(key) || [];
+          existing.push(segment);
+          byDateAndJig.set(key, existing);
+        } else {
+          const existing = unallocated.get(dateStr) || [];
+          existing.push(segment);
+          unallocated.set(dateStr, existing);
+        }
       }
     }
-    return map;
-  }, [jobs]);
-
-  const unallocatedByDate = useMemo(() => {
-    const map = new Map<string, Job[]>();
-    for (const job of jobs) {
-      if (job.plannedDateStr && !job.jigId) {
-        const existing = map.get(job.plannedDateStr) || [];
-        existing.push(job);
-        map.set(job.plannedDateStr, existing);
-      }
+    
+    const efinksMap = new Map<string, number>();
+    for (const [dateStr, segments] of expandedMap) {
+      const total = segments.reduce((sum, seg) => sum + seg.segmentEfinks, 0);
+      efinksMap.set(dateStr, total);
     }
-    return map;
-  }, [jobs]);
-
-  const efinksByDate = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const job of jobs) {
-      if (job.plannedDateStr) {
-        const current = map.get(job.plannedDateStr) || 0;
-        map.set(job.plannedDateStr, current + job.estimatedEFinks);
-      }
-    }
-    return map;
-  }, [jobs]);
+    
+    return { 
+      jobsByDateAndJig: byDateAndJig, 
+      unallocatedByDate: unallocated,
+      efinksByDate: efinksMap
+    };
+  }, [jobs, jigTeams, daysInView]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobsByDateAndJig.get(`${dateStr}|${jigId}`) || [];
@@ -143,7 +149,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
 
     const unallocatedJobs = getUnallocatedJobsForDate(dateStr);
     const hasUnallocated = unallocatedJobs.length > 0;
-    const unallocatedEFinks = unallocatedJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
+    const unallocatedEFinks = unallocatedJobs.reduce((sum: number, j: ExpandedJobSegment) => sum + j.segmentEfinks, 0);
 
     return (
       <Stack

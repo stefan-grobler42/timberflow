@@ -1,5 +1,10 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
+import { 
+  expandJobsForDateRange, 
+  type JobInput, 
+  type ExpandedJobSegment 
+} from '../../domain/plannerV2/multiDayExpander';
 
 interface Job {
   id: string;
@@ -16,13 +21,6 @@ interface Job {
   plannedEndTime?: number | null;
   breakAdjustmentMinutes?: number | null;
   wipId?: string;
-}
-
-interface ExpandedJob extends Job {
-  segmentEfinks?: number;
-  segmentIndex?: number;
-  totalSegments?: number;
-  isLastSegment?: boolean;
 }
 
 interface Jig {
@@ -59,34 +57,32 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
   const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
   const currentMonthNum = currentMonthDate.getUTCMonth();
   
-  const jobsByDate = useMemo(() => {
-    const map = new Map<string, ExpandedJob[]>();
-    for (const job of jobs) {
-      if (job.plannedDateStr) {
-        const existing = map.get(job.plannedDateStr) || [];
-        existing.push({
-          ...job,
-          segmentEfinks: job.estimatedEFinks,
-          segmentIndex: 0,
-          totalSegments: 1,
-          isLastSegment: true
-        });
-        map.set(job.plannedDateStr, existing);
-      }
+  const { jobsByDate, efinksByDate } = useMemo(() => {
+    if (daysInView.length === 0) {
+      return { 
+        jobsByDate: new Map<string, ExpandedJobSegment[]>(), 
+        efinksByDate: new Map<string, number>() 
+      };
     }
-    return map;
-  }, [jobs]);
-
-  const efinksByDate = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const job of jobs) {
-      if (job.plannedDateStr) {
-        const current = map.get(job.plannedDateStr) || 0;
-        map.set(job.plannedDateStr, current + job.estimatedEFinks);
-      }
+    
+    const startDate = daysInView[0];
+    const endDate = daysInView[daysInView.length - 1];
+    
+    const expandedMap = expandJobsForDateRange(
+      jobs as JobInput[],
+      jigTeams,
+      startDate,
+      endDate
+    );
+    
+    const efinksMap = new Map<string, number>();
+    for (const [dateStr, segments] of expandedMap) {
+      const total = segments.reduce((sum, seg) => sum + seg.segmentEfinks, 0);
+      efinksMap.set(dateStr, total);
     }
-    return map;
-  }, [jobs]);
+    
+    return { jobsByDate: expandedMap, efinksByDate: efinksMap };
+  }, [jobs, jigTeams, daysInView]);
 
   const getJobsForDate = (dateStr: string) => {
     return jobsByDate.get(dateStr) || [];
