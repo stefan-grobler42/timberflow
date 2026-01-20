@@ -1,6 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
-import * as PlannerV2 from '../../domain/plannerV2';
 
 interface Job {
   id: string;
@@ -55,37 +54,24 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
   onDayClick,
   onTeamDoubleClick
 }) => {
-  const expandedJobsByDate = useMemo(() => {
-    return PlannerV2.expandJobsForDateRange(
-      jobs as PlannerV2.JobForSegmentExpansion[],
-      daysInView,
-      jigTeams,
-      {}
-    );
-  }, [jobs, daysInView, jigTeams]);
-
   const jobsByDateAndJig = useMemo(() => {
     const map = new Map<string, ExpandedJob[]>();
-    
-    for (const [dateStr, segments] of expandedJobsByDate) {
-      for (const segment of segments) {
-        if (segment.jigId) {
-          const key = `${dateStr}|${segment.jigId}`;
-          const existing = map.get(key) || [];
-          existing.push({
-            ...segment,
-            segmentEfinks: segment.segmentEfinks,
-            segmentIndex: segment.segmentIndex,
-            totalSegments: segment.totalSegments,
-            isLastSegment: segment.isLastSegment
-          } as ExpandedJob);
-          map.set(key, existing);
-        }
+    for (const job of jobs) {
+      if (job.plannedDateStr && job.jigId) {
+        const key = `${job.plannedDateStr}|${job.jigId}`;
+        const existing = map.get(key) || [];
+        existing.push({
+          ...job,
+          segmentEfinks: job.estimatedEFinks,
+          segmentIndex: 0,
+          totalSegments: 1,
+          isLastSegment: true
+        } as ExpandedJob);
+        map.set(key, existing);
       }
     }
-    
     return map;
-  }, [expandedJobsByDate]);
+  }, [jobs]);
 
   const unallocatedByDate = useMemo(() => {
     const map = new Map<string, Job[]>();
@@ -101,17 +87,14 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
 
   const efinksByDate = useMemo(() => {
     const map = new Map<string, number>();
-    
-    for (const [dateStr, segments] of expandedJobsByDate) {
-      let total = 0;
-      for (const segment of segments) {
-        total += segment.segmentEfinks;
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const current = map.get(job.plannedDateStr) || 0;
+        map.set(job.plannedDateStr, current + job.estimatedEFinks);
       }
-      map.set(dateStr, Math.round(total * 100) / 100);
     }
-    
     return map;
-  }, [expandedJobsByDate]);
+  }, [jobs]);
 
   const getJobsForDateAndJig = (dateStr: string, jigId: string) => {
     return jobsByDateAndJig.get(`${dateStr}|${jigId}`) || [];

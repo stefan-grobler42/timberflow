@@ -1,6 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
-import * as PlannerV2 from '../../domain/plannerV2';
 
 interface Job {
   id: string;
@@ -60,45 +59,34 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
   const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
   const currentMonthNum = currentMonthDate.getUTCMonth();
   
-  const expandedJobsByDate = useMemo(() => {
-    return PlannerV2.expandJobsForDateRange(
-      jobs as PlannerV2.JobForSegmentExpansion[],
-      daysInView,
-      jigTeams,
-      {}
-    );
-  }, [jobs, daysInView, jigTeams]);
-
   const jobsByDate = useMemo(() => {
     const map = new Map<string, ExpandedJob[]>();
-    
-    for (const [dateStr, segments] of expandedJobsByDate) {
-      const expandedJobs: ExpandedJob[] = segments.map(segment => ({
-        ...segment,
-        segmentEfinks: segment.segmentEfinks,
-        segmentIndex: segment.segmentIndex,
-        totalSegments: segment.totalSegments,
-        isLastSegment: segment.isLastSegment
-      } as ExpandedJob));
-      map.set(dateStr, expandedJobs);
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const existing = map.get(job.plannedDateStr) || [];
+        existing.push({
+          ...job,
+          segmentEfinks: job.estimatedEFinks,
+          segmentIndex: 0,
+          totalSegments: 1,
+          isLastSegment: true
+        });
+        map.set(job.plannedDateStr, existing);
+      }
     }
-    
     return map;
-  }, [expandedJobsByDate]);
+  }, [jobs]);
 
   const efinksByDate = useMemo(() => {
     const map = new Map<string, number>();
-    
-    for (const [dateStr, segments] of expandedJobsByDate) {
-      let total = 0;
-      for (const segment of segments) {
-        total += segment.segmentEfinks;
+    for (const job of jobs) {
+      if (job.plannedDateStr) {
+        const current = map.get(job.plannedDateStr) || 0;
+        map.set(job.plannedDateStr, current + job.estimatedEFinks);
       }
-      map.set(dateStr, Math.round(total * 100) / 100);
     }
-    
     return map;
-  }, [expandedJobsByDate]);
+  }, [jobs]);
 
   const getJobsForDate = (dateStr: string) => {
     return jobsByDate.get(dateStr) || [];

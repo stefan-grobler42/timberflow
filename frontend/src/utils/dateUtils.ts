@@ -13,39 +13,32 @@ export const startOfWeekUtc = (dateStr: string): string => {
   return monday.toISOString().split('T')[0];
 };
 
+const sastFormatter = new Intl.DateTimeFormat('en-ZA', {
+  timeZone: 'Africa/Johannesburg',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+});
+
 export const formatIsoDateLocal = (dateStr: string | null | undefined): string | null => {
   if (!dateStr) return null;
   try {
-    // Ensure we're parsing as UTC by appending 'Z' if not already present
     let utcDateStr = dateStr;
     if (!dateStr.endsWith('Z') && !dateStr.includes('+') && !dateStr.includes('T')) {
-      // If it's just a date string like "2024-11-24", treat it as UTC midnight
       utcDateStr = dateStr + 'T00:00:00Z';
     } else if (!dateStr.endsWith('Z') && dateStr.includes('T')) {
-      // If it has a time but no timezone, assume UTC
       utcDateStr = dateStr + 'Z';
     }
     
     const date = new Date(utcDateStr);
     if (isNaN(date.getTime())) return null;
     
-    // Convert UTC to SAST (Africa/Johannesburg, GMT+2) for display
-    // Use Intl.DateTimeFormat to properly handle timezone conversion
-    const formatter = new Intl.DateTimeFormat('en-ZA', {
-      timeZone: 'Africa/Johannesburg',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    });
-    
-    const parts = formatter.formatToParts(date);
+    const parts = sastFormatter.formatToParts(date);
     const year = parts.find(p => p.type === 'year')?.value;
     const month = parts.find(p => p.type === 'month')?.value;
     const day = parts.find(p => p.type === 'day')?.value;
     
-    // Guard against missing parts
     if (!year || !month || !day) {
-      console.warn('[dateUtils] formatIsoDateLocal: Missing date parts', { year, month, day });
       return null;
     }
     
