@@ -95,6 +95,7 @@ interface DayViewProps {
   onJobDurationReset?: (jobId: string) => void;
   onTeamDoubleClick: (teamId: string) => void;
   overtimeByTeam?: Record<string, TeamOvertimeSettings>;
+  allOvertimeSettings?: Record<string, Record<string, TeamOvertimeSettings>>;
   onTeamOvertimeChange?: (dayStr: string, teamId: string, enabled: boolean, closeTime: number, additionalMinutes?: number) => void;
   onTeamEarlyOvertimeChange?: (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => void;
   onDropToTeamUnallocated?: (jigId: string) => void;
@@ -118,6 +119,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onJobDurationReset,
   onTeamDoubleClick,
   overtimeByTeam = {},
+  allOvertimeSettings = {},
   onTeamOvertimeChange,
   onTeamEarlyOvertimeChange,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
@@ -418,7 +420,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const map = new Map<string, Job[]>();
     
     const overtimeMap: PlannerV2.OvertimeSettingsMap = {};
-    if (overtimeByTeam) {
+    for (const [dateKey, teamSettings] of Object.entries(allOvertimeSettings)) {
+      overtimeMap[dateKey] = teamSettings;
+    }
+    if (overtimeByTeam && !overtimeMap[dayStr]) {
       overtimeMap[dayStr] = overtimeByTeam;
     }
     
@@ -453,7 +458,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
     
     return map;
-  }, [jobs, dayStr, jigTeams, overtimeByTeam]);
+  }, [jobs, dayStr, jigTeams, overtimeByTeam, allOvertimeSettings]);
 
   const unallocatedJobs = useMemo(() => {
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);

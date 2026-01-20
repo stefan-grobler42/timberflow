@@ -1691,6 +1691,7 @@ export const ProductionPlannerPage = () => {
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}
               overtimeByTeam={getTeamOvertimeForDay(currentDateStr)}
+              allOvertimeSettings={overtimeByTeamDay}
               onTeamOvertimeChange={handleTeamOvertimeChange}
               onTeamEarlyOvertimeChange={handleTeamEarlyOvertimeChange}
               onDropToTeamUnallocated={handleDropToTeamUnallocated}
