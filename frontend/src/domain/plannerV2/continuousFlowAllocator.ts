@@ -324,6 +324,9 @@ export interface JobDaySegment extends JobForSegmentExpansion {
   segmentStartTime: number;
   segmentEndTime: number;
   segmentDuration: number;
+  segmentBreakMinutes: number;
+  segmentEfinks: number;
+  isLastSegment: boolean;
 }
 
 /**
@@ -363,7 +366,10 @@ export function expandJobsForDay(
           totalJobDuration: job.plannedDurationMinutes ?? 0,
           segmentStartTime: job.plannedStartTime ?? 420,
           segmentEndTime: job.plannedEndTime ?? 1020,
-          segmentDuration: job.plannedDurationMinutes ?? 0
+          segmentDuration: job.plannedDurationMinutes ?? 0,
+          segmentBreakMinutes: job.breakAdjustmentMinutes ?? 0,
+          segmentEfinks: job.estimatedEFinks,
+          isLastSegment: true
         });
       }
       continue;
@@ -401,6 +407,10 @@ export function expandJobsForDay(
       const segment = allocation.segments[i];
       
       if (segment.dateStr === viewingDate) {
+        const segmentEfinks = allocation.totalDurationMinutes > 0
+          ? (segment.workMinutes / allocation.totalDurationMinutes) * job.estimatedEFinks
+          : job.estimatedEFinks;
+        
         result.push({
           ...job,
           isSegment: allocation.segments.length > 1,
@@ -410,6 +420,9 @@ export function expandJobsForDay(
           segmentStartTime: segment.startTimeMinutes,
           segmentEndTime: segment.endTimeMinutes,
           segmentDuration: segment.workMinutes,
+          segmentBreakMinutes: segment.breakMinutes,
+          segmentEfinks: Math.round(segmentEfinks * 100) / 100,
+          isLastSegment: segment.isLastDay,
           plannedStartTime: segment.startTimeMinutes,
           plannedEndTime: segment.endTimeMinutes,
           plannedDurationMinutes: segment.workMinutes

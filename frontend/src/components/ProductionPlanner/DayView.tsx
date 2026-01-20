@@ -39,6 +39,10 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
+  segmentEfinks?: number | null;
+  segmentDuration?: number | null;
+  segmentBreakMinutes?: number | null;
+  isLastSegment?: boolean;
 }
 
 interface Jig {
@@ -436,7 +440,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         plannedDurationMinutes: segment.segmentDuration,
         totalJobDuration: segment.totalJobDuration,
         segmentIndex: segment.segmentIndex,
-        totalSegments: segment.totalSegments
+        totalSegments: segment.totalSegments,
+        segmentEfinks: segment.segmentEfinks,
+        segmentDuration: segment.segmentDuration,
+        segmentBreakMinutes: segment.segmentBreakMinutes,
+        isLastSegment: segment.isLastSegment
       }));
       
       if (mappedJobs.length > 0) {

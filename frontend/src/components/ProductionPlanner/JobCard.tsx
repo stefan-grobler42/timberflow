@@ -19,6 +19,10 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
+  segmentEfinks?: number | null;
+  segmentDuration?: number | null;
+  segmentBreakMinutes?: number | null;
+  isLastSegment?: boolean;
 }
 
 interface BreakAddition {
@@ -190,7 +194,7 @@ const JobCardComponent: React.FC<JobCardProps> = ({
           {job.estimatedEFinks} E-Finks
         </Text>
         <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
-          ({formatDuration(getBaseDurationMinutes(job))})
+          ({formatDuration(getBaseDurationMinutes(job))}{job.totalSegments && job.totalSegments > 1 ? ' total' : ''})
         </Text>
         {breakAdditions.length > 0 && (
           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#b87333' : '#ffd700', fontWeight: 600 } }}>
@@ -199,7 +203,21 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         )}
       </Stack>
       
-      {!job.productionComplete && (
+      {/* Per-day segment details for multi-day jobs */}
+      {job.totalSegments && job.totalSegments > 1 && job.segmentEfinks !== undefined && (
+        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap style={{ marginTop: 2 }}>
+          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,200,100,0.95)', fontWeight: 600 } }}>
+            Day {(job.segmentIndex ?? 0) + 1}:
+          </Text>
+          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,200,100,0.9)' } }}>
+            {job.segmentEfinks?.toFixed(2)} E-Finks ({formatDuration(job.segmentDuration ?? 0)} work
+            {(job.segmentBreakMinutes ?? 0) > 0 && ` + ${job.segmentBreakMinutes}m breaks`})
+          </Text>
+        </Stack>
+      )}
+      
+      {/* Only allow resize on last segment or single-day jobs */}
+      {!job.productionComplete && (job.isLastSegment !== false) && (
         <div
           onMouseDown={(e) => onResizeStart(e, job.id, baseHeight)}
           style={{
@@ -243,6 +261,9 @@ export const JobCard = memo(JobCardComponent, (prevProps, nextProps) => {
     prevProps.job.plannedEndTime === nextProps.job.plannedEndTime &&
     prevProps.job.productionComplete === nextProps.job.productionComplete &&
     prevProps.job.totalSegments === nextProps.job.totalSegments &&
-    prevProps.job.segmentIndex === nextProps.job.segmentIndex
+    prevProps.job.segmentIndex === nextProps.job.segmentIndex &&
+    prevProps.job.segmentEfinks === nextProps.job.segmentEfinks &&
+    prevProps.job.segmentDuration === nextProps.job.segmentDuration &&
+    prevProps.job.isLastSegment === nextProps.job.isLastSegment
   );
 });
