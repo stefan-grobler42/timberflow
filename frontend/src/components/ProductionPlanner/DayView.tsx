@@ -963,7 +963,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           {/* Jig team columns */}
         {jigTeams.map(jig => {
           const jigJobs = getJobsForDateAndJig(dayStr, jig.id);
-          const jigEFinks = jigJobs.reduce((sum, j) => sum + j.estimatedEFinks, 0);
+          const jigEFinks = jigJobs.reduce((sum, j) => sum + (j.segmentEfinks ?? j.estimatedEFinks), 0);
           const totalMinutes = jigJobs.reduce((sum, j) => sum + getJobDurationMinutes(j), 0);
           const teamOvertime = getTeamOvertime(jig.id);
           
@@ -1431,7 +1431,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         </Stack>
                         <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
                           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
-                            {job.estimatedEFinks} E-Finks
+                            {job.totalSegments && job.totalSegments > 1 
+                              ? `${Math.round((job.segmentEfinks ?? 0) * 100) / 100} E-Finks (of ${job.estimatedEFinks})`
+                              : `${job.estimatedEFinks} E-Finks`
+                            }
                           </Text>
                           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
                             {breakAdditions.length > 0 
