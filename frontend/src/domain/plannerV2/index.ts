@@ -17,3 +17,4 @@ export * from './durationCalculator';
 export * from './shiftCalendar';
 export * from './schedulerEngine';
 export * from './stagingManager';
+export * from './continuousFlowAllocator';

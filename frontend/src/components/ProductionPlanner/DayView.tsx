@@ -30,12 +30,15 @@ interface Job {
   plannedDateStr: string | null;
   jigId: string | null;
   productionComplete: boolean;
-  customDurationMinutes?: number;
+  customDurationMinutes?: number | null;
   createdOn?: string;
   plannedStartTime?: number | null;
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  totalJobDuration?: number | null;
+  segmentIndex?: number | null;
+  totalSegments?: number | null;
 }
 
 interface Jig {
@@ -409,15 +412,40 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   const jobsByJig = useMemo(() => {
     const map = new Map<string, Job[]>();
-    for (const job of jobs) {
-      if (job.plannedDateStr === dayStr && job.jigId) {
-        const existing = map.get(job.jigId) || [];
-        existing.push(job);
-        map.set(job.jigId, existing);
+    
+    const overtimeMap: PlannerV2.OvertimeSettingsMap = {};
+    if (overtimeByTeam) {
+      overtimeMap[dayStr] = overtimeByTeam;
+    }
+    
+    for (const jig of jigTeams) {
+      const teamAverageEfinks = jig.averageEfinks ?? 80;
+      
+      const expandedJobs = PlannerV2.expandJobsForDay(
+        jobs as PlannerV2.JobForSegmentExpansion[],
+        dayStr,
+        jig.id,
+        overtimeMap,
+        teamAverageEfinks
+      );
+      
+      const mappedJobs: Job[] = expandedJobs.map(segment => ({
+        ...segment,
+        plannedStartTime: segment.segmentStartTime,
+        plannedEndTime: segment.segmentEndTime,
+        plannedDurationMinutes: segment.segmentDuration,
+        totalJobDuration: segment.totalJobDuration,
+        segmentIndex: segment.segmentIndex,
+        totalSegments: segment.totalSegments
+      }));
+      
+      if (mappedJobs.length > 0) {
+        map.set(jig.id, mappedJobs);
       }
     }
+    
     return map;
-  }, [jobs, dayStr]);
+  }, [jobs, dayStr, jigTeams, overtimeByTeam]);
 
   const unallocatedJobs = useMemo(() => {
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);

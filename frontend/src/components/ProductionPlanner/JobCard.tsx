@@ -16,6 +16,9 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  totalJobDuration?: number | null;
+  segmentIndex?: number | null;
+  totalSegments?: number | null;
 }
 
 interface BreakAddition {
@@ -127,6 +130,24 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         </div>
       )}
       
+      {/* Multi-day span indicator */}
+      {job.totalSegments && job.totalSegments > 1 && (
+        <div style={{
+          position: 'absolute',
+          top: 2,
+          right: hasManualResize && onResetDuration && !job.productionComplete ? 26 : 4,
+          backgroundColor: 'rgba(255, 140, 0, 0.9)',
+          color: 'white',
+          padding: '2px 6px',
+          borderRadius: 4,
+          fontSize: 9,
+          fontWeight: 600,
+          zIndex: 300
+        }}>
+          Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
+        </div>
+      )}
+      
       {hasManualResize && onResetDuration && !job.productionComplete && (
         <IconButton
           iconProps={{ iconName: 'Refresh' }}
@@ -220,6 +241,8 @@ export const JobCard = memo(JobCardComponent, (prevProps, nextProps) => {
     prevProps.isResizing === nextProps.isResizing &&
     prevProps.job.plannedStartTime === nextProps.job.plannedStartTime &&
     prevProps.job.plannedEndTime === nextProps.job.plannedEndTime &&
-    prevProps.job.productionComplete === nextProps.job.productionComplete
+    prevProps.job.productionComplete === nextProps.job.productionComplete &&
+    prevProps.job.totalSegments === nextProps.job.totalSegments &&
+    prevProps.job.segmentIndex === nextProps.job.segmentIndex
   );
 });

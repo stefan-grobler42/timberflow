@@ -45,6 +45,9 @@ interface Job {
   dayStartMinutes?: number;
   dayEndMinutes?: number;
   overtimeEnabled?: boolean;
+  totalJobDuration?: number | null;
+  segmentIndex?: number | null;
+  totalSegments?: number | null;
 }
 
 
@@ -518,6 +521,7 @@ export const ProductionPlannerPage = () => {
   }, []);
 
   // Drop to a team/day column - assign jig, date, and calculate time with team-specific duration
+  // CONTINUOUS FLOW: Jobs automatically span multiple days when duration exceeds daily capacity
   // Immediately saves to database (no staging)
   const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
     console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
@@ -539,6 +543,7 @@ export const ProductionPlannerPage = () => {
         
         const teamSpecificDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, teamAverageEfinks);
         console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ')');
+        console.log('[PLANNER] Duration in hours:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
         
         const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
         const shift = PlannerV2.getShiftConfig(
@@ -548,20 +553,7 @@ export const ProductionPlannerPage = () => {
           teamOvertimeSettings?.earlyStartTime
         );
         
-        const existingJobsOnDay = allJobs.filter(
-          j => j.plannedDateStr === dateStr && 
-               j.jigId === updatedJigId && 
-               j.id !== job.id &&
-               !j.productionComplete
-        ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
-         .map(j => toScheduledJob(j));
-        
-        const insertIndex = existingJobsOnDay.length === 0 
-          ? 0 
-          : PlannerV2.findInsertPosition(existingJobsOnDay, dropTimeMinutes ?? (shift.endTime - 60));
-        
-        console.log('[PLANNER] Insert index:', insertIndex, 'out of', existingJobsOnDay.length, 'existing jobs');
-        
+        // Use continuous-flow allocation for multi-day spanning
         const droppedJob: PlannerV2.ScheduledJob = {
           ...toScheduledJob(job),
           plannedDateStr: dateStr,
@@ -569,26 +561,26 @@ export const ProductionPlannerPage = () => {
           plannedDurationMinutes: teamSpecificDuration
         };
         
-        const cascadeResult = PlannerV2.cascadeSchedule(existingJobsOnDay, droppedJob, insertIndex, shift);
+        // Calculate drop position - default to shift start if not specified
+        const dropPosition = dropTimeMinutes ?? shift.startTime;
         
-        console.log('[PLANNER] Cascade result:', cascadeResult.scheduledJobs.length, 'jobs scheduled - CONTINUOUS FLOW (no overflows)');
+        // Allocate using continuous-flow model - job spans multiple days if needed
+        const allocation = PlannerV2.allocateJobContinuousFlow(
+          droppedJob,
+          updatedJigId,
+          dateStr,
+          dropPosition,
+          overtimeByTeamDay,
+          teamAverageEfinks
+        );
         
-        // Apply breakdown stretching to scheduled jobs
-        // Breakdowns STRETCH jobs rather than reducing capacity
-        const breakdowns = PlannerV2.getBreakdownsForTeamDay(scheduleBlocks, updatedJigId, dateStr);
-        let finalScheduledJobs = cascadeResult.scheduledJobs;
+        console.log('[PLANNER] Continuous-flow allocation:', {
+          totalDuration: PlannerV2.formatDurationHoursMinutes(allocation.totalDurationMinutes),
+          segments: allocation.segments.length,
+          spanDays: `${allocation.primaryDate} to ${allocation.endDate}`
+        });
         
-        if (breakdowns.length > 0) {
-          console.log('[PLANNER] Applying breakdown stretching for', breakdowns.length, 'breakdowns');
-          const stretchResult = PlannerV2.applyBreakdownStretchWithCascade(
-            cascadeResult.scheduledJobs,
-            shift,
-            breakdowns
-          );
-          finalScheduledJobs = stretchResult.scheduledJobs;
-          console.log('[PLANNER] After breakdown stretch:', finalScheduledJobs.length, 'jobs - CONTINUOUS FLOW (no rollovers)');
-        }
-        
+        // Build updates for each day segment
         const updates: Array<{
           jobId: string;
           wipId?: string;
@@ -598,27 +590,52 @@ export const ProductionPlannerPage = () => {
           plannedEndMinutes: number;
           plannedDurationMinutes: number;
           breakAdjustmentMinutes: number;
+          segmentIndex?: number;
+          totalSegments?: number;
+          totalJobDuration?: number;
         }> = [];
         
-        for (const scheduledJob of finalScheduledJobs) {
-          const originalJob = allJobs.find(j => j.id === scheduledJob.id);
-          if (originalJob) {
-            updates.push({
-              jobId: scheduledJob.id,
-              wipId: originalJob.wipId,
-              teamId: updatedJigId,
-              workDate: dateStr,
-              plannedStartMinutes: scheduledJob.plannedStartTime ?? shift.startTime,
-              plannedEndMinutes: scheduledJob.plannedEndTime ?? shift.endTime,
-              plannedDurationMinutes: scheduledJob.plannedDurationMinutes ?? teamSpecificDuration,
-              breakAdjustmentMinutes: scheduledJob.breakAdjustmentMinutes ?? 0
-            });
-          }
+        for (let i = 0; i < allocation.segments.length; i++) {
+          const segment = allocation.segments[i];
+          updates.push({
+            jobId: job.id,
+            wipId: job.wipId,
+            teamId: updatedJigId,
+            workDate: segment.dateStr,
+            plannedStartMinutes: segment.startTimeMinutes,
+            plannedEndMinutes: segment.endTimeMinutes,
+            plannedDurationMinutes: segment.workMinutes,
+            breakAdjustmentMinutes: segment.breakMinutes,
+            segmentIndex: i,
+            totalSegments: allocation.segments.length,
+            totalJobDuration: allocation.totalDurationMinutes
+          });
+          
+          console.log(`[PLANNER] Segment ${i + 1}/${allocation.segments.length}:`, {
+            date: segment.dateStr,
+            start: PlannerV2.formatMinutesToTime(segment.startTimeMinutes),
+            end: PlannerV2.formatMinutesToTime(segment.endTimeMinutes),
+            work: PlannerV2.formatDurationHoursMinutes(segment.workMinutes)
+          });
         }
         
-        const success = await saveMultipleJobUpdates(updates);
-        if (!success) {
-          console.error('[PLANNER] Failed to save job allocations');
+        // For now, only save the first segment (primary day)
+        // TODO: When backend supports multi-day WIP records, save all segments
+        const primaryUpdate = updates[0];
+        if (primaryUpdate) {
+          const success = await saveMultipleJobUpdates([{
+            jobId: primaryUpdate.jobId,
+            wipId: primaryUpdate.wipId,
+            teamId: primaryUpdate.teamId,
+            workDate: primaryUpdate.workDate,
+            plannedStartMinutes: primaryUpdate.plannedStartMinutes,
+            plannedEndMinutes: primaryUpdate.plannedEndMinutes,
+            plannedDurationMinutes: allocation.totalDurationMinutes, // Store full duration
+            breakAdjustmentMinutes: primaryUpdate.breakAdjustmentMinutes
+          }]);
+          if (!success) {
+            console.error('[PLANNER] Failed to save job allocation');
+          }
         }
         
         if (viewMode !== 'day') {
