@@ -340,15 +340,27 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return breakSlot.startHour * 60 + breakSlot.startMinute;
   };
 
-  const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number): BreakAddition[] => {
+  const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number, teamWorkingEndMinutes?: number): BreakAddition[] => {
     const additions: BreakAddition[] = [];
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
 
-    // Sort breaks by start time
-    const sortedBreaks = [...breakSlots].sort((a, b) => 
-      getBreakStartMinutes(a) - getBreakStartMinutes(b)
-    );
+    // Weekend days have NO breaks (matching shiftCalendar.ts behavior)
+    if (isWeekendDay) {
+      return [];
+    }
+
+    // Sort breaks by start time and filter to only those within working hours
+    const sortedBreaks = [...breakSlots]
+      .filter(b => {
+        const breakEnd = b.startHour * 60 + b.startMinute + getBreakDurationMinutes(b);
+        // If teamWorkingEndMinutes is provided, only include breaks that end before it
+        if (teamWorkingEndMinutes !== undefined) {
+          return breakEnd <= teamWorkingEndMinutes;
+        }
+        return true;
+      })
+      .sort((a, b) => getBreakStartMinutes(a) - getBreakStartMinutes(b));
 
     for (const breakSlot of sortedBreaks) {
       if (remainingWork <= 0) break;
