@@ -59,7 +59,7 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
         -   Full-day toggle for public holidays that auto-sets working hours range
         -   Command bar dropdown with block type pre-selection for quick creation
         -   Click-to-edit with ScheduleBlockPanel form
--   **System Settings**: Configuration module for Financial Year, Working Hours (Office/Factory Staff), and Timezone management.
+-   **System Settings**: Configuration module for Financial Year, Working Hours (Office/Factory Staff with Break Times, Overtime Defaults for weekdays and weekends), Timezone, and Production Scheduling (Buffer Between Jobs, Min Job Duration, Duration Rounding, UI Display settings). E-Fink duration is calculated from Team's Maximum E-Finks field rather than a global multiplier.
 -   **Order Form Summary**: Reactive workflow timeline (Quote Created to Order Complete) dynamically updating based on form data, responsive two-column layout.
 -   **Form Enhancements**: `cleanFormData` function for robust handling of nullable fields and team allocations.
 -   **Data Migration**: Python script for schema-aware data migration from Microsoft Dynamics 365 to PostgreSQL, preserving D365 GUIDs and ensuring data integrity.
