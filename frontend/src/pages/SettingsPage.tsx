@@ -311,7 +311,7 @@ export const SettingsPage: React.FC = () => {
                           ...prev.breakTimes,
                           teaMorning: {
                             start: value || '09:00',
-                            end: prev.breakTimes?.teaMorning?.end || '09:15'
+                            end: prev.breakTimes?.teaMorning?.end || '09:30'
                           }
                         }
                       }));
@@ -321,7 +321,7 @@ export const SettingsPage: React.FC = () => {
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimes?.teaMorning?.end || '09:15'}
+                    value={settings.breakTimes?.teaMorning?.end || '09:30'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
@@ -329,13 +329,13 @@ export const SettingsPage: React.FC = () => {
                           ...prev.breakTimes,
                           teaMorning: {
                             start: prev.breakTimes?.teaMorning?.start || '09:00',
-                            end: value || '09:15'
+                            end: value || '09:30'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="09:15"
+                    placeholder="09:30"
                   />
                 </Stack>
 
@@ -350,7 +350,7 @@ export const SettingsPage: React.FC = () => {
                           ...prev.breakTimes,
                           lunch: {
                             start: value || '12:00',
-                            end: prev.breakTimes?.lunch?.end || '12:30'
+                            end: prev.breakTimes?.lunch?.end || '12:45'
                           }
                         }
                       }));
@@ -360,7 +360,7 @@ export const SettingsPage: React.FC = () => {
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimes?.lunch?.end || '12:30'}
+                    value={settings.breakTimes?.lunch?.end || '12:45'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
@@ -368,97 +368,97 @@ export const SettingsPage: React.FC = () => {
                           ...prev.breakTimes,
                           lunch: {
                             start: prev.breakTimes?.lunch?.start || '12:00',
-                            end: value || '12:30'
+                            end: value || '12:45'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="12:30"
+                    placeholder="12:45"
                   />
                 </Stack>
 
                 <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
                   <TextField 
                     label="Tea Break (Afternoon) - Start" 
-                    value={settings.breakTimes?.teaAfternoon?.start || '14:30'}
+                    value={settings.breakTimes?.teaAfternoon?.start || ''}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimes: {
                           ...prev.breakTimes,
                           teaAfternoon: {
-                            start: value || '14:30',
-                            end: prev.breakTimes?.teaAfternoon?.end || '14:45'
+                            start: value || '',
+                            end: prev.breakTimes?.teaAfternoon?.end || ''
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="14:30"
+                    placeholder="(blank)"
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimes?.teaAfternoon?.end || '14:45'}
+                    value={settings.breakTimes?.teaAfternoon?.end || ''}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimes: {
                           ...prev.breakTimes,
                           teaAfternoon: {
-                            start: prev.breakTimes?.teaAfternoon?.start || '14:30',
-                            end: value || '14:45'
+                            start: prev.breakTimes?.teaAfternoon?.start || '',
+                            end: value || ''
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="14:45"
+                    placeholder="(blank)"
                   />
                 </Stack>
 
                 <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
                   <TextField 
                     label="Dinner Break (Overtime only) - Start" 
-                    value={settings.breakTimes?.dinnerOvertime?.start || '17:00'}
+                    value={settings.breakTimes?.dinnerOvertime?.start || '18:00'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimes: {
                           ...prev.breakTimes,
                           dinnerOvertime: {
-                            start: value || '17:00',
-                            end: prev.breakTimes?.dinnerOvertime?.end || '17:30'
+                            start: value || '18:00',
+                            end: prev.breakTimes?.dinnerOvertime?.end || '18:30'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="17:00"
+                    placeholder="18:00"
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimes?.dinnerOvertime?.end || '17:30'}
+                    value={settings.breakTimes?.dinnerOvertime?.end || '18:30'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimes: {
                           ...prev.breakTimes,
                           dinnerOvertime: {
-                            start: prev.breakTimes?.dinnerOvertime?.start || '17:00',
-                            end: value || '17:30'
+                            start: prev.breakTimes?.dinnerOvertime?.start || '18:00',
+                            end: value || '18:30'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="17:30"
+                    placeholder="18:30"
                   />
                 </Stack>
               </Stack>
 
               <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
-                Note: Dinner break only applies during overtime hours. Standard working hours end at 17:00.
+                Note: Dinner break only applies during overtime hours (after 17:00).
               </MessageBar>
             </Stack>
 
@@ -474,15 +474,15 @@ export const SettingsPage: React.FC = () => {
                 <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
                   <TextField 
                     label="Tea Break (Morning) - Start" 
-                    value={settings.breakTimesWeekend?.teaMorning?.start || ''}
+                    value={settings.breakTimesWeekend?.teaMorning?.start || '09:00'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimesWeekend: {
                           ...prev.breakTimesWeekend,
                           teaMorning: {
-                            start: value || '',
-                            end: prev.breakTimesWeekend?.teaMorning?.end || ''
+                            start: value || '09:00',
+                            end: prev.breakTimesWeekend?.teaMorning?.end || '09:30'
                           }
                         }
                       }));
@@ -492,36 +492,36 @@ export const SettingsPage: React.FC = () => {
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimesWeekend?.teaMorning?.end || ''}
+                    value={settings.breakTimesWeekend?.teaMorning?.end || '09:30'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimesWeekend: {
                           ...prev.breakTimesWeekend,
                           teaMorning: {
-                            start: prev.breakTimesWeekend?.teaMorning?.start || '',
-                            end: value || ''
+                            start: prev.breakTimesWeekend?.teaMorning?.start || '09:00',
+                            end: value || '09:30'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="09:15"
+                    placeholder="09:30"
                   />
                 </Stack>
 
                 <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
                   <TextField 
                     label="Lunch Break - Start" 
-                    value={settings.breakTimesWeekend?.lunch?.start || ''}
+                    value={settings.breakTimesWeekend?.lunch?.start || '12:00'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimesWeekend: {
                           ...prev.breakTimesWeekend,
                           lunch: {
-                            start: value || '',
-                            end: prev.breakTimesWeekend?.lunch?.end || ''
+                            start: value || '12:00',
+                            end: prev.breakTimesWeekend?.lunch?.end || '12:45'
                           }
                         }
                       }));
@@ -531,21 +531,21 @@ export const SettingsPage: React.FC = () => {
                   />
                   <TextField 
                     label="End" 
-                    value={settings.breakTimesWeekend?.lunch?.end || ''}
+                    value={settings.breakTimesWeekend?.lunch?.end || '12:45'}
                     onChange={(_, value) => {
                       setSettings(prev => ({
                         ...prev,
                         breakTimesWeekend: {
                           ...prev.breakTimesWeekend,
                           lunch: {
-                            start: prev.breakTimesWeekend?.lunch?.start || '',
-                            end: value || ''
+                            start: prev.breakTimesWeekend?.lunch?.start || '12:00',
+                            end: value || '12:45'
                           }
                         }
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="12:30"
+                    placeholder="12:45"
                   />
                 </Stack>
 
@@ -566,7 +566,7 @@ export const SettingsPage: React.FC = () => {
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="14:30"
+                    placeholder="(blank)"
                   />
                   <TextField 
                     label="End" 
@@ -584,13 +584,13 @@ export const SettingsPage: React.FC = () => {
                       }));
                     }}
                     styles={{ root: { width: 150 } }}
-                    placeholder="14:45"
+                    placeholder="(blank)"
                   />
                 </Stack>
               </Stack>
 
               <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
-                Weekend breaks are optional. Leave blank if no breaks are required during weekend work.
+                Note: Lunch break only applies on weekends when working end time is after 16:00. Leave Afternoon Tea blank if not needed.
               </MessageBar>
             </Stack>
 
