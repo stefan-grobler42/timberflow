@@ -273,7 +273,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       let settings: SystemSettings | null = null;
       
       if (!schedulerConfig) {
-        settings = await systemSettingsService.getSettings();
+        try {
+          settings = await systemSettingsService.getSettings();
+        } catch (apiErr) {
+          // API call failed - continue with default values
+          console.warn('[DayView] Failed to fetch settings from API, using defaults');
+        }
       }
       
       const date = new Date(dayStr);
@@ -283,11 +288,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       
       if (schedulerConfig) {
         // Use schedulerConfig values (in minutes from midnight) converted to hours
+        // Weekends use overtime defaults (they're non-working by default)
         const startMinutes = isWeekendDay 
-          ? schedulerConfig.weekendShift.startTime 
+          ? schedulerConfig.weekendOvertimeDefaults.startTime 
           : schedulerConfig.weekdayShift.startTime;
         const endMinutes = isWeekendDay 
-          ? schedulerConfig.weekendShift.endTime 
+          ? schedulerConfig.weekendOvertimeDefaults.endTime 
           : (isFridayDay ? schedulerConfig.weekdayShift.fridayEndTime : schedulerConfig.weekdayShift.endTime);
         
         hours = {
@@ -314,38 +320,38 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const breaks: BreakSlot[] = [];
 
       if (schedulerConfig) {
-        // Use schedulerConfig breaks
+        // Use schedulerConfig breaks (Break type uses: start, end, duration, name)
         const configBreaks = isWeekendDay 
-          ? schedulerConfig.weekendBreaks 
-          : schedulerConfig.weekdayBreaks;
+          ? (schedulerConfig.weekendBreaks || [])
+          : (schedulerConfig.weekdayBreaks || []);
         
         for (const brk of configBreaks) {
           breaks.push({
-            startHour: Math.floor(brk.startTime / 60),
-            startMinute: brk.startTime % 60,
-            endHour: Math.floor(brk.endTime / 60),
-            endMinute: brk.endTime % 60,
-            label: brk.label,
-            color: brk.label.toLowerCase().includes('lunch') ? '#fff3cd' : '#d4edda'
+            startHour: Math.floor(brk.start / 60),
+            startMinute: brk.start % 60,
+            endHour: Math.floor(brk.end / 60),
+            endMinute: brk.end % 60,
+            label: brk.name,
+            color: brk.name.toLowerCase().includes('lunch') ? '#fff3cd' : '#d4edda'
           });
         }
         
         // Store dinner/overtime break separately
         const overtimeBreaks = isWeekendDay 
-          ? schedulerConfig.weekendBreaks 
-          : schedulerConfig.weekdayOvertimeBreaks;
+          ? (schedulerConfig.weekendBreaks || [])
+          : (schedulerConfig.weekdayOvertimeBreaks || []);
         
         const dinnerBreak = overtimeBreaks.find(b => 
-          b.label.toLowerCase().includes('dinner') || b.label.toLowerCase().includes('supper')
+          b?.name?.toLowerCase().includes('dinner') || b?.name?.toLowerCase().includes('supper')
         );
         
         if (dinnerBreak) {
           setDinnerBreakSlot({
-            startHour: Math.floor(dinnerBreak.startTime / 60),
-            startMinute: dinnerBreak.startTime % 60,
-            endHour: Math.floor(dinnerBreak.endTime / 60),
-            endMinute: dinnerBreak.endTime % 60,
-            label: dinnerBreak.label,
+            startHour: Math.floor(dinnerBreak.start / 60),
+            startMinute: dinnerBreak.start % 60,
+            endHour: Math.floor(dinnerBreak.end / 60),
+            endMinute: dinnerBreak.end % 60,
+            label: dinnerBreak.name,
             color: '#f8d7da'
           });
         }

@@ -401,18 +401,6 @@ export const ProductionPlannerPage = () => {
     productionComplete: job.productionComplete
   }), []);
 
-  // Helper to get full-day blocked dates for a team (PublicHoliday, Maintenance)
-  const getFullDayBlockDates = useCallback((teamId: string | null): string[] => {
-    const fullDayBlockTypes = ['PublicHoliday', 'Maintenance'];
-    return scheduleBlocks
-      .filter(block => 
-        fullDayBlockTypes.includes(block.blockType) &&
-        (block.teamId === null || block.teamId === undefined || block.teamId === teamId)
-      )
-      .map(block => block.dateStr);
-  }, [scheduleBlocks]);
-
-
   // Save multiple job updates (for cascade operations)
   const saveMultipleJobUpdates = useCallback(async (
     updates: Array<{
@@ -1069,24 +1057,6 @@ export const ProductionPlannerPage = () => {
     setOperationMessage(enabled ? 'Enabling overtime...' : 'Disabling overtime...');
     
     try {
-      // Get the new shift configuration based on overtime settings
-      // Preserve early OT settings when changing late OT
-      const existingEarlySettings = overtimeByTeamDay[dayStr]?.[teamId];
-      const newShift = PlannerV2.getShiftConfig(
-        enabled, 
-        closeTime,
-        existingEarlySettings?.earlyEnabled,
-        existingEarlySettings?.earlyStartTime
-      );
-      
-      // Get the OLD shift config (without OT) to understand the previous capacity
-      const oldShift = PlannerV2.getShiftConfig(
-        false, // no late OT
-        1020,  // default 17:00
-        existingEarlySettings?.earlyEnabled,
-        existingEarlySettings?.earlyStartTime
-      );
-      
       // CONTINUOUS FLOW: Simply update OT settings for all jobs - no rollover redistribution needed
       console.log(`[OT] Updating OT settings for ${affectedJobs.length} jobs - CONTINUOUS FLOW model`);
       

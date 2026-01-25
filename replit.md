@@ -42,9 +42,9 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
         -   **Completion Write-back**: Only when a job is marked "complete" in WIP should final data (E-Finks, timing, etc.) write back to Production table.
         -   Key WIP fields: `plannedStartMinutes`, `plannedEndMinutes`, `plannedDurationMinutes`, `breakAdjustmentMinutes`, `dayStartMinutes` (nullable), `dayEndMinutes` (nullable), `overtimeEnabled`, `customDurationMinutes`.
     -   **PlannerV2 Domain Module** (`frontend/src/domain/plannerV2/`): Clean, isolated architecture with single-responsibility utilities:
-        -   `types.ts`: Core type definitions (JobData, ScheduledJob, ScheduleResult)
+        -   `types.ts`: Core type definitions (JobData, ScheduledJob, ScheduleResult). **Break type uses properties: `name`, `start`, `end`, `duration`** (minutes from midnight).
         -   `constants.ts`: Fallback constants (BUFFER_MINUTES, working hours, breaks) used when no settings configured
-        -   `schedulerSettings.ts`: Adapter that converts SystemSettings from database to SchedulerConfig, enabling dynamic scheduling behavior
+        -   `schedulerSettings.ts`: Adapter that converts SystemSettings from database to SchedulerConfig, enabling dynamic scheduling behavior. Maps factory staff working hours, break times, and overtime defaults from System Settings to SchedulerConfig format.
         -   `durationCalculator.ts`: Team-specific EFinks calculation using `calculateEfinksDuration(efinks, teamAverageEfinks)`. Formula: `adjustedMinutes = (efinks * 6.5625) / (teamAverageEfinks / 80)`. Teams with higher average_efinks complete work faster (baseline 80 EFinks/day).
         -   `shiftCalendar.ts`: Working hours and break expansion logic, accepts SchedulerConfig parameter for dynamic configuration
         -   `schedulerEngine.ts`: Basic scheduling with job placement and timing calculations

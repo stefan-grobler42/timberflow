@@ -119,6 +119,31 @@ export function mapSystemSettingsToSchedulerConfig(settings: SystemSettings | nu
   
   const config: SchedulerConfig = { ...DEFAULT_CONFIG };
   
+  // Factory staff working hours
+  if (settings.workingHours?.factoryStaff) {
+    const factory = settings.workingHours.factoryStaff;
+    
+    // Parse weekday hours (use Monday as reference for standard weekdays, with fallback to any defined day)
+    const weekdayReference = factory.monday || factory.tuesday || factory.wednesday || factory.thursday;
+    if (weekdayReference && weekdayReference.includes('-')) {
+      const [start, end] = weekdayReference.split('-');
+      const startTime = parseTime(start);
+      const endTime = parseTime(end);
+      if (startTime !== null) config.weekdayShift.startTime = startTime;
+      if (endTime !== null) config.weekdayShift.endTime = endTime;
+    }
+    
+    // Parse Friday hours (may have different start and/or end time)
+    if (factory.friday && factory.friday.includes('-')) {
+      const [start, end] = factory.friday.split('-');
+      const startTime = parseTime(start);
+      const endTime = parseTime(end);
+      // Friday start time typically same as weekday, but use it if different from weekday
+      // Friday end time is usually earlier (16:00 instead of 17:00)
+      if (endTime !== null) config.weekdayShift.fridayEndTime = endTime;
+    }
+  }
+  
   // Production scheduling general settings
   if (settings.productionScheduling?.general) {
     const general = settings.productionScheduling.general;
