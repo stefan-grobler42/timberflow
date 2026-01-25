@@ -619,18 +619,18 @@ export const SettingsPage: React.FC = () => {
                 />
                 <TextField 
                   label="Late OT End Time" 
-                  value={settings.overtimeDefaults?.defaultLateOtEndTime || ''}
+                  value={settings.overtimeDefaults?.defaultLateOtEndTime || '21:00'}
                   onChange={(_, value) => {
                     setSettings(prev => ({
                       ...prev,
                       overtimeDefaults: {
                         ...prev.overtimeDefaults,
-                        defaultLateOtEndTime: value || ''
+                        defaultLateOtEndTime: value || '21:00'
                       } as any
                     }));
                   }}
                   styles={{ root: { width: 150 } }}
-                  placeholder="HH:MM"
+                  placeholder="21:00"
                 />
                 <Toggle
                   label="Allow Early Start OT"
@@ -648,18 +648,18 @@ export const SettingsPage: React.FC = () => {
                 />
                 <TextField 
                   label="Early Start Time" 
-                  value={settings.overtimeDefaults?.defaultEarlyStartTime || ''}
+                  value={settings.overtimeDefaults?.defaultEarlyStartTime || '06:00'}
                   onChange={(_, value) => {
                     setSettings(prev => ({
                       ...prev,
                       overtimeDefaults: {
                         ...prev.overtimeDefaults,
-                        defaultEarlyStartTime: value || ''
+                        defaultEarlyStartTime: value || '06:00'
                       } as any
                     }));
                   }}
                   styles={{ root: { width: 150 } }}
-                  placeholder="HH:MM"
+                  placeholder="06:00"
                 />
               </Stack>
             </Stack>
