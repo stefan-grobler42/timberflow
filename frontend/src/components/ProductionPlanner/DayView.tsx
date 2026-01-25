@@ -1088,16 +1088,20 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           
           // Calculate per-team working hours in MINUTES for 30-minute precision
           // Weekend handling: if weekend and no overtime, zero capacity
+          // Get weekend defaults from schedulerConfig
+          const weekendDefaultStart = schedulerConfig?.weekendOvertimeDefaults?.startTime ?? 420;
+          const weekendDefaultEnd = schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900;
+          
           const teamWorkingMinutes = (() => {
             if (isWeekendDay) {
               if (!teamOvertime.enabled) {
                 // Weekend with no overtime = zero capacity (completely non-working)
-                return { startMinutes: 420, endMinutes: 420 }; // Same value = no working hours
+                return { startMinutes: weekendDefaultStart, endMinutes: weekendDefaultStart }; // Same value = no working hours
               }
-              // Weekend with overtime: use custom start/end times
+              // Weekend with overtime: use team-specific times or fall back to settings defaults
               return {
-                startMinutes: teamOvertime.earlyStartTime ?? 420,
-                endMinutes: teamOvertime.closeTime ?? 1020
+                startMinutes: teamOvertime.earlyStartTime ?? weekendDefaultStart,
+                endMinutes: teamOvertime.closeTime ?? weekendDefaultEnd
               };
             }
             // Weekday: normal calculation
@@ -1182,7 +1186,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       {teamOvertime.enabled ? (
                         <>
                           <Dropdown
-                            selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 420)}
+                            selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? weekendDefaultStart)}
                             onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
                             options={(() => {
                               const options: IDropdownOption[] = [];
@@ -1201,7 +1205,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           />
                           <Text variant="tiny" styles={{ root: { color: '#4a148c', fontSize: 9 } }}>to</Text>
                           <Dropdown
-                            selectedKey={minutesToTimeString(teamOvertime.closeTime ?? 1020)}
+                            selectedKey={minutesToTimeString(teamOvertime.closeTime ?? weekendDefaultEnd)}
                             onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
                             options={(() => {
                               const options: IDropdownOption[] = [];
