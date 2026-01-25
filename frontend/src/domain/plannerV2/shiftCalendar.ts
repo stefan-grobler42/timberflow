@@ -4,17 +4,7 @@
  */
 
 import type { Break, ShiftConfig, EndTimeResult } from './types';
-import {
-  WORKING_START,
-  WORKING_END,
-  FRIDAY_WORKING_END,
-  OVERTIME_END,
-  STANDARD_BREAKS,
-  OVERTIME_BREAKS,
-  FRIDAY,
-  SATURDAY,
-  SUNDAY
-} from './constants';
+import { FRIDAY, SATURDAY, SUNDAY } from './constants';
 import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
 
 /**

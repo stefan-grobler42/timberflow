@@ -157,10 +157,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return h * 60 + (m || 0);
   };
 
+  // Get default overtime values from schedulerConfig
+  const defaultLateEndTime = schedulerConfig?.weekdayOvertimeDefaults.lateEndTime ?? 1260; // 21:00
+  const defaultEarlyStartTime = schedulerConfig?.weekdayOvertimeDefaults.earlyStartTime ?? 360; // 06:00
+  
   // Helper to get overtime settings for a specific team
   const getTeamOvertime = useCallback((teamId: string): TeamOvertimeSettings => {
-    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: 1140, earlyEnabled: false, earlyStartTime: 360 };
-  }, [overtimeByTeam]);
+    return overtimeByTeam[teamId] ?? { enabled: false, closeTime: defaultLateEndTime, earlyEnabled: false, earlyStartTime: defaultEarlyStartTime };
+  }, [overtimeByTeam, defaultLateEndTime, defaultEarlyStartTime]);
 
   // Check if current day is a weekend (Saturday or Sunday)
   const isWeekendDay = useMemo(() => {
@@ -188,11 +192,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const baseMinutes = (baseWorkingHours.end - baseWorkingHours.start) * 60;
     const overtimeMinutes = (overtimeEndHour - baseWorkingHours.start) * 60;
     
-    // Subtract dinner break (30 mins) if overtime extends past 5pm
-    const dinnerBreak = overtimeEndHour > 17 ? 30 : 0;
+    // Calculate dinner break from config - sum overtime breaks that start after base working hours
+    const baseEndMinutes = baseWorkingHours.end * 60;
+    const overtimeBreaks = schedulerConfig?.weekdayOvertimeBreaks ?? [];
+    let dinnerBreakMinutes = 0;
+    for (const brk of overtimeBreaks) {
+      if (brk.start >= baseEndMinutes && brk.start < closeTimeMinutes) {
+        dinnerBreakMinutes += brk.duration;
+      }
+    }
     
-    return (overtimeMinutes - dinnerBreak) - baseMinutes;
-  }, [baseWorkingHours]);
+    return (overtimeMinutes - dinnerBreakMinutes) - baseMinutes;
+  }, [baseWorkingHours, schedulerConfig]);
   
   const handleTeamOvertimeToggle = (teamId: string, checked: boolean) => {
     if (onTeamOvertimeChange) {
@@ -214,7 +225,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const handleTeamEarlyOvertimeToggle = (teamId: string, checked: boolean) => {
     if (onTeamEarlyOvertimeChange) {
       const currentSettings = getTeamOvertime(teamId);
-      onTeamEarlyOvertimeChange(dayStr, teamId, checked, currentSettings.earlyStartTime ?? 360);
+      onTeamEarlyOvertimeChange(dayStr, teamId, checked, currentSettings.earlyStartTime ?? defaultEarlyStartTime);
     }
   };
 
@@ -1246,7 +1257,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       </Text>
                       {teamOvertime.earlyEnabled && baseWorkingHours && (
                         <Dropdown
-                          selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 360)}
+                          selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? defaultEarlyStartTime)}
                           onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
                           options={(() => {
                             const options: IDropdownOption[] = [];

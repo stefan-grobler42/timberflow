@@ -43,10 +43,12 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
         -   Key WIP fields: `plannedStartMinutes`, `plannedEndMinutes`, `plannedDurationMinutes`, `breakAdjustmentMinutes`, `dayStartMinutes` (nullable), `dayEndMinutes` (nullable), `overtimeEnabled`, `customDurationMinutes`.
     -   **PlannerV2 Domain Module** (`frontend/src/domain/plannerV2/`): Clean, isolated architecture with single-responsibility utilities:
         -   `types.ts`: Core type definitions (JobData, ScheduledJob, ScheduleResult)
-        -   `constants.ts`: Centralized BUFFER_MINUTES (30), working hours, break definitions
+        -   `constants.ts`: Fallback constants (BUFFER_MINUTES, working hours, breaks) used when no settings configured
+        -   `schedulerSettings.ts`: Adapter that converts SystemSettings from database to SchedulerConfig, enabling dynamic scheduling behavior
         -   `durationCalculator.ts`: Team-specific EFinks calculation using `calculateEfinksDuration(efinks, teamAverageEfinks)`. Formula: `adjustedMinutes = (efinks * 6.5625) / (teamAverageEfinks / 80)`. Teams with higher average_efinks complete work faster (baseline 80 EFinks/day).
-        -   `shiftCalendar.ts`: Working hours (07:00-17:00 base, 07:00-19:00 with overtime), break expansion logic
+        -   `shiftCalendar.ts`: Working hours and break expansion logic, accepts SchedulerConfig parameter for dynamic configuration
         -   `schedulerEngine.ts`: Basic scheduling with job placement and timing calculations
+        -   `continuousFlowAllocator.ts`: Multi-day job allocation with config-driven shift/break handling
     -   **Scheduling Engine**: Sequential job placement starting at 07:00 with mandatory 30-minute gaps between jobs (BUFFER_MINUTES centralized in constants.ts). Break-aware scheduling (tea at 9:00-9:15, lunch at 12:00-12:30, afternoon tea at 14:30-14:45, dinner for overtime at 17:00-17:30).
     -   **Drop Zone Highlighting**: Visual drop indicators snap to valid positions (between jobs, at day start, after last job). Blue line with end circles shows insertion point.
     -   **Immediate Persistence**: All changes (allocations, resizes) are saved immediately to the database via `teamWorkItemService.batchAllocate()` and `batchUpdate()`. No staging - drag/drop and resize operations persist in real-time. UI updates optimistically after successful API calls.
