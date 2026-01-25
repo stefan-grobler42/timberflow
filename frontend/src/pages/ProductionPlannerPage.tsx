@@ -9,6 +9,7 @@ import { jigService, scheduleBlockService } from '../services/millenniumServices
 import type { ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
 import { teamWorkItemService, type CreateTeamWorkItemDto, type UpdateTeamWorkItemDto } from '../services/teamWorkItemService';
+import { systemSettingsService } from '../services/systemSettingsService';
 import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -25,6 +26,7 @@ import {
 } from '../utils/dateUtils';
 import * as PlannerV2 from '../domain/plannerV2';
 import { ShiftConfigProvider } from '../contexts/ShiftConfigContext';
+import { type SchedulerConfig, mapSystemSettingsToSchedulerConfig, DEFAULT_CONFIG } from '../domain/plannerV2/schedulerSettings';
 
 interface Job {
   id: string;
@@ -74,6 +76,7 @@ export const ProductionPlannerPage = () => {
   const [selectedBlockType, setSelectedBlockType] = useState<'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay' | undefined>(undefined);
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig>(DEFAULT_CONFIG);
   
   // Date range for loading productions - default: 12 months back, 3 months forward
   const getDefaultDateRange = () => {
@@ -151,13 +154,31 @@ export const ProductionPlannerPage = () => {
         throw e;
       });
       
-      const [productions, wipItems, jigs, unallocated, blocks] = await Promise.all([
+      const settingsPromise = systemSettingsService.getSettings().then(r => {
+        console.log('[PLANNER] settings loaded in', Date.now() - startTime, 'ms');
+        return r;
+      }).catch(e => {
+        console.error('[PLANNER] ✗ settings FAILED:', e);
+        return null; // Don't fail if settings can't be loaded, use defaults
+      });
+      
+      const [productions, wipItems, jigs, unallocated, blocks, settings] = await Promise.all([
         productionsPromise,
         wipItemsPromise,
         jigsPromise,
         unallocatedPromise,
-        blocksPromise
+        blocksPromise,
+        settingsPromise
       ]);
+      
+      // Convert SystemSettings to SchedulerConfig
+      if (settings) {
+        const config = mapSystemSettingsToSchedulerConfig(settings);
+        setSchedulerConfig(config);
+        console.log('[PLANNER] ✓ SchedulerConfig loaded:', config.weekdayShift.startTime, '-', config.weekdayShift.endTime);
+      } else {
+        console.log('[PLANNER] Using DEFAULT_CONFIG for scheduling');
+      }
       
       console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
       console.log(`[PLANNER] ✓ ${productions.length} productions, ${wipItems.length} WIP items, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
@@ -1701,6 +1722,7 @@ export const ProductionPlannerPage = () => {
                 setEditingBlock(block);
                 setBlockPanelOpen(true);
               }}
+              schedulerConfig={schedulerConfig}
             />
           )}
         </Stack>

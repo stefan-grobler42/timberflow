@@ -15,26 +15,39 @@ import {
   SATURDAY,
   SUNDAY
 } from './constants';
+import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
 
 /**
  * Gets the shift configuration for a work day.
  * Breaks are used in scheduling calculations - jobs skip over breaks.
+ * @param overtimeEnabled - Whether overtime is enabled
+ * @param customCloseTime - Custom close time override (in minutes from midnight)
+ * @param earlyOtEnabled - Whether early overtime start is enabled
+ * @param earlyOtStartTime - Early overtime start time (in minutes from midnight)
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 export function getShiftConfig(
   overtimeEnabled: boolean = false,
   customCloseTime?: number,
   earlyOtEnabled: boolean = false,
-  earlyOtStartTime?: number
+  earlyOtStartTime?: number,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): ShiftConfig {
+  const defaultStartTime = config.weekdayShift.startTime;
+  const defaultEndTime = config.weekdayShift.endTime;
+  const overtimeEndTime = config.weekdayOvertimeDefaults.lateEndTime;
+  const standardBreaks = config.weekdayBreaks;
+  const overtimeBreaks = config.weekdayOvertimeBreaks;
+  
   const startTime = earlyOtEnabled && earlyOtStartTime !== undefined
     ? earlyOtStartTime
-    : WORKING_START;
+    : defaultStartTime;
   
   const endTime = overtimeEnabled
-    ? (customCloseTime ?? OVERTIME_END)
-    : WORKING_END;
+    ? (customCloseTime ?? overtimeEndTime)
+    : defaultEndTime;
     
-  const breaks = overtimeEnabled ? [...OVERTIME_BREAKS] : [...STANDARD_BREAKS];
+  const breaks = overtimeEnabled ? [...overtimeBreaks] : [...standardBreaks];
   const applicableBreaks = breaks.filter(b => b.start >= startTime && b.end <= endTime);
   
   return {
@@ -71,48 +84,65 @@ export function isFriday(dateStr: string): boolean {
  * Gets the shift configuration for a specific date, accounting for:
  * - Friday: 07:00-16:00 (instead of 17:00)
  * - Weekend: Non-working unless overtime is enabled with custom start/end times
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param overtimeEnabled - Whether overtime is enabled
+ * @param customCloseTime - Custom close time override (in minutes from midnight)
+ * @param earlyOtEnabled - Whether early overtime start is enabled
+ * @param earlyOtStartTime - Early overtime start time (in minutes from midnight)
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 export function getShiftConfigForDate(
   dateStr: string,
   overtimeEnabled: boolean = false,
   customCloseTime?: number,
   earlyOtEnabled: boolean = false,
-  earlyOtStartTime?: number
+  earlyOtStartTime?: number,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): ShiftConfig {
   const dayOfWeek = getDayOfWeek(dateStr);
+  
+  const defaultStartTime = config.weekdayShift.startTime;
+  const defaultEndTime = config.weekdayShift.endTime;
+  const fridayEndTime = config.weekdayShift.fridayEndTime;
+  const overtimeEndTime = config.weekdayOvertimeDefaults.lateEndTime;
+  const standardBreaks = config.weekdayBreaks;
+  const overtimeBreaks = config.weekdayOvertimeBreaks;
+  const weekendBreaks = config.weekendBreaks;
+  const weekendDefaults = config.weekendOvertimeDefaults;
   
   // Weekend handling
   if (dayOfWeek === SATURDAY || dayOfWeek === SUNDAY) {
     if (!overtimeEnabled) {
       // Non-working day - return zero-capacity shift
       return {
-        startTime: WORKING_START,
-        endTime: WORKING_START, // Same as start = zero capacity
+        startTime: defaultStartTime,
+        endTime: defaultStartTime, // Same as start = zero capacity
         breaks: []
       };
     }
-    // Weekend overtime - use custom start/end times
-    const startTime = earlyOtStartTime ?? WORKING_START;
-    const endTime = customCloseTime ?? WORKING_END;
-    // Weekend has no standard breaks - just work the specified hours
+    // Weekend overtime - use custom start/end times or weekend defaults
+    const startTime = earlyOtStartTime ?? weekendDefaults.startTime;
+    const endTime = customCloseTime ?? weekendDefaults.endTime;
+    // Weekend can have its own breaks from config
+    const applicableBreaks = weekendBreaks.filter(b => b.start >= startTime && b.end <= endTime);
     return {
       startTime,
       endTime,
-      breaks: []
+      breaks: applicableBreaks
     };
   }
   
-  // Friday handling: default end time is 16:00
+  // Friday handling: default end time is from config
   if (dayOfWeek === FRIDAY) {
     const startTime = earlyOtEnabled && earlyOtStartTime !== undefined
       ? earlyOtStartTime
-      : WORKING_START;
+      : defaultStartTime;
     
     const endTime = overtimeEnabled
-      ? (customCloseTime ?? OVERTIME_END)
-      : FRIDAY_WORKING_END;
+      ? (customCloseTime ?? overtimeEndTime)
+      : fridayEndTime;
       
-    const breaks = overtimeEnabled ? [...OVERTIME_BREAKS] : [...STANDARD_BREAKS];
+    const breaks = overtimeEnabled ? [...overtimeBreaks] : [...standardBreaks];
     const applicableBreaks = breaks.filter(b => b.start >= startTime && b.end <= endTime);
     
     return {
@@ -123,7 +153,7 @@ export function getShiftConfigForDate(
   }
   
   // Monday-Thursday: standard shift
-  return getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime);
+  return getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime, config);
 }
 
 /**
@@ -472,15 +502,22 @@ export function getNextValidStartTime(afterTime: number, shift: ShiftConfig): nu
  * Only MaterialShortage and GeneralDelay reduce available time (treated as breaks).
  * Breakdowns are NOT included here - they STRETCH jobs rather than reducing capacity.
  * Breakdowns are handled separately via calculateBreakdownStretch in schedulerEngine.
+ * @param overtimeEnabled - Whether overtime is enabled
+ * @param customCloseTime - Custom close time override (in minutes from midnight)
+ * @param earlyOtEnabled - Whether early overtime start is enabled
+ * @param earlyOtStartTime - Early overtime start time (in minutes from midnight)
+ * @param scheduleBlocks - Array of schedule blocks to treat as additional breaks
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 export function getShiftConfigWithBlocks(
   overtimeEnabled: boolean,
   customCloseTime: number | undefined,
   earlyOtEnabled: boolean,
   earlyOtStartTime: number | undefined,
-  scheduleBlocks: Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>
+  scheduleBlocks: Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): ShiftConfig {
-  const baseConfig = getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime);
+  const baseConfig = getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime, config);
   
   // Filter OUT Breakdown blocks - they stretch jobs, not reduce capacity
   // Only MaterialShortage and GeneralDelay should reduce capacity (be treated as breaks)

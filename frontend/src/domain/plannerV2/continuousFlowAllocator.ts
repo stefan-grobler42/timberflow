@@ -17,6 +17,7 @@ import {
   calculateEndTime,
   type OvertimeSettingsMap
 } from './shiftCalendar';
+import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
 
 /**
  * Represents a single day segment of a multi-day job allocation.
@@ -46,11 +47,16 @@ export interface ContinuousFlowAllocation {
 /**
  * Gets the shift configuration for a specific team on a specific day.
  * Uses date-aware shift config that handles Friday (16:00) and weekends.
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param teamId - The team ID
+ * @param overtimeMap - Overtime settings by date/team
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 function getTeamShiftForDay(
   dateStr: string,
   teamId: string,
-  overtimeMap: OvertimeSettingsMap
+  overtimeMap: OvertimeSettingsMap,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): ShiftConfig {
   const dayOT = overtimeMap[dateStr]?.[teamId];
   return getShiftConfigForDate(
@@ -58,7 +64,8 @@ function getTeamShiftForDay(
     dayOT?.enabled ?? false,
     dayOT?.closeTime,
     dayOT?.earlyEnabled ?? false,
-    dayOT?.earlyStartTime
+    dayOT?.earlyStartTime,
+    config
   );
 }
 
@@ -103,6 +110,7 @@ function getAvailableWorkMinutesOnDay(
  * @param startTimeMinutes - Starting position in minutes from midnight (drop position)
  * @param overtimeMap - Overtime settings by date/team
  * @param teamAverageEfinks - Team efficiency for duration calculation
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  * @returns Allocation result with day segments
  */
 export function allocateJobContinuousFlow(
@@ -111,7 +119,8 @@ export function allocateJobContinuousFlow(
   startDateStr: string,
   startTimeMinutes: number,
   overtimeMap: OvertimeSettingsMap,
-  teamAverageEfinks: number = 80
+  teamAverageEfinks: number = 80,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): ContinuousFlowAllocation {
   const totalDuration = getJobDuration(job, teamAverageEfinks);
   const segments: DaySegment[] = [];
@@ -125,7 +134,7 @@ export function allocateJobContinuousFlow(
   let dayCount = 0;
   
   while (remainingWork > 0 && dayCount < MAX_DAYS) {
-    const shift = getTeamShiftForDay(currentDate, teamId, overtimeMap);
+    const shift = getTeamShiftForDay(currentDate, teamId, overtimeMap, config);
     
     const effectiveStart = isFirstDay 
       ? getNextValidStartTime(currentStartTime, shift)
@@ -331,6 +340,7 @@ export interface JobDaySegment extends JobForSegmentExpansion {
  * @param teamId - The team column to check
  * @param overtimeMap - Overtime settings by date/team
  * @param teamAverageEfinks - Team efficiency
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  * @returns Array of jobs and segments visible on this day for this team
  */
 export function expandJobsForDay(
@@ -338,9 +348,12 @@ export function expandJobsForDay(
   viewingDate: string,
   teamId: string,
   overtimeMap: OvertimeSettingsMap,
-  teamAverageEfinks: number = 80
+  teamAverageEfinks: number = 80,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): JobDaySegment[] {
   const result: JobDaySegment[] = [];
+  const defaultStartTime = config.weekdayShift.startTime;
+  const defaultEndTime = config.weekdayShift.endTime;
   
   for (const job of jobs) {
     if (job.jigId !== teamId) continue;
@@ -353,8 +366,8 @@ export function expandJobsForDay(
           segmentIndex: 0,
           totalSegments: 1,
           totalJobDuration: job.plannedDurationMinutes ?? 0,
-          segmentStartTime: job.plannedStartTime ?? 420,
-          segmentEndTime: job.plannedEndTime ?? 1020,
+          segmentStartTime: job.plannedStartTime ?? defaultStartTime,
+          segmentEndTime: job.plannedEndTime ?? defaultEndTime,
           segmentDuration: job.plannedDurationMinutes ?? 0,
           segmentBreakMinutes: job.breakAdjustmentMinutes ?? 0,
           segmentEfinks: job.estimatedEFinks,
@@ -387,9 +400,10 @@ export function expandJobsForDay(
       scheduledJob,
       teamId,
       job.plannedDateStr,
-      job.plannedStartTime ?? 420,
+      job.plannedStartTime ?? defaultStartTime,
       overtimeMap,
-      teamAverageEfinks
+      teamAverageEfinks,
+      config
     );
     
     for (let i = 0; i < allocation.segments.length; i++) {
@@ -432,13 +446,15 @@ export function expandJobsForDay(
  * @param dateRange - Array of date strings (YYYY-MM-DD) to check
  * @param teams - Array of team objects with id and averageEfinks
  * @param overtimeMap - Overtime settings by date/team
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  * @returns Map of dateStr -> array of job segments for that day
  */
 export function expandJobsForDateRange(
   jobs: JobForSegmentExpansion[],
   dateRange: string[],
   teams: Array<{ id: string; averageEfinks?: number }>,
-  overtimeMap: OvertimeSettingsMap = {}
+  overtimeMap: OvertimeSettingsMap = {},
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): Map<string, JobDaySegment[]> {
   const result = new Map<string, JobDaySegment[]>();
   
@@ -452,7 +468,8 @@ export function expandJobsForDateRange(
         dateStr,
         team.id,
         overtimeMap,
-        teamAverageEfinks
+        teamAverageEfinks,
+        config
       );
       daySegments.push(...teamSegments);
     }
@@ -468,12 +485,18 @@ export function expandJobsForDateRange(
 /**
  * Gets E-Finks totals for a date considering multi-day job segments.
  * This ensures Week/Month views show accurate daily workload.
+ * @param jobs - All jobs in the system
+ * @param dateStr - The date to check
+ * @param teams - Array of team objects with id and averageEfinks
+ * @param overtimeMap - Overtime settings by date/team
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 export function getSegmentEfinksForDate(
   jobs: JobForSegmentExpansion[],
   dateStr: string,
   teams: Array<{ id: string; averageEfinks?: number }>,
-  overtimeMap: OvertimeSettingsMap = {}
+  overtimeMap: OvertimeSettingsMap = {},
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): number {
   let total = 0;
   
@@ -484,7 +507,8 @@ export function getSegmentEfinksForDate(
       dateStr,
       team.id,
       overtimeMap,
-      teamAverageEfinks
+      teamAverageEfinks,
+      config
     );
     
     for (const segment of segments) {

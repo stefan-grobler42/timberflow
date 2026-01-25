@@ -9,6 +9,7 @@
  * - Visual sizing calculations
  * - Cascade scheduling and overflow handling
  * - Change staging and persistence management
+ * - Scheduler configuration from system settings
  */
 
 export * from './types';
@@ -18,3 +19,4 @@ export * from './shiftCalendar';
 export * from './schedulerEngine';
 export * from './stagingManager';
 export * from './continuousFlowAllocator';
+export * from './schedulerSettings';

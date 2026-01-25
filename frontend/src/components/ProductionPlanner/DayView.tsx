@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
+import type { SchedulerConfig } from '../../domain/plannerV2/schedulerSettings';
 
 const SCHEDULE_BLOCK_COLORS: Record<ScheduleBlockType, string> = {
   PublicHoliday: '#B3E5FC',
@@ -102,6 +103,7 @@ interface DayViewProps {
   isDragging?: boolean;
   scheduleBlocks?: ScheduleBlock[];
   onBlockClick?: (block: ScheduleBlock) => void;
+  schedulerConfig?: SchedulerConfig;
 }
 
 const MIN_BLOCK_HEIGHT = 20;
@@ -125,7 +127,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
   isDragging = false,
   scheduleBlocks = [],
-  onBlockClick
+  onBlockClick,
+  schedulerConfig
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -225,7 +228,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   useEffect(() => {
     loadSettings();
-  }, [dayStr]);
+  }, [dayStr, schedulerConfig]);
 
   // Keep workingHours at base level - each team column will independently extend based on its overtime
   useEffect(() => {
@@ -255,68 +258,130 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   const loadSettings = async () => {
     try {
-      const settings: SystemSettings = await systemSettingsService.getSettings();
+      // Use schedulerConfig if provided, otherwise fetch from API
+      let settings: SystemSettings | null = null;
+      
+      if (!schedulerConfig) {
+        settings = await systemSettingsService.getSettings();
+      }
+      
       const date = new Date(dayStr);
       const dayOfWeek = date.getDay();
       
-      const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek] as 
-        'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
-      
-      const factoryHours = settings.workingHours?.factoryStaff?.[dayName];
-      
       let hours = { start: 7, end: 17 };
-      if (factoryHours) {
-        const [start, end] = factoryHours.split('-');
-        const startHour = parseInt(start.split(':')[0]);
-        const endHour = parseInt(end.split(':')[0]);
-        hours = { start: startHour, end: endHour };
+      
+      if (schedulerConfig) {
+        // Use schedulerConfig values (in minutes from midnight) converted to hours
+        const startMinutes = isWeekendDay 
+          ? schedulerConfig.weekendShift.startTime 
+          : schedulerConfig.weekdayShift.startTime;
+        const endMinutes = isWeekendDay 
+          ? schedulerConfig.weekendShift.endTime 
+          : (isFridayDay ? schedulerConfig.weekdayShift.fridayEndTime : schedulerConfig.weekdayShift.endTime);
+        
+        hours = {
+          start: Math.floor(startMinutes / 60),
+          end: Math.ceil(endMinutes / 60)
+        };
+      } else if (settings) {
+        const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dayOfWeek] as 
+          'sunday' | 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday';
+        
+        const factoryHours = settings.workingHours?.factoryStaff?.[dayName];
+        
+        if (factoryHours) {
+          const [start, end] = factoryHours.split('-');
+          const startHour = parseInt(start.split(':')[0]);
+          const endHour = parseInt(end.split(':')[0]);
+          hours = { start: startHour, end: endHour };
+        }
       }
+      
       setBaseWorkingHours(hours);
       setWorkingHours(hours);
 
       const breaks: BreakSlot[] = [];
-      const breakTimes = settings.breakTimes;
 
-      // Add tea morning break (light green)
-      if (breakTimes?.teaMorning) {
-        const teaStart = parseTime(breakTimes.teaMorning.start);
-        const teaEnd = parseTime(breakTimes.teaMorning.end);
-        breaks.push({
-          startHour: teaStart.hour,
-          startMinute: teaStart.minute,
-          endHour: teaEnd.hour,
-          endMinute: teaEnd.minute,
-          label: 'Tea',
-          color: '#d4edda'
-        });
-      }
+      if (schedulerConfig) {
+        // Use schedulerConfig breaks
+        const configBreaks = isWeekendDay 
+          ? schedulerConfig.weekendBreaks 
+          : schedulerConfig.weekdayBreaks;
+        
+        for (const brk of configBreaks) {
+          breaks.push({
+            startHour: Math.floor(brk.startTime / 60),
+            startMinute: brk.startTime % 60,
+            endHour: Math.floor(brk.endTime / 60),
+            endMinute: brk.endTime % 60,
+            label: brk.label,
+            color: brk.label.toLowerCase().includes('lunch') ? '#fff3cd' : '#d4edda'
+          });
+        }
+        
+        // Store dinner/overtime break separately
+        const overtimeBreaks = isWeekendDay 
+          ? schedulerConfig.weekendBreaks 
+          : schedulerConfig.weekdayOvertimeBreaks;
+        
+        const dinnerBreak = overtimeBreaks.find(b => 
+          b.label.toLowerCase().includes('dinner') || b.label.toLowerCase().includes('supper')
+        );
+        
+        if (dinnerBreak) {
+          setDinnerBreakSlot({
+            startHour: Math.floor(dinnerBreak.startTime / 60),
+            startMinute: dinnerBreak.startTime % 60,
+            endHour: Math.floor(dinnerBreak.endTime / 60),
+            endMinute: dinnerBreak.endTime % 60,
+            label: dinnerBreak.label,
+            color: '#f8d7da'
+          });
+        }
+      } else if (settings) {
+        const breakTimes = settings.breakTimes;
 
-      // Add lunch break (light yellow)
-      if (breakTimes?.lunch) {
-        const lunchStart = parseTime(breakTimes.lunch.start);
-        const lunchEnd = parseTime(breakTimes.lunch.end);
-        breaks.push({
-          startHour: lunchStart.hour,
-          startMinute: lunchStart.minute,
-          endHour: lunchEnd.hour,
-          endMinute: lunchEnd.minute,
-          label: 'Lunch',
-          color: '#fff3cd'
-        });
-      }
+        // Add tea morning break (light green)
+        if (breakTimes?.teaMorning) {
+          const teaStart = parseTime(breakTimes.teaMorning.start);
+          const teaEnd = parseTime(breakTimes.teaMorning.end);
+          breaks.push({
+            startHour: teaStart.hour,
+            startMinute: teaStart.minute,
+            endHour: teaEnd.hour,
+            endMinute: teaEnd.minute,
+            label: 'Tea',
+            color: '#d4edda'
+          });
+        }
 
-      // Store dinner break separately - it's added dynamically based on overtime state (light pink)
-      if (breakTimes?.dinnerOvertime) {
-        const dinnerStart = parseTime(breakTimes.dinnerOvertime.start);
-        const dinnerEnd = parseTime(breakTimes.dinnerOvertime.end);
-        setDinnerBreakSlot({
-          startHour: dinnerStart.hour,
-          startMinute: dinnerStart.minute,
-          endHour: dinnerEnd.hour,
-          endMinute: dinnerEnd.minute,
-          label: 'Dinner (OT)',
-          color: '#f8d7da'
-        });
+        // Add lunch break (light yellow)
+        if (breakTimes?.lunch) {
+          const lunchStart = parseTime(breakTimes.lunch.start);
+          const lunchEnd = parseTime(breakTimes.lunch.end);
+          breaks.push({
+            startHour: lunchStart.hour,
+            startMinute: lunchStart.minute,
+            endHour: lunchEnd.hour,
+            endMinute: lunchEnd.minute,
+            label: 'Lunch',
+            color: '#fff3cd'
+          });
+        }
+
+        // Store dinner break separately - it's added dynamically based on overtime state (light pink)
+        if (breakTimes?.dinnerOvertime) {
+          const dinnerStart = parseTime(breakTimes.dinnerOvertime.start);
+          const dinnerEnd = parseTime(breakTimes.dinnerOvertime.end);
+          setDinnerBreakSlot({
+            startHour: dinnerStart.hour,
+            startMinute: dinnerStart.minute,
+            endHour: dinnerEnd.hour,
+            endMinute: dinnerEnd.minute,
+            label: 'Dinner (OT)',
+            color: '#f8d7da'
+          });
+        }
       }
 
       setBaseBreakSlots(breaks);
