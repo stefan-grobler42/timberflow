@@ -159,6 +159,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return overtimeByTeam[teamId] ?? { enabled: false, closeTime: 1140, earlyEnabled: false, earlyStartTime: 360 };
   }, [overtimeByTeam]);
 
+  // Check if current day is a weekend (Saturday or Sunday)
+  const isWeekendDay = useMemo(() => {
+    return PlannerV2.isWeekend(dayStr);
+  }, [dayStr]);
+  
+  // Check if current day is Friday
+  const isFridayDay = useMemo(() => {
+    return PlannerV2.isFriday(dayStr);
+  }, [dayStr]);
+  
   // Check if ANY team has overtime enabled (for timeline rendering)
   const anyTeamHasOvertime = useMemo(() => {
     return Object.values(overtimeByTeam).some(settings => settings.enabled);
@@ -992,135 +1002,246 @@ const DayViewComponent: React.FC<DayViewProps> = ({
             <Stack key={jig.id} styles={{ root: { flex: '1 1 0', minWidth: 120, borderRight: '1px solid #ddd' } }}>
               {/* Fixed-height header container to match time column (98px) */}
               <div style={{ height: 98, minHeight: 98, flexShrink: 0, boxSizing: 'border-box' }}>
-                {/* Early OT row - 24px height */}
-                  <Stack
-                  horizontal
-                  verticalAlign="center"
-                  horizontalAlign="center"
-                  tokens={{ childrenGap: 4 }}
-                  styles={{
-                    root: {
-                      height: 24,
-                      padding: '2px 8px',
-                      backgroundColor: teamOvertime.earlyEnabled ? '#81c784' : '#e0e0e0',
-                      borderBottom: '1px solid rgba(0,0,0,0.1)',
-                      boxSizing: 'border-box'
-                    }
-                  }}
-                >
-                  <Toggle
-                    checked={teamOvertime.earlyEnabled ?? false}
-                    onChange={(_, checked) => handleTeamEarlyOvertimeToggle(jig.id, !!checked)}
-                    styles={{
-                      root: { marginBottom: 0 },
-                      pill: { 
-                        backgroundColor: teamOvertime.earlyEnabled ? '#4caf50' : '#999',
-                        border: 'none',
-                        width: 28,
-                        height: 12
-                      },
-                      thumb: { backgroundColor: 'white', width: 8, height: 8 }
-                    }}
-                  />
-                  <Text variant="tiny" styles={{ root: { color: teamOvertime.earlyEnabled ? '#1b5e20' : '#666', fontWeight: 500, fontSize: 9 } }}>
-                    Early
-                  </Text>
-                  {teamOvertime.earlyEnabled && baseWorkingHours && (
-                    <Dropdown
-                      selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 360)}
-                      onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
-                      options={(() => {
-                        const options: IDropdownOption[] = [];
-                        for (let hour = 4; hour < baseWorkingHours.start; hour++) {
-                          options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
-                          options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
-                        }
-                        return options;
-                      })()}
+                {isWeekendDay ? (
+                  <>
+                    {/* Weekend Work toggle - single row with start/end time */}
+                    <Stack
+                      horizontal
+                      verticalAlign="center"
+                      horizontalAlign="center"
+                      tokens={{ childrenGap: 4 }}
                       styles={{
-                        root: { minWidth: 55 },
-                        title: { 
-                          backgroundColor: 'rgba(0,0,0,0.1)', 
-                          color: '#1b5e20', 
-                          border: 'none',
-                          fontSize: 9,
-                          padding: '1px 4px',
-                          height: 18,
-                          lineHeight: '16px'
-                        },
-                        caretDown: { color: '#1b5e20', fontSize: 9 },
-                        dropdown: { minWidth: 55 }
+                        root: {
+                          height: 24,
+                          padding: '2px 8px',
+                          backgroundColor: teamOvertime.enabled ? '#9c27b0' : '#bdbdbd',
+                          borderBottom: '1px solid rgba(0,0,0,0.1)',
+                          boxSizing: 'border-box'
+                        }
                       }}
-                    />
-                  )}
-                </Stack>
-                {/* Late OT row - 24px height + 1px border = 25px total */}
-                <Stack
-                  horizontal
-                  verticalAlign="center"
-                  horizontalAlign="center"
-                  tokens={{ childrenGap: 4 }}
-                  styles={{
-                    root: {
-                      height: 24,
-                      padding: '2px 8px',
-                      backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0',
-                      borderBottom: '1px solid #ccc',
-                      boxSizing: 'border-box'
-                    }
-                  }}
-                >
-                  <Toggle
-                    checked={teamOvertime.enabled}
-                    onChange={(_, checked) => handleTeamOvertimeToggle(jig.id, !!checked)}
-                    styles={{
-                      root: { marginBottom: 0 },
-                      pill: { 
-                        backgroundColor: teamOvertime.enabled ? '#ff9800' : '#999',
-                        border: 'none',
-                        width: 28,
-                        height: 12
-                      },
-                      thumb: { backgroundColor: 'white', width: 8, height: 8 }
-                    }}
-                  />
-                  <Text variant="tiny" styles={{ root: { color: teamOvertime.enabled ? '#333' : '#666', fontWeight: 500, fontSize: 9 } }}>
-                    Late
-                  </Text>
-                  {teamOvertime.enabled && baseWorkingHours && (
-                    <Dropdown
-                      selectedKey={minutesToTimeString(teamOvertime.closeTime)}
-                      onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
-                      options={(() => {
-                        const options: IDropdownOption[] = [];
-                        for (let hour = baseWorkingHours.end; hour <= 23; hour++) {
-                          if (hour === baseWorkingHours.end) {
-                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                    >
+                      <Toggle
+                        checked={teamOvertime.enabled}
+                        onChange={(_, checked) => {
+                          if (checked) {
+                            onTeamOvertimeChange?.(dayStr, jig.id, true, 1020);
+                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, true, 420);
                           } else {
-                            options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
-                            options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                            onTeamOvertimeChange?.(dayStr, jig.id, false, 1020);
+                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, false, 420);
                           }
-                        }
-                        options.push({ key: '00:00', text: '00:00' });
-                        return options;
-                      })()}
+                        }}
+                        styles={{
+                          root: { marginBottom: 0 },
+                          pill: { 
+                            backgroundColor: teamOvertime.enabled ? '#7b1fa2' : '#999',
+                            border: 'none',
+                            width: 28,
+                            height: 12
+                          },
+                          thumb: { backgroundColor: 'white', width: 8, height: 8 }
+                        }}
+                      />
+                      <Text variant="tiny" styles={{ root: { color: teamOvertime.enabled ? 'white' : '#666', fontWeight: 600, fontSize: 9 } }}>
+                        Weekend Work
+                      </Text>
+                    </Stack>
+                    {/* Weekend time selection row */}
+                    <Stack
+                      horizontal
+                      verticalAlign="center"
+                      horizontalAlign="center"
+                      tokens={{ childrenGap: 4 }}
                       styles={{
-                        root: { minWidth: 55 },
-                        title: { 
-                          backgroundColor: 'rgba(0,0,0,0.1)', 
-                          color: '#333', 
-                          border: 'none',
-                          fontSize: 9,
-                          padding: '1px 4px',
-                          height: 18,
-                          lineHeight: '16px'
-                        },
-                        caretDown: { color: '#333', fontSize: 9 },
-                        dropdown: { minWidth: 55 }
+                        root: {
+                          height: 24,
+                          padding: '2px 8px',
+                          backgroundColor: teamOvertime.enabled ? '#e1bee7' : '#e0e0e0',
+                          borderBottom: '1px solid #ccc',
+                          boxSizing: 'border-box'
+                        }
                       }}
-                    />
-                  )}
-                </Stack>
+                    >
+                      {teamOvertime.enabled ? (
+                        <>
+                          <Dropdown
+                            selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 420)}
+                            onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
+                            options={(() => {
+                              const options: IDropdownOption[] = [];
+                              for (let hour = 5; hour <= 12; hour++) {
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                              }
+                              return options;
+                            })()}
+                            styles={{
+                              root: { minWidth: 50 },
+                              title: { backgroundColor: 'rgba(0,0,0,0.1)', color: '#4a148c', border: 'none', fontSize: 9, padding: '1px 4px', height: 18, lineHeight: '16px' },
+                              caretDown: { color: '#4a148c', fontSize: 9 },
+                              dropdown: { minWidth: 50 }
+                            }}
+                          />
+                          <Text variant="tiny" styles={{ root: { color: '#4a148c', fontSize: 9 } }}>to</Text>
+                          <Dropdown
+                            selectedKey={minutesToTimeString(teamOvertime.closeTime ?? 1020)}
+                            onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
+                            options={(() => {
+                              const options: IDropdownOption[] = [];
+                              for (let hour = 12; hour <= 20; hour++) {
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                              }
+                              return options;
+                            })()}
+                            styles={{
+                              root: { minWidth: 50 },
+                              title: { backgroundColor: 'rgba(0,0,0,0.1)', color: '#4a148c', border: 'none', fontSize: 9, padding: '1px 4px', height: 18, lineHeight: '16px' },
+                              caretDown: { color: '#4a148c', fontSize: 9 },
+                              dropdown: { minWidth: 50 }
+                            }}
+                          />
+                        </>
+                      ) : (
+                        <Text variant="tiny" styles={{ root: { color: '#999', fontStyle: 'italic', fontSize: 9 } }}>
+                          Non-working day
+                        </Text>
+                      )}
+                    </Stack>
+                  </>
+                ) : (
+                  <>
+                    {/* Weekday Early OT row - 24px height */}
+                    <Stack
+                      horizontal
+                      verticalAlign="center"
+                      horizontalAlign="center"
+                      tokens={{ childrenGap: 4 }}
+                      styles={{
+                        root: {
+                          height: 24,
+                          padding: '2px 8px',
+                          backgroundColor: teamOvertime.earlyEnabled ? '#81c784' : '#e0e0e0',
+                          borderBottom: '1px solid rgba(0,0,0,0.1)',
+                          boxSizing: 'border-box'
+                        }
+                      }}
+                    >
+                      <Toggle
+                        checked={teamOvertime.earlyEnabled ?? false}
+                        onChange={(_, checked) => handleTeamEarlyOvertimeToggle(jig.id, !!checked)}
+                        styles={{
+                          root: { marginBottom: 0 },
+                          pill: { 
+                            backgroundColor: teamOvertime.earlyEnabled ? '#4caf50' : '#999',
+                            border: 'none',
+                            width: 28,
+                            height: 12
+                          },
+                          thumb: { backgroundColor: 'white', width: 8, height: 8 }
+                        }}
+                      />
+                      <Text variant="tiny" styles={{ root: { color: teamOvertime.earlyEnabled ? '#1b5e20' : '#666', fontWeight: 500, fontSize: 9 } }}>
+                        Early
+                      </Text>
+                      {teamOvertime.earlyEnabled && baseWorkingHours && (
+                        <Dropdown
+                          selectedKey={minutesToTimeString(teamOvertime.earlyStartTime ?? 360)}
+                          onChange={(_, option) => option && handleTeamEarlyOvertimeStartTimeChange(jig.id, option.key as string)}
+                          options={(() => {
+                            const options: IDropdownOption[] = [];
+                            for (let hour = 4; hour < baseWorkingHours.start; hour++) {
+                              options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                              options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                            }
+                            return options;
+                          })()}
+                          styles={{
+                            root: { minWidth: 55 },
+                            title: { 
+                              backgroundColor: 'rgba(0,0,0,0.1)', 
+                              color: '#1b5e20', 
+                              border: 'none',
+                              fontSize: 9,
+                              padding: '1px 4px',
+                              height: 18,
+                              lineHeight: '16px'
+                            },
+                            caretDown: { color: '#1b5e20', fontSize: 9 },
+                            dropdown: { minWidth: 55 }
+                          }}
+                        />
+                      )}
+                    </Stack>
+                    {/* Weekday Late OT row - 24px height + 1px border = 25px total */}
+                    <Stack
+                      horizontal
+                      verticalAlign="center"
+                      horizontalAlign="center"
+                      tokens={{ childrenGap: 4 }}
+                      styles={{
+                        root: {
+                          height: 24,
+                          padding: '2px 8px',
+                          backgroundColor: teamOvertime.enabled ? '#ffc107' : '#e0e0e0',
+                          borderBottom: '1px solid #ccc',
+                          boxSizing: 'border-box'
+                        }
+                      }}
+                    >
+                      <Toggle
+                        checked={teamOvertime.enabled}
+                        onChange={(_, checked) => handleTeamOvertimeToggle(jig.id, !!checked)}
+                        styles={{
+                          root: { marginBottom: 0 },
+                          pill: { 
+                            backgroundColor: teamOvertime.enabled ? '#ff9800' : '#999',
+                            border: 'none',
+                            width: 28,
+                            height: 12
+                          },
+                          thumb: { backgroundColor: 'white', width: 8, height: 8 }
+                        }}
+                      />
+                      <Text variant="tiny" styles={{ root: { color: teamOvertime.enabled ? '#333' : '#666', fontWeight: 500, fontSize: 9 } }}>
+                        Late
+                      </Text>
+                      {teamOvertime.enabled && baseWorkingHours && (
+                        <Dropdown
+                          selectedKey={minutesToTimeString(teamOvertime.closeTime)}
+                          onChange={(_, option) => option && handleTeamOvertimeCloseTimeChange(jig.id, option.key as string)}
+                          options={(() => {
+                            const options: IDropdownOption[] = [];
+                            for (let hour = isFridayDay ? 16 : baseWorkingHours.end; hour <= 23; hour++) {
+                              if (hour === (isFridayDay ? 16 : baseWorkingHours.end)) {
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                              } else {
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:00`, text: `${hour.toString().padStart(2, '0')}:00` });
+                                options.push({ key: `${hour.toString().padStart(2, '0')}:30`, text: `${hour.toString().padStart(2, '0')}:30` });
+                              }
+                            }
+                            options.push({ key: '00:00', text: '00:00' });
+                            return options;
+                          })()}
+                          styles={{
+                            root: { minWidth: 55 },
+                            title: { 
+                              backgroundColor: 'rgba(0,0,0,0.1)', 
+                              color: '#333', 
+                              border: 'none',
+                              fontSize: 9,
+                              padding: '1px 4px',
+                              height: 18,
+                              lineHeight: '16px'
+                            },
+                            caretDown: { color: '#333', fontSize: 9 },
+                            dropdown: { minWidth: 55 }
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </>
+                )}
               
               {/* Jig header - fixed height with border-box */}
               <Stack

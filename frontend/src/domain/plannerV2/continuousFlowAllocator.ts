@@ -11,7 +11,7 @@
 import type { ScheduledJob, ShiftConfig } from './types';
 import { getJobDuration } from './durationCalculator';
 import { 
-  getShiftConfig, 
+  getShiftConfigForDate, 
   getNextWorkingDay,
   getNextValidStartTime,
   calculateEndTime
@@ -58,6 +58,7 @@ export interface OvertimeSettingsMap {
 
 /**
  * Gets the shift configuration for a specific team on a specific day.
+ * Uses date-aware shift config that handles Friday (16:00) and weekends.
  */
 function getTeamShiftForDay(
   dateStr: string,
@@ -65,7 +66,8 @@ function getTeamShiftForDay(
   overtimeMap: OvertimeSettingsMap
 ): ShiftConfig {
   const dayOT = overtimeMap[dateStr]?.[teamId];
-  return getShiftConfig(
+  return getShiftConfigForDate(
+    dateStr,
     dayOT?.enabled ?? false,
     dayOT?.closeTime,
     dayOT?.earlyEnabled ?? false,
