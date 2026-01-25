@@ -44,15 +44,6 @@ interface TeamInfo {
 }
 
 /**
- * Checks if a date is a weekend (Saturday or Sunday).
- */
-function isWeekendDate(dateStr: string): boolean {
-  const date = new Date(dateStr + 'T00:00:00Z');
-  const dayOfWeek = date.getUTCDay();
-  return dayOfWeek === 0 || dayOfWeek === 6;
-}
-
-/**
  * Adds business days to a date string, skipping weekends.
  */
 function addBusinessDays(dateStr: string, days: number): string {
@@ -114,10 +105,8 @@ export function expandJobToSegments(
   
   if (totalDuration <= STANDARD_WORKING_MINUTES) {
     const workMinutes = totalDuration;
-    // Weekend work has NO breaks
-    const isWeekend = isWeekendDate(job.plannedDateStr);
-    const breakMinutes = isWeekend ? 0 : (totalDuration >= STANDARD_WORKING_MINUTES * 0.5 ? 
-      Math.round(STANDARD_BREAKS_TOTAL * (workMinutes / STANDARD_WORKING_MINUTES)) : 0);
+    const breakMinutes = totalDuration >= STANDARD_WORKING_MINUTES * 0.5 ? 
+      Math.round(STANDARD_BREAKS_TOTAL * (workMinutes / STANDARD_WORKING_MINUTES)) : 0;
     
     return [{
       ...job,
@@ -143,10 +132,8 @@ export function expandJobToSegments(
     const segmentWorkMinutes = Math.min(remainingDuration, STANDARD_WORKING_MINUTES);
     const segmentRatio = segmentWorkMinutes / totalDuration;
     const segmentEfinks = roundEfinks(job.estimatedEFinks * segmentRatio);
-    // Weekend segments have NO breaks
-    const isSegmentWeekend = isWeekendDate(currentDateStr);
-    const segmentBreakMinutes = isSegmentWeekend ? 0 : (segmentWorkMinutes >= STANDARD_WORKING_MINUTES * 0.5 ?
-      Math.round(STANDARD_BREAKS_TOTAL * (segmentWorkMinutes / STANDARD_WORKING_MINUTES)) : 0);
+    const segmentBreakMinutes = segmentWorkMinutes >= STANDARD_WORKING_MINUTES * 0.5 ?
+      Math.round(STANDARD_BREAKS_TOTAL * (segmentWorkMinutes / STANDARD_WORKING_MINUTES)) : 0;
     
     remainingDuration -= segmentWorkMinutes;
     remainingEfinks -= segmentEfinks;

@@ -234,19 +234,15 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   }, [baseWorkingHours]);
 
   // Dynamically add/remove dinner break based on overtime state (any team)
-  // Weekend with work enabled has NO breaks at all
   useEffect(() => {
-    if (isWeekendDay && anyTeamHasOvertime) {
-      // Weekend work has NO breaks - clear all break slots
-      setBreakSlots([]);
-    } else if (anyTeamHasOvertime && dinnerBreakSlot) {
-      // Weekday with overtime - add dinner break
+    if (anyTeamHasOvertime && dinnerBreakSlot) {
+      // Add dinner break when any team has overtime enabled
       setBreakSlots([...baseBreakSlots, dinnerBreakSlot]);
     } else {
-      // Standard weekday - use base breaks only
+      // Remove dinner break when no team has overtime
       setBreakSlots(baseBreakSlots);
     }
-  }, [isWeekendDay, anyTeamHasOvertime, baseBreakSlots, dinnerBreakSlot]);
+  }, [anyTeamHasOvertime, baseBreakSlots, dinnerBreakSlot]);
 
   // NOTE: The automatic redistribution effect was removed as it caused an infinite loop
   // Redistribution is now ONLY triggered when the user explicitly toggles overtime
@@ -345,11 +341,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   };
 
   const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number): BreakAddition[] => {
-    // Weekend with work enabled has NO breaks - return empty immediately
-    if (isWeekendDay && anyTeamHasOvertime) {
-      return [];
-    }
-    
     const additions: BreakAddition[] = [];
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
