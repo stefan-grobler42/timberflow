@@ -689,13 +689,13 @@ export const SettingsPage: React.FC = () => {
                 />
                 <TextField 
                   label="Default Start Time" 
-                  value={settings.overtimeDefaultsWeekend?.defaultStartTime || ''}
+                  value={settings.overtimeDefaultsWeekend?.defaultStartTime || '07:00'}
                   onChange={(_, value) => {
                     setSettings(prev => ({
                       ...prev,
                       overtimeDefaultsWeekend: {
                         ...prev.overtimeDefaultsWeekend,
-                        defaultStartTime: value || ''
+                        defaultStartTime: value || '07:00'
                       } as any
                     }));
                   }}
@@ -704,13 +704,13 @@ export const SettingsPage: React.FC = () => {
                 />
                 <TextField 
                   label="Default End Time" 
-                  value={settings.overtimeDefaultsWeekend?.defaultEndTime || ''}
+                  value={settings.overtimeDefaultsWeekend?.defaultEndTime || '15:00'}
                   onChange={(_, value) => {
                     setSettings(prev => ({
                       ...prev,
                       overtimeDefaultsWeekend: {
                         ...prev.overtimeDefaultsWeekend,
-                        defaultEndTime: value || ''
+                        defaultEndTime: value || '15:00'
                       } as any
                     }));
                   }}
