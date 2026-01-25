@@ -774,7 +774,7 @@ export const SettingsPage: React.FC = () => {
                 Configure general production scheduling parameters.
               </Text>
 
-              <Stack horizontal tokens={{ childrenGap: 20 }} wrap>
+              <Stack tokens={{ childrenGap: 10 }} styles={{ root: { maxWidth: 350 } }}>
                 <TextField 
                   label="Buffer Between Jobs (minutes)" 
                   type="number"
@@ -791,7 +791,7 @@ export const SettingsPage: React.FC = () => {
                       }
                     }));
                   }}
-                  styles={{ root: { width: 200 } }}
+                  styles={{ root: { width: '100%' } }}
                 />
                 <TextField 
                   label="Minimum Job Duration (minutes)" 
@@ -809,7 +809,7 @@ export const SettingsPage: React.FC = () => {
                       }
                     }));
                   }}
-                  styles={{ root: { width: 200 } }}
+                  styles={{ root: { width: '100%' } }}
                 />
                 <TextField 
                   label="Duration Rounding (minutes)" 
@@ -827,7 +827,7 @@ export const SettingsPage: React.FC = () => {
                       }
                     }));
                   }}
-                  styles={{ root: { width: 200 } }}
+                  styles={{ root: { width: '100%' } }}
                 />
               </Stack>
 
