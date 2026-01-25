@@ -725,10 +725,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const visibleDurationMinutes = visibleEndMinutes - visibleStartMinutes;
 
   // Generate timeline segments only for the visible range
-  const generateVisibleTimelineSegments = (forWorkingHours?: { start: number; end: number }): TimelineSegment[] => {
+  const generateVisibleTimelineSegments = (forWorkingHours?: { start: number; end: number }, isNonWorkingDay?: boolean): TimelineSegment[] => {
     const segments: TimelineSegment[] = [];
     const effectiveWorkingHours = forWorkingHours || workingHours;
-    const sortedBreaks = [...breakSlots].sort((a, b) => 
+    
+    // For non-working days (weekends without overtime), skip all break rendering
+    const sortedBreaks = isNonWorkingDay ? [] : [...breakSlots].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
     
@@ -782,7 +784,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const segmentDuration = segmentEnd - currentMinute;
       const hour = Math.floor(currentMinute / 60);
       const minute = currentMinute % 60;
-      const isWorking = effectiveWorkingHours ? (hour >= effectiveWorkingHours.start && hour < effectiveWorkingHours.end) : false;
+      // Non-working days override all working hour logic
+      const isWorking = isNonWorkingDay ? false : (effectiveWorkingHours ? (hour >= effectiveWorkingHours.start && hour < effectiveWorkingHours.end) : false);
       
       segments.push({
         startMinutes: currentMinute,
@@ -891,7 +894,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return segments;
   };
 
-  const timelineSegments = generateVisibleTimelineSegments();
+  // For weekends without any team having overtime, show all hours as non-working
+  const isNonWorkingWeekend = isWeekendDay && !anyTeamHasOvertime;
+  const timelineSegments = generateVisibleTimelineSegments(undefined, isNonWorkingWeekend);
   const totalTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
 
   // Calculate unallocated job totals for the separate panel
