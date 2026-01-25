@@ -285,7 +285,22 @@ export function getAvailableMinutes(startTime: number, shift: ShiftConfig): numb
 }
 
 /**
+ * Gets the next calendar day.
+ */
+export function getNextDay(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  date.setDate(date.getDate() + 1);
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Gets the next working day, skipping weekends.
+ * Use getNextWorkingDayWithOvertime if you need to consider weekend work.
  */
 export function getNextWorkingDay(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00');
@@ -301,6 +316,56 @@ export function getNextWorkingDay(dateStr: string): string {
   const day = String(date.getDate()).padStart(2, '0');
   
   return `${year}-${month}-${day}`;
+}
+
+/**
+ * Overtime settings lookup by date then team.
+ */
+export interface OvertimeSettingsMap {
+  [dateStr: string]: {
+    [teamId: string]: {
+      enabled?: boolean;
+      closeTime?: number;
+      earlyEnabled?: boolean;
+      earlyStartTime?: number;
+    } | undefined;
+  } | undefined;
+}
+
+/**
+ * Gets the next working day, considering weekend overtime settings.
+ * If a weekend day has overtime enabled for the team, it's considered a working day.
+ */
+export function getNextWorkingDayWithOvertime(
+  dateStr: string,
+  teamId: string,
+  overtimeMap: OvertimeSettingsMap
+): string {
+  let currentDate = getNextDay(dateStr);
+  let iterations = 0;
+  const maxIterations = 14; // Safety limit - max 2 weeks of searching
+  
+  while (iterations < maxIterations) {
+    const dayOfWeek = getDayOfWeek(currentDate);
+    
+    // If it's a weekday, it's a working day
+    if (dayOfWeek !== SATURDAY && dayOfWeek !== SUNDAY) {
+      return currentDate;
+    }
+    
+    // If it's a weekend, check if overtime is enabled for this team
+    const dayOT = overtimeMap[currentDate]?.[teamId];
+    if (dayOT?.enabled) {
+      return currentDate;
+    }
+    
+    // Skip to next day
+    currentDate = getNextDay(currentDate);
+    iterations++;
+  }
+  
+  // Fallback to simple next working day if something goes wrong
+  return getNextWorkingDay(dateStr);
 }
 
 /**

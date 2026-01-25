@@ -802,7 +802,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   // Generate timeline segments using MINUTE precision for working hours (for team-specific overtime)
   const generateVisibleTimelineSegmentsMinutes = (forWorkingMinutes: { startMinutes: number; endMinutes: number }): TimelineSegment[] => {
     const segments: TimelineSegment[] = [];
-    const sortedBreaks = [...breakSlots].sort((a, b) => 
+    
+    // Check if this is a zero-capacity day (e.g., weekend without overtime)
+    const isZeroCapacityDay = forWorkingMinutes.startMinutes >= forWorkingMinutes.endMinutes;
+    
+    // For zero-capacity days, skip break handling entirely
+    const sortedBreaks = isZeroCapacityDay ? [] : [...breakSlots].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
     
@@ -983,16 +988,29 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           const teamOvertime = getTeamOvertime(jig.id);
           
           // Calculate per-team working hours in MINUTES for 30-minute precision
-          const teamWorkingMinutes = baseWorkingHours ? {
-            // Early OT: use exact minute value from overtime settings
-            startMinutes: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
-              ? teamOvertime.earlyStartTime
-              : baseWorkingHours.start * 60,
-            // Late OT: use exact minute value from overtime settings
-            endMinutes: teamOvertime.enabled && teamOvertime.closeTime !== undefined
-              ? teamOvertime.closeTime
-              : baseWorkingHours.end * 60
-          } : { startMinutes: workingHours.start * 60, endMinutes: workingHours.end * 60 };
+          // Weekend handling: if weekend and no overtime, zero capacity
+          const teamWorkingMinutes = (() => {
+            if (isWeekendDay) {
+              if (!teamOvertime.enabled) {
+                // Weekend with no overtime = zero capacity (completely non-working)
+                return { startMinutes: 420, endMinutes: 420 }; // Same value = no working hours
+              }
+              // Weekend with overtime: use custom start/end times
+              return {
+                startMinutes: teamOvertime.earlyStartTime ?? 420,
+                endMinutes: teamOvertime.closeTime ?? 1020
+              };
+            }
+            // Weekday: normal calculation
+            return baseWorkingHours ? {
+              startMinutes: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
+                ? teamOvertime.earlyStartTime
+                : baseWorkingHours.start * 60,
+              endMinutes: teamOvertime.enabled && teamOvertime.closeTime !== undefined
+                ? teamOvertime.closeTime
+                : (isFridayDay ? 960 : baseWorkingHours.end * 60) // Friday: 16:00 = 960 min
+            } : { startMinutes: workingHours.start * 60, endMinutes: workingHours.end * 60 };
+          })();
           const teamTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
           
           // Generate team-specific timeline segments with overtime using minute precision

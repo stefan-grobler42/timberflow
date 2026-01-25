@@ -12,9 +12,10 @@ import type { ScheduledJob, ShiftConfig } from './types';
 import { getJobDuration } from './durationCalculator';
 import { 
   getShiftConfigForDate, 
-  getNextWorkingDay,
+  getNextWorkingDayWithOvertime,
   getNextValidStartTime,
-  calculateEndTime
+  calculateEndTime,
+  type OvertimeSettingsMap
 } from './shiftCalendar';
 
 /**
@@ -40,20 +41,6 @@ export interface ContinuousFlowAllocation {
   segments: DaySegment[];
   primaryDate: string;
   endDate: string;
-}
-
-/**
- * Overtime settings lookup by date then team.
- */
-export interface OvertimeSettingsMap {
-  [dateStr: string]: {
-    [teamId: string]: {
-      enabled?: boolean;
-      closeTime?: number;
-      earlyEnabled?: boolean;
-      earlyStartTime?: number;
-    } | undefined;
-  } | undefined;
 }
 
 /**
@@ -145,7 +132,7 @@ export function allocateJobContinuousFlow(
       : shift.startTime;
     
     if (effectiveStart >= shift.endTime) {
-      currentDate = getNextWorkingDay(currentDate);
+      currentDate = getNextWorkingDayWithOvertime(currentDate, teamId, overtimeMap);
       isFirstDay = false;
       dayCount++;
       continue;
@@ -154,7 +141,7 @@ export function allocateJobContinuousFlow(
     const availableOnDay = getAvailableWorkMinutesOnDay(effectiveStart, shift);
     
     if (availableOnDay <= 0) {
-      currentDate = getNextWorkingDay(currentDate);
+      currentDate = getNextWorkingDayWithOvertime(currentDate, teamId, overtimeMap);
       isFirstDay = false;
       dayCount++;
       continue;
@@ -178,7 +165,7 @@ export function allocateJobContinuousFlow(
     remainingWork -= workToDoToday;
     
     if (remainingWork > 0) {
-      currentDate = getNextWorkingDay(currentDate);
+      currentDate = getNextWorkingDayWithOvertime(currentDate, teamId, overtimeMap);
       currentStartTime = 0;
       isFirstDay = false;
     }
