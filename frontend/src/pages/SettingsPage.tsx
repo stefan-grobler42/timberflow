@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Stack, Text, Spinner, MessageBar, MessageBarType, PrimaryButton, TextField, Dropdown, Pivot, PivotItem, Toggle } from '@fluentui/react';
 import type { IDropdownOption } from '@fluentui/react';
 import { systemSettingsService } from '../services/systemSettingsService';
-import type { SystemSettings, StaffWorkingHours, BreakTimeRange } from '../services/systemSettingsService';
+import type { SystemSettings, StaffWorkingHours } from '../services/systemSettingsService';
 
 export const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<SystemSettings>({});
@@ -461,6 +461,268 @@ export const SettingsPage: React.FC = () => {
                 Note: Dinner break only applies during overtime hours. Standard working hours end at 17:00.
               </MessageBar>
             </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }} styles={{ root: { marginTop: 20 } }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                Break Times (Weekends)
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Define break times for weekend work. Format: HH:MM (24-hour time). Leave blank for no breaks.
+              </Text>
+
+              <Stack tokens={{ childrenGap: 15 }}>
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Tea Break (Morning) - Start" 
+                    value={settings.breakTimesWeekend?.teaMorning?.start || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          teaMorning: {
+                            start: value || '',
+                            end: prev.breakTimesWeekend?.teaMorning?.end || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="09:00"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimesWeekend?.teaMorning?.end || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          teaMorning: {
+                            start: prev.breakTimesWeekend?.teaMorning?.start || '',
+                            end: value || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="09:15"
+                  />
+                </Stack>
+
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Lunch Break - Start" 
+                    value={settings.breakTimesWeekend?.lunch?.start || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          lunch: {
+                            start: value || '',
+                            end: prev.breakTimesWeekend?.lunch?.end || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="12:00"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimesWeekend?.lunch?.end || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          lunch: {
+                            start: prev.breakTimesWeekend?.lunch?.start || '',
+                            end: value || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="12:30"
+                  />
+                </Stack>
+
+                <Stack horizontal tokens={{ childrenGap: 10 }} verticalAlign="end">
+                  <TextField 
+                    label="Tea Break (Afternoon) - Start" 
+                    value={settings.breakTimesWeekend?.teaAfternoon?.start || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          teaAfternoon: {
+                            start: value || '',
+                            end: prev.breakTimesWeekend?.teaAfternoon?.end || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="14:30"
+                  />
+                  <TextField 
+                    label="End" 
+                    value={settings.breakTimesWeekend?.teaAfternoon?.end || ''}
+                    onChange={(_, value) => {
+                      setSettings(prev => ({
+                        ...prev,
+                        breakTimesWeekend: {
+                          ...prev.breakTimesWeekend,
+                          teaAfternoon: {
+                            start: prev.breakTimesWeekend?.teaAfternoon?.start || '',
+                            end: value || ''
+                          }
+                        }
+                      }));
+                    }}
+                    styles={{ root: { width: 150 } }}
+                    placeholder="14:45"
+                  />
+                </Stack>
+              </Stack>
+
+              <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
+                Weekend breaks are optional. Leave blank if no breaks are required during weekend work.
+              </MessageBar>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }} styles={{ root: { marginTop: 20 } }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                Overtime Defaults (Weekdays)
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Configure default overtime settings for weekday production scheduling.
+              </Text>
+
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap verticalAlign="end">
+                <Toggle
+                  label="Default OT Enabled"
+                  checked={settings.overtimeDefaults?.defaultOvertimeEnabled || false}
+                  onChange={(_, checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaults: {
+                        ...prev.overtimeDefaults,
+                        defaultOvertimeEnabled: checked || false
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { marginBottom: 5 } }}
+                />
+                <TextField 
+                  label="Late OT End Time" 
+                  value={settings.overtimeDefaults?.defaultLateOtEndTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaults: {
+                        ...prev.overtimeDefaults,
+                        defaultLateOtEndTime: value || ''
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="HH:MM"
+                />
+                <Toggle
+                  label="Allow Early Start OT"
+                  checked={settings.overtimeDefaults?.allowEarlyStartOt || false}
+                  onChange={(_, checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaults: {
+                        ...prev.overtimeDefaults,
+                        allowEarlyStartOt: checked || false
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { marginBottom: 5 } }}
+                />
+                <TextField 
+                  label="Early Start Time" 
+                  value={settings.overtimeDefaults?.defaultEarlyStartTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaults: {
+                        ...prev.overtimeDefaults,
+                        defaultEarlyStartTime: value || ''
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="HH:MM"
+                />
+              </Stack>
+            </Stack>
+
+            <Stack tokens={{ childrenGap: 15 }} styles={{ root: { marginTop: 20 } }}>
+              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
+                Overtime Defaults (Weekends)
+              </Text>
+              <Text variant="small" styles={{ root: { color: '#666' } }}>
+                Configure default weekend work settings for production scheduling.
+              </Text>
+
+              <Stack horizontal tokens={{ childrenGap: 20 }} wrap verticalAlign="end">
+                <Toggle
+                  label="Default Weekend Work Enabled"
+                  checked={settings.overtimeDefaultsWeekend?.defaultWeekendWorkEnabled || false}
+                  onChange={(_, checked) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaultsWeekend: {
+                        ...prev.overtimeDefaultsWeekend,
+                        defaultWeekendWorkEnabled: checked || false
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { marginBottom: 5 } }}
+                />
+                <TextField 
+                  label="Default Start Time" 
+                  value={settings.overtimeDefaultsWeekend?.defaultStartTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaultsWeekend: {
+                        ...prev.overtimeDefaultsWeekend,
+                        defaultStartTime: value || ''
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="07:00"
+                />
+                <TextField 
+                  label="Default End Time" 
+                  value={settings.overtimeDefaultsWeekend?.defaultEndTime || ''}
+                  onChange={(_, value) => {
+                    setSettings(prev => ({
+                      ...prev,
+                      overtimeDefaultsWeekend: {
+                        ...prev.overtimeDefaultsWeekend,
+                        defaultEndTime: value || ''
+                      } as any
+                    }));
+                  }}
+                  styles={{ root: { width: 150 } }}
+                  placeholder="15:00"
+                />
+              </Stack>
+
+              <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
+                These defaults apply when enabling weekend work in the Production Planner.
+              </MessageBar>
+            </Stack>
           </Stack>
         </PivotItem>
 
@@ -567,108 +829,11 @@ export const SettingsPage: React.FC = () => {
                   }}
                   styles={{ root: { width: 200 } }}
                 />
-                <TextField 
-                  label="E-Fink Multiplier" 
-                  type="number"
-                  step="0.1"
-                  value={settings.productionScheduling?.general?.eFinkMultiplier?.toString() || ''}
-                  onChange={(_, value) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      productionScheduling: {
-                        ...prev.productionScheduling,
-                        general: {
-                          ...prev.productionScheduling?.general,
-                          eFinkMultiplier: parseFloat(value || '0')
-                        } as any
-                      }
-                    }));
-                  }}
-                  styles={{ root: { width: 200 } }}
-                />
               </Stack>
-            </Stack>
 
-            <Stack tokens={{ childrenGap: 15 }}>
-              <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-                Overtime Defaults
-              </Text>
-              <Text variant="small" styles={{ root: { color: '#666' } }}>
-                Configure default overtime settings for production scheduling.
-              </Text>
-
-              <Stack horizontal tokens={{ childrenGap: 20 }} wrap verticalAlign="end">
-                <Toggle
-                  label="Default OT Enabled"
-                  checked={settings.productionScheduling?.overtimeDefaults?.defaultOvertimeEnabled || false}
-                  onChange={(_, checked) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      productionScheduling: {
-                        ...prev.productionScheduling,
-                        overtimeDefaults: {
-                          ...prev.productionScheduling?.overtimeDefaults,
-                          defaultOvertimeEnabled: checked || false
-                        } as any
-                      }
-                    }));
-                  }}
-                  styles={{ root: { marginBottom: 5 } }}
-                />
-                <TextField 
-                  label="Late OT End Time" 
-                  value={settings.productionScheduling?.overtimeDefaults?.defaultLateOtEndTime || ''}
-                  onChange={(_, value) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      productionScheduling: {
-                        ...prev.productionScheduling,
-                        overtimeDefaults: {
-                          ...prev.productionScheduling?.overtimeDefaults,
-                          defaultLateOtEndTime: value || ''
-                        } as any
-                      }
-                    }));
-                  }}
-                  styles={{ root: { width: 150 } }}
-                  placeholder="HH:MM"
-                />
-                <Toggle
-                  label="Allow Early Start OT"
-                  checked={settings.productionScheduling?.overtimeDefaults?.allowEarlyStartOt || false}
-                  onChange={(_, checked) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      productionScheduling: {
-                        ...prev.productionScheduling,
-                        overtimeDefaults: {
-                          ...prev.productionScheduling?.overtimeDefaults,
-                          allowEarlyStartOt: checked || false
-                        } as any
-                      }
-                    }));
-                  }}
-                  styles={{ root: { marginBottom: 5 } }}
-                />
-                <TextField 
-                  label="Early Start Time" 
-                  value={settings.productionScheduling?.overtimeDefaults?.defaultEarlyStartTime || ''}
-                  onChange={(_, value) => {
-                    setSettings(prev => ({
-                      ...prev,
-                      productionScheduling: {
-                        ...prev.productionScheduling,
-                        overtimeDefaults: {
-                          ...prev.productionScheduling?.overtimeDefaults,
-                          defaultEarlyStartTime: value || ''
-                        } as any
-                      }
-                    }));
-                  }}
-                  styles={{ root: { width: 150 } }}
-                  placeholder="HH:MM"
-                />
-              </Stack>
+              <MessageBar messageBarType={MessageBarType.info} styles={{ root: { marginTop: 10 } }}>
+                Note: E-Fink duration is automatically calculated from the Team's Maximum E-Finks field.
+              </MessageBar>
             </Stack>
 
             <Stack tokens={{ childrenGap: 15 }}>

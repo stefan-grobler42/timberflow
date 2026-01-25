@@ -5,12 +5,14 @@ export interface SystemSettings {
   workingHours?: WorkingHoursSettings;
   timezone?: TimezoneSettings;
   breakTimes?: BreakTimesSettings;
+  breakTimesWeekend?: BreakTimesWeekendSettings;
+  overtimeDefaults?: OvertimeDefaultsSettings;
+  overtimeDefaultsWeekend?: OvertimeDefaultsWeekendSettings;
   productionScheduling?: ProductionSchedulingSettings;
 }
 
 export interface ProductionSchedulingSettings {
   general?: GeneralSchedulingSettings;
-  overtimeDefaults?: OvertimeDefaultsSettings;
   uiDisplay?: UiDisplaySettings;
 }
 
@@ -18,7 +20,6 @@ export interface GeneralSchedulingSettings {
   bufferMinutes: number;
   minJobDuration: number;
   durationRoundingIncrement: number;
-  eFinkMultiplier: number;
 }
 
 export interface OvertimeDefaultsSettings {
@@ -26,6 +27,18 @@ export interface OvertimeDefaultsSettings {
   defaultLateOtEndTime: string;
   allowEarlyStartOt: boolean;
   defaultEarlyStartTime: string;
+}
+
+export interface OvertimeDefaultsWeekendSettings {
+  defaultWeekendWorkEnabled: boolean;
+  defaultStartTime: string;
+  defaultEndTime: string;
+}
+
+export interface BreakTimesWeekendSettings {
+  teaMorning?: BreakTimeRange;
+  lunch?: BreakTimeRange;
+  teaAfternoon?: BreakTimeRange;
 }
 
 export interface UiDisplaySettings {
