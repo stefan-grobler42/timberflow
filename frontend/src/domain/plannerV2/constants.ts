@@ -20,11 +20,19 @@ export const PIXELS_PER_MINUTE = 1.5;
 /** Standard shift start time: 7:00 AM = 420 minutes from midnight */
 export const WORKING_START = 420;
 
-/** Standard shift end time: 5:00 PM = 1020 minutes from midnight */
+/** Standard shift end time: 5:00 PM = 1020 minutes from midnight (Mon-Thu) */
 export const WORKING_END = 1020;
+
+/** Friday shift end time: 4:00 PM = 960 minutes from midnight */
+export const FRIDAY_WORKING_END = 960;
 
 /** Overtime end time: 7:00 PM = 1140 minutes from midnight */
 export const OVERTIME_END = 1140;
+
+/** Day of week constants */
+export const FRIDAY = 5;
+export const SATURDAY = 6;
+export const SUNDAY = 0;
 
 /**
  * Standard breaks for a normal work day.

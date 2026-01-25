@@ -7,9 +7,13 @@ import type { Break, ShiftConfig, EndTimeResult } from './types';
 import {
   WORKING_START,
   WORKING_END,
+  FRIDAY_WORKING_END,
   OVERTIME_END,
   STANDARD_BREAKS,
-  OVERTIME_BREAKS
+  OVERTIME_BREAKS,
+  FRIDAY,
+  SATURDAY,
+  SUNDAY
 } from './constants';
 
 /**
@@ -38,6 +42,88 @@ export function getShiftConfig(
     endTime,
     breaks: applicableBreaks
   };
+}
+
+/**
+ * Helper to get day of week from date string.
+ */
+export function getDayOfWeek(dateStr: string): number {
+  const date = new Date(dateStr + 'T12:00:00');
+  return date.getDay();
+}
+
+/**
+ * Checks if a date is a weekend (Saturday or Sunday).
+ */
+export function isWeekend(dateStr: string): boolean {
+  const dayOfWeek = getDayOfWeek(dateStr);
+  return dayOfWeek === SATURDAY || dayOfWeek === SUNDAY;
+}
+
+/**
+ * Checks if a date is a Friday.
+ */
+export function isFriday(dateStr: string): boolean {
+  return getDayOfWeek(dateStr) === FRIDAY;
+}
+
+/**
+ * Gets the shift configuration for a specific date, accounting for:
+ * - Friday: 07:00-16:00 (instead of 17:00)
+ * - Weekend: Non-working unless overtime is enabled with custom start/end times
+ */
+export function getShiftConfigForDate(
+  dateStr: string,
+  overtimeEnabled: boolean = false,
+  customCloseTime?: number,
+  earlyOtEnabled: boolean = false,
+  earlyOtStartTime?: number
+): ShiftConfig {
+  const dayOfWeek = getDayOfWeek(dateStr);
+  
+  // Weekend handling
+  if (dayOfWeek === SATURDAY || dayOfWeek === SUNDAY) {
+    if (!overtimeEnabled) {
+      // Non-working day - return zero-capacity shift
+      return {
+        startTime: WORKING_START,
+        endTime: WORKING_START, // Same as start = zero capacity
+        breaks: []
+      };
+    }
+    // Weekend overtime - use custom start/end times
+    const startTime = earlyOtStartTime ?? WORKING_START;
+    const endTime = customCloseTime ?? WORKING_END;
+    // Weekend has no standard breaks - just work the specified hours
+    return {
+      startTime,
+      endTime,
+      breaks: []
+    };
+  }
+  
+  // Friday handling: default end time is 16:00
+  if (dayOfWeek === FRIDAY) {
+    const startTime = earlyOtEnabled && earlyOtStartTime !== undefined
+      ? earlyOtStartTime
+      : WORKING_START;
+    
+    const endTime = overtimeEnabled
+      ? (customCloseTime ?? OVERTIME_END)
+      : FRIDAY_WORKING_END;
+      
+    const breaks = overtimeEnabled ? [...OVERTIME_BREAKS] : [...STANDARD_BREAKS];
+    const applicableBreaks = breaks.filter(b => b.start >= startTime && b.end <= endTime);
+    
+    return {
+      startTime,
+      endTime,
+      breaks: applicableBreaks
+    };
+  }
+  
+  // Monday-Thursday: standard shift
+  return getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime);
 }
 
 /**
