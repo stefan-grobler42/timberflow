@@ -95,6 +95,7 @@ interface StagedJobSegment {
   totalSegments: number;
   totalJobDuration: number;
   estimatedEfinks: number;
+  totalEstimatedEfinks: number; // The TOTAL E-Finks for the entire job (not just this segment)
   orderNumber: string;
   customer: string;
   name: string;

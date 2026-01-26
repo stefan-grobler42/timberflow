@@ -66,6 +66,7 @@ interface StagedJobSegment {
   totalSegments: number;
   totalJobDuration: number;
   estimatedEfinks: number;
+  totalEstimatedEfinks: number; // The TOTAL E-Finks for the entire job (not just this segment)
   orderNumber: string;
   customer: string;
   name: string;
@@ -647,6 +648,12 @@ export const ProductionPlannerPage = () => {
     
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
+    // Check if this is a staged job being dragged - use totalEstimatedEfinks if available
+    const existingStagedJob = stagedJobs.find(sj => sj.jobId === draggedJobId);
+    const totalEFinksForJob = existingStagedJob?.segments[0]?.totalEstimatedEfinks ?? job.estimatedEFinks;
+    
+    console.log('[PLANNER] E-Finks for calculation:', totalEFinksForJob, existingStagedJob ? '(from staged job totalEstimatedEfinks)' : '(from job)');
+
     const isSalesOrder = job.id.startsWith('order-');
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
 
@@ -655,7 +662,7 @@ export const ProductionPlannerPage = () => {
         const team = jigTeams.find(t => t.id === updatedJigId);
         const teamAverageEfinks = team?.averageEfinks ?? 80;
         
-        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, teamAverageEfinks);
+        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinksForJob, teamAverageEfinks);
         console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ')');
         console.log('[PLANNER] Duration in hours:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
         
@@ -712,8 +719,8 @@ export const ProductionPlannerPage = () => {
         // Build staged segments for edit mode (not persisted yet)
         const stagedSegments: StagedJobSegment[] = allocation.segments.map((segment, idx) => {
           const segmentEfinks = totalWorkMinutes > 0 
-            ? (segment.workMinutes / totalWorkMinutes) * job.estimatedEFinks 
-            : job.estimatedEFinks / allocation.segments.length;
+            ? (segment.workMinutes / totalWorkMinutes) * totalEFinksForJob 
+            : totalEFinksForJob / allocation.segments.length;
           
           console.log(`[PLANNER] Staged segment ${idx + 1}/${allocation.segments.length}:`, {
             date: segment.dateStr,
@@ -735,6 +742,7 @@ export const ProductionPlannerPage = () => {
             totalSegments: allocation.segments.length,
             totalJobDuration: allocation.totalDurationMinutes,
             estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
+            totalEstimatedEfinks: totalEFinksForJob, // Store total E-Finks for recalculation
             orderNumber: job.orderNumber,
             customer: job.customer,
             name: job.name
@@ -1067,6 +1075,7 @@ export const ProductionPlannerPage = () => {
           totalSegments: allocation.segments.length,
           totalJobDuration: allocation.totalDurationMinutes,
           estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
+          totalEstimatedEfinks: totalEFinks, // Store total E-Finks for recalculation
           orderNumber: firstSegment.orderNumber,
           customer: firstSegment.customer,
           name: firstSegment.name
