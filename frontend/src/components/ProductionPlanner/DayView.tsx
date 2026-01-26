@@ -461,22 +461,20 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         const breakStart = b.startHour * 60 + b.startMinute;
         const breakEnd = breakStart + getBreakDurationMinutes(b);
         
-        // If teamWorkingEndMinutes is provided, only include breaks that end before it
+        // If teamWorkingEndMinutes is provided, only include breaks that are fully within working hours
         if (teamWorkingEndMinutes !== undefined) {
+          // Break must end before or at working hours end
           if (breakEnd > teamWorkingEndMinutes) {
             return false;
           }
-          // Also check that break starts after working start (for weekends)
-          if (breakStart < jobStartMinutes && isWeekendDay) {
+          // For weekends, break must start at or after working hours start
+          if (isWeekendDay && breakStart < jobStartMinutes) {
             return false;
           }
         }
         
-        // Weekend-specific rule: Lunch only included if working past 15:00 (900 minutes)
-        if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
-          return teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes > 900;
-        }
-        
+        // For weekends, include breaks that are fully within the working hours
+        // The check above already handles this - if break ends before working end, it's included
         return true;
       })
       .sort((a, b) => getBreakStartMinutes(a) - getBreakStartMinutes(b));
@@ -873,9 +871,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       : (schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900);
     
     const filteredBreaks = isNonWorkingDay ? [] : breakSlots.filter(b => {
-      // Weekend-specific rule: Lunch only shown if max team end time > 15:00 (900 minutes)
-      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
-        return effectiveEndMinutes > 900;
+      const breakStart = b.startHour * 60 + b.startMinute;
+      const breakEnd = breakStart + getBreakDurationMinutes(b);
+      
+      // Only include breaks that are fully within the working hours
+      // For weekends, break must end before or at working hours end
+      if (isWeekendDay && breakEnd > effectiveEndMinutes) {
+        return false;
       }
       return true;
     });
@@ -977,11 +979,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         return false;
       }
       
-      // Weekend-specific rule: Lunch only shown if working past 15:00 (900 minutes)
-      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
-        return forWorkingMinutes.endMinutes > 900; // 15:00
-      }
-      
+      // The checks above already handle weekend breaks correctly:
+      // - Break ends before working end (lunch at 12:45 is before 15:00)
+      // - Break starts after working start
       return true;
     });
     
