@@ -28,6 +28,7 @@ import {
 import * as PlannerV2 from '../domain/plannerV2';
 import { ShiftConfigProvider } from '../contexts/ShiftConfigContext';
 import { type SchedulerConfig, mapSystemSettingsToSchedulerConfig, DEFAULT_CONFIG } from '../domain/plannerV2/schedulerSettings';
+import { exportPlannerViewToPdf } from '../utils/pdfExport';
 
 interface Job {
   id: string;
@@ -102,6 +103,7 @@ export const ProductionPlannerPage = () => {
   const [editingBlock, setEditingBlock] = useState<ScheduleBlock | null>(null);
   const [selectedBlockType, setSelectedBlockType] = useState<'PublicHoliday' | 'Breakdown' | 'Maintenance' | 'MaterialShortage' | 'GeneralDelay' | undefined>(undefined);
   const [syncInProgress, setSyncInProgress] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig>(DEFAULT_CONFIG);
   
@@ -480,6 +482,35 @@ export const ProductionPlannerPage = () => {
       });
     } finally {
       setSyncInProgress(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (pdfExporting) return;
+    setPdfExporting(true);
+    try {
+      let dateInfo = '';
+      if (viewMode === 'month') {
+        const date = new Date(currentDateStr);
+        dateInfo = date.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+      } else if (viewMode === 'week') {
+        const weekStart = startOfWeekUtc(currentDateStr);
+        const weekEnd = addDays(weekStart, 6);
+        dateInfo = `${formatIsoDateLocal(weekStart)} to ${formatIsoDateLocal(weekEnd)}`;
+      } else {
+        const date = new Date(currentDateStr);
+        dateInfo = date.toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      }
+      
+      await exportPlannerViewToPdf('planner-content-container', viewMode, dateInfo);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      setSyncMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to export PDF'
+      });
+    } finally {
+      setPdfExporting(false);
     }
   };
 
@@ -1994,6 +2025,13 @@ export const ProductionPlannerPage = () => {
       onClick: () => { handleSyncFromDynamics(); }
     },
     {
+      key: 'exportPdf',
+      text: pdfExporting ? 'Exporting...' : 'Export PDF',
+      iconProps: { iconName: pdfExporting ? 'ProgressRingDots' : 'PDF' },
+      disabled: pdfExporting,
+      onClick: () => { handleExportPdf(); }
+    },
+    {
       key: 'addBlock',
       text: 'Add Block',
       iconProps: { iconName: 'Add' },
@@ -2300,7 +2338,7 @@ export const ProductionPlannerPage = () => {
           )}
         </div>
 
-        <Stack styles={{ root: { flex: 1, minWidth: 0, overflow: 'auto' } }}>
+        <Stack id="planner-content-container" styles={{ root: { flex: 1, minWidth: 0, overflow: 'auto', backgroundColor: '#ffffff' } }}>
           {viewMode === 'month' && (
             <MonthView
               daysInView={getDaysInView}
