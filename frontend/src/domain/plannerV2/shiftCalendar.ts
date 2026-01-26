@@ -114,7 +114,15 @@ export function getShiftConfigForDate(
     const startTime = earlyOtStartTime ?? weekendDefaults.startTime;
     const endTime = customCloseTime ?? weekendDefaults.endTime;
     // Weekend can have its own breaks from config
-    const applicableBreaks = weekendBreaks.filter(b => b.start >= startTime && b.end <= endTime);
+    // Special rule: Lunch only taken if working PAST 15:00 (end time > 900)
+    // Morning tea is always taken if within working hours
+    const applicableBreaks = weekendBreaks.filter(b => {
+      // Must be within working hours
+      if (b.start < startTime || b.end > endTime) return false;
+      // Lunch only if working past 15:00
+      if (b.name.toLowerCase().includes('lunch') && endTime <= 900) return false;
+      return true;
+    });
     return {
       startTime,
       endTime,
