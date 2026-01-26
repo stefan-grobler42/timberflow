@@ -14,7 +14,7 @@ import { teamDaySettingsService } from '../services/teamDaySettingsService';
 import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
-import { DayView } from '../components/ProductionPlanner/DayView';
+import { DayView, type DropZoneMetadata } from '../components/ProductionPlanner/DayView';
 import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
 import { 
   startOfMonthUtc, 
@@ -635,11 +635,83 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   }, []);
 
+  // Helper function to unallocate downstream jobs when dropping before existing jobs
+  const unallocateDownstreamJobs = async (
+    dateStr: string,
+    teamId: string,
+    insertIndex: number,
+    excludeJobId: string
+  ): Promise<string[]> => {
+    // Get jobs for this team/day sorted by start time
+    const teamDayJobs = jobs
+      .filter(j => j.plannedDateStr === dateStr && j.jigId === teamId && !j.productionComplete && j.id !== excludeJobId)
+      .sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
+    
+    // Find jobs at or after the insertIndex that need to be unallocated
+    const jobsToUnallocate = teamDayJobs.slice(insertIndex);
+    
+    if (jobsToUnallocate.length === 0) {
+      return [];
+    }
+    
+    console.log('[PLANNER] Downstream unallocation triggered:', {
+      dateStr,
+      teamId: teamId.substring(0, 8),
+      insertIndex,
+      jobsToUnallocate: jobsToUnallocate.map(j => ({ 
+        id: j.id.substring(0, 8), 
+        name: j.orderNumber,
+        startTime: j.plannedStartTime ? PlannerV2.formatMinutesToTime(j.plannedStartTime) : 'null'
+      }))
+    });
+    
+    const unallocatedJobIds: string[] = [];
+    
+    for (const jobToUnallocate of jobsToUnallocate) {
+      // Delete WIP records if they exist
+      if (jobToUnallocate.wipId) {
+        try {
+          await teamWorkItemService.deleteByProductionId(jobToUnallocate.id);
+          console.log(`[PLANNER] ✓ Deleted WIP for downstream job: ${jobToUnallocate.orderNumber}`);
+        } catch (err) {
+          console.error(`[PLANNER] ✗ Failed to delete WIP for job ${jobToUnallocate.id}:`, err);
+        }
+      }
+      
+      // Remove from staged jobs if present
+      setStagedJobs(prev => prev.filter(sj => sj.jobId !== jobToUnallocate.id));
+      
+      unallocatedJobIds.push(jobToUnallocate.id);
+    }
+    
+    // Update job state to clear team and planned times for unallocated jobs
+    setJobs(prevJobs => prevJobs.map(j => {
+      if (unallocatedJobIds.includes(j.id)) {
+        return {
+          ...j,
+          jigId: null,
+          plannedDateStr: null,
+          plannedStartTime: null,
+          plannedEndTime: null,
+          plannedDurationMinutes: null,
+          breakAdjustmentMinutes: null,
+          wipId: undefined
+        };
+      }
+      return j;
+    }));
+    
+    console.log(`[PLANNER] ✓ Unallocated ${unallocatedJobIds.length} downstream jobs:`, 
+      jobsToUnallocate.map(j => j.orderNumber).join(', '));
+    
+    return unallocatedJobIds;
+  };
+
   // Drop to a team/day column - assign jig, date, and calculate time with team-specific duration
   // CONTINUOUS FLOW: Jobs automatically span multiple days when duration exceeds daily capacity
   // Immediately saves to database (no staging)
-  const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number) => {
-    console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes });
+  const handleDrop = async (dateStr: string, jigId?: string | null, dropTimeMinutes?: number, zoneMetadata?: DropZoneMetadata) => {
+    console.log('[PLANNER] handleDrop START:', { dateStr, jigId, draggedJobId, dropTimeMinutes, zoneMetadata });
     
     if (!draggedJobId) return;
     
@@ -793,6 +865,27 @@ export const ProductionPlannerPage = () => {
         
         setStagedJobs(prev => [...prev, stagedJob]);
         console.log('[PLANNER] ✓ Job added to staged/edit mode - awaiting Save');
+        
+        // DOWNSTREAM UNALLOCATION: If dropping BEFORE existing jobs, unallocate jobs at and after insertIndex
+        if (zoneMetadata && zoneMetadata.beforeJobId !== null && zoneMetadata.insertIndex >= 0) {
+          console.log('[PLANNER] Drop zone has beforeJobId - checking for downstream unallocation:', {
+            insertIndex: zoneMetadata.insertIndex,
+            beforeJobId: zoneMetadata.beforeJobId.substring(0, 8),
+            afterJobId: zoneMetadata.afterJobId?.substring(0, 8) || 'null'
+          });
+          
+          // Unallocate jobs at and after the insertIndex (excluding the job being dropped)
+          const unallocatedIds = await unallocateDownstreamJobs(
+            dateStr,
+            updatedJigId,
+            zoneMetadata.insertIndex,
+            job.id
+          );
+          
+          if (unallocatedIds.length > 0) {
+            console.log(`[PLANNER] ✓ Downstream unallocation complete: ${unallocatedIds.length} jobs returned to Unallocated`);
+          }
+        }
         
         if (viewMode !== 'day') {
           setViewMode('day');

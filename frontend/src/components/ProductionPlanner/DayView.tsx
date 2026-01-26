@@ -109,6 +109,13 @@ interface StagedJob {
   primaryDate: string;
 }
 
+export interface DropZoneMetadata {
+  position: number;
+  afterJobId: string | null;
+  beforeJobId: string | null;
+  insertIndex: number;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -116,7 +123,7 @@ interface DayViewProps {
   jigTeams: Jig[];
   onDragStart: (jobId: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number) => void;
+  onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number, zoneMetadata?: DropZoneMetadata) => void;
   onJobDoubleClick: (jobId: string) => void;
   onJobDurationChange?: (jobId: string, durationMinutes: number) => void;
   onJobDurationReset?: (jobId: string) => void;
@@ -820,7 +827,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
 
 
-  const calculateDropZones = useCallback((jigId: string, teamWorkingEndMinutes?: number, teamWorkingStartMinutes?: number): { position: number; afterJobId: string | null }[] => {
+  const calculateDropZones = useCallback((jigId: string, teamWorkingEndMinutes?: number, teamWorkingStartMinutes?: number): DropZoneMetadata[] => {
     if (!workingHours) return [];
     
     // Use team-specific start time (for early OT) if provided, otherwise fall back to base working hours
@@ -829,7 +836,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       .filter(j => !j.productionComplete)
       .sort((a, b) => (a.plannedStartTime ?? workingStart) - (b.plannedStartTime ?? workingStart));
     
-    const dropZones: { position: number; afterJobId: string | null }[] = [];
+    const dropZones: DropZoneMetadata[] = [];
     
     // Get buffer from config (default 15 if not configured)
     const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
@@ -837,7 +844,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     // Calculate job time ranges to prevent overlapping drop zones
     // IMPORTANT: Use the VISUAL height to determine job end, not just calculated duration
     // This accounts for MIN_BLOCK_HEIGHT which can make short jobs visually taller
-    const jobRanges: Array<{ start: number; end: number; name: string }> = [];
+    const jobRanges: Array<{ start: number; end: number; name: string; jobId: string }> = [];
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
@@ -851,8 +858,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const visualDurationMinutes = totalHeight / PlannerV2.PIXELS_PER_MINUTE;
       const jobEnd = jobStart + visualDurationMinutes;
       
-      jobRanges.push({ start: jobStart, end: jobEnd, name: job.productionName?.substring(0, 20) || job.id });
+      jobRanges.push({ start: jobStart, end: jobEnd, name: job.name?.substring(0, 20) || job.id, jobId: job.id });
     }
+    
+    // Get schedule blocks that apply to this day and team
+    const dayScheduleBlocks = scheduleBlocks.filter(block => {
+      if (!block.dateStr) return false;
+      return block.dateStr === dayStr && (!block.teamId || block.teamId === jigId);
+    });
     
     // Debug: log job ranges for this team
     if (jigJobs.length > 0) {
@@ -872,30 +885,96 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       return false;
     };
     
-    // Only add workingStart zone if it doesn't overlap with an existing job
-    if (!overlapsWithJob(workingStart)) {
-      dropZones.push({ position: workingStart, afterJobId: null });
+    // Helper: check if a position falls within any schedule block
+    const overlapsWithScheduleBlock = (position: number): boolean => {
+      for (const block of dayScheduleBlocks) {
+        const blockStart = block.startTimeMinutes ?? 0;
+        const blockEnd = block.endTimeMinutes ?? blockStart;
+        if (position >= blockStart && position < blockEnd) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    // Helper: check if position overlaps with job or schedule block
+    const overlapsWithAny = (position: number): boolean => {
+      return overlapsWithJob(position) || overlapsWithScheduleBlock(position);
+    };
+    
+    // Only add workingStart zone if it doesn't overlap with an existing job or schedule block
+    // insertIndex 0 = before all jobs
+    if (!overlapsWithAny(workingStart)) {
+      dropZones.push({ 
+        position: workingStart, 
+        afterJobId: null, 
+        beforeJobId: jigJobs.length > 0 ? jigJobs[0].id : null,
+        insertIndex: 0
+      });
     }
     
-    // Add drop zones after each job (at job end + buffer)
+    // Add drop zones BEFORE and AFTER each job
     for (let i = 0; i < jigJobs.length; i++) {
       const job = jigJobs[i];
+      const jobStart = jobRanges[i].start;
       const jobEnd = jobRanges[i].end;
-      const zonePosition = jobEnd + bufferMinutes;
       
-      // Only add if this zone doesn't overlap with another job
-      if (!overlapsWithJob(zonePosition)) {
-        dropZones.push({ position: zonePosition, afterJobId: job.id });
+      // BEFORE zone: at jobStart - buffer (insertIndex = i means inserting BEFORE job at index i)
+      const beforeZonePosition = jobStart - bufferMinutes;
+      // Only add if it's after workingStart, doesn't overlap with jobs/blocks, and isn't redundant with previous after-zone
+      if (beforeZonePosition >= workingStart && !overlapsWithAny(beforeZonePosition)) {
+        // Check if this zone is meaningfully different from existing zones (at least 5 minutes apart)
+        const isDuplicate = dropZones.some(z => Math.abs(z.position - beforeZonePosition) < 5);
+        if (!isDuplicate) {
+          dropZones.push({ 
+            position: beforeZonePosition, 
+            afterJobId: i > 0 ? jigJobs[i - 1].id : null,
+            beforeJobId: job.id,
+            insertIndex: i
+          });
+        }
+      }
+      
+      // AFTER zone: at job end + buffer (insertIndex = i + 1 means inserting AFTER job at index i)
+      const afterZonePosition = jobEnd + bufferMinutes;
+      // Only add if this zone doesn't overlap with another job or schedule block
+      if (!overlapsWithAny(afterZonePosition)) {
+        dropZones.push({ 
+          position: afterZonePosition, 
+          afterJobId: job.id,
+          beforeJobId: i < jigJobs.length - 1 ? jigJobs[i + 1].id : null,
+          insertIndex: i + 1
+        });
+      }
+    }
+    
+    // Sort zones by position and remove duplicates (prefer zones with lower insertIndex for same position)
+    const sortedZones = dropZones.sort((a, b) => {
+      if (Math.abs(a.position - b.position) < 5) {
+        // Same position - prefer lower insertIndex
+        return a.insertIndex - b.insertIndex;
+      }
+      return a.position - b.position;
+    });
+    
+    // Remove duplicates (zones within 5 minutes of each other)
+    const uniqueZones: DropZoneMetadata[] = [];
+    for (const zone of sortedZones) {
+      const isDuplicate = uniqueZones.some(z => Math.abs(z.position - zone.position) < 5);
+      if (!isDuplicate) {
+        uniqueZones.push(zone);
       }
     }
     
     // Debug: log calculated drop zones
     if (jigJobs.length > 0) {
-      console.log('[DROP_ZONES] Valid zones:', dropZones.map(z => PlannerV2.formatMinutesToTime(z.position)));
+      console.log('[DROP_ZONES] Valid zones:', uniqueZones.map(z => 
+        `${PlannerV2.formatMinutesToTime(z.position)} (insert@${z.insertIndex}, after:${z.afterJobId?.substring(0,8) || 'null'}, before:${z.beforeJobId?.substring(0,8) || 'null'})`
+      ));
     }
     
-    return dropZones;
-  }, [workingHours, dayStr, jobs, schedulerConfig]);
+    return uniqueZones;
+  }, [workingHours, dayStr, jobs, schedulerConfig, scheduleBlocks]);
 
   const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number) => {
     e.preventDefault();
@@ -924,6 +1003,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const rawDropMinutes = Math.round(y / PlannerV2.PIXELS_PER_MINUTE) + visibleStart;
     
     let snappedPosition = rawDropMinutes;
+    let selectedZone: DropZoneMetadata | null = null;
     
     if (jigId && workingHours) {
       // Get team-specific working hours (accounts for early/late OT)
@@ -949,6 +1029,15 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         }
         
         snappedPosition = nearestZone.position;
+        selectedZone = nearestZone;
+        
+        // Log zone selection for debugging
+        console.log('[DROP] Selected zone:', {
+          position: PlannerV2.formatMinutesToTime(nearestZone.position),
+          insertIndex: nearestZone.insertIndex,
+          afterJobId: nearestZone.afterJobId?.substring(0, 8) || 'null',
+          beforeJobId: nearestZone.beforeJobId?.substring(0, 8) || 'null'
+        });
       }
       
       // Use team-specific start time for clamping (respects early OT)
@@ -960,7 +1049,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     setDropHoverJigId(null);
     setDropHoverPosition(null);
     
-    onDrop(dayStr, jigId, snappedPosition);
+    // Pass zone metadata to onDrop callback for downstream unallocation logic
+    onDrop(dayStr, jigId, snappedPosition, selectedZone ?? undefined);
   };
 
   interface TimelineSegment {
