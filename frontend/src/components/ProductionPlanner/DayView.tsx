@@ -904,7 +904,32 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const isZeroCapacityDay = forWorkingMinutes.startMinutes >= forWorkingMinutes.endMinutes;
     
     // For zero-capacity days, skip break handling entirely
-    const sortedBreaks = isZeroCapacityDay ? [] : [...breakSlots].sort((a, b) => 
+    // For weekends, filter breaks based on working hours:
+    // - Only show breaks that END before the working hours end
+    // - Lunch on weekends only shown if working past 15:00 (900 minutes)
+    const filteredBreaks = isZeroCapacityDay ? [] : breakSlots.filter(b => {
+      const breakStart = b.startHour * 60 + b.startMinute;
+      const breakEnd = breakStart + getBreakDurationMinutes(b);
+      
+      // Break must end before or at working hours end
+      if (breakEnd > forWorkingMinutes.endMinutes) {
+        return false;
+      }
+      
+      // Break must start after or at working hours start
+      if (breakStart < forWorkingMinutes.startMinutes) {
+        return false;
+      }
+      
+      // Weekend-specific rule: Lunch only shown if working past 15:00 (900 minutes)
+      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+        return forWorkingMinutes.endMinutes > 900; // 15:00
+      }
+      
+      return true;
+    });
+    
+    const sortedBreaks = [...filteredBreaks].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
     
