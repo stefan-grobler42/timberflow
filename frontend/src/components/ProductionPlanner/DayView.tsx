@@ -824,9 +824,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const effectiveWorkingHours = forWorkingHours || workingHours;
     
     // For non-working days (weekends without overtime), skip all break rendering
-    // For weekends, don't show breaks in the time column - each team has different settings
-    // The team columns handle their own break display based on their working hours
-    const sortedBreaks = (isNonWorkingDay || isWeekendDay) ? [] : [...breakSlots].sort((a, b) => 
+    // For weekends, filter breaks based on default weekend working hours from settings
+    const weekendDefaultEnd = schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900;
+    
+    const filteredBreaks = isNonWorkingDay ? [] : breakSlots.filter(b => {
+      // Weekend-specific rule: Lunch only shown if default end time > 15:00 (900 minutes)
+      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+        return weekendDefaultEnd > 900;
+      }
+      return true;
+    });
+    
+    const sortedBreaks = [...filteredBreaks].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
     
