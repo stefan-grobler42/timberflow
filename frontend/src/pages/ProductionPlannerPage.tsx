@@ -990,8 +990,13 @@ export const ProductionPlannerPage = () => {
     const firstDate = firstSegment.plannedDateStr || _dateStr;
     const firstStartTime = firstSegment.plannedStartTime || 420;
     
-    // Get the TOTAL E-Finks from the original job (not segment E-Finks)
-    const totalEFinks = firstSegment.estimatedEFinks;
+    // Get the TOTAL E-Finks by summing all segments (WIP segments have proportional E-Finks)
+    // Or use segmentEfinks if available (from WIP), otherwise use estimatedEFinks
+    const totalEFinks = jobSegments.reduce((sum, seg) => {
+      // WIP segments store their portion in segmentEfinks or estimatedEFinks
+      const segEfinks = seg.segmentEfinks ?? seg.estimatedEFinks ?? 0;
+      return sum + segEfinks;
+    }, 0);
     
     console.log('[PLANNER] Found', jobSegments.length, 'segments. Will recalculate from:', {
       date: firstDate,
