@@ -824,7 +824,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const effectiveWorkingHours = forWorkingHours || workingHours;
     
     // For non-working days (weekends without overtime), skip all break rendering
-    const sortedBreaks = isNonWorkingDay ? [] : [...breakSlots].sort((a, b) => 
+    // For weekends, don't show breaks in the time column - each team has different settings
+    // The team columns handle their own break display based on their working hours
+    const sortedBreaks = (isNonWorkingDay || isWeekendDay) ? [] : [...breakSlots].sort((a, b) => 
       (a.startHour * 60 + a.startMinute) - (b.startHour * 60 + b.startMinute)
     );
     
