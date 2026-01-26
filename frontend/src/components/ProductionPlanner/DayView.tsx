@@ -83,6 +83,31 @@ interface TeamOvertimeSettings {
   earlyStartTime?: number;
 }
 
+interface StagedJobSegment {
+  jobId: string;
+  teamId: string;
+  workDate: string;
+  plannedStartMinutes: number;
+  plannedEndMinutes: number;
+  plannedDurationMinutes: number;
+  breakAdjustmentMinutes: number;
+  segmentIndex: number;
+  totalSegments: number;
+  totalJobDuration: number;
+  estimatedEfinks: number;
+  orderNumber: string;
+  customer: string;
+  name: string;
+}
+
+interface StagedJob {
+  jobId: string;
+  originalJob: Job;
+  segments: StagedJobSegment[];
+  teamId: string;
+  primaryDate: string;
+}
+
 interface DayViewProps {
   dayStr: string;
   jobs: Job[];
@@ -105,6 +130,10 @@ interface DayViewProps {
   onBlockClick?: (block: ScheduleBlock) => void;
   schedulerConfig?: SchedulerConfig;
   onEditMultiDayJob?: (productionId: string, teamId: string, dateStr: string) => void;
+  stagedJobs?: StagedJob[];
+  onSaveStagedJob?: (jobId: string) => void;
+  onCancelStagedJob?: (jobId: string) => void;
+  onEditPersistedJob?: (productionId: string, teamId: string, dateStr: string) => void;
 }
 
 const MIN_BLOCK_HEIGHT = 20;
@@ -130,7 +159,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   scheduleBlocks = [],
   onBlockClick,
   schedulerConfig,
-  onEditMultiDayJob
+  onEditMultiDayJob,
+  stagedJobs = [],
+  onSaveStagedJob,
+  onCancelStagedJob,
+  onEditPersistedJob
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -609,8 +642,60 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);
   }, [jobs, dayStr]);
 
+  // Map staged jobs by team for this day - with isStaged flag
+  const stagedJobsByJig = useMemo(() => {
+    const map = new Map<string, Array<Job & { isStaged: boolean }>>();
+    
+    for (const stagedJob of stagedJobs) {
+      // Find segments for this day
+      const todaySegments = stagedJob.segments.filter(seg => seg.workDate === dayStr);
+      
+      for (const segment of todaySegments) {
+        const teamId = segment.teamId;
+        
+        // Create a Job-compatible object from the staged segment
+        const stagedJobItem: Job & { isStaged: boolean } = {
+          id: segment.jobId,
+          name: segment.name,
+          orderNumber: segment.orderNumber,
+          customer: segment.customer,
+          estimatedEFinks: stagedJob.originalJob.estimatedEFinks,
+          plannedDateStr: segment.workDate,
+          jigId: segment.teamId,
+          productionComplete: false,
+          plannedStartTime: segment.plannedStartMinutes,
+          plannedEndTime: segment.plannedEndMinutes,
+          plannedDurationMinutes: segment.plannedDurationMinutes,
+          breakAdjustmentMinutes: segment.breakAdjustmentMinutes,
+          totalJobDuration: segment.totalJobDuration,
+          segmentIndex: segment.segmentIndex,
+          totalSegments: segment.totalSegments,
+          segmentEfinks: segment.estimatedEfinks,
+          isStaged: true
+        };
+        
+        const existing = map.get(teamId) || [];
+        existing.push(stagedJobItem);
+        map.set(teamId, existing);
+      }
+    }
+    
+    return map;
+  }, [stagedJobs, dayStr]);
+  
+  // Get job IDs that are staged (to exclude from persisted jobs rendering)
+  const stagedJobIds = useMemo(() => {
+    return new Set(stagedJobs.map(sj => sj.jobId));
+  }, [stagedJobs]);
+
   const getJobsForDateAndJig = (_dateStr: string, jigId: string) => {
-    return jobsByJig.get(jigId) || [];
+    // Get persisted jobs (excluding ones currently staged)
+    const persistedJobs = (jobsByJig.get(jigId) || []).filter(j => !stagedJobIds.has(j.id));
+    // Get staged jobs for this team
+    const staged = stagedJobsByJig.get(jigId) || [];
+    // Combine and sort by start time
+    const combined = [...persistedJobs.map(j => ({ ...j, isStaged: false })), ...staged];
+    return combined.sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
   };
 
 
@@ -1670,22 +1755,33 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
                 {/* Job blocks */}
                 {calculateJobPositions(jigJobs, true, teamWorkingMinutes.endMinutes).map(({ job, top, height, baseHeight, breakAdditions }) => {
+                    const isStaged = (job as Job & { isStaged?: boolean }).isStaged === true;
+                    
                     const getBackground = () => {
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
+                      if (isStaged) return 'linear-gradient(135deg, rgba(0, 120, 212, 0.25), rgba(0, 90, 180, 0.15))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                     };
                     
                     const getBorder = () => {
                       if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
+                      if (isStaged) return '2px dashed rgba(0, 120, 212, 0.7)';
                       return '1px solid rgba(255, 255, 255, 0.3)';
                     };
                     
                     const getBoxShadow = () => {
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
+                      if (isStaged) return '0 2px 8px rgba(0, 120, 212, 0.2)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
                     };
                     
-                    const canInteract = !resizingJob;
+                    const getTextColor = () => {
+                      if (job.productionComplete) return '#555';
+                      if (isStaged) return '#0078D4';
+                      return 'white';
+                    };
+                    
+                    const canInteract = !resizingJob && !isStaged;
                     
                     return (
                       <div
@@ -1702,10 +1798,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           padding: 8,
                           boxSizing: 'border-box',
                           background: getBackground(),
-                          color: job.productionComplete ? '#555' : 'white',
+                          color: getTextColor(),
                           borderRadius: 6,
                           border: getBorder(),
-                          cursor: resizingJob ? 'ns-resize' : 'grab',
+                          cursor: isStaged ? 'default' : (resizingJob ? 'ns-resize' : 'grab'),
                           zIndex: resizingJob === job.id ? 100 : 10,
                           boxShadow: getBoxShadow(),
                           opacity: job.productionComplete ? 0.7 : 1,
@@ -1749,13 +1845,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
                           <Stack>
                             <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 6 }}>
-                              <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
-                                {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}
+                              <Text variant="small" styles={{ root: { color: getTextColor(), fontWeight: 600 } }}>
+                                {job.orderNumber}{job.productionComplete ? ' (Complete)' : ''}{isStaged ? ' (Edit Mode)' : ''}
                               </Text>
                               {job.totalSegments && job.totalSegments > 1 && (
                                 <Text variant="tiny" styles={{ 
                                   root: { 
-                                    backgroundColor: 'rgba(255, 140, 0, 0.9)',
+                                    backgroundColor: isStaged ? 'rgba(255, 140, 0, 0.6)' : 'rgba(255, 140, 0, 0.9)',
                                     color: 'white',
                                     padding: '1px 4px',
                                     borderRadius: 3,
@@ -1768,31 +1864,78 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                                 </Text>
                               )}
                             </Stack>
-                            <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
+                            <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.8)' : (job.productionComplete ? '#666' : 'white') } }}>
                               {job.customer}
                             </Text>
                           </Stack>
                         </Stack>
                         <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
-                          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
+                          <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.9)' : (job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)'), fontWeight: 600 } }}>
                             {job.totalSegments && job.totalSegments > 1 
                               ? `${Math.round((job.segmentEfinks ?? 0) * 100) / 100} E-Finks (of ${job.estimatedEFinks})`
                               : `${job.estimatedEFinks} E-Finks`
                             }
                           </Text>
-                          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)' } }}>
+                          <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.7)' : (job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)') } }}>
                             {breakAdditions.length > 0 
                               ? `(${formatDuration(getBaseDurationMinutes(job) + breakAdditions.reduce((sum, b) => sum + b.minutes, 0))} total: ${formatDuration(getBaseDurationMinutes(job))} work + ${breakAdditions.reduce((sum, b) => sum + b.minutes, 0)}m breaks)`
                               : `(${formatDuration(getBaseDurationMinutes(job))})`
                             }
                           </Text>
                         </Stack>
-                        {/* Edit button for multi-day jobs - only show on first segment */}
-                        {job.totalSegments && job.totalSegments > 1 && job.segmentIndex === 0 && !job.productionComplete && onEditMultiDayJob && job.jigId && (
+                        
+                        {/* Save/Cancel buttons for staged jobs - show on first segment */}
+                        {isStaged && job.segmentIndex === 0 && (
+                          <Stack horizontal tokens={{ childrenGap: 4 }} styles={{ root: { position: 'absolute', bottom: 16, right: 8 } }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSaveStagedJob?.(job.id);
+                              }}
+                              style={{
+                                padding: '2px 10px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                backgroundColor: '#107C10',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                zIndex: 50
+                              }}
+                              title="Save this job allocation"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCancelStagedJob?.(job.id);
+                              }}
+                              style={{
+                                padding: '2px 8px',
+                                fontSize: 10,
+                                fontWeight: 600,
+                                backgroundColor: 'transparent',
+                                color: '#0078D4',
+                                border: '1px solid rgba(0, 120, 212, 0.5)',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                zIndex: 50
+                              }}
+                              title="Cancel and remove from schedule"
+                            >
+                              Cancel
+                            </button>
+                          </Stack>
+                        )}
+                        
+                        {/* Edit button for persisted multi-day jobs - only show on first segment */}
+                        {!isStaged && job.totalSegments && job.totalSegments > 1 && job.segmentIndex === 0 && !job.productionComplete && onEditPersistedJob && job.jigId && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              onEditMultiDayJob(job.id, job.jigId!, dayStr);
+                              onEditPersistedJob(job.id, job.jigId!, dayStr);
                             }}
                             style={{
                               position: 'absolute',
@@ -1808,9 +1951,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               cursor: 'pointer',
                               zIndex: 50
                             }}
-                            title="Recalculate segments based on current OT/weekend settings"
+                            title="Edit: Clear WIP and recalculate segments based on current OT/weekend settings"
                           >
-                            Recalc
+                            Edit
                           </button>
                         )}
                         {/* Resize handle - only on last segment of multi-day jobs, not completed */}

@@ -54,6 +54,30 @@ interface Job {
   segmentEfinks?: number;
 }
 
+interface StagedJobSegment {
+  jobId: string;
+  teamId: string;
+  workDate: string;
+  plannedStartMinutes: number;
+  plannedEndMinutes: number;
+  plannedDurationMinutes: number;
+  breakAdjustmentMinutes: number;
+  segmentIndex: number;
+  totalSegments: number;
+  totalJobDuration: number;
+  estimatedEfinks: number;
+  orderNumber: string;
+  customer: string;
+  name: string;
+}
+
+interface StagedJob {
+  jobId: string;
+  originalJob: Job;
+  segments: StagedJobSegment[];
+  teamId: string;
+  primaryDate: string;
+}
 
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
@@ -79,6 +103,9 @@ export const ProductionPlannerPage = () => {
   const [syncInProgress, setSyncInProgress] = useState(false);
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [schedulerConfig, setSchedulerConfig] = useState<SchedulerConfig>(DEFAULT_CONFIG);
+  
+  // Staged jobs - jobs in edit mode (not yet persisted)
+  const [stagedJobs, setStagedJobs] = useState<StagedJob[]>([]);
   
   // Date range for loading productions - default: 12 months back, 3 months forward
   const getDefaultDateRange = () => {
@@ -633,12 +660,23 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] Duration in hours:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
         
         const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
-        const shift = PlannerV2.getShiftConfig(
-          teamOvertimeSettings?.enabled, 
+        // Use date-aware shift config to handle Friday/weekend correctly
+        const shift = PlannerV2.getShiftConfigForDate(
+          dateStr,
+          teamOvertimeSettings?.enabled ?? false, 
           teamOvertimeSettings?.closeTime,
-          teamOvertimeSettings?.earlyEnabled,
-          teamOvertimeSettings?.earlyStartTime
+          teamOvertimeSettings?.earlyEnabled ?? false,
+          teamOvertimeSettings?.earlyStartTime,
+          schedulerConfig
         );
+        
+        console.log('[PLANNER] Shift config for drop:', {
+          date: dateStr,
+          start: PlannerV2.formatMinutesToTime(shift.startTime),
+          end: PlannerV2.formatMinutesToTime(shift.endTime),
+          otEnabled: teamOvertimeSettings?.enabled,
+          otCloseTime: teamOvertimeSettings?.closeTime
+        });
         
         // Use continuous-flow allocation for multi-day spanning
         const droppedJob: PlannerV2.ScheduledJob = {
@@ -658,7 +696,8 @@ export const ProductionPlannerPage = () => {
           dateStr,
           dropPosition,
           overtimeByTeamDay,
-          teamAverageEfinks
+          teamAverageEfinks,
+          schedulerConfig
         );
         
         console.log('[PLANNER] Continuous-flow allocation:', {
@@ -667,88 +706,66 @@ export const ProductionPlannerPage = () => {
           spanDays: `${allocation.primaryDate} to ${allocation.endDate}`
         });
         
-        // Build updates for each day segment
-        const updates: Array<{
-          jobId: string;
-          wipId?: string;
-          teamId: string;
-          workDate: string;
-          plannedStartMinutes: number;
-          plannedEndMinutes: number;
-          plannedDurationMinutes: number;
-          breakAdjustmentMinutes: number;
-          segmentIndex?: number;
-          totalSegments?: number;
-          totalJobDuration?: number;
-        }> = [];
+        // Calculate segment E-Finks based on work minutes proportion
+        const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
         
-        for (let i = 0; i < allocation.segments.length; i++) {
-          const segment = allocation.segments[i];
-          updates.push({
+        // Build staged segments for edit mode (not persisted yet)
+        const stagedSegments: StagedJobSegment[] = allocation.segments.map((segment, idx) => {
+          const segmentEfinks = totalWorkMinutes > 0 
+            ? (segment.workMinutes / totalWorkMinutes) * job.estimatedEFinks 
+            : job.estimatedEFinks / allocation.segments.length;
+          
+          console.log(`[PLANNER] Staged segment ${idx + 1}/${allocation.segments.length}:`, {
+            date: segment.dateStr,
+            start: PlannerV2.formatMinutesToTime(segment.startTimeMinutes),
+            end: PlannerV2.formatMinutesToTime(segment.endTimeMinutes),
+            work: PlannerV2.formatDurationHoursMinutes(segment.workMinutes),
+            efinks: Math.round(segmentEfinks * 100) / 100
+          });
+          
+          return {
             jobId: job.id,
-            wipId: job.wipId,
             teamId: updatedJigId,
             workDate: segment.dateStr,
             plannedStartMinutes: segment.startTimeMinutes,
             plannedEndMinutes: segment.endTimeMinutes,
             plannedDurationMinutes: segment.workMinutes,
             breakAdjustmentMinutes: segment.breakMinutes,
-            segmentIndex: i,
-            totalSegments: allocation.segments.length,
-            totalJobDuration: allocation.totalDurationMinutes
-          });
-          
-          console.log(`[PLANNER] Segment ${i + 1}/${allocation.segments.length}:`, {
-            date: segment.dateStr,
-            start: PlannerV2.formatMinutesToTime(segment.startTimeMinutes),
-            end: PlannerV2.formatMinutesToTime(segment.endTimeMinutes),
-            work: PlannerV2.formatDurationHoursMinutes(segment.workMinutes)
-          });
-        }
-        
-        // Delete any existing WIP records for this job before creating new multi-day segments
-        if (job.wipId) {
-          await teamWorkItemService.deleteByProductionId(job.id);
-          console.log('[PLANNER] Deleted existing WIP records for multi-day re-allocation');
-        }
-        
-        // Calculate segment E-Finks based on work minutes proportion
-        const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
-        
-        // Build updates for all segments with segment-specific E-Finks
-        const allSegmentUpdates = updates.map((update, idx) => {
-          const segment = allocation.segments[idx];
-          const segmentEfinks = totalWorkMinutes > 0 
-            ? (segment.workMinutes / totalWorkMinutes) * job.estimatedEFinks 
-            : job.estimatedEFinks / updates.length;
-          
-          return {
-            jobId: update.jobId,
-            wipId: undefined, // Always create new WIP records for all segments
-            teamId: update.teamId,
-            workDate: update.workDate,
-            plannedStartMinutes: update.plannedStartMinutes,
-            plannedEndMinutes: update.plannedEndMinutes,
-            plannedDurationMinutes: update.plannedDurationMinutes,
-            breakAdjustmentMinutes: update.breakAdjustmentMinutes,
-            estimatedEfinks: segmentEfinks,
             segmentIndex: idx,
-            totalSegments: updates.length
+            totalSegments: allocation.segments.length,
+            totalJobDuration: allocation.totalDurationMinutes,
+            estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
+            orderNumber: job.orderNumber,
+            customer: job.customer,
+            name: job.name
           };
         });
         
-        console.log(`[PLANNER] Saving ${allSegmentUpdates.length} WIP segments for multi-day job`);
-        
-        const success = await saveMultipleJobUpdates(allSegmentUpdates);
-        if (!success) {
-          console.error('[PLANNER] Failed to save job allocation');
+        // If job was previously persisted, delete its WIP records first
+        if (job.wipId) {
+          await teamWorkItemService.deleteByProductionId(job.id);
+          console.log('[PLANNER] Deleted existing WIP records - job is now in staged/edit mode');
+          
+          // Update job state to remove wipId
+          setJobs(prevJobs => prevJobs.map(j => 
+            j.id === job.id ? { ...j, wipId: undefined, jigId: null, plannedDateStr: null } : j
+          ));
         }
         
-        // For multi-day jobs, reload data to get all WIP segments properly
-        if (allSegmentUpdates.length > 1) {
-          console.log('[PLANNER] Multi-day job allocated - reloading data to refresh all segments');
-          await loadData();
-        }
+        // Remove any existing staged job for this jobId (prevents duplicates)
+        setStagedJobs(prev => prev.filter(sj => sj.jobId !== job.id));
+        
+        // Add to staged jobs - NOT persisted until user clicks Save
+        const stagedJob: StagedJob = {
+          jobId: job.id,
+          originalJob: job,
+          segments: stagedSegments,
+          teamId: updatedJigId,
+          primaryDate: dateStr
+        };
+        
+        setStagedJobs(prev => [...prev, stagedJob]);
+        console.log('[PLANNER] ✓ Job added to staged/edit mode - awaiting Save');
         
         if (viewMode !== 'day') {
           setViewMode('day');
@@ -756,6 +773,9 @@ export const ProductionPlannerPage = () => {
         }
       } else {
         console.log('[PLANNER] Dropping to unallocated - removing from team');
+        
+        // Also remove from staged if it was there
+        setStagedJobs(prev => prev.filter(sj => sj.jobId !== job.id));
         
         if (job.wipId) {
           setOperationInProgress(true); setOperationMessage('Saving changes...');
@@ -887,6 +907,176 @@ export const ProductionPlannerPage = () => {
     } finally {
       setOperationInProgress(false); setOperationMessage('');
       setDraggedJobId(null);
+    }
+  };
+
+  // Save a staged job - persist to WIP database
+  const handleSaveStagedJob = async (jobId: string) => {
+    const stagedJob = stagedJobs.find(sj => sj.jobId === jobId);
+    if (!stagedJob) {
+      console.error('[PLANNER] Staged job not found:', jobId);
+      return;
+    }
+    
+    console.log('[PLANNER] Saving staged job:', jobId, 'with', stagedJob.segments.length, 'segments');
+    
+    setOperationInProgress(true);
+    setOperationMessage('Saving job...');
+    
+    try {
+      // Build WIP updates for all segments
+      const allSegmentUpdates = stagedJob.segments.map(segment => ({
+        jobId: segment.jobId,
+        wipId: undefined,
+        teamId: segment.teamId,
+        workDate: segment.workDate,
+        plannedStartMinutes: segment.plannedStartMinutes,
+        plannedEndMinutes: segment.plannedEndMinutes,
+        plannedDurationMinutes: segment.plannedDurationMinutes,
+        breakAdjustmentMinutes: segment.breakAdjustmentMinutes,
+        estimatedEfinks: segment.estimatedEfinks,
+        segmentIndex: segment.segmentIndex,
+        totalSegments: segment.totalSegments
+      }));
+      
+      const success = await saveMultipleJobUpdates(allSegmentUpdates);
+      
+      if (success) {
+        // Remove from staged jobs
+        setStagedJobs(prev => prev.filter(sj => sj.jobId !== jobId));
+        console.log('[PLANNER] ✓ Staged job saved successfully');
+        
+        // Reload data to get the new WIP records
+        await loadData();
+      } else {
+        console.error('[PLANNER] ✗ Failed to save staged job');
+        setError('Failed to save job');
+      }
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to save staged job:', err);
+      setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationInProgress(false);
+      setOperationMessage('');
+    }
+  };
+  
+  // Cancel a staged job - remove from staging without persisting
+  const handleCancelStagedJob = (jobId: string) => {
+    console.log('[PLANNER] Canceling staged job:', jobId);
+    setStagedJobs(prev => prev.filter(sj => sj.jobId !== jobId));
+  };
+  
+  // Edit a persisted job - clear WIP and put back into staged mode with recalculated segments
+  const handleEditPersistedJob = async (productionId: string, teamId: string, dateStr: string) => {
+    console.log('[PLANNER] Editing persisted job:', productionId, 'for team:', teamId, 'date:', dateStr);
+    
+    // Find the job
+    const job = jobs.find(j => j.id === productionId);
+    if (!job) {
+      console.error('[PLANNER] Job not found for editing:', productionId);
+      return;
+    }
+    
+    setOperationInProgress(true);
+    setOperationMessage('Preparing for edit...');
+    
+    try {
+      // Delete existing WIP records
+      await teamWorkItemService.deleteByProductionId(productionId);
+      console.log('[PLANNER] Deleted existing WIP records for edit mode');
+      
+      // Find the team for efficiency calculations
+      const team = jigTeams.find(t => t.id === teamId);
+      const teamAverageEfinks = team?.averageEfinks ?? 80;
+      
+      // Calculate duration using team efficiency
+      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, teamAverageEfinks);
+      
+      // Get current OT settings for the start date
+      const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[teamId];
+      const shift = PlannerV2.getShiftConfigForDate(
+        dateStr,
+        teamOvertimeSettings?.enabled ?? false,
+        teamOvertimeSettings?.closeTime,
+        teamOvertimeSettings?.earlyEnabled ?? false,
+        teamOvertimeSettings?.earlyStartTime,
+        schedulerConfig
+      );
+      
+      // Create allocation from the primary date at shift start
+      const droppedJob: PlannerV2.ScheduledJob = {
+        ...toScheduledJob(job),
+        plannedDateStr: dateStr,
+        jigId: teamId,
+        plannedDurationMinutes: teamSpecificDuration
+      };
+      
+      const allocation = PlannerV2.allocateJobContinuousFlow(
+        droppedJob,
+        teamId,
+        dateStr,
+        shift.startTime, // Start at beginning of shift
+        overtimeByTeamDay,
+        teamAverageEfinks,
+        schedulerConfig
+      );
+      
+      console.log('[PLANNER] Recalculated allocation for edit:', {
+        totalDuration: PlannerV2.formatDurationHoursMinutes(allocation.totalDurationMinutes),
+        segments: allocation.segments.length
+      });
+      
+      // Calculate segment E-Finks
+      const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
+      
+      // Build staged segments
+      const stagedSegments: StagedJobSegment[] = allocation.segments.map((segment, idx) => {
+        const segmentEfinks = totalWorkMinutes > 0 
+          ? (segment.workMinutes / totalWorkMinutes) * job.estimatedEFinks 
+          : job.estimatedEFinks / allocation.segments.length;
+        
+        return {
+          jobId: job.id,
+          teamId: teamId,
+          workDate: segment.dateStr,
+          plannedStartMinutes: segment.startTimeMinutes,
+          plannedEndMinutes: segment.endTimeMinutes,
+          plannedDurationMinutes: segment.workMinutes,
+          breakAdjustmentMinutes: segment.breakMinutes,
+          segmentIndex: idx,
+          totalSegments: allocation.segments.length,
+          totalJobDuration: allocation.totalDurationMinutes,
+          estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
+          orderNumber: job.orderNumber,
+          customer: job.customer,
+          name: job.name
+        };
+      });
+      
+      // Update job state to remove wipId
+      setJobs(prevJobs => prevJobs.map(j => 
+        j.id === job.id ? { ...j, wipId: undefined, jigId: null, plannedDateStr: null } : j
+      ));
+      
+      // Add to staged jobs
+      const stagedJob: StagedJob = {
+        jobId: job.id,
+        originalJob: job,
+        segments: stagedSegments,
+        teamId: teamId,
+        primaryDate: dateStr
+      };
+      
+      setStagedJobs(prev => [...prev.filter(sj => sj.jobId !== job.id), stagedJob]);
+      console.log('[PLANNER] ✓ Job moved to staged/edit mode');
+      
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to edit job:', err);
+      setError(`Failed to edit: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setOperationInProgress(false);
+      setOperationMessage('');
     }
   };
 
@@ -1976,6 +2166,10 @@ export const ProductionPlannerPage = () => {
               onEditMultiDayJob={async (_productionId, teamId, dateStr) => {
                 await recalculateMultiDaySegments(teamId, dateStr, overtimeByTeamDay);
               }}
+              stagedJobs={stagedJobs}
+              onSaveStagedJob={handleSaveStagedJob}
+              onCancelStagedJob={handleCancelStagedJob}
+              onEditPersistedJob={handleEditPersistedJob}
             />
           )}
         </Stack>
