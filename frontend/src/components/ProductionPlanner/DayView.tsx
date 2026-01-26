@@ -473,8 +473,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           }
         }
         
-        // For weekends, include breaks that are fully within the working hours
-        // The check above already handles this - if break ends before working end, it's included
+        // Weekend-specific rule: No breaks taken if working 15:00 or earlier
+        // Only when working PAST 15:00 do workers take breaks (they're working a longer shift)
+        if (isWeekendDay && teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes <= 900) {
+          return false;
+        }
+        
         return true;
       })
       .sort((a, b) => getBreakStartMinutes(a) - getBreakStartMinutes(b));
@@ -879,6 +883,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       if (isWeekendDay && breakEnd > effectiveEndMinutes) {
         return false;
       }
+      
+      // Weekend-specific rule: No breaks taken if working 15:00 or earlier
+      // Only when working PAST 15:00 do workers take breaks (longer shift)
+      if (isWeekendDay && effectiveEndMinutes <= 900) {
+        return false;
+      }
       return true;
     });
     
@@ -979,9 +989,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         return false;
       }
       
-      // The checks above already handle weekend breaks correctly:
-      // - Break ends before working end (lunch at 12:45 is before 15:00)
-      // - Break starts after working start
+      // Weekend-specific rule: No breaks taken if working 15:00 or earlier
+      // Only when working PAST 15:00 do workers take breaks (longer shift)
+      if (isWeekendDay && forWorkingMinutes.endMinutes <= 900) {
+        return false;
+      }
+      
       return true;
     });
     
