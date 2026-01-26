@@ -1124,6 +1124,135 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  // Recalculate multi-day job segments when OT settings change
+  // This ensures segments are redistributed across days based on new working hours
+  const recalculateMultiDaySegments = async (
+    teamId: string,
+    affectedDateStr: string,
+    newOvertimeSettings: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>>
+  ) => {
+    console.log(`[PLANNER] Recalculating multi-day segments for team ${teamId.substring(0, 8)} around ${affectedDateStr}`);
+    
+    // Get extended date range to find all multi-day jobs that might be affected
+    const startDate = new Date(affectedDateStr);
+    startDate.setDate(startDate.getDate() - 7); // Look back 7 days
+    const endDate = new Date(affectedDateStr);
+    endDate.setDate(endDate.getDate() + 14); // Look forward 14 days
+    
+    const wipItems = await teamWorkItemService.getForPlanner({
+      dateFrom: startDate.toISOString().split('T')[0],
+      dateTo: endDate.toISOString().split('T')[0],
+      teamId: teamId
+    });
+    
+    if (wipItems.length === 0) {
+      console.log('[PLANNER] No WIP items to recalculate');
+      return;
+    }
+    
+    // Group WIP items by production_id to find multi-day jobs
+    const wipByProduction = new Map<string, typeof wipItems>();
+    for (const wip of wipItems) {
+      const prodId = wip.productionId;
+      if (!prodId) continue;
+      
+      if (!wipByProduction.has(prodId)) {
+        wipByProduction.set(prodId, []);
+      }
+      wipByProduction.get(prodId)!.push(wip);
+    }
+    
+    // Find multi-day jobs (jobs with more than one WIP segment)
+    const multiDayJobs = Array.from(wipByProduction.entries())
+      .filter(([_, wips]) => wips.length > 1);
+    
+    if (multiDayJobs.length === 0) {
+      console.log('[PLANNER] No multi-day jobs to recalculate');
+      return;
+    }
+    
+    console.log(`[PLANNER] Found ${multiDayJobs.length} multi-day jobs to recalculate`);
+    
+    const team = jigTeams.find(t => t.id === teamId);
+    const teamAverageEfinks = team?.averageEfinks ?? 80;
+    
+    for (const [productionId, wips] of multiDayJobs) {
+      // Sort by work_date to find the first segment
+      const sortedWips = [...wips].sort((a, b) => 
+        new Date(a.workDate).getTime() - new Date(b.workDate).getTime()
+      );
+      
+      const firstWip = sortedWips[0];
+      const firstDateStr = new Date(firstWip.workDate).toISOString().split('T')[0];
+      
+      // Calculate total E-Finks from all segments
+      const totalEfinks = sortedWips.reduce((sum, w) => sum + (w.estimatedEfinks ?? 0), 0);
+      
+      // Get team-specific duration
+      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEfinks, teamAverageEfinks);
+      
+      console.log(`[PLANNER] Recalculating ${firstWip.orderNumber || firstWip.productionName}: ${totalEfinks} E-Finks, ${teamSpecificDuration} min`);
+      
+      // Build a job object for allocation
+      const job: PlannerV2.ScheduledJob = {
+        id: productionId,
+        orderNumber: firstWip.orderNumber ?? '',
+        customer: firstWip.customerName ?? '',
+        estimatedEFinks: totalEfinks,
+        plannedDateStr: firstDateStr,
+        jigId: teamId,
+        plannedStartTime: firstWip.plannedStartMinutes ?? 420,
+        plannedEndTime: null,
+        plannedDurationMinutes: teamSpecificDuration,
+        customDurationMinutes: null,
+        breakAdjustmentMinutes: null,
+        productionComplete: false
+      };
+      
+      // Recalculate allocation using the new OT settings
+      const allocation = PlannerV2.allocateJobContinuousFlow(
+        job,
+        teamId,
+        firstDateStr,
+        firstWip.plannedStartMinutes ?? 420,
+        newOvertimeSettings,
+        teamAverageEfinks
+      );
+      
+      console.log(`[PLANNER] New allocation: ${allocation.segments.length} segments spanning ${allocation.primaryDate} to ${allocation.endDate}`);
+      
+      // Delete existing WIP records for this job
+      await teamWorkItemService.deleteByProductionId(productionId);
+      
+      // Calculate segment E-Finks based on work minutes proportion
+      const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
+      
+      // Create new WIP records for each segment
+      const segmentUpdates = allocation.segments.map((segment, idx) => {
+        const segmentEfinks = totalWorkMinutes > 0 
+          ? (segment.workMinutes / totalWorkMinutes) * totalEfinks 
+          : totalEfinks / allocation.segments.length;
+        
+        return {
+          jobId: productionId,
+          wipId: undefined,
+          teamId: teamId,
+          workDate: segment.dateStr,
+          plannedStartMinutes: segment.startTimeMinutes,
+          plannedEndMinutes: segment.endTimeMinutes,
+          plannedDurationMinutes: segment.workMinutes,
+          breakAdjustmentMinutes: segment.breakMinutes,
+          estimatedEfinks: segmentEfinks,
+          segmentIndex: idx,
+          totalSegments: allocation.segments.length
+        };
+      });
+      
+      await saveMultipleJobUpdates(segmentUpdates);
+      console.log(`[PLANNER] ✓ Saved ${segmentUpdates.length} recalculated segments for ${firstWip.orderNumber || productionId.substring(0, 8)}`);
+    }
+  };
+
   const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: number, _additionalMinutes?: number) => {
     console.log(`[PLANNER] Team overtime change for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
     
@@ -1228,6 +1357,22 @@ export const ProductionPlannerPage = () => {
         await teamWorkItemService.batchUpdate(updates);
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with late OT = ${enabled}`);
       }
+      
+      // Build the new OT settings map for recalculation
+      const newOvertimeSettings: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>> = {
+        ...overtimeByTeamDay,
+        [dayStr]: {
+          ...(overtimeByTeamDay[dayStr] || {}),
+          [teamId]: { 
+            ...(overtimeByTeamDay[dayStr]?.[teamId] || { earlyEnabled: false, earlyStartTime: 360 }),
+            enabled, 
+            closeTime 
+          }
+        }
+      };
+      
+      // Recalculate multi-day job segments with new OT settings
+      await recalculateMultiDaySegments(teamId, dayStr, newOvertimeSettings);
       
       // Reload data to reflect all changes
       await loadData();
@@ -1351,6 +1496,22 @@ export const ProductionPlannerPage = () => {
         await teamWorkItemService.batchUpdate(updates);
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with early OT = ${earlyEnabled}`);
       }
+      
+      // Build the new OT settings map for recalculation
+      const newOvertimeSettings: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>> = {
+        ...overtimeByTeamDay,
+        [dayStr]: {
+          ...(overtimeByTeamDay[dayStr] || {}),
+          [teamId]: { 
+            ...(overtimeByTeamDay[dayStr]?.[teamId] || { enabled: false, closeTime: 1140 }),
+            earlyEnabled, 
+            earlyStartTime 
+          }
+        }
+      };
+      
+      // Recalculate multi-day job segments with new OT settings
+      await recalculateMultiDaySegments(teamId, dayStr, newOvertimeSettings);
       
       // Reload data to reflect all changes
       await loadData();
