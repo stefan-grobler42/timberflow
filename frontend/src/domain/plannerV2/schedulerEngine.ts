@@ -595,8 +595,14 @@ export function applyBreakdownStretch(
 }
 
 /**
- * Filters breakdown blocks from a list of schedule blocks.
- * Use this to extract breakdowns for stretch calculation.
+ * Filters Type B schedule blocks (Breakdown, MaterialShortage) from a list of schedule blocks.
+ * Use this to extract blocks for stretch calculation.
+ * 
+ * Type B blocks extend job duration when they intersect with a job:
+ * - Breakdown: Equipment failure during work
+ * - MaterialShortage: Waiting for materials
+ * 
+ * Both types behave the same way - they stretch the first intersecting job's duration.
  */
 export function extractBreakdowns(
   scheduleBlocks: Array<{ 
@@ -608,7 +614,7 @@ export function extractBreakdowns(
   }>
 ): BreakdownBlock[] {
   return scheduleBlocks
-    .filter(b => b.blockType === 'Breakdown')
+    .filter(b => b.blockType === 'Breakdown' || b.blockType === 'MaterialShortage')
     .map(b => ({
       startDate: b.startDate,
       startTimeMinutes: b.startTimeMinutes,
