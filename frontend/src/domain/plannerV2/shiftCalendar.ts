@@ -1,11 +1,44 @@
 /**
  * Working hours and shift management for the plannerV2 module.
  * BREAK-AWARE: Jobs cannot start or end within breaks - breaks are non-working hours.
+ * TYPE-A-BLOCK-AWARE: Type A blocks (PublicHoliday, Maintenance, GeneralDelay) are treated as non-working intervals.
  */
 
 import type { Break, ShiftConfig, EndTimeResult } from './types';
 import { FRIDAY, SATURDAY, SUNDAY } from './constants';
 import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
+
+/**
+ * Type A schedule block types - these create non-working intervals that jobs skip over.
+ * Jobs cannot occupy time within Type A blocks, similar to breaks.
+ * - PublicHoliday: Official holidays
+ * - Maintenance: Scheduled maintenance windows  
+ * - GeneralDelay: General delays that prevent work
+ */
+export const TYPE_A_BLOCK_TYPES = ['PublicHoliday', 'Maintenance', 'GeneralDelay'] as const;
+export type TypeABlockType = typeof TYPE_A_BLOCK_TYPES[number];
+
+/**
+ * Type B schedule block types - these affect jobs differently (stretch or attach to jobs).
+ * - Breakdown: Stretches job duration (equipment failure during work)
+ * - MaterialShortage: Attached to specific jobs
+ */
+export const TYPE_B_BLOCK_TYPES = ['Breakdown', 'MaterialShortage'] as const;
+export type TypeBBlockType = typeof TYPE_B_BLOCK_TYPES[number];
+
+/**
+ * Checks if a block type is Type A (non-working interval).
+ */
+export function isTypeABlock(blockType: string): boolean {
+  return TYPE_A_BLOCK_TYPES.includes(blockType as TypeABlockType);
+}
+
+/**
+ * Checks if a block type is Type B (job-attached or job-stretching).
+ */
+export function isTypeBBlock(blockType: string): boolean {
+  return TYPE_B_BLOCK_TYPES.includes(blockType as TypeBBlockType);
+}
 
 /**
  * Gets the shift configuration for a work day.
@@ -539,15 +572,23 @@ export function getNextJobStartTime(
 }
 
 /**
- * Gets shift configuration with schedule blocks treated as additional breaks.
- * Only MaterialShortage and GeneralDelay reduce available time (treated as breaks).
- * Breakdowns are NOT included here - they STRETCH jobs rather than reducing capacity.
- * Breakdowns are handled separately via calculateBreakdownStretch in schedulerEngine.
+ * Gets shift configuration with Type A schedule blocks treated as additional breaks (non-working intervals).
+ * 
+ * TYPE A BLOCKS (PublicHoliday, Maintenance, GeneralDelay):
+ * - Create non-working intervals that jobs skip over
+ * - Jobs cannot occupy time within these blocks
+ * - Similar to breaks, jobs are split around them
+ * 
+ * TYPE B BLOCKS (Breakdown, MaterialShortage):
+ * - NOT included here - handled separately
+ * - Breakdowns STRETCH jobs rather than reducing capacity
+ * - MaterialShortage is attached to specific jobs
+ * 
  * @param overtimeEnabled - Whether overtime is enabled
  * @param customCloseTime - Custom close time override (in minutes from midnight)
  * @param earlyOtEnabled - Whether early overtime start is enabled
  * @param earlyOtStartTime - Early overtime start time (in minutes from midnight)
- * @param scheduleBlocks - Array of schedule blocks to treat as additional breaks
+ * @param scheduleBlocks - Array of schedule blocks to check for Type A blocks
  * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
  */
 export function getShiftConfigWithBlocks(
@@ -560,17 +601,59 @@ export function getShiftConfigWithBlocks(
 ): ShiftConfig {
   const baseConfig = getShiftConfig(overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime, config);
   
-  // Filter OUT Breakdown blocks - they stretch jobs, not reduce capacity
-  // Only MaterialShortage and GeneralDelay should reduce capacity (be treated as breaks)
-  const capacityReducingBlocks = scheduleBlocks.filter(
-    b => b.blockType !== 'Breakdown'
-  );
+  // Only Type A blocks (PublicHoliday, Maintenance, GeneralDelay) reduce capacity
+  // These are treated as non-working intervals that jobs skip over
+  const typeABlocks = scheduleBlocks.filter(b => isTypeABlock(b.blockType));
   
-  const blockBreaks: Break[] = capacityReducingBlocks.map(b => ({
+  const blockBreaks: Break[] = typeABlocks.map(b => ({
     name: b.blockType,
     start: b.startTimeMinutes,
     end: b.endTimeMinutes,
     duration: b.endTimeMinutes - b.startTimeMinutes
+  }));
+  
+  return {
+    ...baseConfig,
+    breaks: [...baseConfig.breaks, ...blockBreaks].sort((a, b) => a.start - b.start)
+  };
+}
+
+/**
+ * Gets shift configuration for a specific date with Type A schedule blocks.
+ * Combines date-aware shift handling (Friday/weekend) with Type A block awareness.
+ * 
+ * @param dateStr - Date string in YYYY-MM-DD format
+ * @param overtimeEnabled - Whether overtime is enabled
+ * @param customCloseTime - Custom close time override (in minutes from midnight)
+ * @param earlyOtEnabled - Whether early overtime start is enabled
+ * @param earlyOtStartTime - Early overtime start time (in minutes from midnight)
+ * @param scheduleBlocks - Array of schedule blocks applicable to this day
+ * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
+ */
+export function getShiftConfigForDateWithBlocks(
+  dateStr: string,
+  overtimeEnabled: boolean,
+  customCloseTime: number | undefined,
+  earlyOtEnabled: boolean,
+  earlyOtStartTime: number | undefined,
+  scheduleBlocks: Array<{ blockType: string; startTimeMinutes: number; endTimeMinutes: number }>,
+  config: SchedulerConfig = DEFAULT_CONFIG
+): ShiftConfig {
+  const baseConfig = getShiftConfigForDate(dateStr, overtimeEnabled, customCloseTime, earlyOtEnabled, earlyOtStartTime, config);
+  
+  // Only Type A blocks (PublicHoliday, Maintenance, GeneralDelay) reduce capacity
+  const typeABlocks = scheduleBlocks.filter(b => isTypeABlock(b.blockType));
+  
+  // Filter blocks to only those within the working hours
+  const applicableBlocks = typeABlocks.filter(b => 
+    b.startTimeMinutes < baseConfig.endTime && b.endTimeMinutes > baseConfig.startTime
+  );
+  
+  const blockBreaks: Break[] = applicableBlocks.map(b => ({
+    name: b.blockType,
+    start: Math.max(b.startTimeMinutes, baseConfig.startTime),
+    end: Math.min(b.endTimeMinutes, baseConfig.endTime),
+    duration: Math.min(b.endTimeMinutes, baseConfig.endTime) - Math.max(b.startTimeMinutes, baseConfig.startTime)
   }));
   
   return {

@@ -788,6 +788,15 @@ export const ProductionPlannerPage = () => {
         const dropPosition = dropTimeMinutes ?? shift.startTime;
         
         // Allocate using continuous-flow model - job spans multiple days if needed
+        // Pass schedule blocks so Type A blocks are treated as non-working intervals
+        const scheduleBlocksForAllocation = scheduleBlocks.map(block => ({
+          blockType: block.blockType,
+          startTimeMinutes: block.startTimeMinutes ?? 0,
+          endTimeMinutes: block.endTimeMinutes ?? 0,
+          dateStr: block.dateStr ?? '',
+          teamId: block.teamId ?? null
+        }));
+        
         const allocation = PlannerV2.allocateJobContinuousFlow(
           droppedJob,
           updatedJigId,
@@ -795,7 +804,8 @@ export const ProductionPlannerPage = () => {
           dropPosition,
           overtimeByTeamDay,
           teamAverageEfinks,
-          schedulerConfig
+          schedulerConfig,
+          scheduleBlocksForAllocation
         );
         
         console.log('[PLANNER] Continuous-flow allocation:', {
@@ -1151,6 +1161,15 @@ export const ProductionPlannerPage = () => {
       };
       
       // Recalculate allocation from first segment's position
+      // Pass schedule blocks so Type A blocks are treated as non-working intervals
+      const scheduleBlocksForAllocation = scheduleBlocks.map(block => ({
+        blockType: block.blockType,
+        startTimeMinutes: block.startTimeMinutes ?? 0,
+        endTimeMinutes: block.endTimeMinutes ?? 0,
+        dateStr: block.dateStr ?? '',
+        teamId: block.teamId ?? null
+      }));
+      
       const allocation = PlannerV2.allocateJobContinuousFlow(
         droppedJob,
         teamId,
@@ -1158,7 +1177,8 @@ export const ProductionPlannerPage = () => {
         firstStartTime, // Start from original first position
         overtimeByTeamDay,
         teamAverageEfinks,
-        schedulerConfig
+        schedulerConfig,
+        scheduleBlocksForAllocation
       );
       
       console.log('[PLANNER] Recalculated allocation:', {
@@ -1545,13 +1565,24 @@ export const ProductionPlannerPage = () => {
       };
       
       // Recalculate allocation using the new OT settings
+      // Pass schedule blocks so Type A blocks are treated as non-working intervals
+      const scheduleBlocksForAllocation = scheduleBlocks.map(block => ({
+        blockType: block.blockType,
+        startTimeMinutes: block.startTimeMinutes ?? 0,
+        endTimeMinutes: block.endTimeMinutes ?? 0,
+        dateStr: block.dateStr ?? '',
+        teamId: block.teamId ?? null
+      }));
+      
       const allocation = PlannerV2.allocateJobContinuousFlow(
         job,
         teamId,
         firstDateStr,
         firstWip.plannedStartMinutes ?? 420,
         newOvertimeSettings,
-        teamAverageEfinks
+        teamAverageEfinks,
+        schedulerConfig,
+        scheduleBlocksForAllocation
       );
       
       console.log(`[PLANNER] New allocation: ${allocation.segments.length} segments spanning ${allocation.primaryDate} to ${allocation.endDate}`);

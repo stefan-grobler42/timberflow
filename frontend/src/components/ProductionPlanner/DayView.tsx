@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
 import * as PlannerV2 from '../../domain/plannerV2';
+import { isTypeABlock } from '../../domain/plannerV2/shiftCalendar';
 import type { SchedulerConfig } from '../../domain/plannerV2/schedulerSettings';
 
 const SCHEDULE_BLOCK_COLORS: Record<ScheduleBlockType, string> = {
@@ -490,7 +491,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return breakSlot.startHour * 60 + breakSlot.startMinute;
   };
 
-  const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number, teamWorkingEndMinutes?: number): BreakAddition[] => {
+  const calculateBreaksSpanned = (jobStartMinutes: number, baseDurationMinutes: number, teamWorkingEndMinutes?: number, jigId?: string): BreakAddition[] => {
     const additions: BreakAddition[] = [];
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
@@ -507,12 +508,33 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     // This is used to determine which breaks the job ACTUALLY spans
     const jobWorkEndTime = jobStartMinutes + baseDurationMinutes;
     
+    // Include Type A schedule blocks as non-working intervals (similar to breaks)
+    // Type A blocks: PublicHoliday, Maintenance, GeneralDelay
+    const typeABlocks = scheduleBlocks
+      .filter(block => {
+        if (!block.dateStr || block.dateStr !== dayStr) return false;
+        if (!isTypeABlock(block.blockType)) return false;
+        if (jigId && block.teamId && block.teamId !== jigId) return false;
+        return true;
+      })
+      .map(block => ({
+        startHour: Math.floor((block.startTimeMinutes ?? 0) / 60),
+        startMinute: (block.startTimeMinutes ?? 0) % 60,
+        endHour: Math.floor((block.endTimeMinutes ?? 0) / 60),
+        endMinute: (block.endTimeMinutes ?? 0) % 60,
+        label: block.blockType,
+        color: SCHEDULE_BLOCK_COLORS[block.blockType as ScheduleBlockType] || '#9AA0A6'
+      }));
+    
+    // Combine regular breaks with Type A blocks
+    const allNonWorkingIntervals = [...allPossibleBreaks, ...typeABlocks];
+    
     // Sort breaks by start time and filter based on what the job actually spans
     // For weekends, apply special filtering logic
-    const sortedBreaks = [...allPossibleBreaks]
+    const sortedBreaks = allNonWorkingIntervals
       .filter(b => {
         const breakStart = b.startHour * 60 + b.startMinute;
-        const breakEnd = breakStart + getBreakDurationMinutes(b);
+        const breakEnd = b.endHour * 60 + b.endMinute;
         
         // WEEKDAY LOGIC: Include all breaks that the job might span
         // The for-loop below will only add breaks if the job actually reaches them
@@ -550,8 +572,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       if (remainingWork <= 0) break;
       
       const breakStart = getBreakStartMinutes(breakSlot);
-      const breakEnd = breakStart + getBreakDurationMinutes(breakSlot);
-      const breakDuration = getBreakDurationMinutes(breakSlot);
+      const breakEnd = breakSlot.endHour * 60 + breakSlot.endMinute;
+      const breakDuration = breakEnd - breakStart;
       
       // Skip breaks that are before our current time
       if (breakEnd <= currentTime) continue;
@@ -804,7 +826,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       
       if (includeBreaks) {
         // Pass team working end minutes for proper break calculation on weekends
-        breakAdditions = calculateBreaksSpanned(jobTop, baseDuration, teamWorkingEndMinutes);
+        // Also pass jigId for Type A schedule block filtering
+        breakAdditions = calculateBreaksSpanned(jobTop, baseDuration, teamWorkingEndMinutes, job.jigId ?? undefined);
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
@@ -848,7 +871,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
-      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration, teamWorkingEndMinutes);
+      // Pass jigId to include Type A schedule blocks in break calculations
+      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration, teamWorkingEndMinutes, jigId);
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       
       // Calculate the VISUAL height in pixels, then convert back to minutes
@@ -861,9 +885,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       jobRanges.push({ start: jobStart, end: jobEnd, name: job.name?.substring(0, 20) || job.id, jobId: job.id });
     }
     
-    // Get schedule blocks that apply to this day and team
+    // Get Type A schedule blocks that apply to this day and team
+    // Type A blocks (PublicHoliday, Maintenance, GeneralDelay) create non-working intervals
+    // Type B blocks (Breakdown, MaterialShortage) do NOT block drop zones
     const dayScheduleBlocks = scheduleBlocks.filter(block => {
       if (!block.dateStr) return false;
+      if (!isTypeABlock(block.blockType)) return false; // Only Type A blocks
       return block.dateStr === dayStr && (!block.teamId || block.teamId === jigId);
     });
     
@@ -871,7 +898,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     if (jigJobs.length > 0) {
       console.log('[DROP_ZONES] Team jobs:', jobRanges.map(r => 
         `${r.name}: ${PlannerV2.formatMinutesToTime(r.start)}-${PlannerV2.formatMinutesToTime(r.end)}`
-      ), 'buffer:', bufferMinutes);
+      ), 'buffer:', bufferMinutes, 'TypeA blocks:', dayScheduleBlocks.length);
     }
     
     // Helper: check if a position falls within any existing job's time range
@@ -885,7 +912,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       return false;
     };
     
-    // Helper: check if a position falls within any schedule block
+    // Helper: check if a position falls within any Type A schedule block
+    // Type A blocks are non-working intervals - jobs cannot be dropped within them
     const overlapsWithScheduleBlock = (position: number): boolean => {
       for (const block of dayScheduleBlocks) {
         const blockStart = block.startTimeMinutes ?? 0;

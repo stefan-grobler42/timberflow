@@ -11,13 +11,25 @@
 import type { ScheduledJob, ShiftConfig } from './types';
 import { getJobDuration } from './durationCalculator';
 import { 
-  getShiftConfigForDate, 
+  getShiftConfigForDate,
+  getShiftConfigForDateWithBlocks,
   getNextWorkingDayWithOvertime,
   getNextValidStartTime,
   calculateEndTime,
   type OvertimeSettingsMap
 } from './shiftCalendar';
 import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
+
+/**
+ * Schedule block type for Type A block filtering in continuous flow allocation.
+ */
+export interface ScheduleBlockForAllocation {
+  blockType: string;
+  startTimeMinutes: number;
+  endTimeMinutes: number;
+  dateStr: string;
+  teamId?: string | null;
+}
 
 /**
  * Represents a single day segment of a multi-day job allocation.
@@ -47,18 +59,40 @@ export interface ContinuousFlowAllocation {
 /**
  * Gets the shift configuration for a specific team on a specific day.
  * Uses date-aware shift config that handles Friday (16:00) and weekends.
+ * Includes Type A schedule blocks as non-working intervals when provided.
  * @param dateStr - Date string in YYYY-MM-DD format
  * @param teamId - The team ID
  * @param overtimeMap - Overtime settings by date/team
  * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
+ * @param scheduleBlocks - Optional schedule blocks to filter for Type A blocks
  */
 function getTeamShiftForDay(
   dateStr: string,
   teamId: string,
   overtimeMap: OvertimeSettingsMap,
-  config: SchedulerConfig = DEFAULT_CONFIG
+  config: SchedulerConfig = DEFAULT_CONFIG,
+  scheduleBlocks: ScheduleBlockForAllocation[] = []
 ): ShiftConfig {
   const dayOT = overtimeMap[dateStr]?.[teamId];
+  
+  // Filter schedule blocks for this date and team (or blocks without team = all teams)
+  const blocksForDay = scheduleBlocks.filter(b => 
+    b.dateStr === dateStr && (!b.teamId || b.teamId === teamId)
+  );
+  
+  if (blocksForDay.length > 0) {
+    // Use the block-aware shift config which includes Type A blocks as breaks
+    return getShiftConfigForDateWithBlocks(
+      dateStr,
+      dayOT?.enabled ?? false,
+      dayOT?.closeTime,
+      dayOT?.earlyEnabled ?? false,
+      dayOT?.earlyStartTime,
+      blocksForDay,
+      config
+    );
+  }
+  
   return getShiftConfigForDate(
     dateStr,
     dayOT?.enabled ?? false,
@@ -104,6 +138,11 @@ function getAvailableWorkMinutesOnDay(
  * 3. If work remains, continue to next working day at shift start
  * 4. Repeat until all work is allocated
  * 
+ * TYPE A BLOCKS (PublicHoliday, Maintenance, GeneralDelay):
+ * - Treated as non-working intervals that jobs skip over
+ * - Jobs cannot occupy time within Type A blocks
+ * - When a job encounters a Type A block, remaining work continues after the block
+ * 
  * @param job - The job to allocate
  * @param teamId - The team to allocate to
  * @param startDateStr - The date where allocation begins (drop day)
@@ -111,6 +150,7 @@ function getAvailableWorkMinutesOnDay(
  * @param overtimeMap - Overtime settings by date/team
  * @param teamAverageEfinks - Team efficiency for duration calculation
  * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
+ * @param scheduleBlocks - Optional schedule blocks to filter for Type A blocks
  * @returns Allocation result with day segments
  */
 export function allocateJobContinuousFlow(
@@ -120,7 +160,8 @@ export function allocateJobContinuousFlow(
   startTimeMinutes: number,
   overtimeMap: OvertimeSettingsMap,
   teamAverageEfinks: number = 80,
-  config: SchedulerConfig = DEFAULT_CONFIG
+  config: SchedulerConfig = DEFAULT_CONFIG,
+  scheduleBlocks: ScheduleBlockForAllocation[] = []
 ): ContinuousFlowAllocation {
   const totalDuration = getJobDuration(job, teamAverageEfinks);
   const segments: DaySegment[] = [];
@@ -134,7 +175,7 @@ export function allocateJobContinuousFlow(
   let dayCount = 0;
   
   while (remainingWork > 0 && dayCount < MAX_DAYS) {
-    const shift = getTeamShiftForDay(currentDate, teamId, overtimeMap, config);
+    const shift = getTeamShiftForDay(currentDate, teamId, overtimeMap, config, scheduleBlocks);
     
     const effectiveStart = isFirstDay 
       ? getNextValidStartTime(currentStartTime, shift)
