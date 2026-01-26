@@ -820,10 +820,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
 
 
-  const calculateDropZones = useCallback((jigId: string, teamWorkingEndMinutes?: number): { position: number; afterJobId: string | null }[] => {
+  const calculateDropZones = useCallback((jigId: string, teamWorkingEndMinutes?: number, teamWorkingStartMinutes?: number): { position: number; afterJobId: string | null }[] => {
     if (!workingHours) return [];
     
-    const workingStart = workingHours.start * 60;
+    // Use team-specific start time (for early OT) if provided, otherwise fall back to base working hours
+    const workingStart = teamWorkingStartMinutes ?? (workingHours.start * 60);
     const jigJobs = getJobsForDateAndJig(dayStr, jigId)
       .filter(j => !j.productionComplete)
       .sort((a, b) => (a.plannedStartTime ?? workingStart) - (b.plannedStartTime ?? workingStart));
@@ -925,7 +926,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     let snappedPosition = rawDropMinutes;
     
     if (jigId && workingHours) {
-      const dropZones = calculateDropZones(jigId);
+      // Get team-specific working hours (accounts for early/late OT)
+      const teamOvertime = getTeamOvertime(jigId);
+      const teamStartMinutes = teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
+        ? teamOvertime.earlyStartTime
+        : workingHours.start * 60;
+      const teamEndMinutes = teamOvertime.enabled && teamOvertime.closeTime !== undefined
+        ? teamOvertime.closeTime
+        : workingHours.end * 60;
+      
+      const dropZones = calculateDropZones(jigId, teamEndMinutes, teamStartMinutes);
       if (dropZones.length > 0) {
         let nearestZone = dropZones[0];
         let minDistance = Math.abs(rawDropMinutes - nearestZone.position);
@@ -941,9 +951,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         snappedPosition = nearestZone.position;
       }
       
-      const workingStart = workingHours.start * 60;
-      if (snappedPosition < workingStart) {
-        snappedPosition = workingStart;
+      // Use team-specific start time for clamping (respects early OT)
+      if (snappedPosition < teamStartMinutes) {
+        snappedPosition = teamStartMinutes;
       }
     }
     
@@ -1717,7 +1727,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
                 {/* Drop zone indicators - shown when dragging */}
                 {isDragging && dropHoverJigId === jig.id && (() => {
-                  const dropZones = calculateDropZones(jig.id, teamWorkingMinutes.endMinutes);
+                  const dropZones = calculateDropZones(jig.id, teamWorkingMinutes.endMinutes, teamWorkingMinutes.startMinutes);
                   if (!dropHoverPosition || dropZones.length === 0) return null;
                   
                   let nearestZone = dropZones[0];
