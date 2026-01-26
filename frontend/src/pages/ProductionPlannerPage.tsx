@@ -237,13 +237,24 @@ export const ProductionPlannerPage = () => {
       // Count how many team/days have OT enabled for logging
       let lateOTCount = 0;
       let earlyOTCount = 0;
+      const lateOTDetails: string[] = [];
+      const earlyOTDetails: string[] = [];
       for (const dayStr of Object.keys(restoredOTState)) {
         for (const teamId of Object.keys(restoredOTState[dayStr])) {
-          if (restoredOTState[dayStr][teamId].enabled) lateOTCount++;
-          if (restoredOTState[dayStr][teamId].earlyEnabled) earlyOTCount++;
+          const settings = restoredOTState[dayStr][teamId];
+          if (settings.enabled) {
+            lateOTCount++;
+            lateOTDetails.push(`${dayStr}/${teamId.substring(0, 8)}(end=${settings.closeTime})`);
+          }
+          if (settings.earlyEnabled) {
+            earlyOTCount++;
+            earlyOTDetails.push(`${dayStr}/${teamId.substring(0, 8)}(start=${settings.earlyStartTime})`);
+          }
         }
       }
       console.log(`[PLANNER] ✓ Restored OT state: ${lateOTCount} late OT, ${earlyOTCount} early OT settings across ${Object.keys(restoredOTState).length} days`);
+      if (lateOTDetails.length > 0) console.log(`[PLANNER] Late OT details: ${lateOTDetails.join(', ')}`);
+      if (earlyOTDetails.length > 0) console.log(`[PLANNER] Early OT details: ${earlyOTDetails.join(', ')}`);
       
       let jobList: Job[];
       try {
@@ -1038,27 +1049,28 @@ export const ProductionPlannerPage = () => {
       }
     }));
     
-    // Find all jobs for this team-day that have WIP records
-    const affectedJobs = allJobs.filter(
-      j => j.plannedDateStr === dayStr && 
-           j.jigId === teamId && 
-           j.wipId
-    );
-    
-    if (affectedJobs.length === 0) {
-      console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
-      return;
-    }
-    
-    console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with overtime=${enabled}, closeTime=${closeTime}`);
-    
     // Show loading overlay
     setOperationInProgress(true);
     setOperationMessage(enabled ? 'Enabling overtime...' : 'Disabling overtime...');
     
     try {
+      // Fetch ALL WIP records for this team-day directly from the service
+      // This ensures we update ALL records, not just ones mapped via production lookup
+      const wipItems = await teamWorkItemService.getForPlanner({
+        dateFrom: dayStr,
+        dateTo: dayStr,
+        teamId: teamId
+      });
+      
+      if (wipItems.length === 0) {
+        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+        return;
+      }
+      
+      console.log(`[PLANNER] Fetched ${wipItems.length} WIP records for ${dayStr}/${teamId}`);
+      
       // CONTINUOUS FLOW: When OT changes, recalculate all job positions
-      console.log(`[OT] Updating OT settings for ${affectedJobs.length} jobs - CONTINUOUS FLOW model`);
+      console.log(`[OT] Updating OT settings for ${wipItems.length} jobs - CONTINUOUS FLOW model`);
       
       // Get the new shift configuration based on late OT settings
       // Preserve early OT settings when changing late OT
@@ -1072,24 +1084,24 @@ export const ProductionPlannerPage = () => {
       );
       
       // Sort jobs by current start time to maintain order
-      const sortedJobs = [...affectedJobs].sort((a, b) => {
-        return (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420);
+      const sortedWipItems = [...wipItems].sort((a, b) => {
+        return (a.plannedStartMinutes ?? 420) - (b.plannedStartMinutes ?? 420);
       });
       
-      console.log(`[LATE-OT] Processing ${sortedJobs.length} jobs in sequence order - CONTINUOUS FLOW`);
+      console.log(`[LATE-OT] Processing ${sortedWipItems.length} WIP items in sequence order - CONTINUOUS FLOW`);
       
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
       let nextStartTime = newShift.startTime;
       
-      for (const job of sortedJobs) {
-        const jobDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
-          Math.round(job.estimatedEFinks * 6.5625);
+      for (const wip of sortedWipItems) {
+        const jobDuration = wip.customDurationMinutes ?? wip.plannedDurationMinutes ?? 
+          Math.round((wip.estimatedEfinks ?? 0) * 6.5625);
         
         // Calculate timing for this job with the new shift config
         const timing = PlannerV2.calculateEndTime(nextStartTime, jobDuration, newShift);
         
         updates.push({
-          id: job.wipId!,
+          id: wip.id,
           data: {
             overtimeEnabled: enabled,
             dayEndMinutes: newEndTime,
@@ -1103,13 +1115,13 @@ export const ProductionPlannerPage = () => {
         // Next job starts after this one plus buffer
         nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, newShift) ?? newShift.endTime;
         
-        console.log(`[LATE-OT] Scheduled ${job.orderNumber}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
+        console.log(`[LATE-OT] Scheduled ${wip.orderNumber || wip.productionName}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
       }
       
       // Persist all updates
       if (updates.length > 0) {
         await teamWorkItemService.batchUpdate(updates);
-        console.log(`[PLANNER] ✓ Updated ${updates.length} jobs with late OT = ${enabled}`);
+        console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with late OT = ${enabled}`);
       }
       
       // Reload data to reflect all changes
@@ -1151,25 +1163,26 @@ export const ProductionPlannerPage = () => {
       }
     }));
     
-    // Find all jobs for this team-day that have WIP records
-    const affectedJobs = allJobs.filter(
-      j => j.plannedDateStr === dayStr && 
-           j.jigId === teamId && 
-           j.wipId
-    );
-    
-    if (affectedJobs.length === 0) {
-      console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
-      return;
-    }
-    
-    console.log(`[PLANNER] Updating ${affectedJobs.length} WIP records with earlyOvertimeEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
-    
     // Show loading overlay
     setOperationInProgress(true);
     setOperationMessage(earlyEnabled ? 'Enabling early overtime...' : 'Disabling early overtime...');
     
     try {
+      // Fetch ALL WIP records for this team-day directly from the service
+      // This ensures we update ALL records, not just ones mapped via production lookup
+      const wipItems = await teamWorkItemService.getForPlanner({
+        dateFrom: dayStr,
+        dateTo: dayStr,
+        teamId: teamId
+      });
+      
+      if (wipItems.length === 0) {
+        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+        return;
+      }
+      
+      console.log(`[PLANNER] Fetched ${wipItems.length} WIP records for ${dayStr}/${teamId}`);
+      
       // Get the new shift configuration based on early OT settings
       // Preserve late OT settings when changing early OT
       const existingLateSettings = overtimeByTeamDay[dayStr]?.[teamId];
@@ -1180,45 +1193,25 @@ export const ProductionPlannerPage = () => {
         earlyStartTime
       );
       
-      // Convert affected jobs to ScheduledJob format for the scheduler
-      const scheduledJobs: PlannerV2.ScheduledJob[] = affectedJobs.map(job => ({
-        id: job.id,
-        orderNumber: job.orderNumber,
-        customer: job.customer,
-        estimatedEFinks: job.estimatedEFinks,
-        plannedDateStr: job.plannedDateStr,
-        jigId: job.jigId,
-        plannedStartTime: job.plannedStartTime ?? null,
-        plannedEndTime: job.plannedEndTime ?? null,
-        plannedDurationMinutes: job.plannedDurationMinutes ?? null,
-        customDurationMinutes: job.customDurationMinutes ?? null,
-        breakAdjustmentMinutes: job.breakAdjustmentMinutes ?? null,
-        productionComplete: job.productionComplete
-      }));
-      
-      // Recalculate job positions with the new shift configuration (jobs start at new start time)
-      const { scheduledJobs: rescheduledJobs } = PlannerV2.rescheduleDay(scheduledJobs, newShift);
-      console.log(`[PLANNER] ✓ Recalculated ${rescheduledJobs.length} job positions with new early OT shift config`);
-      
-      // CONTINUOUS FLOW: Sort jobs and reschedule sequentially from new start time
-      const sortedJobs = [...affectedJobs].sort((a, b) => {
-        return (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420);
+      // Sort WIP items by current start time to maintain order
+      const sortedWipItems = [...wipItems].sort((a, b) => {
+        return (a.plannedStartMinutes ?? 420) - (b.plannedStartMinutes ?? 420);
       });
       
-      console.log(`[EARLY-OT] Processing ${sortedJobs.length} jobs in sequence order - CONTINUOUS FLOW`);
+      console.log(`[EARLY-OT] Processing ${sortedWipItems.length} WIP items in sequence order - CONTINUOUS FLOW`);
       
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
       let nextStartTime = newShift.startTime;
       
-      for (const job of sortedJobs) {
-        const jobDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
-          Math.round(job.estimatedEFinks * 6.5625);
+      for (const wip of sortedWipItems) {
+        const jobDuration = wip.customDurationMinutes ?? wip.plannedDurationMinutes ?? 
+          Math.round((wip.estimatedEfinks ?? 0) * 6.5625);
         
         // Calculate timing for this job
         const timing = PlannerV2.calculateEndTime(nextStartTime, jobDuration, newShift);
         
         updates.push({
-          id: job.wipId!,
+          id: wip.id,
           data: {
             earlyOvertimeEnabled: earlyEnabled,
             dayStartMinutes: earlyEnabled ? earlyStartTime : undefined,
@@ -1232,13 +1225,13 @@ export const ProductionPlannerPage = () => {
         // Next job starts after this one plus buffer
         nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, newShift) ?? newShift.endTime;
         
-        console.log(`[EARLY-OT] Scheduled ${job.orderNumber}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
+        console.log(`[EARLY-OT] Scheduled ${wip.orderNumber || wip.productionName}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
       }
       
       // Persist all updates
       if (updates.length > 0) {
         await teamWorkItemService.batchUpdate(updates);
-        console.log(`[PLANNER] ✓ Updated ${updates.length} jobs with early OT = ${earlyEnabled}`);
+        console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with early OT = ${earlyEnabled}`);
       }
       
       // Reload data to reflect all changes
