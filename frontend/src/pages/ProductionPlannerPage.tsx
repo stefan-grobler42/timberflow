@@ -1057,20 +1057,60 @@ export const ProductionPlannerPage = () => {
     setOperationMessage(enabled ? 'Enabling overtime...' : 'Disabling overtime...');
     
     try {
-      // CONTINUOUS FLOW: Simply update OT settings for all jobs - no rollover redistribution needed
+      // CONTINUOUS FLOW: When OT changes, recalculate all job positions
       console.log(`[OT] Updating OT settings for ${affectedJobs.length} jobs - CONTINUOUS FLOW model`);
       
-      // Update all jobs with OT settings
-      const otUpdates = affectedJobs.map(job => ({
-        id: job.wipId!,
-        data: {
-          overtimeEnabled: enabled,
-          dayEndMinutes: enabled ? closeTime : 1020 // WORKING_END when OT disabled
-        }
-      }));
+      // Get the new shift configuration based on late OT settings
+      // Preserve early OT settings when changing late OT
+      const existingEarlySettings = overtimeByTeamDay[dayStr]?.[teamId];
+      const newEndTime = enabled ? closeTime : 1020; // WORKING_END when OT disabled
+      const newShift = PlannerV2.getShiftConfig(
+        enabled,
+        newEndTime,
+        existingEarlySettings?.earlyEnabled,
+        existingEarlySettings?.earlyStartTime
+      );
       
-      await teamWorkItemService.batchUpdate(otUpdates);
-      console.log(`[PLANNER] ✓ Updated OT settings for ${affectedJobs.length} jobs`);
+      // Sort jobs by current start time to maintain order
+      const sortedJobs = [...affectedJobs].sort((a, b) => {
+        return (a.plannedStartTime ?? 420) - (b.plannedStartTime ?? 420);
+      });
+      
+      console.log(`[LATE-OT] Processing ${sortedJobs.length} jobs in sequence order - CONTINUOUS FLOW`);
+      
+      const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
+      let nextStartTime = newShift.startTime;
+      
+      for (const job of sortedJobs) {
+        const jobDuration = job.customDurationMinutes ?? job.plannedDurationMinutes ?? 
+          Math.round(job.estimatedEFinks * 6.5625);
+        
+        // Calculate timing for this job with the new shift config
+        const timing = PlannerV2.calculateEndTime(nextStartTime, jobDuration, newShift);
+        
+        updates.push({
+          id: job.wipId!,
+          data: {
+            overtimeEnabled: enabled,
+            dayEndMinutes: newEndTime,
+            plannedStartMinutes: nextStartTime,
+            plannedEndMinutes: timing.endTime,
+            plannedDurationMinutes: jobDuration,
+            breakAdjustmentMinutes: timing.breakMinutes
+          }
+        });
+        
+        // Next job starts after this one plus buffer
+        nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, newShift) ?? newShift.endTime;
+        
+        console.log(`[LATE-OT] Scheduled ${job.orderNumber}: ends at ${timing.endTime}, next starts at ${nextStartTime}`);
+      }
+      
+      // Persist all updates
+      if (updates.length > 0) {
+        await teamWorkItemService.batchUpdate(updates);
+        console.log(`[PLANNER] ✓ Updated ${updates.length} jobs with late OT = ${enabled}`);
+      }
       
       // Reload data to reflect all changes
       await loadData();
