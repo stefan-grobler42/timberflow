@@ -51,6 +51,7 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
+  segmentEfinks?: number;
 }
 
 
@@ -197,13 +198,19 @@ export const ProductionPlannerPage = () => {
       console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
       console.log(`[PLANNER] ✓ ${productions.length} productions, ${wipItems.length} WIP items, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
       
-      const wipByProductionId = new Map<string, typeof wipItems[0]>();
+      // Store ALL WIP records per production (for multi-day jobs there can be multiple)
+      const wipByProductionId = new Map<string, (typeof wipItems[0])[]>();
       for (const wip of wipItems) {
         if (wip.productionId) {
-          wipByProductionId.set(wip.productionId, wip);
+          const existing = wipByProductionId.get(wip.productionId) || [];
+          existing.push(wip);
+          wipByProductionId.set(wip.productionId, existing);
         }
       }
-      console.log(`[PLANNER] ✓ Built WIP lookup map with ${wipByProductionId.size} entries`);
+      // Count unique productions with WIP
+      const uniqueProductionsWithWip = wipByProductionId.size;
+      const totalWipRecords = wipItems.filter(w => w.productionId).length;
+      console.log(`[PLANNER] ✓ Built WIP lookup map with ${uniqueProductionsWithWip} productions (${totalWipRecords} total WIP records)`);
       
       // RESTORE OT STATE FROM WIP RECORDS
       // Group WIP items by workDate + teamId to derive per-team/day OT settings
@@ -296,16 +303,27 @@ export const ProductionPlannerPage = () => {
       let jobList: Job[];
       try {
         console.log('[PLANNER] Starting job mapping with WIP overlay...');
-        jobList = productions.map((p: any) => {
-          const wipData = wipByProductionId.get(p.id);
+        jobList = productions.flatMap((p: any): Job[] => {
+          const wipRecords = wipByProductionId.get(p.id);
           
-          if (wipData) {
-            return {
+          if (wipRecords && wipRecords.length > 0) {
+            // Sort by workDate to ensure proper segment ordering
+            const sortedWip = [...wipRecords].sort((a, b) => {
+              const dateA = a.workDate ? new Date(a.workDate).getTime() : 0;
+              const dateB = b.workDate ? new Date(b.workDate).getTime() : 0;
+              return dateA - dateB;
+            });
+            
+            const totalSegments = sortedWip.length;
+            const totalEfinks = p.newEstimateDefinks || 0;
+            
+            // Create a job entry for each WIP segment (for multi-day jobs)
+            return sortedWip.map((wipData, segmentIndex) => ({
               id: p.id,
               name: p.name || '',
               orderNumber: wipData.orderNumber || p.orderNumber || p.name || 'N/A',
               customer: wipData.customerName || p.customerName || 'Unknown',
-              estimatedEFinks: wipData.estimatedEfinks || p.newEstimateDefinks || 0,
+              estimatedEFinks: wipData.estimatedEfinks || totalEfinks,
               customDurationMinutes: p.customDurationMinutes || undefined,
               plannedDateStr: formatIsoDateLocal(wipData.workDate),
               jigId: wipData.teamId || null,
@@ -318,11 +336,16 @@ export const ProductionPlannerPage = () => {
               wipId: wipData.id,
               dayStartMinutes: wipData.dayStartMinutes !== undefined ? wipData.dayStartMinutes : undefined,
               dayEndMinutes: wipData.dayEndMinutes !== undefined ? wipData.dayEndMinutes : undefined,
-              overtimeEnabled: wipData.overtimeEnabled !== undefined ? wipData.overtimeEnabled : undefined
-            };
+              overtimeEnabled: wipData.overtimeEnabled !== undefined ? wipData.overtimeEnabled : undefined,
+              // Multi-day segment info from actual WIP data
+              segmentIndex: segmentIndex,
+              totalSegments: totalSegments,
+              segmentEfinks: wipData.estimatedEfinks || (totalEfinks / totalSegments)
+            }));
           }
           
-          return {
+          // No WIP records - show as unallocated (single entry, no segment info)
+          return [{
             id: p.id,
             name: p.name || '',
             orderNumber: p.orderNumber || p.name || 'N/A',
@@ -336,8 +359,15 @@ export const ProductionPlannerPage = () => {
             plannedStartTime: null,
             plannedEndTime: null,
             plannedDurationMinutes: null,
-            breakAdjustmentMinutes: null
-          };
+            breakAdjustmentMinutes: null,
+            wipId: undefined,
+            dayStartMinutes: undefined,
+            dayEndMinutes: undefined,
+            overtimeEnabled: undefined,
+            segmentIndex: undefined,
+            totalSegments: undefined,
+            segmentEfinks: undefined
+          }];
         });
         
         const allocatedCount = jobList.filter(j => j.wipId).length;

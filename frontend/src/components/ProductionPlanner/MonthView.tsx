@@ -1,10 +1,5 @@
 import { Stack, Text } from '@fluentui/react';
 import { useMemo, memo } from 'react';
-import { 
-  expandJobsForDateRange, 
-  type JobInput, 
-  type ExpandedJobSegment 
-} from '../../domain/plannerV2/multiDayExpander';
 
 interface Job {
   id: string;
@@ -21,6 +16,9 @@ interface Job {
   plannedEndTime?: number | null;
   breakAdjustmentMinutes?: number | null;
   wipId?: string;
+  segmentIndex?: number | null;
+  totalSegments?: number | null;
+  segmentEfinks?: number;
 }
 
 interface Jig {
@@ -57,34 +55,30 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
   const currentMonthDate = new Date(currentMonth + 'T00:00:00Z');
   const currentMonthNum = currentMonthDate.getUTCMonth();
   
+  // Group jobs by their planned date directly - no recalculation of multi-day spans
+  // This uses actual WIP data from Day view allocations
   const { jobsByDate, efinksByDate } = useMemo(() => {
-    if (daysInView.length === 0) {
-      return { 
-        jobsByDate: new Map<string, ExpandedJobSegment[]>(), 
-        efinksByDate: new Map<string, number>() 
-      };
-    }
-    
-    const startDate = daysInView[0];
-    const endDate = daysInView[daysInView.length - 1];
-    
-    const expandedMap = expandJobsForDateRange(
-      jobs as JobInput[],
-      jigTeams,
-      startDate,
-      endDate
-    );
-    
+    const byDate = new Map<string, Job[]>();
     const efinksMap = new Map<string, number>();
-    for (const [dateStr, segments] of expandedMap) {
-      const total = segments.reduce((sum, seg) => sum + seg.segmentEfinks, 0);
-      efinksMap.set(dateStr, total);
+    
+    for (const job of jobs) {
+      if (!job.plannedDateStr) continue;
+      
+      const dateStr = job.plannedDateStr;
+      const existing = byDate.get(dateStr) || [];
+      existing.push(job);
+      byDate.set(dateStr, existing);
+      
+      // Use segmentEfinks if available (from WIP), otherwise estimatedEFinks
+      const jobEfinks = job.segmentEfinks ?? job.estimatedEFinks;
+      const currentTotal = efinksMap.get(dateStr) || 0;
+      efinksMap.set(dateStr, currentTotal + jobEfinks);
     }
     
-    return { jobsByDate: expandedMap, efinksByDate: efinksMap };
-  }, [jobs, jigTeams, daysInView]);
+    return { jobsByDate: byDate, efinksByDate: efinksMap };
+  }, [jobs]);
 
-  const getJobsForDate = (dateStr: string) => {
+  const getJobsForDate = (dateStr: string): Job[] => {
     return jobsByDate.get(dateStr) || [];
   };
 
@@ -237,58 +231,67 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
                     </Stack>
 
                     <Stack styles={{ root: { padding: 8, gap: 6, maxHeight: 306, overflowY: 'auto' } }}>
-                      {dayJobs.map(job => (
-                        <div
-                          key={job.id}
-                          draggable
-                          onDragStart={() => onDragStart(job.id)}
-                          onDoubleClick={() => onJobDoubleClick(job.id)}
-                          style={{
-                            padding: 6,
-                            background: job.productionComplete 
-                              ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
-                              : 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))',
-                            borderRadius: 6,
-                            border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
-                            cursor: 'grab',
-                            boxShadow: job.productionComplete 
-                              ? '0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)' 
-                              : '0 2px 8px rgba(0, 120, 212, 0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
-                            opacity: job.productionComplete ? 0.8 : 1
-                          }}
-                        >
-                          <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
-                            <Text variant="tiny" styles={{ root: { fontWeight: 600, color: 'white' } }}>
-                              {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
-                            </Text>
-                            {job.totalSegments && job.totalSegments > 1 && (
-                              <Text variant="tiny" styles={{ 
-                                root: { 
-                                  backgroundColor: 'rgba(255, 140, 0, 0.9)',
-                                  color: 'white',
-                                  padding: '1px 4px',
-                                  borderRadius: 3,
-                                  fontSize: 9,
-                                  fontWeight: 600,
-                                  marginLeft: 4,
-                                  whiteSpace: 'nowrap'
-                                } 
-                              }}>
-                                Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
+                      {dayJobs.map((job, idx) => {
+                        // Only show Day X/Y for jobs with actual WIP multi-day allocation (have wipId + totalSegments > 1)
+                        const isMultiDay = job.wipId && job.totalSegments && job.totalSegments > 1;
+                        const isUnallocated = !job.jigId;
+                        const displayEfinks = job.segmentEfinks ?? job.estimatedEFinks;
+                        
+                        return (
+                          <div
+                            key={`${job.id}-${job.plannedDateStr}-${idx}`}
+                            draggable
+                            onDragStart={() => onDragStart(job.id)}
+                            onDoubleClick={() => onJobDoubleClick(job.id)}
+                            style={{
+                              padding: 6,
+                              background: job.productionComplete 
+                                ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
+                                : isUnallocated
+                                  ? 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))'
+                                  : 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))',
+                              borderRadius: 6,
+                              border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
+                              cursor: 'grab',
+                              boxShadow: job.productionComplete 
+                                ? '0 2px 6px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.3)' 
+                                : '0 2px 8px rgba(0, 120, 212, 0.3), inset 0 1px 0 rgba(255,255,255,0.25)',
+                              opacity: job.productionComplete ? 0.8 : 1
+                            }}
+                          >
+                            <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                              <Text variant="tiny" styles={{ root: { fontWeight: 600, color: 'white' } }}>
+                                {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                               </Text>
-                            )}
-                          </Stack>
-                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
-                            {job.customer}
-                          </Text>
-                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
-                            {job.segmentEfinks !== undefined 
-                              ? `${job.segmentEfinks.toFixed(1)} E-Finks${job.totalSegments && job.totalSegments > 1 ? ` (${job.estimatedEFinks} total)` : ''}`
-                              : `${job.estimatedEFinks} E-Finks`
-                            }
-                          </Text>
-                        </div>
-                      ))}
+                              {isMultiDay && (
+                                <Text variant="tiny" styles={{ 
+                                  root: { 
+                                    backgroundColor: 'rgba(255, 140, 0, 0.9)',
+                                    color: 'white',
+                                    padding: '1px 4px',
+                                    borderRadius: 3,
+                                    fontSize: 9,
+                                    fontWeight: 600,
+                                    marginLeft: 4,
+                                    whiteSpace: 'nowrap'
+                                  } 
+                                }}>
+                                  Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
+                                </Text>
+                              )}
+                            </Stack>
+                            <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
+                              {job.customer}
+                            </Text>
+                            <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                              {isMultiDay
+                                ? `${displayEfinks.toFixed(1)} E-Finks (${job.estimatedEFinks} total)`
+                                : `${displayEfinks} E-Finks`
+                              }
+                            </Text>
+                          </div>
+                        );
+                      })}
                     </Stack>
                   </Stack>
                 );
