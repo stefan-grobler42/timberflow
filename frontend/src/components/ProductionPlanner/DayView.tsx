@@ -1145,11 +1145,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         checked={teamOvertime.enabled}
                         onChange={(_, checked) => {
                           if (checked) {
-                            onTeamOvertimeChange?.(dayStr, jig.id, true, 1020);
-                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, true, 420);
+                            // Use weekend defaults from settings
+                            onTeamOvertimeChange?.(dayStr, jig.id, true, weekendDefaultEnd);
+                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, true, weekendDefaultStart);
                           } else {
-                            onTeamOvertimeChange?.(dayStr, jig.id, false, 1020);
-                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, false, 420);
+                            onTeamOvertimeChange?.(dayStr, jig.id, false, weekendDefaultEnd);
+                            onTeamEarlyOvertimeChange?.(dayStr, jig.id, false, weekendDefaultStart);
                           }
                         }}
                         styles={{
