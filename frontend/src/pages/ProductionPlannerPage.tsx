@@ -10,6 +10,7 @@ import type { ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
 import { teamWorkItemService, type CreateTeamWorkItemDto, type UpdateTeamWorkItemDto } from '../services/teamWorkItemService';
 import { systemSettingsService } from '../services/systemSettingsService';
+import { teamDaySettingsService } from '../services/teamDaySettingsService';
 import type { Jig } from '../types/millennium';
 import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
@@ -162,13 +163,26 @@ export const ProductionPlannerPage = () => {
         return null; // Don't fail if settings can't be loaded, use defaults
       });
       
-      const [productions, wipItems, jigs, unallocated, blocks, settings] = await Promise.all([
+      // Fetch TeamDaySettings for overtime persistence (especially for weekends with no jobs)
+      const teamDaySettingsPromise = teamDaySettingsService.getRange({
+        dateFrom: dateRange.dateFrom,
+        dateTo: dateRange.dateTo
+      }).then(r => {
+        console.log('[PLANNER] team day settings loaded in', Date.now() - startTime, 'ms, count:', r.length);
+        return r;
+      }).catch(e => {
+        console.error('[PLANNER] ✗ team day settings FAILED:', e);
+        return []; // Don't fail if settings can't be loaded
+      });
+      
+      const [productions, wipItems, jigs, unallocated, blocks, settings, teamDaySettings] = await Promise.all([
         productionsPromise,
         wipItemsPromise,
         jigsPromise,
         unallocatedPromise,
         blocksPromise,
-        settingsPromise
+        settingsPromise,
+        teamDaySettingsPromise
       ]);
       
       // Convert SystemSettings to SchedulerConfig
@@ -233,6 +247,29 @@ export const ProductionPlannerPage = () => {
           };
         }
       }
+      
+      // MERGE TeamDaySettings into restoredOTState (TeamDaySettings take priority for persisted weekend settings)
+      // This ensures weekend work toggles persist even when there are no WIP records
+      for (const tds of teamDaySettings) {
+        if (!tds.workDate || !tds.teamId) continue;
+        
+        const dayStr = formatIsoDateLocal(tds.workDate);
+        if (!dayStr) continue;
+        
+        if (!restoredOTState[dayStr]) {
+          restoredOTState[dayStr] = {};
+        }
+        
+        // TeamDaySettings takes priority - it's the authoritative source for day-level settings
+        // Always apply TeamDaySettings to ensure persisted state (including "off" state) is restored
+        restoredOTState[dayStr][tds.teamId] = {
+          enabled: tds.lateOtEnabled,
+          closeTime: tds.lateOtEndMinutes ?? 1140,
+          earlyEnabled: tds.earlyOtEnabled,
+          earlyStartTime: tds.earlyOtStartMinutes ?? 360
+        };
+      }
+      console.log(`[PLANNER] ✓ Merged ${teamDaySettings.length} TeamDaySettings into OT state`);
       
       // Count how many team/days have OT enabled for logging
       let lateOTCount = 0;
@@ -1054,6 +1091,19 @@ export const ProductionPlannerPage = () => {
     setOperationMessage(enabled ? 'Enabling overtime...' : 'Disabling overtime...');
     
     try {
+      // ALWAYS persist to TeamDaySettings (even if no WIP items) for weekend work persistence
+      const existingEarlySettings = overtimeByTeamDay[dayStr]?.[teamId];
+      await teamDaySettingsService.upsert({
+        teamId: teamId,
+        workDate: dayStr,
+        lateOtEnabled: enabled,
+        lateOtEndMinutes: enabled ? closeTime : undefined,
+        earlyOtEnabled: existingEarlySettings?.earlyEnabled ?? false,
+        earlyOtStartMinutes: existingEarlySettings?.earlyStartTime,
+        isWorkingDay: enabled || (existingEarlySettings?.earlyEnabled ?? false)
+      });
+      console.log(`[PLANNER] ✓ Persisted late OT to TeamDaySettings: ${dayStr}/${teamId.substring(0, 8)} enabled=${enabled}`);
+      
       // Fetch ALL WIP records for this team-day directly from the service
       // This ensures we update ALL records, not just ones mapped via production lookup
       const wipItems = await teamWorkItemService.getForPlanner({
@@ -1063,7 +1113,8 @@ export const ProductionPlannerPage = () => {
       });
       
       if (wipItems.length === 0) {
-        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId} (settings persisted)`);
+        setOperationInProgress(false);
         return;
       }
       
@@ -1074,7 +1125,6 @@ export const ProductionPlannerPage = () => {
       
       // Get the new shift configuration based on late OT settings
       // Preserve early OT settings when changing late OT
-      const existingEarlySettings = overtimeByTeamDay[dayStr]?.[teamId];
       const newEndTime = enabled ? closeTime : 1020; // WORKING_END when OT disabled
       const newShift = PlannerV2.getShiftConfig(
         enabled,
@@ -1168,6 +1218,19 @@ export const ProductionPlannerPage = () => {
     setOperationMessage(earlyEnabled ? 'Enabling early overtime...' : 'Disabling early overtime...');
     
     try {
+      // ALWAYS persist to TeamDaySettings (even if no WIP items) for weekend work persistence
+      const existingLateSettings = overtimeByTeamDay[dayStr]?.[teamId];
+      await teamDaySettingsService.upsert({
+        teamId: teamId,
+        workDate: dayStr,
+        earlyOtEnabled: earlyEnabled,
+        earlyOtStartMinutes: earlyEnabled ? earlyStartTime : undefined,
+        lateOtEnabled: existingLateSettings?.enabled ?? false,
+        lateOtEndMinutes: existingLateSettings?.closeTime,
+        isWorkingDay: earlyEnabled || (existingLateSettings?.enabled ?? false)
+      });
+      console.log(`[PLANNER] ✓ Persisted early OT to TeamDaySettings: ${dayStr}/${teamId.substring(0, 8)} enabled=${earlyEnabled}`);
+      
       // Fetch ALL WIP records for this team-day directly from the service
       // This ensures we update ALL records, not just ones mapped via production lookup
       const wipItems = await teamWorkItemService.getForPlanner({
@@ -1177,7 +1240,8 @@ export const ProductionPlannerPage = () => {
       });
       
       if (wipItems.length === 0) {
-        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId}`);
+        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId} (settings persisted)`);
+        setOperationInProgress(false);
         return;
       }
       
@@ -1185,7 +1249,6 @@ export const ProductionPlannerPage = () => {
       
       // Get the new shift configuration based on early OT settings
       // Preserve late OT settings when changing early OT
-      const existingLateSettings = overtimeByTeamDay[dayStr]?.[teamId];
       const newShift = PlannerV2.getShiftConfig(
         existingLateSettings?.enabled,
         existingLateSettings?.closeTime,

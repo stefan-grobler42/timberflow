@@ -141,19 +141,56 @@ public class TeamDaySettingsController : ControllerBase
             CreatedOn = DateTime.UtcNow
         };
 
-        _context.TeamDaySettings.Add(newSettings);
-        await _context.SaveChangesAsync();
+        try
+        {
+            _context.TeamDaySettings.Add(newSettings);
+            await _context.SaveChangesAsync();
 
-        _logger.LogInformation("Created TeamDaySettings {Id} for team {TeamId} on {WorkDate}",
-            newSettings.Id, newSettings.TeamId, newSettings.WorkDate);
+            _logger.LogInformation("Created TeamDaySettings {Id} for team {TeamId} on {WorkDate}",
+                newSettings.Id, newSettings.TeamId, newSettings.WorkDate);
 
-        var result = await _context.TeamDaySettings
-            .Include(s => s.Team)
-            .FirstOrDefaultAsync(s => s.Id == newSettings.Id);
+            var result = await _context.TeamDaySettings
+                .Include(s => s.Team)
+                .FirstOrDefaultAsync(s => s.Id == newSettings.Id);
 
-        return CreatedAtAction(nameof(GetByTeamAndDate), 
-            new { teamId = newSettings.TeamId, dateStr = newSettings.WorkDate.ToString("yyyy-MM-dd") }, 
-            MapToDto(result!));
+            return CreatedAtAction(nameof(GetByTeamAndDate), 
+                new { teamId = newSettings.TeamId, dateStr = newSettings.WorkDate.ToString("yyyy-MM-dd") }, 
+                MapToDto(result!));
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23505")
+        {
+            _logger.LogInformation("Concurrent insert detected for team {TeamId} on {WorkDate}, retrying as update",
+                upsertDto.TeamId, upsertDto.WorkDate);
+
+            _context.Entry(newSettings).State = EntityState.Detached;
+
+            var concurrentSettings = await _context.TeamDaySettings
+                .FirstOrDefaultAsync(s => s.TeamId == upsertDto.TeamId && 
+                    s.WorkDate >= workDateStart && s.WorkDate < workDateEnd);
+
+            if (concurrentSettings != null)
+            {
+                concurrentSettings.EarlyOtEnabled = upsertDto.EarlyOtEnabled;
+                concurrentSettings.EarlyOtStartMinutes = upsertDto.EarlyOtStartMinutes;
+                concurrentSettings.LateOtEnabled = upsertDto.LateOtEnabled;
+                concurrentSettings.LateOtEndMinutes = upsertDto.LateOtEndMinutes;
+                concurrentSettings.IsWorkingDay = upsertDto.IsWorkingDay;
+                concurrentSettings.ModifiedOn = DateTime.UtcNow;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Updated (after retry) TeamDaySettings {Id} for team {TeamId} on {WorkDate}",
+                    concurrentSettings.Id, concurrentSettings.TeamId, concurrentSettings.WorkDate);
+
+                var retryResult = await _context.TeamDaySettings
+                    .Include(s => s.Team)
+                    .FirstOrDefaultAsync(s => s.Id == concurrentSettings.Id);
+
+                return Ok(MapToDto(retryResult!));
+            }
+
+            return StatusCode(500, new { message = "Failed to upsert TeamDaySettings after retry" });
+        }
     }
 
     private static TeamDaySettingsDto MapToDto(TeamDaySettings settings)
