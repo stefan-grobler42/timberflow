@@ -706,23 +706,48 @@ export const ProductionPlannerPage = () => {
           });
         }
         
-        // For now, only save the first segment (primary day)
-        // TODO: When backend supports multi-day WIP records, save all segments
-        const primaryUpdate = updates[0];
-        if (primaryUpdate) {
-          const success = await saveMultipleJobUpdates([{
-            jobId: primaryUpdate.jobId,
-            wipId: primaryUpdate.wipId,
-            teamId: primaryUpdate.teamId,
-            workDate: primaryUpdate.workDate,
-            plannedStartMinutes: primaryUpdate.plannedStartMinutes,
-            plannedEndMinutes: primaryUpdate.plannedEndMinutes,
-            plannedDurationMinutes: allocation.totalDurationMinutes, // Store full duration
-            breakAdjustmentMinutes: primaryUpdate.breakAdjustmentMinutes
-          }]);
-          if (!success) {
-            console.error('[PLANNER] Failed to save job allocation');
-          }
+        // Delete any existing WIP records for this job before creating new multi-day segments
+        if (job.wipId) {
+          await teamWorkItemService.deleteByProductionId(job.id);
+          console.log('[PLANNER] Deleted existing WIP records for multi-day re-allocation');
+        }
+        
+        // Calculate segment E-Finks based on work minutes proportion
+        const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
+        
+        // Build updates for all segments with segment-specific E-Finks
+        const allSegmentUpdates = updates.map((update, idx) => {
+          const segment = allocation.segments[idx];
+          const segmentEfinks = totalWorkMinutes > 0 
+            ? (segment.workMinutes / totalWorkMinutes) * job.estimatedEFinks 
+            : job.estimatedEFinks / updates.length;
+          
+          return {
+            jobId: update.jobId,
+            wipId: undefined, // Always create new WIP records for all segments
+            teamId: update.teamId,
+            workDate: update.workDate,
+            plannedStartMinutes: update.plannedStartMinutes,
+            plannedEndMinutes: update.plannedEndMinutes,
+            plannedDurationMinutes: update.plannedDurationMinutes,
+            breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+            estimatedEfinks: segmentEfinks,
+            segmentIndex: idx,
+            totalSegments: updates.length
+          };
+        });
+        
+        console.log(`[PLANNER] Saving ${allSegmentUpdates.length} WIP segments for multi-day job`);
+        
+        const success = await saveMultipleJobUpdates(allSegmentUpdates);
+        if (!success) {
+          console.error('[PLANNER] Failed to save job allocation');
+        }
+        
+        // For multi-day jobs, reload data to get all WIP segments properly
+        if (allSegmentUpdates.length > 1) {
+          console.log('[PLANNER] Multi-day job allocated - reloading data to refresh all segments');
+          await loadData();
         }
         
         if (viewMode !== 'day') {
