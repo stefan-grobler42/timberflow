@@ -1551,6 +1551,11 @@ export const ProductionPlannerPage = () => {
       // This allows the user to manually control job positions via Edit/Drag/Drop
       console.log(`[LATE-OT] Updating OT settings for ${wipItems.length} jobs - positions unchanged`);
       
+      // Log current job positions BEFORE update for debugging
+      for (const wip of wipItems) {
+        console.log(`[LATE-OT] Job ${wip.productionName?.substring(0, 20) || wip.id}: start=${wip.plannedStartMinutes}, end=${wip.plannedEndMinutes}, duration=${wip.plannedDurationMinutes}`);
+      }
+      
       const newEndTime = enabled ? closeTime : 1020; // WORKING_END when OT disabled
       
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
@@ -1574,7 +1579,9 @@ export const ProductionPlannerPage = () => {
       }
       
       // Reload data to reflect all changes (no automatic recalculation - user controls via Edit button)
+      console.log(`[LATE-OT] Reloading data after OT update...`);
       await loadData();
+      console.log(`[LATE-OT] ✓ Data reloaded - job positions should be unchanged`);
       
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
