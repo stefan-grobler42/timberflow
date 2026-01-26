@@ -473,10 +473,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           }
         }
         
-        // Weekend-specific rule: No breaks taken if working 15:00 or earlier
-        // Only when working PAST 15:00 do workers take breaks (they're working a longer shift)
-        if (isWeekendDay && teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes <= 900) {
-          return false;
+        // Weekend-specific rule: Lunch only taken if working PAST 15:00
+        // Morning tea is always taken, but lunch only if end time > 15:00 (900 minutes)
+        if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+          return teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes > 900;
         }
         
         return true;
@@ -884,10 +884,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         return false;
       }
       
-      // Weekend-specific rule: No breaks taken if working 15:00 or earlier
-      // Only when working PAST 15:00 do workers take breaks (longer shift)
-      if (isWeekendDay && effectiveEndMinutes <= 900) {
-        return false;
+      // Weekend-specific rule: Lunch only taken if working PAST 15:00
+      // Morning tea is always taken, but lunch only if end time > 15:00 (900 minutes)
+      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+        return effectiveEndMinutes > 900;
       }
       return true;
     });
@@ -989,10 +989,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         return false;
       }
       
-      // Weekend-specific rule: No breaks taken if working 15:00 or earlier
-      // Only when working PAST 15:00 do workers take breaks (longer shift)
-      if (isWeekendDay && forWorkingMinutes.endMinutes <= 900) {
-        return false;
+      // Weekend-specific rule: Lunch only taken if working PAST 15:00
+      // Morning tea is always taken, but lunch only if end time > 15:00 (900 minutes)
+      if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+        return forWorkingMinutes.endMinutes > 900;
       }
       
       return true;
