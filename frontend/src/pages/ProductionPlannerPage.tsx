@@ -681,8 +681,8 @@ export const ProductionPlannerPage = () => {
         const team = jigTeams.find(t => t.id === updatedJigId);
         const teamAverageEfinks = team?.averageEfinks ?? 80;
         
-        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinksForJob, teamAverageEfinks);
-        console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ')');
+        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinksForJob, teamAverageEfinks, schedulerConfig);
+        console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ', rounding:', schedulerConfig.durationRoundingIncrement, 'min)');
         console.log('[PLANNER] Duration in hours:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
         
         const teamOvertimeSettings = overtimeByTeamDay[dateStr]?.[updatedJigId];
@@ -1044,7 +1044,7 @@ export const ProductionPlannerPage = () => {
       const teamAverageEfinks = team?.averageEfinks ?? 80;
       
       // Calculate duration using team efficiency and TOTAL E-Finks
-      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinks, teamAverageEfinks);
+      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinks, teamAverageEfinks, schedulerConfig);
       
       console.log('[PLANNER] Recalculating with total E-Finks:', totalEFinks, 'duration:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
       
@@ -1209,7 +1209,7 @@ export const ProductionPlannerPage = () => {
               if (!origJob) continue;
               
               const jobDuration = subsequentJob.plannedDurationMinutes ?? 
-                PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
+                PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks, undefined, schedulerConfig);
               
               // Check if subsequent job would overflow
               const availableForSub = PlannerV2.getAvailableMinutes(nextStartTime, shift);
@@ -1272,7 +1272,7 @@ export const ProductionPlannerPage = () => {
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
     
-    const calculatedDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks);
+    const calculatedDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, undefined, schedulerConfig);
     console.log(`[PLANNER] Resetting job ${jobId} from custom duration to calculated: ${calculatedDuration}m`);
     
     setJobs(prevJobs => prevJobs.map(j => 
@@ -1340,7 +1340,7 @@ export const ProductionPlannerPage = () => {
           if (!origJob) continue;
           
           const jobDuration = subsequentJob.plannedDurationMinutes ?? 
-            PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks);
+            PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks, undefined, schedulerConfig);
           
           const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
           
@@ -1431,7 +1431,7 @@ export const ProductionPlannerPage = () => {
       const totalEfinks = sortedWips.reduce((sum, w) => sum + (w.estimatedEfinks ?? 0), 0);
       
       // Get team-specific duration
-      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEfinks, teamAverageEfinks);
+      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEfinks, teamAverageEfinks, schedulerConfig);
       
       console.log(`[PLANNER] Recalculating ${firstWip.orderNumber || firstWip.productionName}: ${totalEfinks} E-Finks, ${teamSpecificDuration} min`);
       

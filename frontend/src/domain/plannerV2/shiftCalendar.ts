@@ -92,7 +92,6 @@ export function getShiftConfigForDate(
   const dayOfWeek = getDayOfWeek(dateStr);
   
   const defaultStartTime = config.weekdayShift.startTime;
-  const defaultEndTime = config.weekdayShift.endTime;
   const fridayEndTime = config.weekdayShift.fridayEndTime;
   const overtimeEndTime = config.weekdayOvertimeDefaults.lateEndTime;
   const standardBreaks = config.weekdayBreaks;
@@ -493,6 +492,50 @@ export function getNextValidStartTime(afterTime: number, shift: ShiftConfig): nu
   }
   
   return startTime;
+}
+
+/**
+ * BREAK-PROXIMITY AWARE: Calculates the start time for the next job after a previous job ends.
+ * 
+ * Rules (hardcoded as per user requirements):
+ * 1. If the previous job ends within BREAK_PROXIMITY_THRESHOLD (10min) of a break start,
+ *    the next job starts after the break ends.
+ * 2. Otherwise, the next job starts after the buffer.
+ * 3. If the calculated start time lands in a break, skip to after the break.
+ * 
+ * @param previousJobEndTime - The clock time (minutes from midnight) when the previous job ended
+ * @param bufferMinutes - The buffer between jobs from config
+ * @param shift - The shift configuration with breaks
+ * @returns The start time for the next job
+ */
+export function getNextJobStartTime(
+  previousJobEndTime: number,
+  bufferMinutes: number,
+  shift: ShiftConfig
+): number {
+  const BREAK_PROXIMITY_THRESHOLD = 10; // Hardcoded: if job ends within 10min of break, skip to after break
+  
+  // Check if ending within proximity of any break start
+  for (const brk of shift.breaks) {
+    const timeUntilBreak = brk.start - previousJobEndTime;
+    
+    // If job ends within threshold before a break starts
+    if (timeUntilBreak >= 0 && timeUntilBreak <= BREAK_PROXIMITY_THRESHOLD) {
+      // Next job starts after the break
+      return brk.end;
+    }
+  }
+  
+  // No break proximity - apply standard buffer
+  let nextStart = previousJobEndTime + bufferMinutes;
+  
+  // If next start lands in a break, skip to after the break
+  const breakAt = isInBreak(nextStart, shift);
+  if (breakAt) {
+    nextStart = breakAt.end;
+  }
+  
+  return nextStart;
 }
 
 /**

@@ -810,6 +810,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     
     dropZones.push({ position: workingStart, afterJobId: null });
     
+    // Get buffer from config (default 15 if not configured)
+    const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+    
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
@@ -817,11 +820,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       const jobEnd = jobStart + baseDuration + totalBreakMinutes;
       
-      dropZones.push({ position: jobEnd + PlannerV2.BUFFER_MINUTES, afterJobId: job.id });
+      // Use configurable buffer for drop zone positioning
+      dropZones.push({ position: jobEnd + bufferMinutes, afterJobId: job.id });
     }
     
     return dropZones;
-  }, [workingHours, dayStr, jobs]);
+  }, [workingHours, dayStr, jobs, schedulerConfig]);
 
   const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number) => {
     e.preventDefault();

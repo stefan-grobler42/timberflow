@@ -4,12 +4,14 @@
  */
 
 import { MINUTES_PER_EFINK, MIN_DURATION, PIXELS_PER_MINUTE, QUARTER_HOUR } from './constants';
+import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
 
 /** Default team E-Finks capacity per day (baseline for efficiency calculations) */
 const DEFAULT_TEAM_EFINKS = 80;
 
 /**
  * Rounds a number UP to the nearest quarter hour (15 minutes).
+ * LEGACY: Use roundToIncrement with config for configurable rounding.
  * 
  * @param minutes - The number of minutes to round
  * @returns Minutes rounded up to nearest 15-minute increment
@@ -26,6 +28,34 @@ export function roundToQuarterHour(minutes: number): number {
     return QUARTER_HOUR;
   }
   return Math.ceil(minutes / QUARTER_HOUR) * QUARTER_HOUR;
+}
+
+/**
+ * Rounds a number to the NEAREST multiple of the increment (configurable).
+ * Uses standard rounding: 0.5 and above rounds up, below 0.5 rounds down.
+ * 
+ * @param minutes - The number of minutes to round
+ * @param increment - The rounding increment (default: 15 minutes)
+ * @param minDuration - Minimum duration to return (default: 10 minutes)
+ * @returns Minutes rounded to nearest increment, minimum minDuration
+ * 
+ * @example (increment=10)
+ * roundToIncrement(7, 10)   // returns 10 (7/10=0.7, rounds to 1*10=10)
+ * roundToIncrement(14, 10)  // returns 10 (14/10=1.4, rounds to 1*10=10)
+ * roundToIncrement(15, 10)  // returns 20 (15/10=1.5, rounds to 2*10=20)
+ * roundToIncrement(23, 10)  // returns 20 (23/10=2.3, rounds to 2*10=20)
+ * roundToIncrement(27, 10)  // returns 30 (27/10=2.7, rounds to 3*10=30)
+ */
+export function roundToIncrement(
+  minutes: number, 
+  increment: number = QUARTER_HOUR,
+  minDuration: number = MIN_DURATION
+): number {
+  if (minutes <= 0) {
+    return minDuration;
+  }
+  const rounded = Math.round(minutes / increment) * increment;
+  return Math.max(minDuration, rounded);
 }
 
 /**
@@ -49,32 +79,39 @@ export function getTeamEfficiencyFactor(teamAverageEfinks?: number | null): numb
 
 /**
  * Calculates the work duration based on E-Finks estimate.
- * Multiplies by the conversion factor, rounds UP to nearest 15 minutes,
+ * Multiplies by the conversion factor, rounds to NEAREST increment (from config),
  * and ensures a minimum duration.
  * 
  * @param efinks - The estimated E-Finks value for the job
  * @param teamAverageEfinks - Optional team's average E-Finks capacity (for team-specific efficiency)
- * @returns Duration in minutes, minimum 15, rounded to quarter hour
+ * @param config - Optional SchedulerConfig for dynamic rounding settings
+ * @returns Duration in minutes, minimum from config, rounded to config increment
  * 
- * @example
- * calculateEfinksDuration(0)           // returns 15 (minimum)
- * calculateEfinksDuration(1)           // returns 15 (6.5625 rounds up to 15)
- * calculateEfinksDuration(3)           // returns 30 (19.6875 rounds up to 30)
- * calculateEfinksDuration(10)          // returns 75 (65.625 rounds up to 75)
- * calculateEfinksDuration(10, 100)     // returns 60 (65.625 / 1.25 = 52.5, rounds up to 60)
- * calculateEfinksDuration(10, 60)      // returns 90 (65.625 / 0.75 = 87.5, rounds up to 90)
+ * @example (with default 15-min increment)
+ * calculateEfinksDuration(0)           // returns 10 (minimum)
+ * calculateEfinksDuration(1)           // returns 10 (6.5625 rounds to nearest 15 = 0, but min 10)
+ * calculateEfinksDuration(3)           // returns 20 (19.6875 rounds to nearest 15 = 15, but at least min)
+ * calculateEfinksDuration(10)          // returns 60 (65.625 rounds to nearest 15 = 60)
+ * calculateEfinksDuration(10, 100)     // returns 50 (52.5 rounds to nearest 15 = 45, but... actually 53)
  */
-export function calculateEfinksDuration(efinks: number, teamAverageEfinks?: number | null): number {
+export function calculateEfinksDuration(
+  efinks: number, 
+  teamAverageEfinks?: number | null,
+  config: SchedulerConfig = DEFAULT_CONFIG
+): number {
+  const minDuration = config.minJobDuration;
+  const increment = config.durationRoundingIncrement;
+  
   if (!efinks || efinks <= 0) {
-    return MIN_DURATION;
+    return minDuration;
   }
   
   const rawMinutes = efinks * MINUTES_PER_EFINK;
   const efficiencyFactor = getTeamEfficiencyFactor(teamAverageEfinks);
   const adjustedMinutes = efficiencyFactor > 0 ? rawMinutes / efficiencyFactor : rawMinutes;
-  const rounded = roundToQuarterHour(adjustedMinutes);
+  const rounded = roundToIncrement(adjustedMinutes, increment, minDuration);
   
-  return Math.max(MIN_DURATION, rounded);
+  return Math.max(minDuration, rounded);
 }
 
 /**
@@ -88,24 +125,32 @@ export function calculateEfinksDuration(efinks: number, teamAverageEfinks?: numb
  * 
  * @param job - Object containing customDurationMinutes, plannedDurationMinutes and/or estimatedEFinks
  * @param teamAverageEfinks - Optional team's average E-Finks capacity (for team-specific efficiency)
- * @returns Duration in minutes, always rounded to quarter hour
+ * @param config - Optional SchedulerConfig for dynamic rounding settings
+ * @returns Duration in minutes, always rounded to config increment
  * 
  * @example
  * getJobDuration({ customDurationMinutes: 45 })           // returns 45
  * getJobDuration({ plannedDurationMinutes: 60 })          // returns 60
- * getJobDuration({ estimatedEFinks: 5 })                  // returns 45 (32.8125 -> 45)
+ * getJobDuration({ estimatedEFinks: 5 })                  // returns 30-35 depending on config
  * getJobDuration({ customDurationMinutes: 60, estimatedEFinks: 5 })  // returns 60 (custom takes precedence)
- * getJobDuration({})                                       // returns 15 (minimum)
- * getJobDuration({ estimatedEFinks: 10 }, 100)            // returns 60 (team is 25% faster)
+ * getJobDuration({})                                       // returns minDuration from config
+ * getJobDuration({ estimatedEFinks: 10 }, 100)            // team is 25% faster
  */
-export function getJobDuration(job: {
-  customDurationMinutes?: number | null;
-  plannedDurationMinutes?: number | null;
-  estimatedEFinks?: number | null;
-}, teamAverageEfinks?: number | null): number {
+export function getJobDuration(
+  job: {
+    customDurationMinutes?: number | null;
+    plannedDurationMinutes?: number | null;
+    estimatedEFinks?: number | null;
+  }, 
+  teamAverageEfinks?: number | null,
+  config: SchedulerConfig = DEFAULT_CONFIG
+): number {
+  const increment = config.durationRoundingIncrement;
+  const minDuration = config.minJobDuration;
+  
   // Priority 1: Custom duration (manual resize)
   if (job.customDurationMinutes && job.customDurationMinutes > 0) {
-    return roundToQuarterHour(job.customDurationMinutes);
+    return roundToIncrement(job.customDurationMinutes, increment, minDuration);
   }
   
   // Priority 2: Planned duration from WIP (truncated rollovers, allocated jobs)
@@ -114,7 +159,7 @@ export function getJobDuration(job: {
   }
   
   // Priority 3: Calculate from E-Finks
-  return calculateEfinksDuration(job.estimatedEFinks || 0, teamAverageEfinks);
+  return calculateEfinksDuration(job.estimatedEFinks || 0, teamAverageEfinks, config);
 }
 
 /**

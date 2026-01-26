@@ -1,20 +1,17 @@
 /**
  * Core cascade scheduling logic for the plannerV2 module.
- * BREAK-AWARE: Jobs skip over breaks and maintain 30-minute buffers.
+ * BREAK-AWARE: Jobs skip over breaks and maintain configurable buffers.
  */
 
-import type { ScheduledJob, ShiftConfig, OvertimeSettings } from './types';
+import type { ScheduledJob, ShiftConfig } from './types';
 import { BUFFER_MINUTES } from './constants';
 import { getJobDuration } from './durationCalculator';
+import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
 import { 
-  getShiftConfig, 
-  getNextWorkingDay, 
   calculateEndTime, 
-  isInBreak,
   getNextValidStartTime,
   getAvailableMinutes,
-  getNextWorkingDayWithBlocks,
-  getShiftConfigWithBlocks
+  getNextJobStartTime
 } from './shiftCalendar';
 
 /**
@@ -56,12 +53,13 @@ export interface DropZone {
 export function scheduleJob(
   job: ScheduledJob,
   startTime: number,
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): JobTimingResult {
   // Ensure we don't start in a break
   const adjustedStart = getNextValidStartTime(startTime, shift);
   
-  const workDuration = getJobDuration(job);
+  const workDuration = getJobDuration(job, null, config);
   const timing = calculateEndTime(adjustedStart, workDuration, shift);
   
   return {
@@ -101,38 +99,21 @@ export function findInsertPosition(
 
 /**
  * Gets the next start time after a job ends, accounting for buffer and breaks.
- * Loops to ensure both buffer AND resulting start avoid breaks.
- * If buffer + end time lands in a break, skips to end of break and ensures buffer is maintained.
+ * Uses break-proximity-aware logic from shiftCalendar:
+ * 1. If job ends within 10min of a break start, next job starts after break
+ * 2. Otherwise, add buffer
+ * 3. If result lands in a break, skip to after break
+ * 
+ * @param endTime - The clock time when the previous job ended
+ * @param shift - The shift configuration with breaks
+ * @param bufferMinutes - Buffer between jobs from config (defaults to BUFFER_MINUTES constant)
  */
-function getNextStartTimeAfterJob(endTime: number, shift: ShiftConfig): number {
-  let nextTime = endTime + BUFFER_MINUTES;
-  
-  // Loop to ensure we don't land in a break after adding buffer
-  // and that the final position respects both buffer and break rules
-  let iterations = 0;
-  const maxIterations = 10; // Guard against infinite loop
-  
-  while (iterations < maxIterations) {
-    const breakAt = isInBreak(nextTime, shift);
-    if (!breakAt) {
-      // Not in a break, we're good
-      break;
-    }
-    
-    // We're in a break - skip to end of break
-    // After skipping, we need to ensure we're still past the buffer from the original end
-    nextTime = breakAt.end;
-    
-    // If the break ends before the buffer would have placed us, we still need to maintain buffer
-    // This can happen if break end is less than endTime + BUFFER_MINUTES
-    if (nextTime < endTime + BUFFER_MINUTES) {
-      nextTime = endTime + BUFFER_MINUTES;
-    }
-    
-    iterations++;
-  }
-  
-  return nextTime;
+function getNextStartTimeAfterJob(
+  endTime: number, 
+  shift: ShiftConfig,
+  bufferMinutes: number = BUFFER_MINUTES
+): number {
+  return getNextJobStartTime(endTime, bufferMinutes, shift);
 }
 
 /**
@@ -144,9 +125,11 @@ export function cascadeSchedule(
   jobs: ScheduledJob[],
   insertedJob: ScheduledJob,
   insertIndex: number,
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): CascadeResult {
   const scheduledJobs: ScheduledJob[] = [];
+  const bufferMinutes = config?.bufferMinutes ?? BUFFER_MINUTES;
   
   const jobsBefore = jobs.slice(0, insertIndex);
   const jobsAfter = jobs.slice(insertIndex);
@@ -161,17 +144,17 @@ export function cascadeSchedule(
   if (jobsBefore.length > 0) {
     const lastBefore = jobsBefore[jobsBefore.length - 1];
     const lastEndTime = lastBefore.plannedEndTime ?? shift.startTime;
-    currentTime = getNextStartTimeAfterJob(lastEndTime, shift);
+    currentTime = getNextStartTimeAfterJob(lastEndTime, shift, bufferMinutes);
   }
   
   // Schedule the inserted job
-  const insertedTiming = scheduleJob(insertedJob, currentTime, shift);
+  const insertedTiming = scheduleJob(insertedJob, currentTime, shift, config);
   const scheduledInserted: ScheduledJob = {
     ...insertedJob,
     plannedStartTime: insertedTiming.plannedStartTime,
     plannedEndTime: insertedTiming.plannedEndTime,
     breakAdjustmentMinutes: insertedTiming.breakAdjustmentMinutes,
-    plannedDurationMinutes: getJobDuration(insertedJob)
+    plannedDurationMinutes: getJobDuration(insertedJob, null, config)
   };
   scheduledJobs.push(scheduledInserted);
   
@@ -196,7 +179,7 @@ export function cascadeSchedule(
     }
     
     // Check if this job was sequential to its predecessor (using original times)
-    if (!isSequentialTo(prevOriginalEnd, jobOriginalStart, shift)) {
+    if (!isSequentialTo(prevOriginalEnd, jobOriginalStart, shift, bufferMinutes)) {
       // Gap detected - stop cascading, keep this and remaining jobs unchanged
       break;
     }
@@ -205,21 +188,21 @@ export function cascadeSchedule(
   }
   
   // Schedule jobs that should cascade - CONTINUOUS FLOW: jobs can extend beyond shift end
-  currentTime = getNextStartTimeAfterJob(insertedTiming.plannedEndTime, shift);
+  currentTime = getNextStartTimeAfterJob(insertedTiming.plannedEndTime, shift, bufferMinutes);
   
   for (const job of jobsToCascade) {
     // Schedule the job even if it extends past shift end (continuous flow)
-    const timing = scheduleJob(job, currentTime, shift);
+    const timing = scheduleJob(job, currentTime, shift, config);
     const scheduledJob: ScheduledJob = {
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
       breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
-      plannedDurationMinutes: getJobDuration(job)
+      plannedDurationMinutes: getJobDuration(job, null, config)
     };
     scheduledJobs.push(scheduledJob);
     
-    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift);
+    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift, bufferMinutes);
   }
   
   // Add remaining jobs (with gaps) unchanged - they should not cascade
@@ -236,9 +219,11 @@ export function cascadeSchedule(
  */
 export function calculateDropZones(
   existingJobs: ScheduledJob[],
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): DropZone[] {
   const zones: DropZone[] = [];
+  const bufferMinutes = config?.bufferMinutes ?? BUFFER_MINUTES;
   
   if (existingJobs.length === 0) {
     zones.push({
@@ -258,7 +243,7 @@ export function calculateDropZones(
   const firstStart = firstJob.plannedStartTime ?? shift.startTime;
   
   if (firstStart > shift.startTime) {
-    const gapEnd = firstStart - BUFFER_MINUTES;
+    const gapEnd = firstStart - bufferMinutes;
     if (gapEnd > shift.startTime) {
       zones.push({
         index: 0,
@@ -276,8 +261,8 @@ export function calculateDropZones(
     const currentEnd = currentJob.plannedEndTime ?? shift.startTime;
     const nextStart = nextJob.plannedStartTime ?? shift.endTime;
     
-    const gapStart = getNextStartTimeAfterJob(currentEnd, shift);
-    const gapEnd = nextStart - BUFFER_MINUTES;
+    const gapStart = getNextStartTimeAfterJob(currentEnd, shift, bufferMinutes);
+    const gapEnd = nextStart - bufferMinutes;
     
     if (gapEnd > gapStart) {
       zones.push({
@@ -291,7 +276,7 @@ export function calculateDropZones(
   
   const lastJob = sortedJobs[sortedJobs.length - 1];
   const lastEnd = lastJob.plannedEndTime ?? shift.startTime;
-  const afterLastStart = getNextStartTimeAfterJob(lastEnd, shift);
+  const afterLastStart = getNextStartTimeAfterJob(lastEnd, shift, bufferMinutes);
   
   if (afterLastStart < shift.endTime) {
     zones.push({
@@ -312,11 +297,14 @@ export function calculateDropZones(
  */
 export function rescheduleDay(
   jobs: ScheduledJob[],
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): CascadeResult {
   if (jobs.length === 0) {
     return { scheduledJobs: [] };
   }
+  
+  const bufferMinutes = config?.bufferMinutes ?? BUFFER_MINUTES;
   
   const sortedJobs = [...jobs].sort(
     (a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0)
@@ -328,17 +316,17 @@ export function rescheduleDay(
   
   for (const job of sortedJobs) {
     // CONTINUOUS FLOW: Schedule all jobs, even if they extend past shift end
-    const timing = scheduleJob(job, currentTime, shift);
+    const timing = scheduleJob(job, currentTime, shift, config);
     const scheduledJob: ScheduledJob = {
       ...job,
       plannedStartTime: timing.plannedStartTime,
       plannedEndTime: timing.plannedEndTime,
       breakAdjustmentMinutes: timing.breakAdjustmentMinutes,
-      plannedDurationMinutes: getJobDuration(job)
+      plannedDurationMinutes: getJobDuration(job, null, config)
     };
     scheduledJobs.push(scheduledJob);
     
-    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift);
+    currentTime = getNextStartTimeAfterJob(timing.plannedEndTime, shift, bufferMinutes);
   }
   
   return { scheduledJobs };
@@ -351,9 +339,10 @@ export function rescheduleDay(
 export function canJobFit(
   job: ScheduledJob,
   startTime: number,
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): boolean {
-  const result = scheduleJob(job, startTime, shift);
+  const result = scheduleJob(job, startTime, shift, config);
   return result.plannedEndTime <= shift.endTime;
 }
 
@@ -362,9 +351,11 @@ export function canJobFit(
  */
 export function getNextAvailableTime(
   afterTime: number,
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): number | null {
-  const nextTime = getNextStartTimeAfterJob(afterTime, shift);
+  const bufferMinutes = config?.bufferMinutes ?? BUFFER_MINUTES;
+  const nextTime = getNextStartTimeAfterJob(afterTime, shift, bufferMinutes);
   
   if (nextTime >= shift.endTime) {
     return null;
@@ -384,14 +375,16 @@ export function getNextAvailableTime(
  * @param previousJobEnd - The end time of the previous job in minutes from midnight
  * @param nextJobStart - The start time of the next job in minutes from midnight
  * @param shift - The shift configuration with breaks
+ * @param bufferMinutes - Buffer between jobs (defaults to BUFFER_MINUTES constant)
  * @returns true if the next job is sequential (should cascade), false if there's a gap
  */
 export function isSequentialTo(
   previousJobEnd: number,
   nextJobStart: number,
-  shift: ShiftConfig
+  shift: ShiftConfig,
+  bufferMinutes: number = BUFFER_MINUTES
 ): boolean {
-  const expectedNextStart = getNextStartTimeAfterJob(previousJobEnd, shift);
+  const expectedNextStart = getNextStartTimeAfterJob(previousJobEnd, shift, bufferMinutes);
   const tolerance = 15; // 15 minutes tolerance for minor scheduling differences
   return nextJobStart <= expectedNextStart + tolerance;
 }
@@ -665,12 +658,14 @@ export interface BreakdownCascadeResult extends CascadeResult {
 export function applyBreakdownStretchWithCascade(
   jobs: ScheduledJob[],
   shift: ShiftConfig,
-  breakdowns: BreakdownBlock[]
+  breakdowns: BreakdownBlock[],
+  config: SchedulerConfig = DEFAULT_CONFIG
 ): BreakdownCascadeResult {
   if (breakdowns.length === 0 || jobs.length === 0) {
     return { scheduledJobs: [...jobs], deferredWork: [] };
   }
   
+  const bufferMinutes = config?.bufferMinutes ?? BUFFER_MINUTES;
   const scheduledJobs: ScheduledJob[] = [];
   const deferredWork: DeferredWorkSegment[] = [];
   
@@ -695,14 +690,14 @@ export function applyBreakdownStretchWithCascade(
       const prevEndTime = prevJob?.plannedEndTime ?? shift.startTime;
       
       // If current job starts before the previous job ends (after stretch), cascade it forward
-      const expectedNextStart = prevEndTime + BUFFER_MINUTES;
-      if (effectiveStartTime < expectedNextStart && prevEndTime > job.plannedStartTime - BUFFER_MINUTES) {
+      const expectedNextStart = prevEndTime + bufferMinutes;
+      if (effectiveStartTime < expectedNextStart && prevEndTime > job.plannedStartTime - bufferMinutes) {
         effectiveStartTime = getNextValidStartTime(expectedNextStart, shift);
       }
     }
     
     // Calculate the original job end time at the new start position
-    const workDuration = getJobDuration(job);
+    const workDuration = getJobDuration(job, null, config);
     const baseEndTime = effectiveStartTime + workDuration;
     
     // Apply breakdown stretch to this job
