@@ -812,14 +812,30 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
     
     // Calculate job time ranges to prevent overlapping drop zones
-    const jobRanges: Array<{ start: number; end: number }> = [];
+    // IMPORTANT: Use the VISUAL height to determine job end, not just calculated duration
+    // This accounts for MIN_BLOCK_HEIGHT which can make short jobs visually taller
+    const jobRanges: Array<{ start: number; end: number; name: string }> = [];
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
       const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration, teamWorkingEndMinutes);
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
-      const jobEnd = jobStart + baseDuration + totalBreakMinutes;
-      jobRanges.push({ start: jobStart, end: jobEnd });
+      
+      // Calculate the VISUAL height in pixels, then convert back to minutes
+      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(baseDuration));
+      const totalHeight = baseHeight + PlannerV2.calculateJobHeight(totalBreakMinutes);
+      // Convert visual height back to minutes for consistent drop zone calculation
+      const visualDurationMinutes = totalHeight / PlannerV2.PIXELS_PER_MINUTE;
+      const jobEnd = jobStart + visualDurationMinutes;
+      
+      jobRanges.push({ start: jobStart, end: jobEnd, name: job.productionName?.substring(0, 20) || job.id });
+    }
+    
+    // Debug: log job ranges for this team
+    if (jigJobs.length > 0) {
+      console.log('[DROP_ZONES] Team jobs:', jobRanges.map(r => 
+        `${r.name}: ${PlannerV2.formatMinutesToTime(r.start)}-${PlannerV2.formatMinutesToTime(r.end)}`
+      ), 'buffer:', bufferMinutes);
     }
     
     // Helper: check if a position falls within any existing job's time range
@@ -848,6 +864,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       if (!overlapsWithJob(zonePosition)) {
         dropZones.push({ position: zonePosition, afterJobId: job.id });
       }
+    }
+    
+    // Debug: log calculated drop zones
+    if (jigJobs.length > 0) {
+      console.log('[DROP_ZONES] Valid zones:', dropZones.map(z => PlannerV2.formatMinutesToTime(z.position)));
     }
     
     return dropZones;
@@ -1675,7 +1696,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 {/* Drop zone indicators - shown when dragging */}
                 {isDragging && dropHoverJigId === jig.id && (() => {
                   const dropZones = calculateDropZones(jig.id, teamWorkingMinutes.endMinutes);
-                  if (!dropHoverPosition) return null;
+                  if (!dropHoverPosition || dropZones.length === 0) return null;
                   
                   let nearestZone = dropZones[0];
                   let minDistance = Math.abs(dropHoverPosition - nearestZone.position);
@@ -1687,6 +1708,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       nearestZone = zone;
                     }
                   }
+                  
+                  // Debug: log the drop zone position
+                  console.log('[DROP] Indicator position:', PlannerV2.formatMinutesToTime(nearestZone.position), 
+                    'dropZones:', dropZones.map(z => PlannerV2.formatMinutesToTime(z.position)));
                   
                   return (
                     <div
