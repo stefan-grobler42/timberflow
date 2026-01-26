@@ -967,7 +967,7 @@ export const ProductionPlannerPage = () => {
     setStagedJobs(prev => prev.filter(sj => sj.jobId !== jobId));
   };
   
-  // Edit a persisted job - put all segments into staged mode, preserving their current positions
+  // Edit a persisted job - recalculate from first segment's position using TOTAL E-Finks
   const handleEditPersistedJob = async (productionId: string, teamId: string, _dateStr: string) => {
     console.log('[PLANNER] Editing persisted job:', productionId, 'for team:', teamId);
     
@@ -985,11 +985,19 @@ export const ProductionPlannerPage = () => {
       return (a.plannedStartTime || 0) - (b.plannedStartTime || 0);
     });
     
-    // Use the first segment as the "primary" job for metadata
-    const primaryJob = jobSegments[0];
-    const primaryDate = primaryJob.plannedDateStr || _dateStr;
+    // Use the FIRST segment for starting position
+    const firstSegment = jobSegments[0];
+    const firstDate = firstSegment.plannedDateStr || _dateStr;
+    const firstStartTime = firstSegment.plannedStartTime || 420;
     
-    console.log('[PLANNER] Found', jobSegments.length, 'segments to edit');
+    // Get the TOTAL E-Finks from the original job (not segment E-Finks)
+    const totalEFinks = firstSegment.estimatedEFinks;
+    
+    console.log('[PLANNER] Found', jobSegments.length, 'segments. Will recalculate from:', {
+      date: firstDate,
+      startTime: PlannerV2.formatDurationHoursMinutes(firstStartTime),
+      totalEFinks: totalEFinks
+    });
     
     setOperationInProgress(true);
     setOperationMessage('Preparing for edit...');
@@ -999,39 +1007,70 @@ export const ProductionPlannerPage = () => {
       await teamWorkItemService.deleteByProductionId(productionId);
       console.log('[PLANNER] Deleted existing WIP records for edit mode');
       
-      // Calculate total work minutes and duration for multi-day jobs
-      const totalWorkMinutes = jobSegments.reduce((sum, seg) => sum + (seg.plannedDurationMinutes || 0), 0);
+      // Find the team for efficiency calculations
+      const team = jigTeams.find(t => t.id === teamId);
+      const teamAverageEfinks = team?.averageEfinks ?? 80;
       
-      // Build staged segments from existing positions (NO recalculation)
-      const stagedSegments: StagedJobSegment[] = jobSegments.map((segment, idx) => {
-        // Use segment's existing efinks if available, otherwise calculate proportionally
-        const segmentEfinks = segment.segmentEfinks ?? (
-          totalWorkMinutes > 0 
-            ? ((segment.plannedDurationMinutes || 0) / totalWorkMinutes) * primaryJob.estimatedEFinks 
-            : primaryJob.estimatedEFinks / jobSegments.length
-        );
+      // Calculate duration using team efficiency and TOTAL E-Finks
+      const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinks, teamAverageEfinks);
+      
+      console.log('[PLANNER] Recalculating with total E-Finks:', totalEFinks, 'duration:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
+      
+      // Create job with TOTAL E-Finks for allocation
+      const droppedJob: PlannerV2.ScheduledJob = {
+        ...toScheduledJob(firstSegment),
+        estimatedEFinks: totalEFinks, // Use TOTAL E-Finks, not segment E-Finks
+        plannedDateStr: firstDate,
+        jigId: teamId,
+        plannedDurationMinutes: teamSpecificDuration
+      };
+      
+      // Recalculate allocation from first segment's position
+      const allocation = PlannerV2.allocateJobContinuousFlow(
+        droppedJob,
+        teamId,
+        firstDate,
+        firstStartTime, // Start from original first position
+        overtimeByTeamDay,
+        teamAverageEfinks,
+        schedulerConfig
+      );
+      
+      console.log('[PLANNER] Recalculated allocation:', {
+        totalDuration: PlannerV2.formatDurationHoursMinutes(allocation.totalDurationMinutes),
+        segments: allocation.segments.length
+      });
+      
+      // Calculate segment E-Finks proportionally
+      const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
+      
+      // Build staged segments from recalculated allocation
+      const stagedSegments: StagedJobSegment[] = allocation.segments.map((segment, idx) => {
+        const segmentEfinks = totalWorkMinutes > 0 
+          ? (segment.workMinutes / totalWorkMinutes) * totalEFinks 
+          : totalEFinks / allocation.segments.length;
         
         return {
           jobId: productionId,
           teamId: teamId,
-          workDate: segment.plannedDateStr || '',
-          plannedStartMinutes: segment.plannedStartTime || 420,
-          plannedEndMinutes: segment.plannedEndTime || 1020,
-          plannedDurationMinutes: segment.plannedDurationMinutes || 0,
-          breakAdjustmentMinutes: segment.breakAdjustmentMinutes || 0,
+          workDate: segment.dateStr,
+          plannedStartMinutes: segment.startTimeMinutes,
+          plannedEndMinutes: segment.endTimeMinutes,
+          plannedDurationMinutes: segment.workMinutes,
+          breakAdjustmentMinutes: segment.breakMinutes,
           segmentIndex: idx,
-          totalSegments: jobSegments.length,
-          totalJobDuration: totalWorkMinutes,
+          totalSegments: allocation.segments.length,
+          totalJobDuration: allocation.totalDurationMinutes,
           estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
-          orderNumber: primaryJob.orderNumber,
-          customer: primaryJob.customer,
-          name: primaryJob.name
+          orderNumber: firstSegment.orderNumber,
+          customer: firstSegment.customer,
+          name: firstSegment.name
         };
       });
       
-      console.log('[PLANNER] Created', stagedSegments.length, 'staged segments preserving positions');
+      console.log('[PLANNER] Created', stagedSegments.length, 'recalculated segments');
       stagedSegments.forEach((seg, idx) => {
-        console.log(`[PLANNER] Segment ${idx + 1}/${stagedSegments.length}: ${seg.workDate} ${PlannerV2.formatDurationHoursMinutes(seg.plannedStartMinutes)}-${PlannerV2.formatDurationHoursMinutes(seg.plannedEndMinutes)}`);
+        console.log(`[PLANNER] Segment ${idx + 1}/${stagedSegments.length}: ${seg.workDate} ${PlannerV2.formatDurationHoursMinutes(seg.plannedStartMinutes)}-${PlannerV2.formatDurationHoursMinutes(seg.plannedEndMinutes)} (${seg.estimatedEfinks} E-Finks)`);
       });
       
       // Update job state to remove wipId for all segments
@@ -1042,10 +1081,10 @@ export const ProductionPlannerPage = () => {
       // Add to staged jobs
       const stagedJob: StagedJob = {
         jobId: productionId,
-        originalJob: primaryJob,
+        originalJob: firstSegment,
         segments: stagedSegments,
         teamId: teamId,
-        primaryDate: primaryDate
+        primaryDate: firstDate
       };
       
       setStagedJobs(prev => [...prev.filter(sj => sj.jobId !== productionId), stagedJob]);
