@@ -1004,7 +1004,10 @@ export const ProductionPlannerPage = () => {
         schedulerConfig
       );
       
-      // Create allocation from the primary date at shift start
+      // Use the job's current start time to preserve position
+      const currentStartTime = job.plannedStartTime ?? shift.startTime;
+      
+      // Create allocation preserving the current position
       const droppedJob: PlannerV2.ScheduledJob = {
         ...toScheduledJob(job),
         plannedDateStr: dateStr,
@@ -1016,7 +1019,7 @@ export const ProductionPlannerPage = () => {
         droppedJob,
         teamId,
         dateStr,
-        shift.startTime, // Start at beginning of shift
+        currentStartTime, // Preserve current position
         overtimeByTeamDay,
         teamAverageEfinks,
         schedulerConfig

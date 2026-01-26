@@ -1779,7 +1779,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       return 'white';
                     };
                     
-                    const canInteract = !resizingJob && !isStaged;
+                    const canInteract = !resizingJob;
                     
                     return (
                       <div
@@ -1799,7 +1799,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           color: getTextColor(),
                           borderRadius: 6,
                           border: getBorder(),
-                          cursor: isStaged ? 'default' : (resizingJob ? 'ns-resize' : 'grab'),
+                          cursor: resizingJob ? 'ns-resize' : 'grab',
                           zIndex: resizingJob === job.id ? 100 : 10,
                           boxShadow: getBoxShadow(),
                           opacity: job.productionComplete ? 0.7 : 1,
