@@ -1619,21 +1619,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   );
                 })}
 
-                {/* 15-minute interval lines - light dashed lines within visible range */}
-                {Array.from({ length: (visibleTimeRange.endHour - visibleTimeRange.startHour) * 4 }, (_, idx) => {
-                  const minutes = visibleTimeRange.startHour * 60 + (idx + 1) * 15;
+                {/* 10-minute interval lines - dotted lines within visible range */}
+                {Array.from({ length: (visibleTimeRange.endHour - visibleTimeRange.startHour) * 6 }, (_, idx) => {
+                  const minutes = visibleTimeRange.startHour * 60 + (idx + 1) * 10;
                   if (minutes % 60 === 0) return null;
                   if (minutes > visibleEndMinutes || minutes < visibleStartMinutes) return null;
                   return (
                     <div
-                      key={`${jig.id}-quarter-${idx}`}
+                      key={`${jig.id}-10min-${idx}`}
                       style={{
                         position: 'absolute',
                         top: (minutes - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
                         left: 0,
                         right: 0,
                         height: 1,
-                        borderTop: '1px dashed rgba(0, 0, 0, 0.08)',
+                        borderTop: '1px dotted rgba(0, 0, 0, 0.12)',
                         zIndex: 1,
                         pointerEvents: 'none'
                       }}
@@ -1928,8 +1928,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           </Stack>
                         )}
                         
-                        {/* Edit button for persisted multi-day jobs - only show on first segment */}
-                        {!isStaged && job.totalSegments && job.totalSegments > 1 && job.segmentIndex === 0 && !job.productionComplete && onEditPersistedJob && job.jigId && (
+                        {/* Edit button for all persisted jobs - show on first segment (or single-day jobs) */}
+                        {!isStaged && !job.productionComplete && onEditPersistedJob && job.jigId && (job.segmentIndex === 0 || job.segmentIndex === undefined) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1949,7 +1949,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               cursor: 'pointer',
                               zIndex: 50
                             }}
-                            title="Edit: Clear WIP and recalculate segments based on current OT/weekend settings"
+                            title="Edit: Clear WIP and recalculate segments based on current settings"
                           >
                             Edit
                           </button>

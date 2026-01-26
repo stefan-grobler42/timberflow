@@ -5,14 +5,20 @@
 
 import type { Break } from './types';
 
-/** Mandatory buffer time between jobs in minutes (for paperwork) */
-export const BUFFER_MINUTES = 30;
+/** 
+ * Mandatory buffer time between jobs in minutes (for paperwork).
+ * NOTE: This is the DEFAULT value. Actual value comes from System Settings.
+ */
+export const BUFFER_MINUTES = 15;
 
 /** Conversion factor: minutes of work per E-Fink unit */
 export const MINUTES_PER_EFINK = 6.5625;
 
-/** Minimum job duration in minutes */
-export const MIN_DURATION = 15;
+/** 
+ * Minimum job duration in minutes.
+ * NOTE: This is the DEFAULT value. Actual value comes from System Settings.
+ */
+export const MIN_DURATION = 10;
 
 /** Pixels per minute for visual height calculation */
 export const PIXELS_PER_MINUTE = 1.5;

@@ -45,8 +45,8 @@ export interface SchedulerConfig {
  * Used as fallbacks when settings are not configured.
  */
 export const DEFAULT_CONFIG: SchedulerConfig = {
-  bufferMinutes: 30,
-  minJobDuration: 15,
+  bufferMinutes: 15,
+  minJobDuration: 10,
   durationRoundingIncrement: 15,
   pixelsPerMinute: 1.5,
   
