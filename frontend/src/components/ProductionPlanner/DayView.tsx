@@ -1996,6 +1996,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 {calculateJobPositions(jigJobs, true, teamWorkingMinutes.endMinutes).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isStaged = (job as Job & { isStaged?: boolean }).isStaged === true;
                     
+                    // Separate Type B blocks (Breakdown, Material Shortage) from regular breaks
+                    const typeBBlockLabels = ['Breakdown', 'Material Shortage'];
+                    const typeBAdditions = breakAdditions.filter(b => typeBBlockLabels.includes(b.label));
+                    const regularBreakAdditions = breakAdditions.filter(b => !typeBBlockLabels.includes(b.label));
+                    const hasTypeBBlocks = typeBAdditions.length > 0;
+                    
                     const getBackground = () => {
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                       if (isStaged) return 'linear-gradient(135deg, rgba(0, 120, 212, 0.25), rgba(0, 90, 180, 0.15))';
@@ -2031,7 +2037,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         style={{
                           position: 'absolute',
                           top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
-                          left: 4,
+                          left: hasTypeBBlocks ? 20 : 4,
                           right: 4,
                           height: height,
                           padding: 8,
@@ -2116,10 +2122,26 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             }
                           </Text>
                           <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.7)' : (job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)') } }}>
-                            {breakAdditions.length > 0 
-                              ? `(${formatDuration(getBaseDurationMinutes(job) + breakAdditions.reduce((sum, b) => sum + b.minutes, 0))} total: ${formatDuration(getBaseDurationMinutes(job))} work + ${breakAdditions.reduce((sum, b) => sum + b.minutes, 0)}m breaks)`
-                              : `(${formatDuration(getBaseDurationMinutes(job))})`
-                            }
+                            {(() => {
+                              const totalAdditions = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+                              if (totalAdditions === 0) {
+                                return `(${formatDuration(getBaseDurationMinutes(job))})`;
+                              }
+                              
+                              // Build description parts
+                              const parts: string[] = [];
+                              const regularBreakMins = regularBreakAdditions.reduce((sum, b) => sum + b.minutes, 0);
+                              if (regularBreakMins > 0) {
+                                parts.push(`${regularBreakMins}m breaks`);
+                              }
+                              
+                              // Add Type B blocks with their specific labels
+                              typeBAdditions.forEach(b => {
+                                parts.push(`${b.minutes}m ${b.label}`);
+                              });
+                              
+                              return `(${formatDuration(getBaseDurationMinutes(job) + totalAdditions)} total: ${formatDuration(getBaseDurationMinutes(job))} work + ${parts.join(' + ')})`;
+                            })()}
                           </Text>
                         </Stack>
                         
