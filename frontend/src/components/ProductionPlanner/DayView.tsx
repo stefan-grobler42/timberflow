@@ -427,19 +427,29 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
 
-    // Weekend days have NO breaks (matching shiftCalendar.ts behavior)
-    if (isWeekendDay) {
-      return [];
-    }
-
     // Sort breaks by start time and filter to only those within working hours
+    // For weekends, apply the same filtering logic as team columns
     const sortedBreaks = [...breakSlots]
       .filter(b => {
-        const breakEnd = b.startHour * 60 + b.startMinute + getBreakDurationMinutes(b);
+        const breakStart = b.startHour * 60 + b.startMinute;
+        const breakEnd = breakStart + getBreakDurationMinutes(b);
+        
         // If teamWorkingEndMinutes is provided, only include breaks that end before it
         if (teamWorkingEndMinutes !== undefined) {
-          return breakEnd <= teamWorkingEndMinutes;
+          if (breakEnd > teamWorkingEndMinutes) {
+            return false;
+          }
+          // Also check that break starts after working start (for weekends)
+          if (breakStart < jobStartMinutes && isWeekendDay) {
+            return false;
+          }
         }
+        
+        // Weekend-specific rule: Lunch only included if working past 15:00 (900 minutes)
+        if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+          return teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes > 900;
+        }
+        
         return true;
       })
       .sort((a, b) => getBreakStartMinutes(a) - getBreakStartMinutes(b));
@@ -635,7 +645,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return getBaseDuration(job);
   };
 
-  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true): JobPositionInfo[] => {
+  const calculateJobPositions = (jigJobs: Job[], includeBreaks: boolean = true, teamWorkingEndMinutes?: number): JobPositionInfo[] => {
     const positions: JobPositionInfo[] = [];
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     
@@ -649,7 +659,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       let totalBreakMinutes = 0;
       
       if (includeBreaks) {
-        breakAdditions = calculateBreaksSpanned(jobTop, baseDuration);
+        // Pass team working end minutes for proper break calculation on weekends
+        breakAdditions = calculateBreaksSpanned(jobTop, baseDuration, teamWorkingEndMinutes);
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
@@ -672,7 +683,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
 
 
-  const calculateDropZones = useCallback((jigId: string): { position: number; afterJobId: string | null }[] => {
+  const calculateDropZones = useCallback((jigId: string, teamWorkingEndMinutes?: number): { position: number; afterJobId: string | null }[] => {
     if (!workingHours) return [];
     
     const workingStart = workingHours.start * 60;
@@ -687,7 +698,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
-      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration);
+      const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration, teamWorkingEndMinutes);
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       const jobEnd = jobStart + baseDuration + totalBreakMinutes;
       
@@ -1500,7 +1511,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
                 {/* Drop zone indicators - shown when dragging */}
                 {isDragging && dropHoverJigId === jig.id && (() => {
-                  const dropZones = calculateDropZones(jig.id);
+                  const dropZones = calculateDropZones(jig.id, teamWorkingMinutes.endMinutes);
                   if (!dropHoverPosition) return null;
                   
                   let nearestZone = dropZones[0];
@@ -1609,7 +1620,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   })}
 
                 {/* Job blocks */}
-                {calculateJobPositions(jigJobs, true).map(({ job, top, height, baseHeight, breakAdditions }) => {
+                {calculateJobPositions(jigJobs, true, teamWorkingMinutes.endMinutes).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const getBackground = () => {
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
