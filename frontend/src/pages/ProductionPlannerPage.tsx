@@ -648,11 +648,30 @@ export const ProductionPlannerPage = () => {
     
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
-    // Check if this is a staged job being dragged - use totalEstimatedEfinks if available
+    // Determine total E-Finks for the job:
+    // 1. Check if this is a staged job - use totalEstimatedEfinks from staged segment
+    // 2. Check if this is a persisted multi-day job - sum all segments' E-Finks
+    // 3. Otherwise use the job's estimatedEFinks directly
     const existingStagedJob = stagedJobs.find(sj => sj.jobId === draggedJobId);
-    const totalEFinksForJob = existingStagedJob?.segments[0]?.totalEstimatedEfinks ?? job.estimatedEFinks;
+    let totalEFinksForJob: number;
+    let efinkSource: string;
     
-    console.log('[PLANNER] E-Finks for calculation:', totalEFinksForJob, existingStagedJob ? '(from staged job totalEstimatedEfinks)' : '(from job)');
+    if (existingStagedJob?.segments[0]?.totalEstimatedEfinks) {
+      // Staged job - use stored total
+      totalEFinksForJob = existingStagedJob.segments[0].totalEstimatedEfinks;
+      efinkSource = 'staged job totalEstimatedEfinks';
+    } else if (job.totalSegments && job.totalSegments > 1) {
+      // Persisted multi-day job - sum all segments' E-Finks from allJobs
+      const allSegmentsForJob = allJobs.filter(j => j.id === draggedJobId);
+      totalEFinksForJob = allSegmentsForJob.reduce((sum, seg) => sum + (seg.estimatedEFinks || 0), 0);
+      efinkSource = `summed from ${allSegmentsForJob.length} persisted segments`;
+    } else {
+      // Single-day job - use directly
+      totalEFinksForJob = job.estimatedEFinks;
+      efinkSource = 'job estimatedEFinks';
+    }
+    
+    console.log('[PLANNER] E-Finks for calculation:', totalEFinksForJob, `(${efinkSource})`);
 
     const isSalesOrder = job.id.startsWith('order-');
     const updatedJigId = jigId !== undefined ? jigId : job.jigId;
