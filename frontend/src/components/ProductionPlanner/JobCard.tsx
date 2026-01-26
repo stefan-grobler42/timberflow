@@ -46,6 +46,8 @@ interface JobCardProps {
   onClick: (jobId: string) => void;
   onResizeStart: (e: React.MouseEvent, jobId: string, baseHeight: number) => void;
   onResetDuration?: (jobId: string) => void;
+  onSaveJob?: (jobId: string) => void;
+  onEditJob?: (jobId: string) => void;
   formatDuration: (minutes: number) => string;
   getBaseDurationMinutes: (job: Job) => number;
   formatBreakAdditions: (breaks: BreakAddition[]) => string;
@@ -67,10 +69,14 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   onClick,
   onResizeStart,
   onResetDuration,
+  onSaveJob,
+  onEditJob,
   formatDuration,
   getBaseDurationMinutes,
   formatBreakAdditions
 }) => {
+  const isMultiDay = job.totalSegments && job.totalSegments > 1;
+  const isFirstSegment = job.segmentIndex === 0;
   const getBackground = () => {
     if (isStaged) return 'linear-gradient(135deg, rgba(255, 185, 0, 0.95), rgba(200, 140, 0, 0.85))';
     if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
@@ -213,6 +219,54 @@ const JobCardComponent: React.FC<JobCardProps> = ({
             {job.segmentEfinks?.toFixed(2)} E-Finks ({formatDuration(job.segmentDuration ?? 0)} work
             {(job.segmentBreakMinutes ?? 0) > 0 && ` + ${job.segmentBreakMinutes}m breaks`})
           </Text>
+        </Stack>
+      )}
+      
+      {/* Save/Edit buttons for multi-day jobs - only show on first segment */}
+      {isMultiDay && isFirstSegment && !job.productionComplete && (onSaveJob || onEditJob) && (
+        <Stack horizontal tokens={{ childrenGap: 6 }} style={{ marginTop: 4 }}>
+          {onEditJob && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEditJob(job.id);
+              }}
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                fontWeight: 600,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+                border: '1px solid rgba(255, 255, 255, 0.4)',
+                borderRadius: 4,
+                cursor: 'pointer'
+              }}
+              title="Recalculate segments based on current OT/weekend settings"
+            >
+              Edit
+            </button>
+          )}
+          {onSaveJob && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSaveJob(job.id);
+              }}
+              style={{
+                padding: '2px 8px',
+                fontSize: 10,
+                fontWeight: 600,
+                backgroundColor: 'rgba(40, 167, 69, 0.9)',
+                color: 'white',
+                border: '1px solid rgba(40, 167, 69, 1)',
+                borderRadius: 4,
+                cursor: 'pointer'
+              }}
+              title="Persist segments to database"
+            >
+              Save
+            </button>
+          )}
         </Stack>
       )}
       

@@ -1358,23 +1358,7 @@ export const ProductionPlannerPage = () => {
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with late OT = ${enabled}`);
       }
       
-      // Build the new OT settings map for recalculation
-      const newOvertimeSettings: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>> = {
-        ...overtimeByTeamDay,
-        [dayStr]: {
-          ...(overtimeByTeamDay[dayStr] || {}),
-          [teamId]: { 
-            ...(overtimeByTeamDay[dayStr]?.[teamId] || { earlyEnabled: false, earlyStartTime: 360 }),
-            enabled, 
-            closeTime 
-          }
-        }
-      };
-      
-      // Recalculate multi-day job segments with new OT settings
-      await recalculateMultiDaySegments(teamId, dayStr, newOvertimeSettings);
-      
-      // Reload data to reflect all changes
+      // Reload data to reflect all changes (no automatic recalculation - user controls via Edit button)
       await loadData();
       
     } catch (err) {
@@ -1497,23 +1481,7 @@ export const ProductionPlannerPage = () => {
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with early OT = ${earlyEnabled}`);
       }
       
-      // Build the new OT settings map for recalculation
-      const newOvertimeSettings: Record<string, Record<string, { enabled: boolean; closeTime: number; earlyEnabled?: boolean; earlyStartTime?: number }>> = {
-        ...overtimeByTeamDay,
-        [dayStr]: {
-          ...(overtimeByTeamDay[dayStr] || {}),
-          [teamId]: { 
-            ...(overtimeByTeamDay[dayStr]?.[teamId] || { enabled: false, closeTime: 1140 }),
-            earlyEnabled, 
-            earlyStartTime 
-          }
-        }
-      };
-      
-      // Recalculate multi-day job segments with new OT settings
-      await recalculateMultiDaySegments(teamId, dayStr, newOvertimeSettings);
-      
-      // Reload data to reflect all changes
+      // Reload data to reflect all changes (no automatic recalculation - user controls via Edit button)
       await loadData();
       
     } catch (err) {
@@ -2005,6 +1973,9 @@ export const ProductionPlannerPage = () => {
                 setBlockPanelOpen(true);
               }}
               schedulerConfig={schedulerConfig}
+              onEditMultiDayJob={async (_productionId, teamId, dateStr) => {
+                await recalculateMultiDaySegments(teamId, dateStr, overtimeByTeamDay);
+              }}
             />
           )}
         </Stack>

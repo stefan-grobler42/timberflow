@@ -104,6 +104,7 @@ interface DayViewProps {
   scheduleBlocks?: ScheduleBlock[];
   onBlockClick?: (block: ScheduleBlock) => void;
   schedulerConfig?: SchedulerConfig;
+  onEditMultiDayJob?: (productionId: string, teamId: string, dateStr: string) => void;
 }
 
 const MIN_BLOCK_HEIGHT = 20;
@@ -128,7 +129,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   isDragging = false,
   scheduleBlocks = [],
   onBlockClick,
-  schedulerConfig
+  schedulerConfig,
+  onEditMultiDayJob
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -1785,6 +1787,32 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             }
                           </Text>
                         </Stack>
+                        {/* Edit button for multi-day jobs - only show on first segment */}
+                        {job.totalSegments && job.totalSegments > 1 && job.segmentIndex === 0 && !job.productionComplete && onEditMultiDayJob && job.jigId && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onEditMultiDayJob(job.id, job.jigId!, dayStr);
+                            }}
+                            style={{
+                              position: 'absolute',
+                              bottom: 16,
+                              right: 8,
+                              padding: '2px 8px',
+                              fontSize: 10,
+                              fontWeight: 600,
+                              backgroundColor: 'rgba(255, 255, 255, 0.25)',
+                              color: 'white',
+                              border: '1px solid rgba(255, 255, 255, 0.5)',
+                              borderRadius: 4,
+                              cursor: 'pointer',
+                              zIndex: 50
+                            }}
+                            title="Recalculate segments based on current OT/weekend settings"
+                          >
+                            Recalc
+                          </button>
+                        )}
                         {/* Resize handle - only on last segment of multi-day jobs, not completed */}
                         {!job.productionComplete && (job.isLastSegment !== false) && (
                           <div
