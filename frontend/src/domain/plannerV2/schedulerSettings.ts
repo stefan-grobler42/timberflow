@@ -135,10 +135,8 @@ export function mapSystemSettingsToSchedulerConfig(settings: SystemSettings | nu
     
     // Parse Friday hours (may have different start and/or end time)
     if (factory.friday && factory.friday.includes('-')) {
-      const [start, end] = factory.friday.split('-');
-      const startTime = parseTime(start);
+      const [, end] = factory.friday.split('-');
       const endTime = parseTime(end);
-      // Friday start time typically same as weekday, but use it if different from weekday
       // Friday end time is usually earlier (16:00 instead of 17:00)
       if (endTime !== null) config.weekdayShift.fridayEndTime = endTime;
     }
