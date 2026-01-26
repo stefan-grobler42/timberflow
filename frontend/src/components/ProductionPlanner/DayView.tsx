@@ -808,20 +808,46 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     
     const dropZones: { position: number; afterJobId: string | null }[] = [];
     
-    dropZones.push({ position: workingStart, afterJobId: null });
-    
     // Get buffer from config (default 15 if not configured)
     const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
     
+    // Calculate job time ranges to prevent overlapping drop zones
+    const jobRanges: Array<{ start: number; end: number }> = [];
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobStart = job.plannedStartTime ?? workingStart;
       const breakAdditions = calculateBreaksSpanned(jobStart, baseDuration, teamWorkingEndMinutes);
       const totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       const jobEnd = jobStart + baseDuration + totalBreakMinutes;
+      jobRanges.push({ start: jobStart, end: jobEnd });
+    }
+    
+    // Helper: check if a position falls within any existing job's time range
+    const overlapsWithJob = (position: number): boolean => {
+      for (const range of jobRanges) {
+        // Position overlaps if it's within the job's time range (exclusive of end)
+        if (position >= range.start && position < range.end) {
+          return true;
+        }
+      }
+      return false;
+    };
+    
+    // Only add workingStart zone if it doesn't overlap with an existing job
+    if (!overlapsWithJob(workingStart)) {
+      dropZones.push({ position: workingStart, afterJobId: null });
+    }
+    
+    // Add drop zones after each job (at job end + buffer)
+    for (let i = 0; i < jigJobs.length; i++) {
+      const job = jigJobs[i];
+      const jobEnd = jobRanges[i].end;
+      const zonePosition = jobEnd + bufferMinutes;
       
-      // Use configurable buffer for drop zone positioning
-      dropZones.push({ position: jobEnd + bufferMinutes, afterJobId: job.id });
+      // Only add if this zone doesn't overlap with another job
+      if (!overlapsWithJob(zonePosition)) {
+        dropZones.push({ position: zonePosition, afterJobId: job.id });
+      }
     }
     
     return dropZones;
