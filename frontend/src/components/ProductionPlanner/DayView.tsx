@@ -180,6 +180,33 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const anyTeamHasOvertime = useMemo(() => {
     return Object.values(overtimeByTeam).some(settings => settings.enabled);
   }, [overtimeByTeam]);
+  
+  // Calculate the max/min team working minutes across all teams with overtime enabled
+  // This is used for the left time column to show breaks and working hours correctly
+  const teamWorkingBounds = useMemo(() => {
+    if (!isWeekendDay) return null;
+    const weekendDefaultEnd = schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900;
+    const weekendDefaultStart = schedulerConfig?.weekendOvertimeDefaults?.startTime ?? 420;
+    
+    let minStart = Infinity;
+    let maxEnd = 0;
+    
+    for (const [, settings] of Object.entries(overtimeByTeam)) {
+      if (settings.enabled) {
+        const teamStart = settings.earlyStartTime ?? weekendDefaultStart;
+        const teamEnd = settings.closeTime ?? weekendDefaultEnd;
+        if (teamStart < minStart) minStart = teamStart;
+        if (teamEnd > maxEnd) maxEnd = teamEnd;
+      }
+    }
+    
+    if (!anyTeamHasOvertime) return null;
+    
+    return {
+      startMinutes: minStart === Infinity ? weekendDefaultStart : minStart,
+      endMinutes: maxEnd === 0 ? weekendDefaultEnd : maxEnd
+    };
+  }, [isWeekendDay, schedulerConfig, overtimeByTeam, anyTeamHasOvertime]);
 
   // Calculate additional working minutes for overtime
   const calculateOvertimeDelta = useCallback((closeTimeMinutes: number) => {
@@ -832,16 +859,23 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   // Generate timeline segments only for the visible range
   const generateVisibleTimelineSegments = (forWorkingHours?: { start: number; end: number }, isNonWorkingDay?: boolean): TimelineSegment[] => {
     const segments: TimelineSegment[] = [];
-    const effectiveWorkingHours = forWorkingHours || workingHours;
+    
+    // For weekends with team overtime, use the team working bounds for working hours display
+    // This ensures the left column reflects the max working hours across all teams
+    const effectiveWorkingHours = isWeekendDay && teamWorkingBounds
+      ? { start: Math.floor(teamWorkingBounds.startMinutes / 60), end: Math.ceil(teamWorkingBounds.endMinutes / 60) }
+      : (forWorkingHours || workingHours);
     
     // For non-working days (weekends without overtime), skip all break rendering
-    // For weekends, filter breaks based on default weekend working hours from settings
-    const weekendDefaultEnd = schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900;
+    // For weekends, filter breaks based on max team working end time (not just defaults)
+    const effectiveEndMinutes = isWeekendDay && teamWorkingBounds 
+      ? teamWorkingBounds.endMinutes 
+      : (schedulerConfig?.weekendOvertimeDefaults?.endTime ?? 900);
     
     const filteredBreaks = isNonWorkingDay ? [] : breakSlots.filter(b => {
-      // Weekend-specific rule: Lunch only shown if default end time > 15:00 (900 minutes)
+      // Weekend-specific rule: Lunch only shown if max team end time > 15:00 (900 minutes)
       if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
-        return weekendDefaultEnd > 900;
+        return effectiveEndMinutes > 900;
       }
       return true;
     });
