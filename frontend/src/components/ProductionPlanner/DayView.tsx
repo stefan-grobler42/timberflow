@@ -488,28 +488,50 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     let currentTime = jobStartMinutes;
     let remainingWork = baseDurationMinutes;
 
-    // Sort breaks by start time and filter to only those within working hours
-    // For weekends, apply the same filtering logic as team columns
-    const sortedBreaks = [...breakSlots]
+    // CRITICAL: Use a STABLE set of all possible breaks for job height calculations
+    // This includes ALL breaks (base breaks + dinner break) regardless of current OT state
+    // This ensures job rendering is consistent when OT is toggled - the job height is based on
+    // which breaks the job actually SPANS, not on the current OT configuration
+    const allPossibleBreaks = dinnerBreakSlot 
+      ? [...baseBreakSlots, dinnerBreakSlot] 
+      : baseBreakSlots;
+    
+    // Calculate the job's actual end time (start + work duration)
+    // This is used to determine which breaks the job ACTUALLY spans
+    const jobWorkEndTime = jobStartMinutes + baseDurationMinutes;
+    
+    // Sort breaks by start time and filter based on what the job actually spans
+    // For weekends, apply special filtering logic
+    const sortedBreaks = [...allPossibleBreaks]
       .filter(b => {
         const breakStart = b.startHour * 60 + b.startMinute;
         const breakEnd = breakStart + getBreakDurationMinutes(b);
         
-        // If teamWorkingEndMinutes is provided, only include breaks that are fully within working hours
+        // WEEKDAY LOGIC: Include all breaks that the job might span
+        // The for-loop below will only add breaks if the job actually reaches them
+        // We DON'T filter by teamWorkingEndMinutes here to ensure consistent rendering
+        // when OT is toggled - a job that spans 17:00 will always show dinner break
+        if (!isWeekendDay) {
+          // Only include breaks that the job could potentially span
+          // (i.e., the job's work extends past the break start)
+          return breakStart < jobWorkEndTime;
+        }
+        
+        // WEEKEND LOGIC: Apply working hours filtering
         if (teamWorkingEndMinutes !== undefined) {
           // Break must end before or at working hours end
           if (breakEnd > teamWorkingEndMinutes) {
             return false;
           }
-          // For weekends, break must start at or after working hours start
-          if (isWeekendDay && breakStart < jobStartMinutes) {
+          // Break must start at or after working hours start
+          if (breakStart < jobStartMinutes) {
             return false;
           }
         }
         
         // Weekend-specific rule: Lunch only taken if working PAST 15:00
         // Morning tea is always taken, but lunch only if end time > 15:00 (900 minutes)
-        if (isWeekendDay && b.label.toLowerCase().includes('lunch')) {
+        if (b.label.toLowerCase().includes('lunch')) {
           return teamWorkingEndMinutes !== undefined && teamWorkingEndMinutes > 900;
         }
         
