@@ -1954,8 +1954,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             Edit
                           </button>
                         )}
-                        {/* Resize handle - only on last segment of multi-day jobs, not completed */}
-                        {!job.productionComplete && (job.isLastSegment !== false) && (
+                        {/* Resize handle - only in edit mode, on last segment of multi-day jobs, not completed */}
+                        {isStaged && !job.productionComplete && (job.isLastSegment !== false) && (job.segmentIndex === undefined || job.segmentIndex === (job.totalSegments ?? 1) - 1) && (
                           <div
                             onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
                             style={{
@@ -1965,7 +1965,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               right: 4,
                               height: 8,
                               cursor: 'ns-resize',
-                              backgroundColor: resizingJob === job.id ? 'rgba(255,255,255,0.3)' : 'transparent',
+                              backgroundColor: resizingJob === job.id ? 'rgba(0,120,212,0.3)' : 'rgba(0,120,212,0.15)',
                               borderRadius: 4,
                               display: 'flex',
                               alignItems: 'center',
@@ -1976,7 +1976,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             <div style={{
                               width: 30,
                               height: 3,
-                              backgroundColor: 'rgba(255,255,255,0.5)',
+                              backgroundColor: 'rgba(0,120,212,0.6)',
                               borderRadius: 2
                             }} />
                           </div>
