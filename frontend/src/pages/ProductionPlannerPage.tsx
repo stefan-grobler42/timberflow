@@ -897,6 +897,65 @@ export const ProductionPlannerPage = () => {
           }
         }
         
+        // TYPE B OVERLAP CHECK: If Type B blocks caused end time extension, unallocate overlapping jobs
+        // This handles the cascade requirement where Type B-stretched job overlaps with subsequent jobs
+        const allocatedEndTime = allocation.segments.length > 0 
+          ? allocation.segments[allocation.segments.length - 1].endTimeMinutes 
+          : dropPosition;
+        const allocatedEndDate = allocation.endDate;
+        
+        // Find jobs on the same date/team that start before the new end time
+        const overlappingJobs = jobs.filter(j => 
+          j.id !== job.id &&
+          j.jigId === updatedJigId &&
+          j.plannedDateStr === allocatedEndDate &&
+          j.plannedStartTime !== null &&
+          j.plannedStartTime < allocatedEndTime &&
+          j.plannedEndTime !== null &&
+          j.plannedEndTime > dropPosition &&
+          !j.productionComplete
+        );
+        
+        if (overlappingJobs.length > 0) {
+          console.log('[PLANNER] Type B stretch caused overlap with existing jobs:', 
+            overlappingJobs.map(j => j.orderNumber).join(', '));
+          
+          // Unallocate all overlapping jobs (they'll need to be re-scheduled)
+          for (const overlappingJob of overlappingJobs) {
+            if (overlappingJob.wipId) {
+              try {
+                await teamWorkItemService.deleteByProductionId(overlappingJob.id);
+                console.log(`[PLANNER] ✓ Deleted WIP for Type B-overlapping job: ${overlappingJob.orderNumber}`);
+              } catch (err) {
+                console.error(`[PLANNER] ✗ Failed to delete WIP for overlapping job ${overlappingJob.id}:`, err);
+              }
+            }
+            
+            // Remove from staged jobs if present
+            setStagedJobs(prev => prev.filter(sj => sj.jobId !== overlappingJob.id));
+          }
+          
+          // Update job state to clear planned times for overlapping jobs
+          const overlappingJobIds = overlappingJobs.map(j => j.id);
+          setJobs(prevJobs => prevJobs.map(j => {
+            if (overlappingJobIds.includes(j.id)) {
+              return {
+                ...j,
+                jigId: null,
+                plannedDateStr: null,
+                plannedStartTime: null,
+                plannedEndTime: null,
+                plannedDurationMinutes: null,
+                breakAdjustmentMinutes: null,
+                wipId: undefined
+              };
+            }
+            return j;
+          }));
+          
+          console.log(`[PLANNER] ✓ Type B overlap unallocation: ${overlappingJobs.length} jobs returned to Unallocated`);
+        }
+        
         if (viewMode !== 'day') {
           setViewMode('day');
           setCurrentDateStr(dateStr);

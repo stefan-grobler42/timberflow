@@ -16,12 +16,14 @@ import {
   getNextWorkingDayWithOvertime,
   getNextValidStartTime,
   calculateEndTime,
+  isTypeBBlock,
   type OvertimeSettingsMap
 } from './shiftCalendar';
 import { type SchedulerConfig, DEFAULT_CONFIG } from './schedulerSettings';
+import { calculateBreakdownStretch, type BreakdownBlock } from './schedulerEngine';
 
 /**
- * Schedule block type for Type A block filtering in continuous flow allocation.
+ * Schedule block type for allocation - supports both Type A and Type B blocks.
  */
 export interface ScheduleBlockForAllocation {
   blockType: string;
@@ -29,6 +31,104 @@ export interface ScheduleBlockForAllocation {
   endTimeMinutes: number;
   dateStr: string;
   teamId?: string | null;
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * Gets Type B blocks (Breakdown, MaterialShortage) for a specific date and team.
+ * These blocks extend job duration when they intersect with a job.
+ */
+function getTypeBBlocksForDay(
+  dateStr: string,
+  teamId: string,
+  scheduleBlocks: ScheduleBlockForAllocation[]
+): BreakdownBlock[] {
+  return scheduleBlocks
+    .filter(b => {
+      if (!isTypeBBlock(b.blockType)) return false;
+      if (b.teamId !== null && b.teamId !== undefined && b.teamId !== teamId) {
+        return false;
+      }
+      const blockStartDate = b.startDate || b.dateStr;
+      const blockEndDate = b.endDate || b.dateStr;
+      return dateStr >= blockStartDate && dateStr <= blockEndDate;
+    })
+    .map(b => ({
+      startDate: b.startDate || b.dateStr,
+      startTimeMinutes: b.startTimeMinutes,
+      endDate: b.endDate || b.dateStr,
+      endTimeMinutes: b.endTimeMinutes
+    }));
+}
+
+/**
+ * Checks if a time falls within a Type B block.
+ * Returns the block if found, null otherwise.
+ */
+function isInTypeBBlock(
+  time: number,
+  dateStr: string,
+  typeBBlocks: BreakdownBlock[]
+): BreakdownBlock | null {
+  for (const block of typeBBlocks) {
+    const isBlockOnDate = dateStr >= block.startDate && dateStr <= block.endDate;
+    if (!isBlockOnDate) continue;
+    
+    let blockStart: number;
+    let blockEnd: number;
+    
+    if (block.startDate === dateStr && block.endDate === dateStr) {
+      blockStart = block.startTimeMinutes;
+      blockEnd = block.endTimeMinutes;
+    } else if (block.startDate === dateStr) {
+      blockStart = block.startTimeMinutes;
+      blockEnd = 1440;
+    } else if (block.endDate === dateStr) {
+      blockStart = 0;
+      blockEnd = block.endTimeMinutes;
+    } else {
+      blockStart = 0;
+      blockEnd = 1440;
+    }
+    
+    if (time >= blockStart && time < blockEnd) {
+      return block;
+    }
+  }
+  return null;
+}
+
+/**
+ * Gets the next valid start time that is NOT within a Type B block.
+ * If the proposed time is inside a Type B block, returns the end of that block.
+ */
+function getNextValidStartTimeSkippingTypeBBlocks(
+  proposedTime: number,
+  dateStr: string,
+  typeBBlocks: BreakdownBlock[]
+): number {
+  let time = proposedTime;
+  let iterations = 0;
+  const maxIterations = 10;
+  
+  while (iterations < maxIterations) {
+    const inBlock = isInTypeBBlock(time, dateStr, typeBBlocks);
+    if (!inBlock) {
+      return time;
+    }
+    
+    if (inBlock.startDate === dateStr && inBlock.endDate === dateStr) {
+      time = inBlock.endTimeMinutes;
+    } else if (inBlock.endDate === dateStr) {
+      time = inBlock.endTimeMinutes;
+    } else {
+      time = 1440;
+    }
+    iterations++;
+  }
+  
+  return time;
 }
 
 /**
@@ -143,6 +243,11 @@ function getAvailableWorkMinutesOnDay(
  * - Jobs cannot occupy time within Type A blocks
  * - When a job encounters a Type A block, remaining work continues after the block
  * 
+ * TYPE B BLOCKS (Breakdown, MaterialShortage):
+ * - Jobs cannot start or end within Type B blocks
+ * - When a job spans a Type B block, the job's end time is extended by the block duration
+ * - First job intersecting a Type B block gets extended; subsequent jobs need cascade handling
+ * 
  * @param job - The job to allocate
  * @param teamId - The team to allocate to
  * @param startDateStr - The date where allocation begins (drop day)
@@ -150,8 +255,8 @@ function getAvailableWorkMinutesOnDay(
  * @param overtimeMap - Overtime settings by date/team
  * @param teamAverageEfinks - Team efficiency for duration calculation
  * @param config - Optional SchedulerConfig for dynamic configuration (defaults to DEFAULT_CONFIG)
- * @param scheduleBlocks - Optional schedule blocks to filter for Type A blocks
- * @returns Allocation result with day segments
+ * @param scheduleBlocks - Optional schedule blocks for Type A (non-working intervals) and Type B (job stretch)
+ * @returns Allocation result with day segments (Type B stretching applied)
  */
 export function allocateJobContinuousFlow(
   job: ScheduledJob,
@@ -176,10 +281,15 @@ export function allocateJobContinuousFlow(
   
   while (remainingWork > 0 && dayCount < MAX_DAYS) {
     const shift = getTeamShiftForDay(currentDate, teamId, overtimeMap, config, scheduleBlocks);
+    const typeBBlocks = getTypeBBlocksForDay(currentDate, teamId, scheduleBlocks);
     
-    const effectiveStart = isFirstDay 
+    // Calculate effective start time: skip breaks and Type B blocks
+    let effectiveStart = isFirstDay 
       ? getNextValidStartTime(currentStartTime, shift)
       : shift.startTime;
+    
+    // Additionally skip Type B blocks - jobs cannot start within a Type B block
+    effectiveStart = getNextValidStartTimeSkippingTypeBBlocks(effectiveStart, currentDate, typeBBlocks);
     
     if (effectiveStart >= shift.endTime) {
       currentDate = getNextWorkingDayWithOvertime(currentDate, teamId, overtimeMap);
@@ -199,15 +309,43 @@ export function allocateJobContinuousFlow(
     
     const workToDoToday = Math.min(remainingWork, availableOnDay);
     
+    // Calculate base end time with break expansion
     const endTiming = calculateEndTime(effectiveStart, workToDoToday, shift);
+    
+    // Apply Type B block stretching - if job spans a Type B block, extend end time
+    let finalEndTime = endTiming.endTime;
+    let typeBStretchMinutes = 0;
+    
+    if (typeBBlocks.length > 0) {
+      const stretchResult = calculateBreakdownStretch(
+        currentDate,
+        effectiveStart,
+        endTiming.endTime,
+        shift.endTime,
+        typeBBlocks
+      );
+      
+      typeBStretchMinutes = stretchResult.stretchMinutes;
+      finalEndTime = endTiming.endTime + typeBStretchMinutes;
+      
+      // If the stretched end time would end inside a Type B block, push to after the block
+      const endInBlock = isInTypeBBlock(finalEndTime, currentDate, typeBBlocks);
+      if (endInBlock) {
+        if (endInBlock.startDate === currentDate && endInBlock.endDate === currentDate) {
+          finalEndTime = endInBlock.endTimeMinutes;
+        } else if (endInBlock.endDate === currentDate) {
+          finalEndTime = endInBlock.endTimeMinutes;
+        }
+      }
+    }
     
     segments.push({
       dateStr: currentDate,
       jigId: teamId,
       startTimeMinutes: effectiveStart,
-      endTimeMinutes: endTiming.endTime,
+      endTimeMinutes: finalEndTime,
       workMinutes: workToDoToday,
-      breakMinutes: endTiming.breakMinutes,
+      breakMinutes: endTiming.breakMinutes + typeBStretchMinutes,
       isFirstDay,
       isLastDay: workToDoToday >= remainingWork
     });
