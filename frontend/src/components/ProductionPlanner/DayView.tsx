@@ -129,7 +129,6 @@ interface DayViewProps {
   scheduleBlocks?: ScheduleBlock[];
   onBlockClick?: (block: ScheduleBlock) => void;
   schedulerConfig?: SchedulerConfig;
-  onEditMultiDayJob?: (productionId: string, teamId: string, dateStr: string) => void;
   stagedJobs?: StagedJob[];
   onSaveStagedJob?: (jobId: string) => void;
   onCancelStagedJob?: (jobId: string) => void;
@@ -159,7 +158,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   scheduleBlocks = [],
   onBlockClick,
   schedulerConfig,
-  onEditMultiDayJob,
   stagedJobs = [],
   onSaveStagedJob,
   onCancelStagedJob,

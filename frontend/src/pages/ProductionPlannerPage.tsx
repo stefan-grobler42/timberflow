@@ -2163,9 +2163,6 @@ export const ProductionPlannerPage = () => {
                 setBlockPanelOpen(true);
               }}
               schedulerConfig={schedulerConfig}
-              onEditMultiDayJob={async (_productionId, teamId, dateStr) => {
-                await recalculateMultiDaySegments(teamId, dateStr, overtimeByTeamDay);
-              }}
               stagedJobs={stagedJobs}
               onSaveStagedJob={handleSaveStagedJob}
               onCancelStagedJob={handleCancelStagedJob}
