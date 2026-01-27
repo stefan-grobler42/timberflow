@@ -77,10 +77,10 @@ class IncrementalSyncer:
     
     def fetch_records_since(self, since_timestamp: Optional[str] = None) -> Tuple[List[Dict], int]:
         """
-        Fetch D365 records created after the given timestamp with pagination
+        Fetch D365 records created OR modified after the given timestamp with pagination
         
         Args:
-            since_timestamp: ISO format timestamp to filter records created after
+            since_timestamp: ISO format timestamp to filter records created/modified after
             
         Returns:
             Tuple of (list of records, total count)
@@ -96,13 +96,13 @@ class IncrementalSyncer:
             params = []
             params.append(f"$top={self.PAGE_SIZE}")
             params.append("$count=true")
-            params.append("$orderby=createdon asc")
+            params.append("$orderby=modifiedon asc")
             
             if since_timestamp:
                 odata_timestamp = since_timestamp.replace('+00:00', 'Z')
                 if not odata_timestamp.endswith('Z'):
                     odata_timestamp = odata_timestamp + 'Z'
-                params.append(f"$filter=createdon gt {odata_timestamp}")
+                params.append(f"$filter=createdon gt {odata_timestamp} or modifiedon gt {odata_timestamp}")
             
             url = f"{base_url}?{'&'.join(params)}"
             
@@ -187,13 +187,13 @@ class IncrementalSyncer:
     
     def import_records_bulk(self, records: List[Dict]) -> Tuple[int, int]:
         """
-        Import records, checking for existence first
+        Import or update records (upsert behavior)
         
         Args:
-            records: List of D365 records to import
+            records: List of D365 records to import/update
             
         Returns:
-            Tuple of (imported count, skipped count)
+            Tuple of (imported/updated count, skipped count)
         """
         imported = 0
         skipped = 0
@@ -202,14 +202,56 @@ class IncrementalSyncer:
         for record in records:
             record_id = record.get(primary_key)
             
-            if record_id and self.check_record_exists(record_id):
-                skipped += 1
-                continue
+            exists = record_id and self.check_record_exists(record_id)
             
-            if self.import_record(record):
-                imported += 1
+            if exists:
+                if self.update_record(record):
+                    imported += 1
+                else:
+                    skipped += 1
+            else:
+                if self.import_record(record):
+                    imported += 1
                 
         return imported, skipped
+    
+    def update_record(self, record: Dict) -> bool:
+        """
+        Update an existing record in the backend
+        
+        Args:
+            record: D365 record to update
+            
+        Returns:
+            True if successfully updated, False otherwise
+        """
+        try:
+            transformed = self.migrator.transform_record(record, self.entity)
+            
+            endpoint = self.entity_mapping['endpoint']
+            primary_key = self.entity_mapping['primary_key']
+            record_id = record.get(primary_key)
+            
+            url = f"{self.api_url}/api/{endpoint}/{record_id}"
+            
+            response = requests.put(
+                url,
+                json=transformed,
+                headers={'Content-Type': 'application/json'},
+                timeout=30
+            )
+            
+            if response.status_code in [200, 204]:
+                return True
+            else:
+                self.errors.append(f"Failed to update record {record_id}: HTTP {response.status_code} - {response.text[:200]}")
+                return False
+                
+        except Exception as e:
+            primary_key = self.entity_mapping['primary_key']
+            record_id = record.get(primary_key, 'unknown')
+            self.errors.append(f"Error updating record {record_id}: {str(e)}")
+            return False
     
     def run(self) -> Dict:
         """
