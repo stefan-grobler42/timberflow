@@ -72,7 +72,12 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
     -   Provides manual "Refresh from Dynamics" button in Production Planner action bar with real-time status feedback
     -   Uses thread-safe concurrency protection to prevent overlapping sync operations
     -   Syncs both `salesorder` and `cr694_production` entities
+    -   Excludes legacy J23-prefixed orders from the unallocated sidebar
     -   Key files: `dynamics365_integration/incremental_sync.py`, `SyncController.cs`, `DynamicsSyncScheduler.cs`, `syncService.ts`
+-   **Unallocated Sidebar Differentiation** (Jan 2026): The Production Planner sidebar now distinguishes between two types of unallocated jobs:
+    -   **Ready to Schedule** (green): Productions that exist in the database but haven't been scheduled yet - these are draggable and can be assigned to teams
+    -   **Missing Production** (orange): Orders that exist in D365 but don't have a corresponding production record - these are non-draggable and require production creation in D365 first
+    -   Uses `sourceType` field on Job interface: 'production' for production-backed jobs, 'order-only' for orders without production records
 
 ### Feature Specifications
 -   **ERP Modules**: Comprehensive modules including Activities, Installations, Trips, Loads, Procurement, Suppliers, Sub-Contractors, Accounts, Contacts, Quotes, Orders, Tenders, Products, Employees, Designers, Sales Representatives, Vehicles.
