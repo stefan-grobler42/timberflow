@@ -2305,30 +2305,34 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     onDragStart={() => onDragStart(job.id)}
                     onDoubleClick={() => onJobDoubleClick(job.id)}
                     style={{
-                      padding: '6px 8px',
+                      padding: 8,
                       background: job.productionComplete 
-                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.9), rgba(200, 200, 200, 0.85))' 
-                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.9), rgba(160, 30, 30, 0.85))',
+                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
+                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))',
                       color: job.productionComplete ? '#555' : 'white',
-                      borderRadius: 4,
+                      borderRadius: 6,
                       border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
                       cursor: 'grab',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                      boxShadow: job.productionComplete 
+                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
+                        : '0 4px 12px rgba(198, 40, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
                       opacity: job.productionComplete ? 0.7 : 1
                     }}
                   >
-                    <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600, fontSize: 11 } }}>
-                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' ✓' : ''}
-                    </Text>
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                    <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                      <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
+                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' (Complete)' : ''}
+                      </Text>
+                    </Stack>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
                       {job.customer}
                     </Text>
                     {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
-                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 9, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
                         {job.name}
                       </Text>
                     )}
-                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: 500 } }}>
+                    <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>
                   </div>

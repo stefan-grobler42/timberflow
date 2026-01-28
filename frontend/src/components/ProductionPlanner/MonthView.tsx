@@ -260,7 +260,7 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
                             }}
                           >
                             <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
-                              <Text variant="tiny" styles={{ root: { fontWeight: 600, color: 'white' } }}>
+                              <Text variant="tiny" styles={{ root: { fontWeight: 600, color: job.productionComplete ? '#666' : 'white' } }}>
                                 {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                               </Text>
                               {isMultiDay && (
@@ -280,15 +280,15 @@ const MonthViewComponent: React.FC<MonthViewProps> = ({
                                 </Text>
                               )}
                             </Stack>
-                            <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.9)' } }}>
+                            <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)' } }}>
                               {job.customer}
                             </Text>
                             {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
-                              <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                              <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
                                 {job.name}
                               </Text>
                             )}
-                            <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                            <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
                               {isMultiDay
                                 ? `${displayEfinks.toFixed(1)} E-Finks (${job.estimatedEFinks} total)`
                                 : `${displayEfinks} E-Finks`

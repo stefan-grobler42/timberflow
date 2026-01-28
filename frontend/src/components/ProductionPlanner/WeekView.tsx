@@ -242,18 +242,20 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                       opacity: job.productionComplete ? 0.8 : 1
                     }}
                   >
-                    <Text variant="tiny" block styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
-                      {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
-                    </Text>
-                    <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
+                    <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                      <Text variant="tiny" styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : 'white' } }}>
+                        {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
+                      </Text>
+                    </Stack>
+                    <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)' } }}>
                       {job.customer}
                     </Text>
                     {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
-                      <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                      <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
                         {job.name}
                       </Text>
                     )}
-                    <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                    <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>
                   </div>
@@ -336,7 +338,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                         }}
                       >
                         <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
-                          <Text variant="tiny" styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: 'white' } }}>
+                          <Text variant="tiny" styles={{ root: { fontWeight: 600, wordBreak: 'break-word', color: job.productionComplete ? '#666' : 'white' } }}>
                             {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (Rollover)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                           </Text>
                           {isMultiDay && (
@@ -356,15 +358,15 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                             </Text>
                           )}
                         </Stack>
-                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
+                        <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)' } }}>
                           {job.customer}
                         </Text>
                         {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
-                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                          <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
                             {job.name}
                           </Text>
                         )}
-                        <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
+                        <Text variant="tiny" block styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontWeight: 600 } }}>
                           {isMultiDay
                             ? `${displayEfinks.toFixed(1)} E-Finks (${job.estimatedEFinks} total)`
                             : `${displayEfinks} E-Finks`
