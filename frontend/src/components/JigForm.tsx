@@ -109,10 +109,16 @@ export const JigForm = ({
         return;
       }
 
+      // Clean data - convert empty strings to undefined for nullable GUID fields
+      const cleanedData = {
+        ...formData,
+        leaderId: formData.leaderId && formData.leaderId.trim() !== '' ? formData.leaderId : undefined,
+      };
+
       if (jig) {
-        await jigService.update(jig.id, formData);
+        await jigService.update(jig.id, cleanedData);
       } else {
-        await jigService.create(formData);
+        await jigService.create(cleanedData);
       }
 
       onSave();
@@ -133,10 +139,16 @@ export const JigForm = ({
         return;
       }
 
+      // Clean data - convert empty strings to undefined for nullable GUID fields
+      const cleanedData = {
+        ...formData,
+        leaderId: formData.leaderId && formData.leaderId.trim() !== '' ? formData.leaderId : undefined,
+      };
+
       if (jig) {
-        await jigService.update(jig.id, formData);
+        await jigService.update(jig.id, cleanedData);
       } else {
-        await jigService.create(formData);
+        await jigService.create(cleanedData);
       }
 
       setFormData({
@@ -260,14 +272,11 @@ export const JigForm = ({
 
           <TextField
             label="Average E-Finks per Day"
-            type="number"
-            min={1}
-            step={0.01}
             description="The average E-Finks capacity this team can complete in a day (default: 80). Used for capacity planning."
-            value={formData.averageEfinks !== undefined ? formData.averageEfinks.toFixed(2) : '80.00'}
+            value={formData.averageEfinks?.toString() || '80'}
             onChange={(_, value) => {
               const parsed = value ? parseFloat(value) : 80;
-              setFormData({ ...formData, averageEfinks: Math.max(1, parsed) });
+              setFormData({ ...formData, averageEfinks: isNaN(parsed) ? 80 : Math.max(1, parsed) });
             }}
             disabled={saving}
           />
