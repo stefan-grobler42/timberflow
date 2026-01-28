@@ -2112,6 +2112,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.8)' : (job.productionComplete ? '#666' : 'white') } }}>
                               {job.customer}
                             </Text>
+                            {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                              <Text variant="tiny" styles={{ root: { color: isStaged ? 'rgba(0, 120, 212, 0.7)' : (job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)'), fontSize: 11, fontStyle: 'italic' } }}>
+                                {job.name}
+                              </Text>
+                            )}
                           </Stack>
                         </Stack>
                         <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} wrap>
@@ -2318,6 +2323,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#777' : 'rgba(255,255,255,0.9)', fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
                       {job.customer}
                     </Text>
+                    {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 9, fontStyle: 'italic', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }}>
+                        {job.name}
+                      </Text>
+                    )}
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.8)', fontSize: 9, fontWeight: 500 } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>

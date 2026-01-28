@@ -248,6 +248,11 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                     <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
                       {job.customer}
                     </Text>
+                    {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                      <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                        {job.name}
+                      </Text>
+                    )}
                     <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
                       {job.estimatedEFinks} E-Finks
                     </Text>
@@ -354,6 +359,11 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({
                         <Text variant="tiny" block styles={{ root: { wordBreak: 'break-word', color: 'rgba(255,255,255,0.9)' } }}>
                           {job.customer}
                         </Text>
+                        {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                          <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                            {job.name}
+                          </Text>
+                        )}
                         <Text variant="tiny" block styles={{ root: { color: 'rgba(255,255,255,0.8)' } }}>
                           {isMultiDay
                             ? `${displayEfinks.toFixed(1)} E-Finks (${job.estimatedEFinks} total)`

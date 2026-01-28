@@ -848,6 +848,11 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                               <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
                                 {job.customer}
                               </Text>
+                              {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                                <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+                                  {job.name}
+                                </Text>
+                              )}
                             </Stack>
                           </Stack>
 
@@ -959,6 +964,11 @@ const DaySectionComponent: React.FC<DaySectionProps> = ({
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.8)', fontSize: 10 } }}>
                       {job.customer}
                     </Text>
+                    {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+                      <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.75)', fontSize: 9, fontStyle: 'italic' } }}>
+                        {job.name}
+                      </Text>
+                    )}
                     <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#999' : 'rgba(255,255,255,0.7)', fontSize: 10 } }}>
                       {job.estimatedEFinks} EF | {formatDuration(getBaseDurationMinutes(job))}
                     </Text>

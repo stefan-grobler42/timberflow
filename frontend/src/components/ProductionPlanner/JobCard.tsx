@@ -192,6 +192,11 @@ const JobCardComponent: React.FC<JobCardProps> = ({
           <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'white' } }}>
             {job.customer}
           </Text>
+          {job.name && !job.name.includes('(Rollover)') && !job.name.includes('(Roll Over)') && (
+            <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#888' : 'rgba(255,255,255,0.85)', fontSize: 11, fontStyle: 'italic' } }}>
+              {job.name}
+            </Text>
+          )}
         </Stack>
       </Stack>
       
