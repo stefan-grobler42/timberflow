@@ -170,7 +170,9 @@ public class TeamWorkItemsController : ControllerBase
             .Include(p => p.Order)
             .Include(p => p.CustomerAccount)
             .Where(p => !p.IsInWip)
-            .Where(p => p.Productioncomplete != true);
+            .Where(p => p.Productioncomplete != true)
+            // Exclude old J23- prefixed orders from unallocated sidebar
+            .Where(p => p.Order == null || !p.Order.OrderNumber.StartsWith("J23"));
 
         if (!string.IsNullOrEmpty(dateFrom) && DateTime.TryParse(dateFrom, out var fromDate))
         {

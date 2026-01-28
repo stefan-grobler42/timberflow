@@ -66,6 +66,8 @@ public class D365OrdersController : ControllerBase
             .AsNoTracking()
             .Where(o => o.ProductionRequired == true)
             .Where(o => !_context.Productions.Any(p => p.Orderno == o.Id))
+            // Exclude old J23- prefixed orders
+            .Where(o => o.OrderNumber == null || !o.OrderNumber.StartsWith("J23"))
             .Select(o => new 
             {
                 o.Id,
