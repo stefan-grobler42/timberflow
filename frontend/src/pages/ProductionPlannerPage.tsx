@@ -30,6 +30,8 @@ import { ShiftConfigProvider } from '../contexts/ShiftConfigContext';
 import { type SchedulerConfig, mapSystemSettingsToSchedulerConfig, DEFAULT_CONFIG } from '../domain/plannerV2/schedulerSettings';
 import { exportPlannerViewToPdf } from '../utils/pdfExport';
 
+type JobSourceType = 'production' | 'order-only';
+
 interface Job {
   id: string;
   name: string;
@@ -53,6 +55,7 @@ interface Job {
   segmentIndex?: number | null;
   totalSegments?: number | null;
   segmentEfinks?: number;
+  sourceType?: JobSourceType; // 'production' = has production record, 'order-only' = missing production record
 }
 
 interface StagedJobSegment {
@@ -370,7 +373,8 @@ export const ProductionPlannerPage = () => {
               // Multi-day segment info from actual WIP data
               segmentIndex: segmentIndex,
               totalSegments: totalSegments,
-              segmentEfinks: wipData.estimatedEfinks || (totalEfinks / totalSegments)
+              segmentEfinks: wipData.estimatedEfinks || (totalEfinks / totalSegments),
+              sourceType: 'production' as JobSourceType
             }));
           }
           
@@ -396,7 +400,8 @@ export const ProductionPlannerPage = () => {
             overtimeEnabled: undefined,
             segmentIndex: undefined,
             totalSegments: undefined,
-            segmentEfinks: undefined
+            segmentEfinks: undefined,
+            sourceType: 'production' as JobSourceType
           }];
         });
         
@@ -408,7 +413,7 @@ export const ProductionPlannerPage = () => {
       }
       
       // D365 orders that don't have Production records yet - these go in the basket
-      const ordersNeedingProduction = unallocated.map((o: any) => ({
+      const ordersNeedingProduction: Job[] = unallocated.map((o: any) => ({
         id: `order-${o.id}`,
         name: o.name || '',
         orderNumber: o.orderNumber || o.name || 'N/A',
@@ -416,7 +421,8 @@ export const ProductionPlannerPage = () => {
         estimatedEFinks: o.estimatedEFinks || 0,
         plannedDateStr: null,
         jigId: null,
-        productionComplete: false
+        productionComplete: false,
+        sourceType: 'order-only' as JobSourceType
       }));
       
       // Count productions with date but no team (these show in "Unallocated" column, not basket)
@@ -2301,33 +2307,84 @@ export const ProductionPlannerPage = () => {
                 </Text>
               </Stack>
 
-              <Stack styles={{ root: { marginTop: 10, gap: 4, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' } }}>
-                {unallocated.map(job => (
-                  <div
-                    key={job.id}
-                    draggable
-                    onDragStart={() => handleDragStart(job.id)}
-                    onDoubleClick={() => handleJobDoubleClick(job.id)}
-                    style={{
-                      padding: '5px 8px',
-                      backgroundColor: 'white',
-                      borderRadius: 3,
-                      cursor: 'grab',
-                      border: '1px solid #ddd',
-                      boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
-                    }}
-                  >
-                    <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333' } }}>
-                      {job.orderNumber}
-                    </Text>
-                    <Text variant="tiny" styles={{ root: { fontSize: 10, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' } }}>
-                      {job.customer}
-                    </Text>
-                    <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#0078d4', fontWeight: 500 } }}>
-                      {job.estimatedEFinks} E-Finks
-                    </Text>
-                  </div>
-                ))}
+              <Stack styles={{ root: { marginTop: 10, gap: 8, overflowY: 'auto', maxHeight: 'calc(100vh - 200px)' } }}>
+                {/* Ready to Schedule - Productions without planned date */}
+                {(() => {
+                  const readyToSchedule = unallocated.filter(j => j.sourceType === 'production');
+                  const missingProduction = unallocated.filter(j => j.sourceType === 'order-only');
+                  
+                  return (
+                    <>
+                      {readyToSchedule.length > 0 && (
+                        <>
+                          <Text variant="smallPlus" styles={{ root: { fontWeight: 600, color: '#107c10', marginTop: 4 } }}>
+                            Ready to Schedule ({readyToSchedule.length})
+                          </Text>
+                          {readyToSchedule.map(job => (
+                            <div
+                              key={job.id}
+                              draggable
+                              onDragStart={() => handleDragStart(job.id)}
+                              onDoubleClick={() => handleJobDoubleClick(job.id)}
+                              style={{
+                                padding: '5px 8px',
+                                backgroundColor: '#f0fff0',
+                                borderRadius: 3,
+                                cursor: 'grab',
+                                border: '1px solid #90ee90',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
+                              }}
+                            >
+                              <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333' } }}>
+                                {job.orderNumber}
+                              </Text>
+                              <Text variant="tiny" styles={{ root: { fontSize: 10, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' } }}>
+                                {job.customer}
+                              </Text>
+                              <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#107c10', fontWeight: 500 } }}>
+                                {job.estimatedEFinks} E-Finks
+                              </Text>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                      
+                      {missingProduction.length > 0 && (
+                        <>
+                          <Text variant="smallPlus" styles={{ root: { fontWeight: 600, color: '#d83b01', marginTop: readyToSchedule.length > 0 ? 12 : 4 } }}>
+                            Missing Production ({missingProduction.length})
+                          </Text>
+                          {missingProduction.map(job => (
+                            <div
+                              key={job.id}
+                              draggable={false}
+                              onDoubleClick={() => handleJobDoubleClick(job.id)}
+                              style={{
+                                padding: '5px 8px',
+                                backgroundColor: '#fff5f0',
+                                borderRadius: 3,
+                                cursor: 'not-allowed',
+                                border: '1px solid #ffccc7',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                                opacity: 0.85
+                              }}
+                            >
+                              <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333' } }}>
+                                {job.orderNumber}
+                              </Text>
+                              <Text variant="tiny" styles={{ root: { fontSize: 10, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' } }}>
+                                {job.customer}
+                              </Text>
+                              <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#d83b01', fontWeight: 500 } }}>
+                                Needs production in D365
+                              </Text>
+                            </div>
+                          ))}
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
                 {unallocated.length === 0 && (
                   <Text variant="small" styles={{ root: { color: '#666', textAlign: 'center', marginTop: 20 } }}>
                     No unallocated jobs
