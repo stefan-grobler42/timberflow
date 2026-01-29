@@ -86,6 +86,18 @@ The system is a modern Single-Page Application (SPA) using React with Fluent UI 
 -   **CRM Features**: PeekView, SubGrid, LookupField with typeahead search, duplicate detection with configurable rules and merging.
 -   **Project/Stock Management**: Hierarchical project structures and sophisticated stock handling.
 
+## Deployment Configuration
+
+-   **Deployment Type**: Autoscale (stateless, request-driven)
+-   **Build Process**:
+    1. Build React frontend with `npm run build:prod` (skips TypeScript checking for incomplete modules)
+    2. Copy frontend assets to `backend/MillenniumERP.API/wwwroot/`
+    3. Publish .NET backend with `dotnet publish -c Release -o ../../publish`
+-   **Run Command**: `dotnet publish/MillenniumERP.API.dll`
+-   **Static File Serving**: In production, the .NET backend serves the React SPA from wwwroot using `UseDefaultFiles()`, `UseStaticFiles()`, and `MapFallbackToFile()` for client-side routing
+-   **Port Configuration**: Production uses port 5000 (Replit webview), Development uses port 8000 for API
+-   **Environment Detection**: Uses `builder.Environment.IsProduction()` to determine port and static file serving behavior
+
 ## External Dependencies
 
 -   **React**: Frontend UI framework.
