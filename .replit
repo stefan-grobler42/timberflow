@@ -53,7 +53,9 @@ localPort = 8000
 externalPort = 8000
 
 [deployment]
-deploymentTarget = "cloudrun"
+deploymentTarget = "autoscale"
+run = ["dotnet", "publish/MillenniumERP.API.dll"]
+build = ["bash", "-c", "cd frontend && npm install && npm run build:prod && cp -r dist/* ../backend/MillenniumERP.API/wwwroot/ && cd ../backend/MillenniumERP.API && dotnet publish -c Release -o ../../publish"]
 
 [agent]
 expertMode = true

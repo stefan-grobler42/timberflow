@@ -5,6 +5,8 @@ using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var isProduction = builder.Environment.IsProduction();
+
 // Add DbContext with PostgreSQL using individual environment variables
 var pgHost = Environment.GetEnvironmentVariable("PGHOST");
 var pgPort = Environment.GetEnvironmentVariable("PGPORT");
@@ -68,10 +70,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddAuthorization();
 
-// Configure Kestrel to bind to port 8000 on IPv4
+// Configure Kestrel - port 5000 for production (Replit), port 8000 for development
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.Listen(System.Net.IPAddress.Any, 8000);
+    var port = isProduction ? 5000 : 8000;
+    options.Listen(System.Net.IPAddress.Any, port);
 });
 
 // Configure CORS to allow frontend origin
@@ -79,10 +82,19 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:5173", "http://localhost:5000", "http://127.0.0.1:5173", "http://127.0.0.1:5000")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        if (isProduction)
+        {
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithOrigins("http://localhost:5173", "http://localhost:5000", "http://127.0.0.1:5173", "http://127.0.0.1:5000")
+                  .AllowAnyMethod()
+                  .AllowAnyHeader()
+                  .AllowCredentials();
+        }
     });
 });
 
@@ -126,5 +138,19 @@ app.UseCors("AllowFrontend");
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Serve React SPA static files from wwwroot
+var wwwrootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+if (Directory.Exists(wwwrootPath) && Directory.GetFiles(wwwrootPath).Length > 0)
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    app.MapFallbackToFile("index.html");
+    app.Logger.LogInformation("Serving static files from wwwroot: {Path}", wwwrootPath);
+}
+else if (isProduction)
+{
+    app.Logger.LogWarning("wwwroot folder not found or empty at: {Path}. Static files won't be served.", wwwrootPath);
+}
 
 app.Run();

@@ -1,0 +1,12 @@
+/home/runner/workspace/backend/MillenniumERP.Domain/bin/Release/net8.0/MillenniumERP.Domain.deps.json
+/home/runner/workspace/backend/MillenniumERP.Domain/bin/Release/net8.0/MillenniumERP.Domain.dll
+/home/runner/workspace/backend/MillenniumERP.Domain/bin/Release/net8.0/MillenniumERP.Domain.pdb
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.AssemblyInfoInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.AssemblyInfo.cs
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.csproj.CoreCompileInputs.cache
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.sourcelink.json
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.dll
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/refint/MillenniumERP.Domain.dll
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/MillenniumERP.Domain.pdb
+/home/runner/workspace/backend/MillenniumERP.Domain/obj/Release/net8.0/ref/MillenniumERP.Domain.dll

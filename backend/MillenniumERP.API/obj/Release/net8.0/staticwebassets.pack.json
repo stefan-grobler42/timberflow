@@ -1,0 +1,45 @@
+{
+  "Files": [
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
+      "PackagePath": "staticwebassets/assets/index-DqYsQSV0.js"
+    },
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index.es-BIf5PqcS.js",
+      "PackagePath": "staticwebassets/assets/index.es-BIf5PqcS.js"
+    },
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/purify.es-B9ZVCkUG.js",
+      "PackagePath": "staticwebassets/assets/purify.es-B9ZVCkUG.js"
+    },
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/index.html",
+      "PackagePath": "staticwebassets/index.html"
+    },
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/millennium-logo.png",
+      "PackagePath": "staticwebassets/millennium-logo.png"
+    },
+    {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/vite.svg",
+      "PackagePath": "staticwebassets/vite.svg"
+    },
+    {
+      "Id": "obj/Release/net8.0/staticwebassets/msbuild.MillenniumERP.API.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Release/net8.0/staticwebassets/msbuild.build.MillenniumERP.API.props",
+      "PackagePath": "build\\MillenniumERP.API.props"
+    },
+    {
+      "Id": "obj/Release/net8.0/staticwebassets/msbuild.buildMultiTargeting.MillenniumERP.API.props",
+      "PackagePath": "buildMultiTargeting\\MillenniumERP.API.props"
+    },
+    {
+      "Id": "obj/Release/net8.0/staticwebassets/msbuild.buildTransitive.MillenniumERP.API.props",
+      "PackagePath": "buildTransitive\\MillenniumERP.API.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
