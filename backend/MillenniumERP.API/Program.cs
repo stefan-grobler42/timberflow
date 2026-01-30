@@ -133,24 +133,21 @@ if (app.Environment.IsDevelopment())
 // Use CORS before authentication and authorization
 app.UseCors("AllowFrontend");
 
+// Serve React SPA static files from wwwroot - MUST be before routing
+var wwwrootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
+app.Logger.LogInformation("Content root path: {Path}", app.Environment.ContentRootPath);
+app.Logger.LogInformation("Looking for wwwroot at: {Path}", wwwrootPath);
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // TODO: Enable authentication middleware after configuring services (Task 5)
 // app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 
-// Serve React SPA static files from wwwroot
-var wwwrootPath = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
-if (Directory.Exists(wwwrootPath) && Directory.GetFiles(wwwrootPath).Length > 0)
-{
-    app.UseDefaultFiles();
-    app.UseStaticFiles();
-    app.MapFallbackToFile("index.html");
-    app.Logger.LogInformation("Serving static files from wwwroot: {Path}", wwwrootPath);
-}
-else if (isProduction)
-{
-    app.Logger.LogWarning("wwwroot folder not found or empty at: {Path}. Static files won't be served.", wwwrootPath);
-}
+// Fallback to index.html for SPA client-side routing
+app.MapFallbackToFile("index.html");
 
 app.Run();
