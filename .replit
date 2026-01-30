@@ -54,7 +54,7 @@ externalPort = 8000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["dotnet", "/home/runner/workspace/publish/MillenniumERP.API.dll"]
+run = ["bash", "-c", "ASPNETCORE_ENVIRONMENT=Production dotnet /home/runner/workspace/publish/MillenniumERP.API.dll"]
 build = ["bash", "-c", "cd /home/runner/workspace/frontend && npm install && npx vite build && mkdir -p /home/runner/workspace/backend/MillenniumERP.API/wwwroot && cp -r dist/* /home/runner/workspace/backend/MillenniumERP.API/wwwroot/ && cd /home/runner/workspace/backend/MillenniumERP.API && dotnet publish -c Release -o /home/runner/workspace/publish"]
 
 [agent]
