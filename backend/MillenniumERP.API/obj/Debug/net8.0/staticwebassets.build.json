@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "j6T6lHl1Ne/NqH2hdOPtX1rL0Y1l0/QGsaks5PUXfxU=",
+  "Hash": "bylN06LeZ0EKOXwVvkvYLWBt39EhIAbaHl2WRX8oH3w=",
   "Source": "MillenniumERP.API",
   "BasePath": "_content/MillenniumERP.API",
   "Mode": "Default",
@@ -16,6 +16,25 @@
     }
   ],
   "Assets": [
+    {
+      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/.gitkeep",
+      "SourceId": "MillenniumERP.API",
+      "SourceType": "Discovered",
+      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "BasePath": "_content/MillenniumERP.API",
+      "RelativePath": ".gitkeep",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "AssetMergeBehavior": "PreferTarget",
+      "AssetMergeSource": "",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot/.gitkeep"
+    },
     {
       "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
       "SourceId": "MillenniumERP.API",
