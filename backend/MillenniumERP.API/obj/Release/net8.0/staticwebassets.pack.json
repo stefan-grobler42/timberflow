@@ -1,6 +1,10 @@
 {
   "Files": [
     {
+      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/.gitkeep",
+      "PackagePath": "staticwebassets/.gitkeep"
+    },
+    {
       "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
       "PackagePath": "staticwebassets/assets/index-DqYsQSV0.js"
     },

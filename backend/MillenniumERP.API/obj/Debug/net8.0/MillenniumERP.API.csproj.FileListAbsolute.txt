@@ -143,3 +143,8 @@
 /home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/Npgsql.dll
 /home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/Npgsql.EntityFrameworkCore.PostgreSQL.dll
 /home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/MillenniumERP.API.staticwebassets.runtime.json
+/home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/out/web.config
+/home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/out/appsettings.Development.json
+/home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/out/appsettings.json
+/home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/out/MillenniumERP.API.deps.json
+/home/runner/workspace/backend/MillenniumERP.API/bin/Debug/net8.0/out/MillenniumERP.API.runtimeconfig.json
