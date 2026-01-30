@@ -54,7 +54,7 @@ externalPort = 8000
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["dotnet", "backend/MillenniumERP.API/out/MillenniumERP.API.dll"]
+run = ["bash", "-c", "cd backend/MillenniumERP.API/out && dotnet MillenniumERP.API.dll"]
 build = ["bash", "scripts/deploy-build.sh"]
 
 [agent]
