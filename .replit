@@ -55,7 +55,7 @@ externalPort = 8000
 [deployment]
 deploymentTarget = "autoscale"
 run = ["dotnet", "backend/MillenniumERP.API/out/MillenniumERP.API.dll"]
-build = ["bash", "-c", "cd frontend && npm install && npx vite build && cd .. && mkdir -p backend/MillenniumERP.API/wwwroot && cp -r frontend/dist/* backend/MillenniumERP.API/wwwroot/ && dotnet publish backend/MillenniumERP.API/MillenniumERP.API.csproj -c Release -o backend/MillenniumERP.API/out"]
+build = ["bash", "scripts/deploy-build.sh"]
 
 [agent]
 expertMode = true
