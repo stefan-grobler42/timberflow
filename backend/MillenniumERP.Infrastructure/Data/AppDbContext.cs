@@ -59,6 +59,9 @@ public class AppDbContext : DbContext
     // Team Work Items (WIP) for active job scheduling
     public DbSet<TeamWorkItem> TeamWorkItems { get; set; }
     
+    // Job batches for combining similar productions
+    public DbSet<JobBatch> JobBatches { get; set; }
+    
     // Waterfall Planner - continuous job allocations
     public DbSet<JobAllocation> JobAllocations { get; set; }
     public DbSet<JobWorkLog> JobWorkLogs { get; set; }

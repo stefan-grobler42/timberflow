@@ -177,6 +177,14 @@ namespace MillenniumERP.Domain.Entities
         [Column("is_in_wip")]
         public bool IsInWip { get; set; } = false;
 
+        /// <summary>Batch ID - links productions that are combined together for batch processing</summary>
+        [Column("batch_id")]
+        public Guid? BatchId { get; set; }
+
+        /// <summary>Position within batch (0 = first/primary, 1+ = secondary jobs)</summary>
+        [Column("batch_position")]
+        public int? BatchPosition { get; set; }
+
         // Audit fields
         public DateTime? CreatedOn { get; set; }
         public Guid? CreatedBy { get; set; }
@@ -234,5 +242,8 @@ namespace MillenniumERP.Domain.Entities
 
         [ForeignKey("Jighelper4")]
         public Employee? JigHelper4Employee { get; set; }
+
+        [ForeignKey("BatchId")]
+        public JobBatch? Batch { get; set; }
     }
 }

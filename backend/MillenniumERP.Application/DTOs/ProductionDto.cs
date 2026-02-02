@@ -49,6 +49,10 @@ public class ProductionDto
     public int? BreakAdjustmentMinutes { get; set; }  // Extra time added when job crosses breaks
     public bool IsInWip { get; set; }  // Flag indicating job is allocated to WIP
     
+    // Batch fields for combined jobs
+    public Guid? BatchId { get; set; }
+    public int? BatchPosition { get; set; }
+    
     public DateTime? CreatedOn { get; set; }
     public Guid? CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }

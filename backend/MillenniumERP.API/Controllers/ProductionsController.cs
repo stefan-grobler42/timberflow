@@ -497,6 +497,8 @@ public class ProductionsController : ControllerBase
             PlannedDurationMinutes = production.PlannedDurationMinutes,
             BreakAdjustmentMinutes = production.BreakAdjustmentMinutes,
             IsInWip = production.IsInWip,
+            BatchId = production.BatchId,
+            BatchPosition = production.BatchPosition,
             CreatedOn = production.CreatedOn,
             CreatedBy = production.CreatedBy,
             ModifiedOn = production.ModifiedOn,
