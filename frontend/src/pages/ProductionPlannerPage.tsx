@@ -2564,8 +2564,9 @@ export const ProductionPlannerPage = () => {
               jigTeams={filteredJigTeams}
               onDragStart={handleDragStart}
               onDragOver={handleDragOver}
-              onDrop={(dateStr, jigId, dropTimeMinutes) => handleDrop(dateStr, jigId, dropTimeMinutes)}
+              onDrop={(dateStr, jigId, dropTimeMinutes, zoneMetadata) => handleDrop(dateStr, jigId, dropTimeMinutes, zoneMetadata)}
               onJobDoubleClick={handleJobDoubleClick}
+              draggedJobId={draggedJobId}
               onJobDurationChange={handleJobDurationChange}
               onJobDurationReset={handleJobDurationReset}
               onTeamDoubleClick={handleTeamDoubleClick}

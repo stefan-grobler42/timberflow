@@ -136,6 +136,7 @@ interface DayViewProps {
   onTeamEarlyOvertimeChange?: (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => void;
   onDropToTeamUnallocated?: (jigId: string) => void;
   isDragging?: boolean;
+  draggedJobId?: string | null;
   scheduleBlocks?: ScheduleBlock[];
   onBlockClick?: (block: ScheduleBlock) => void;
   schedulerConfig?: SchedulerConfig;
@@ -165,6 +166,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   onTeamEarlyOvertimeChange,
   onDropToTeamUnallocated: _onDropToTeamUnallocated,
   isDragging = false,
+  draggedJobId = null,
   scheduleBlocks = [],
   onBlockClick,
   schedulerConfig,
@@ -186,6 +188,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const currentResizeDuration = useRef<number>(0);
   const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
   const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
+  const [dragOverJobId, setDragOverJobId] = useState<string | null>(null);
 
   // Helper to convert minutes to HH:MM format
   const minutesToTimeString = (minutes: number): string => {
@@ -1061,6 +1064,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   const handleTimelineDrop = (e: React.DragEvent, jigId: string | null, visibleStart: number) => {
     e.preventDefault();
+    setDragOverJobId(null);
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     // Convert screen position to absolute time by adding visible start offset
@@ -2016,6 +2020,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     };
                     
                     const getBoxShadow = () => {
+                      if (dragOverJobId === job.id) return '0 0 0 3px #107c10, 0 4px 16px rgba(16, 124, 16, 0.5)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       if (isStaged) return '0 2px 8px rgba(0, 120, 212, 0.2)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
@@ -2035,6 +2040,25 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         draggable={canInteract}
                         onDragStart={() => canInteract && onDragStart(job.id)}
                         onDoubleClick={() => onJobDoubleClick(job.id)}
+                        onDragOver={(e) => {
+                          if (!job.productionComplete && !isStaged) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverJobId(job.id);
+                          }
+                        }}
+                        onDragLeave={(e) => {
+                          e.stopPropagation();
+                          setDragOverJobId(null);
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (!job.productionComplete && !isStaged && draggedJobId && draggedJobId !== job.id) {
+                            setDragOverJobId(null);
+                            onDrop(dayStr, jig.id, undefined, { targetJobId: job.id, position: 0, afterJobId: null, beforeJobId: null, insertIndex: 0 });
+                          }
+                        }}
                         style={{
                           position: 'absolute',
                           top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
@@ -2057,6 +2081,27 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           backdropFilter: 'blur(4px)'
                         }}
                       >
+                        {dragOverJobId === job.id && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            backgroundColor: '#107c10',
+                            color: 'white',
+                            padding: '8px 16px',
+                            borderRadius: 8,
+                            fontSize: 14,
+                            fontWeight: 700,
+                            zIndex: 400,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 6,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                          }}>
+                            + COMBINE
+                          </div>
+                        )}
                         {/* Reset icon for manually resized jobs */}
                         {hasManualResize(job) && onJobDurationReset && !job.productionComplete && (
                           <IconButton

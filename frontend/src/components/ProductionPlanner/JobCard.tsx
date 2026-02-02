@@ -41,6 +41,7 @@ interface JobCardProps {
   hasManualResize: boolean;
   isResizing: boolean;
   canInteract: boolean;
+  isDraggedOver?: boolean;
   onDragStart: (jobId: string) => void;
   onDoubleClick: (jobId: string) => void;
   onClick: (jobId: string) => void;
@@ -48,6 +49,8 @@ interface JobCardProps {
   onResetDuration?: (jobId: string) => void;
   onSaveJob?: (jobId: string) => void;
   onEditJob?: (jobId: string) => void;
+  onDropOnJob?: (targetJobId: string) => void;
+  onDragOverJob?: (jobId: string | null) => void;
   formatDuration: (minutes: number) => string;
   getBaseDurationMinutes: (job: Job) => number;
   formatBreakAdditions: (breaks: BreakAddition[]) => string;
@@ -64,6 +67,7 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   hasManualResize,
   isResizing,
   canInteract,
+  isDraggedOver = false,
   onDragStart,
   onDoubleClick,
   onClick,
@@ -71,6 +75,8 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   onResetDuration,
   onSaveJob,
   onEditJob,
+  onDropOnJob,
+  onDragOverJob,
   formatDuration,
   getBaseDurationMinutes,
   formatBreakAdditions
@@ -91,15 +97,41 @@ const JobCardComponent: React.FC<JobCardProps> = ({
   };
   
   const getBoxShadow = () => {
+    if (isDraggedOver) return '0 0 0 3px #107c10, 0 4px 16px rgba(16, 124, 16, 0.5)';
     if (isStaged) return '0 4px 16px rgba(255, 185, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.25)';
     if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
     return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!job.productionComplete && !isStaged) {
+      e.preventDefault();
+      e.stopPropagation();
+      onDragOverJob?.(job.id);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.stopPropagation();
+    onDragOverJob?.(null);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDragOverJob?.(null);
+    if (!job.productionComplete && !isStaged && onDropOnJob) {
+      onDropOnJob(job.id);
+    }
   };
 
   return (
     <div
       draggable={canInteract}
       onDragStart={() => canInteract && onDragStart(job.id)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
       onDoubleClick={() => onDoubleClick(job.id)}
       onClick={() => onClick(job.id)}
       style={{
@@ -123,7 +155,28 @@ const JobCardComponent: React.FC<JobCardProps> = ({
         backdropFilter: 'blur(4px)'
       }}
     >
-      {isStaged && (
+      {isDraggedOver && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: '#107c10',
+          color: 'white',
+          padding: '8px 16px',
+          borderRadius: 8,
+          fontSize: 14,
+          fontWeight: 700,
+          zIndex: 400,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+        }}>
+          + COMBINE
+        </div>
+      )}
+      {isStaged && !isDraggedOver && (
         <div style={{
           position: 'absolute',
           top: 2,
