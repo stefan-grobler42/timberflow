@@ -115,6 +115,7 @@ export interface DropZoneMetadata {
   afterJobId: string | null;
   beforeJobId: string | null;
   insertIndex: number;
+  targetJobId?: string;
 }
 
 interface DayViewProps {

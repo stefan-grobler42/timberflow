@@ -16,6 +16,8 @@ import { MonthView } from '../components/ProductionPlanner/MonthView';
 import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView, type DropZoneMetadata } from '../components/ProductionPlanner/DayView';
 import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
+import { BatchManagePanel } from '../components/ProductionPlanner/BatchManagePanel';
+import jobBatchService, { type JobBatch } from '../services/jobBatchService';
 import { 
   startOfMonthUtc, 
   startOfWeekUtc, 
@@ -56,6 +58,8 @@ interface Job {
   totalSegments?: number | null;
   segmentEfinks?: number;
   sourceType?: JobSourceType; // 'production' = has production record, 'order-only' = missing production record
+  batchId?: string;
+  batchPosition?: number;
 }
 
 interface StagedJobSegment {
@@ -112,6 +116,12 @@ export const ProductionPlannerPage = () => {
   
   // Staged jobs - jobs in edit mode (not yet persisted)
   const [stagedJobs, setStagedJobs] = useState<StagedJob[]>([]);
+  
+  // Job batches - combined jobs for batch processing
+  const [jobBatches, setJobBatches] = useState<JobBatch[]>([]);
+  const [batchPanelOpen, setBatchPanelOpen] = useState(false);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [batchLoading, setBatchLoading] = useState(false);
   
   // Date range for loading productions - default: 12 months back, 3 months forward
   const getDefaultDateRange = () => {
@@ -189,6 +199,14 @@ export const ProductionPlannerPage = () => {
         throw e;
       });
       
+      const batchesPromise = jobBatchService.getByDateRange(dateRange.dateFrom, dateRange.dateTo).then(r => { 
+        console.log('[PLANNER] batches loaded in', Date.now() - startTime, 'ms, count:', r.length); 
+        return r; 
+      }).catch(e => {
+        console.error('[PLANNER] ✗ batches FAILED:', e);
+        return []; // Don't fail if batches can't be loaded
+      });
+      
       const settingsPromise = systemSettingsService.getSettings().then(r => {
         console.log('[PLANNER] settings loaded in', Date.now() - startTime, 'ms');
         return r;
@@ -209,12 +227,13 @@ export const ProductionPlannerPage = () => {
         return []; // Don't fail if settings can't be loaded
       });
       
-      const [productions, wipItems, jigs, unallocated, blocks, settings, teamDaySettings] = await Promise.all([
+      const [productions, wipItems, jigs, unallocated, blocks, batches, settings, teamDaySettings] = await Promise.all([
         productionsPromise,
         wipItemsPromise,
         jigsPromise,
         unallocatedPromise,
         blocksPromise,
+        batchesPromise,
         settingsPromise,
         teamDaySettingsPromise
       ]);
@@ -442,6 +461,7 @@ export const ProductionPlannerPage = () => {
         setUnallocatedOrders(ordersNeedingProduction);
         setJigTeams(jigs);
         setScheduleBlocks(blocks);
+        setJobBatches(batches);
         setOvertimeByTeamDay(restoredOTState); // Restore OT toggle state from WIP records
         if (selectedJigIds.length === 0) {
           setSelectedJigIds(jigs.map(j => j.id));
@@ -756,6 +776,13 @@ export const ProductionPlannerPage = () => {
     if (!job) return;
     
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
+
+    // Check if dropping on another job for combining
+    if (zoneMetadata?.targetJobId && draggedJobId) {
+      await handleCombineJobs(zoneMetadata.targetJobId, draggedJobId);
+      setDraggedJobId(null);
+      return;
+    }
 
     // Determine total E-Finks for the job:
     // 1. Check if this is a staged job - use totalEstimatedEfinks from staged segment
@@ -1145,6 +1172,97 @@ export const ProductionPlannerPage = () => {
       setOperationInProgress(false); setOperationMessage('');
       setDraggedJobId(null);
     }
+  };
+
+  // Format duration helper for batch panel
+  const formatDuration = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}m`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}m`;
+  };
+
+  const handleCombineJobs = async (primaryJobId: string, secondaryJobId: string) => {
+    const primaryJob = jobs.find(j => j.id === primaryJobId);
+    const secondaryJob = jobs.find(j => j.id === secondaryJobId);
+    if (!primaryJob || !secondaryJob) return;
+    if (primaryJob.customer !== secondaryJob.customer) {
+      setError('Jobs must have the same customer to be combined');
+      return;
+    }
+    
+    try {
+      setBatchLoading(true);
+      const batch = await jobBatchService.combineJobs({
+        primaryJobId,
+        secondaryJobId,
+        jigId: primaryJob.jigId || undefined,
+        batchDate: primaryJob.plannedDateStr || undefined
+      });
+      setJobBatches(prev => [...prev.filter(b => b.id !== batch.id), batch]);
+      setJobs(prev => prev.map(j => {
+        if (j.id === primaryJobId) return { ...j, batchId: batch.id, batchPosition: 0 };
+        if (j.id === secondaryJobId) return { ...j, batchId: batch.id, batchPosition: 1 };
+        return j;
+      }));
+      console.log('[PLANNER] ✓ Combined jobs into batch:', batch.id);
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to combine jobs:', err);
+      setError(`Failed to combine jobs: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleRemoveFromBatch = async (batchId: string, productionId: string) => {
+    try {
+      setBatchLoading(true);
+      const result = await jobBatchService.removeFromBatch(batchId, productionId);
+      if (result.dissolved) {
+        setJobBatches(prev => prev.filter(b => b.id !== batchId));
+      } else {
+        const updatedBatch = await jobBatchService.getById(batchId);
+        setJobBatches(prev => prev.map(b => b.id === batchId ? updatedBatch : b));
+      }
+      setJobs(prev => prev.map(j => 
+        j.id === productionId 
+          ? { ...j, batchId: undefined, batchPosition: undefined, jigId: null, plannedDateStr: null } 
+          : j
+      ));
+      console.log('[PLANNER] ✓ Removed production from batch');
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to remove from batch:', err);
+      setError(`Failed to remove from batch: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const handleDissolveBatch = async (batchId: string) => {
+    try {
+      setBatchLoading(true);
+      await jobBatchService.deleteBatch(batchId);
+      setJobBatches(prev => prev.filter(b => b.id !== batchId));
+      setJobs(prev => prev.map(j => 
+        j.batchId === batchId 
+          ? { ...j, batchId: undefined, batchPosition: undefined, jigId: null, plannedDateStr: null } 
+          : j
+      ));
+      setBatchPanelOpen(false);
+      setSelectedBatchId(null);
+      console.log('[PLANNER] ✓ Dissolved batch');
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to dissolve batch:', err);
+      setError(`Failed to dissolve batch: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchLoading(false);
+    }
+  };
+
+  const _handleOpenBatchPanel = (batchId: string) => {
+    setSelectedBatchId(batchId);
+    setBatchPanelOpen(true);
   };
 
   // Save a staged job - persist to WIP database
@@ -2480,6 +2598,27 @@ export const ProductionPlannerPage = () => {
         defaultDate={viewMode === 'day' ? currentDateStr : undefined}
         defaultBlockType={selectedBlockType}
       />
+
+      {selectedBatchId && (
+        <BatchManagePanel
+          isOpen={batchPanelOpen}
+          batchId={selectedBatchId}
+          productions={jobBatches.find(b => b.id === selectedBatchId)?.productions.map(p => ({
+            id: p.id,
+            orderNumber: p.orderNumber,
+            name: p.name,
+            estimatedEfinks: p.estimatedEfinks
+          })) || []}
+          customerName={jobBatches.find(b => b.id === selectedBatchId)?.customerName || ''}
+          totalEfinks={jobBatches.find(b => b.id === selectedBatchId)?.totalEfinks || 0}
+          combinedDurationMinutes={jobBatches.find(b => b.id === selectedBatchId)?.combinedDurationMinutes || 0}
+          onDismiss={() => { setBatchPanelOpen(false); setSelectedBatchId(null); }}
+          onRemoveProduction={handleRemoveFromBatch}
+          onDissolveBatch={handleDissolveBatch}
+          formatDuration={formatDuration}
+          isLoading={batchLoading}
+        />
+      )}
     </Stack>
     </ShiftConfigProvider>
   );
