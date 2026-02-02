@@ -167,6 +167,8 @@ export const productionService = {
   create: (data: Partial<Production>) => api.post<Production>('/productions', data),
   update: (id: string, data: Partial<Production>) => api.put<Production>(`/productions/${id}`, data),
   delete: (id: string) => api.delete(`/productions/${id}`),
+  updatePlannedDate: (id: string, plannedDate: string | null) => 
+    api.patch<{ id: string; plannedDate: string | null }>(`/productions/${id}/planned-date`, { plannedDate }),
 };
 
 export interface LookupOption {

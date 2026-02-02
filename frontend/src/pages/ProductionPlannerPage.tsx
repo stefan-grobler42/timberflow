@@ -998,15 +998,22 @@ export const ProductionPlannerPage = () => {
           setCurrentDateStr(dateStr);
         }
       } else {
-        console.log('[PLANNER] Dropping to unallocated - removing from team');
+        console.log('[PLANNER] Dropping to unallocated column - updating planned date');
         
         // Also remove from staged if it was there
         setStagedJobs(prev => prev.filter(sj => sj.jobId !== job.id));
         
+        setOperationInProgress(true); setOperationMessage('Saving changes...');
+        
         if (job.wipId) {
-          setOperationInProgress(true); setOperationMessage('Saving changes...');
           await teamWorkItemService.deleteByProductionId(job.id);
           console.log('[PLANNER] ✓ Deleted WIP record for job:', job.id);
+        }
+        
+        // Save the planned date to the production record
+        if (!isSalesOrder) {
+          await productionService.updatePlannedDate(job.id, dateStr);
+          console.log('[PLANNER] ✓ Updated production planned date to:', dateStr);
         }
         
         setJobs(prevJobs => prevJobs.map(j => {
@@ -1025,7 +1032,7 @@ export const ProductionPlannerPage = () => {
         }));
         
         setOperationInProgress(false); setOperationMessage('');
-        console.log('[PLANNER] ✓ Job unallocated successfully');
+        console.log('[PLANNER] ✓ Job moved to unallocated column for date:', dateStr);
         
         if (viewMode !== 'day') {
           setViewMode('day');
@@ -1044,7 +1051,7 @@ export const ProductionPlannerPage = () => {
     }
   };
 
-  // Drop to global unallocated basket - delete WIP record
+  // Drop to global unallocated basket - delete WIP record and clear planned date
   const handleDropToUnallocated = async () => {
     if (!draggedJobId) return;
     
@@ -1065,6 +1072,10 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] ✓ Deleted WIP record for job:', job.id);
       }
       
+      // Clear the planned date in the production record
+      await productionService.updatePlannedDate(job.id, null);
+      console.log('[PLANNER] ✓ Cleared production planned date');
+      
       setJobs(prevJobs => prevJobs.map(j => {
         if (j.id === job.id) {
           return {
@@ -1080,7 +1091,7 @@ export const ProductionPlannerPage = () => {
         return j;
       }));
       
-      console.log('[PLANNER] ✓ Unallocated job:', job.id);
+      console.log('[PLANNER] ✓ Moved job to unallocated sidebar:', job.id);
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to unallocate job:', err);
       setError(`Failed to unallocate: ${err instanceof Error ? err.message : 'Unknown error'}`);

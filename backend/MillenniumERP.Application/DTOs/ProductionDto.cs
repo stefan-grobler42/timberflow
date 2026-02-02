@@ -147,6 +147,14 @@ public class UpdateProductionDto
     public int? BreakAdjustmentMinutes { get; set; }
 }
 
+public class UpdatePlannedDateDto
+{
+    /// <summary>
+    /// The new planned date for the production. Set to null to clear the date.
+    /// </summary>
+    public DateTime? PlannedDate { get; set; }
+}
+
 public class ProductionImportDto
 {
     public Guid Id { get; set; }

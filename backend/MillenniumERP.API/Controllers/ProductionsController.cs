@@ -304,6 +304,45 @@ public class ProductionsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Updates the Production Planned Date for a production record.
+    /// Send null to clear the date (move to unallocated sidebar).
+    /// Accepts date-only string (YYYY-MM-DD) which is stored as UTC midnight.
+    /// </summary>
+    [HttpPatch("{id}/planned-date")]
+    public async Task<ActionResult> UpdatePlannedDate(Guid id, [FromBody] UpdatePlannedDateDto? updateDto)
+    {
+        if (updateDto == null)
+        {
+            return BadRequest(new { message = "Request body is required" });
+        }
+
+        var production = await _context.Productions.FindAsync(id);
+
+        if (production == null)
+        {
+            return NotFound(new { message = $"Production with ID {id} not found" });
+        }
+
+        // Normalize to UTC midnight if date is provided (date-only storage)
+        DateTime? normalizedDate = null;
+        if (updateDto.PlannedDate.HasValue)
+        {
+            var date = updateDto.PlannedDate.Value;
+            normalizedDate = new DateTime(date.Year, date.Month, date.Day, 0, 0, 0, DateTimeKind.Utc);
+        }
+
+        production.Productionplanneddate = normalizedDate;
+        production.ModifiedOn = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Updated production {Id} planned date to: {PlannedDate}", 
+            production.Id, normalizedDate?.ToString("yyyy-MM-dd") ?? "null");
+
+        return Ok(new { id = production.Id, plannedDate = production.Productionplanneddate });
+    }
+
     [HttpPost("bulk")]
     public async Task<ActionResult<object>> BulkImport([FromBody] List<ProductionImportDto> productions)
     {
