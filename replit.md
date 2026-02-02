@@ -35,6 +35,12 @@ The system is built as a Single-Page Application (SPA) using React with Fluent U
 -   **D365 Incremental Sync**: Automated system to fetch only new records from D365 using OData filters, tracking sync history, and running automatically at midnight SAST. It supports manual refresh and includes concurrency protection. Syncs `salesorder` and `cr694_production` entities.
 -   **Unallocated Sidebar**: Differentiates between 'Ready to Schedule' (draggable productions) and 'Missing Production' (non-draggable orders without corresponding production records).
 -   **Unallocated Column Date Persistence**: Moving jobs between unallocated columns updates `cr694_productionplanneddate` in the Production table.
+-   **Job Batching**: Allows combining multiple jobs from the same customer into a batch for efficiency gains. Batched jobs are processed together with a 30% time reduction (first job at full duration, subsequent jobs at 70%). Features include:
+    -   **Batch Creation**: Drop one job onto another from the same customer to create a batch.
+    -   **Batch Management Panel**: View all jobs in a batch, remove individual jobs, or dissolve the entire batch.
+    -   **Efficiency Formula**: `combinedDuration = firstJobDuration + (sum of subsequent jobs × 0.70)`.
+    -   **Minimum Batch Size**: Batches automatically dissolve if reduced below 2 jobs.
+    -   **Visual Distinction**: BatchedJobCard displays with green color scheme and stacked card effect.
 
 ### Feature Specifications
 -   **ERP Modules**: Includes Activities, Installations, Trips, Loads, Procurement, Suppliers, Sub-Contractors, Accounts, Contacts, Quotes, Orders, Tenders, Products, Employees, Designers, Sales Representatives, Vehicles.
