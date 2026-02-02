@@ -393,7 +393,9 @@ export const ProductionPlannerPage = () => {
               segmentIndex: segmentIndex,
               totalSegments: totalSegments,
               segmentEfinks: wipData.estimatedEfinks || (totalEfinks / totalSegments),
-              sourceType: 'production' as JobSourceType
+              sourceType: 'production' as JobSourceType,
+              batchId: p.batchId || undefined,
+              batchPosition: p.batchPosition ?? undefined
             }));
           }
           
@@ -420,7 +422,9 @@ export const ProductionPlannerPage = () => {
             segmentIndex: undefined,
             totalSegments: undefined,
             segmentEfinks: undefined,
-            sourceType: 'production' as JobSourceType
+            sourceType: 'production' as JobSourceType,
+            batchId: p.batchId || undefined,
+            batchPosition: p.batchPosition ?? undefined
           }];
         });
         

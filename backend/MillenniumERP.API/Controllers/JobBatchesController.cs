@@ -171,12 +171,16 @@ public class JobBatchesController : ControllerBase
         if (production.BatchId == batchId)
             return BadRequest(new { message = "Production is already in this batch" });
 
-        production.BatchId = batchId;
-        production.BatchPosition = (batch.Productions?.Count ?? 0);
-
-        var allProductions = await _context.Productions
+        // Query existing productions BEFORE modifying the new one to avoid double-counting
+        var existingProductions = await _context.Productions
             .Where(p => p.BatchId == batchId)
             .ToListAsync();
+
+        production.BatchId = batchId;
+        production.BatchPosition = existingProductions.Count;
+
+        // Build full list for calculation
+        var allProductions = existingProductions.ToList();
         allProductions.Add(production);
 
         batch.TotalEfinks = allProductions.Sum(p => p.NewEstimatedefinks ?? 0);

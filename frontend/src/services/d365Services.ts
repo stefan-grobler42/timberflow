@@ -136,6 +136,8 @@ export interface ProductionPlannerData {
   plannedDurationMinutes?: number;
   breakAdjustmentMinutes?: number;
   createdOn?: string;
+  batchId?: string;
+  batchPosition?: number;
 }
 
 export interface OrderPlannerData {
