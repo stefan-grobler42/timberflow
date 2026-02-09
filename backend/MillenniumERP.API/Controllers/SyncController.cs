@@ -160,38 +160,45 @@ public class SyncController : ControllerBase
         try
         {
             var workingDirectory = Directory.GetCurrentDirectory();
-            var projectRoot = Path.GetFullPath(Path.Combine(workingDirectory, "..", ".."));
-            var scriptPath = Path.Combine(projectRoot, "dynamics365_integration", "incremental_sync.py");
+            string? scriptPath = null;
 
-            if (!System.IO.File.Exists(scriptPath))
+            var searchPaths = new[]
             {
-                scriptPath = Path.Combine(workingDirectory, "..", "..", "dynamics365_integration", "incremental_sync.py");
-                if (!System.IO.File.Exists(scriptPath))
+                Path.Combine(workingDirectory, "dynamics365_integration", "incremental_sync.py"),
+                Path.GetFullPath(Path.Combine(workingDirectory, "..", "..", "dynamics365_integration", "incremental_sync.py")),
+                Path.Combine(Directory.GetParent(workingDirectory)?.FullName ?? "", "dynamics365_integration", "incremental_sync.py"),
+                "/home/runner/workspace/dynamics365_integration/incremental_sync.py",
+                Path.GetFullPath(Path.Combine(workingDirectory, "..", "dynamics365_integration", "incremental_sync.py"))
+            };
+
+            foreach (var path in searchPaths)
+            {
+                _logger.LogInformation("Checking for sync script at: {Path} (exists: {Exists})", path, System.IO.File.Exists(path));
+                if (System.IO.File.Exists(path))
                 {
-                    var searchPaths = new[]
-                    {
-                        Path.Combine(workingDirectory, "dynamics365_integration", "incremental_sync.py"),
-                        Path.Combine(Directory.GetParent(workingDirectory)?.FullName ?? "", "dynamics365_integration", "incremental_sync.py"),
-                        "/home/runner/workspace/dynamics365_integration/incremental_sync.py"
-                    };
-                    
-                    foreach (var path in searchPaths)
-                    {
-                        if (System.IO.File.Exists(path))
-                        {
-                            scriptPath = path;
-                            break;
-                        }
-                    }
+                    scriptPath = path;
+                    break;
                 }
             }
 
-            _logger.LogInformation("Running sync script: python {ScriptPath} --entity {Entity} --quiet", scriptPath, entity);
+            if (scriptPath == null)
+            {
+                throw new FileNotFoundException(
+                    $"Could not find incremental_sync.py. Working directory: {workingDirectory}. Searched paths: {string.Join(", ", searchPaths)}");
+            }
+
+            var isProduction = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production"
+                || Environment.GetEnvironmentVariable("REPLIT_DEPLOYMENT") == "1"
+                || Environment.GetEnvironmentVariable("REPL_SLUG") != null;
+            var apiPort = isProduction ? 5000 : 8000;
+            var apiUrl = $"http://localhost:{apiPort}";
+
+            _logger.LogInformation("Running sync script: python {ScriptPath} --entity {Entity} --api-url {ApiUrl} --quiet", scriptPath, entity, apiUrl);
 
             var startInfo = new ProcessStartInfo
             {
                 FileName = "python",
-                Arguments = $"\"{scriptPath}\" --entity {entity} --quiet",
+                Arguments = $"\"{scriptPath}\" --entity {entity} --api-url {apiUrl} --quiet",
                 WorkingDirectory = Path.GetDirectoryName(scriptPath) ?? workingDirectory,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
