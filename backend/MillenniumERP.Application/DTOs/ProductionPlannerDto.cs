@@ -20,4 +20,6 @@ public class ProductionPlannerDto
     public int? BreakAdjustmentMinutes { get; set; }
     public bool IsInWip { get; set; }
     public DateTime? CreatedOn { get; set; }
+    public bool IsBatchedJob { get; set; }
+    public string? SourceProductionIds { get; set; }
 }

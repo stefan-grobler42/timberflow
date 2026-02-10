@@ -95,10 +95,12 @@ public class ProductionsController : ControllerBase
         }
 
         // Get productions with planned dates in range OR any incomplete productions (for scheduling)
+        // EXCLUDE batched productions (IsBatched=true) - they are replaced by batched_jobs records
         var query = _context.Productions
             .AsNoTracking()
             .Include(p => p.Order)
             .Include(p => p.CustomerAccount)
+            .Where(p => !p.IsBatched)
             .Where(p => 
                 (p.Productionplanneddate >= fromDate && p.Productionplanneddate <= toDate) ||
                 (p.Productioncomplete != true));
@@ -129,11 +131,44 @@ public class ProductionsController : ControllerBase
                 PlannedDurationMinutes = p.PlannedDurationMinutes,
                 BreakAdjustmentMinutes = p.BreakAdjustmentMinutes,
                 IsInWip = p.IsInWip,
-                CreatedOn = p.CreatedOn
+                CreatedOn = p.CreatedOn,
+                IsBatchedJob = false
             })
             .ToListAsync();
 
-        _logger.LogInformation("Planner endpoint returned {Count} productions", plannerData.Count);
+        // Also include batched jobs - they render exactly like productions on the planner
+        var batchedJobs = await _context.BatchedJobs
+            .AsNoTracking()
+            .Where(b => 
+                (b.ProductionPlannedDate >= fromDate && b.ProductionPlannedDate <= toDate) ||
+                (b.ProductionComplete != true))
+            .Select(b => new ProductionPlannerDto
+            {
+                Id = b.Id,
+                Name = b.Name,
+                CustomerName = b.CustomerName,
+                OrderNo = b.OrderId,
+                OrderNumber = b.OrderNumbers,
+                ProductionComplete = b.ProductionComplete,
+                ProductionPlannedDate = b.ProductionPlannedDate,
+                NewEstimateDefinks = b.EstimatedEfinks,
+                CustomDurationMinutes = b.CustomDurationMinutes,
+                JigId = b.JigId,
+                PlannedStartTime = b.PlannedStartTime,
+                PlannedEndTime = b.PlannedEndTime,
+                PlannedDurationMinutes = b.PlannedDurationMinutes,
+                BreakAdjustmentMinutes = b.BreakAdjustmentMinutes,
+                IsInWip = b.IsInWip,
+                CreatedOn = b.CreatedOn,
+                IsBatchedJob = true,
+                SourceProductionIds = b.SourceProductionIds
+            })
+            .ToListAsync();
+
+        plannerData.AddRange(batchedJobs);
+
+        _logger.LogInformation("Planner endpoint returned {Count} productions ({BatchCount} batched jobs)", 
+            plannerData.Count, batchedJobs.Count);
         return Ok(plannerData);
     }
 

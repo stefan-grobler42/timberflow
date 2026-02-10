@@ -62,6 +62,9 @@ public class AppDbContext : DbContext
     // Job batches for combining similar productions
     public DbSet<JobBatch> JobBatches { get; set; }
     
+    // Batched jobs - new combined production records
+    public DbSet<BatchedJob> BatchedJobs { get; set; }
+    
     // Waterfall Planner - continuous job allocations
     public DbSet<JobAllocation> JobAllocations { get; set; }
     public DbSet<JobWorkLog> JobWorkLogs { get; set; }

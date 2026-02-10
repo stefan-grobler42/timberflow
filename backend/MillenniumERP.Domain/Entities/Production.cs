@@ -177,6 +177,10 @@ namespace MillenniumERP.Domain.Entities
         [Column("is_in_wip")]
         public bool IsInWip { get; set; } = false;
 
+        /// <summary>Flag indicating this production has been batched into a BatchedJob record</summary>
+        [Column("is_batched")]
+        public bool IsBatched { get; set; } = false;
+
         /// <summary>Batch ID - links productions that are combined together for batch processing</summary>
         [Column("batch_id")]
         public Guid? BatchId { get; set; }
