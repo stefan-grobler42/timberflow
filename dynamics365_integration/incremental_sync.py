@@ -22,7 +22,7 @@ class IncrementalSyncer:
     
     SUPPORTED_ENTITIES = ['salesorder', 'cr694_production']
     
-    PAGE_SIZE = 100
+    PAGE_SIZE = 500
     
     def __init__(self, entity: str, api_url: str = 'http://localhost:8000'):
         """
@@ -90,11 +90,11 @@ class IncrementalSyncer:
         
         try:
             headers = self.d365_auth.get_auth_headers()
+            headers['Prefer'] = f'odata.maxpagesize={self.PAGE_SIZE}'
             
             base_url = f"{self.d365_base_url}/{entity_set}"
             
             params = []
-            params.append(f"$top={self.PAGE_SIZE}")
             params.append("$count=true")
             params.append("$orderby=modifiedon asc")
             
@@ -108,7 +108,7 @@ class IncrementalSyncer:
             
             page = 1
             while url:
-                response = requests.get(url, headers=headers, timeout=60)
+                response = requests.get(url, headers=headers, timeout=120)
                 response.raise_for_status()
                 
                 data = response.json()
