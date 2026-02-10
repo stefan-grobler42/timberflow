@@ -1195,19 +1195,44 @@ export const ProductionPlannerPage = () => {
       setError('Jobs must have the same customer to be combined');
       return;
     }
+
+    if (primaryJob.batchId && secondaryJob.batchId && primaryJob.batchId === secondaryJob.batchId) {
+      return;
+    }
     
     try {
       setBatchLoading(true);
-      const batch = await jobBatchService.combineJobs({
-        primaryJobId,
-        secondaryJobId,
-        jigId: primaryJob.jigId || undefined,
-        batchDate: primaryJob.plannedDateStr || undefined
-      });
+      let batch: import('../services/jobBatchService').JobBatch;
+
+      if (primaryJob.batchId && !secondaryJob.batchId) {
+        batch = await jobBatchService.addToBatch(primaryJob.batchId, secondaryJobId);
+      } else if (secondaryJob.batchId && !primaryJob.batchId) {
+        batch = await jobBatchService.addToBatch(secondaryJob.batchId, primaryJobId);
+      } else if (primaryJob.batchId && secondaryJob.batchId) {
+        const secondaryBatchJobs = jobs.filter(j => j.batchId === secondaryJob.batchId && j.id !== secondaryJobId);
+        batch = await jobBatchService.addToBatch(primaryJob.batchId, secondaryJobId);
+        for (const extraJob of secondaryBatchJobs) {
+          batch = await jobBatchService.addToBatch(primaryJob.batchId, extraJob.id);
+        }
+        await jobBatchService.deleteBatch(secondaryJob.batchId);
+        setJobBatches(prev => prev.filter(b => b.id !== secondaryJob.batchId));
+      } else {
+        batch = await jobBatchService.combineJobs({
+          primaryJobId,
+          secondaryJobId,
+          jigId: primaryJob.jigId || undefined,
+          batchDate: primaryJob.plannedDateStr || undefined
+        });
+      }
+
       setJobBatches(prev => [...prev.filter(b => b.id !== batch.id), batch]);
+      const updatedBatch = await jobBatchService.getById(batch.id);
       setJobs(prev => prev.map(j => {
-        if (j.id === primaryJobId) return { ...j, batchId: batch.id, batchPosition: 0 };
-        if (j.id === secondaryJobId) return { ...j, batchId: batch.id, batchPosition: 1 };
+        const batchProd = updatedBatch.productions.find(p => p.id === j.id);
+        if (batchProd) return { ...j, batchId: updatedBatch.id, batchPosition: batchProd.batchPosition };
+        if (j.batchId === secondaryJob.batchId && primaryJob.batchId && secondaryJob.batchId && primaryJob.batchId !== secondaryJob.batchId) {
+          return { ...j, batchId: undefined, batchPosition: undefined };
+        }
         return j;
       }));
       console.log('[PLANNER] ✓ Combined jobs into batch:', batch.id);
