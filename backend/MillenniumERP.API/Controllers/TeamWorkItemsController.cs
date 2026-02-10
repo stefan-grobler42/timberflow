@@ -233,15 +233,29 @@ public class TeamWorkItemsController : ControllerBase
             
             if (production == null)
             {
-                return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                var batchedJob = await _context.BatchedJobs.FindAsync(createDto.ProductionId.Value);
+                if (batchedJob != null)
+                {
+                    orderNumber ??= batchedJob.OrderNumbers;
+                    customerName ??= batchedJob.CustomerName;
+                    productionName ??= batchedJob.Name;
+                    estimatedEfinks ??= batchedJob.EstimatedEfinks;
+                    salesOrderId ??= batchedJob.OrderId;
+                }
+                else
+                {
+                    return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                }
             }
-            
-            // Copy display fields from Production if not provided in DTO
-            orderNumber ??= production.Order?.OrderNumber;
-            customerName ??= production.CustomerAccount?.Name;
-            productionName ??= production.Name;
-            estimatedEfinks ??= production.NewEstimatedefinks;
-            salesOrderId ??= production.Orderno;
+            else
+            {
+                // Copy display fields from Production if not provided in DTO
+                orderNumber ??= production.Order?.OrderNumber;
+                customerName ??= production.CustomerAccount?.Name;
+                productionName ??= production.Name;
+                estimatedEfinks ??= production.NewEstimatedefinks;
+                salesOrderId ??= production.Orderno;
+            }
         }
         else if (!createDto.IsRolloverOnly)
         {
@@ -297,6 +311,15 @@ public class TeamWorkItemsController : ControllerBase
         {
             production.IsInWip = true;
             production.ModifiedOn = DateTime.UtcNow;
+        }
+        else if (createDto.ProductionId.HasValue)
+        {
+            var batchedJob = await _context.BatchedJobs.FindAsync(createDto.ProductionId.Value);
+            if (batchedJob != null)
+            {
+                batchedJob.IsInWip = true;
+                batchedJob.ModifiedOn = DateTime.UtcNow;
+            }
         }
 
         await _context.SaveChangesAsync();
@@ -411,6 +434,15 @@ public class TeamWorkItemsController : ControllerBase
                 production.IsInWip = false;
                 production.ModifiedOn = DateTime.UtcNow;
             }
+            else
+            {
+                var batchedJob = await _context.BatchedJobs.FindAsync(item.ProductionId.Value);
+                if (batchedJob != null)
+                {
+                    batchedJob.IsInWip = false;
+                    batchedJob.ModifiedOn = DateTime.UtcNow;
+                }
+            }
         }
 
         _context.TeamWorkItems.Remove(item);
@@ -464,6 +496,20 @@ public class TeamWorkItemsController : ControllerBase
             production.IsInWip = false;
             production.ModifiedOn = DateTime.UtcNow;
         }
+        else
+        {
+            var batchedJob = await _context.BatchedJobs.FindAsync(productionId);
+            if (batchedJob != null)
+            {
+                batchedJob.JigId = null;
+                batchedJob.PlannedStartTime = null;
+                batchedJob.PlannedEndTime = null;
+                batchedJob.PlannedDurationMinutes = null;
+                batchedJob.BreakAdjustmentMinutes = null;
+                batchedJob.IsInWip = false;
+                batchedJob.ModifiedOn = DateTime.UtcNow;
+            }
+        }
         
         await _context.SaveChangesAsync();
 
@@ -498,15 +544,29 @@ public class TeamWorkItemsController : ControllerBase
                 
                 if (production == null)
                 {
-                    return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                    var batchedJob = await _context.BatchedJobs.FindAsync(createDto.ProductionId.Value);
+                    if (batchedJob != null)
+                    {
+                        orderNumber ??= batchedJob.OrderNumbers;
+                        customerName ??= batchedJob.CustomerName;
+                        productionName ??= batchedJob.Name;
+                        estimatedEfinks ??= batchedJob.EstimatedEfinks;
+                        salesOrderId ??= batchedJob.OrderId;
+                    }
+                    else
+                    {
+                        return BadRequest(new { message = $"Production with ID {createDto.ProductionId} not found" });
+                    }
                 }
-                
-                // Copy display fields from Production if not provided in DTO
-                orderNumber ??= production.Order?.OrderNumber;
-                customerName ??= production.CustomerAccount?.Name;
-                productionName ??= production.Name;
-                estimatedEfinks ??= production.NewEstimatedefinks;
-                salesOrderId ??= production.Orderno;
+                else
+                {
+                    // Copy display fields from Production if not provided in DTO
+                    orderNumber ??= production.Order?.OrderNumber;
+                    customerName ??= production.CustomerAccount?.Name;
+                    productionName ??= production.Name;
+                    estimatedEfinks ??= production.NewEstimatedefinks;
+                    salesOrderId ??= production.Orderno;
+                }
             }
             else if (!createDto.IsRolloverOnly)
             {
@@ -590,6 +650,15 @@ public class TeamWorkItemsController : ControllerBase
                 {
                     production.IsInWip = true;
                     production.ModifiedOn = DateTime.UtcNow;
+                }
+                else if (createDto.ProductionId.HasValue)
+                {
+                    var batchedJob = await _context.BatchedJobs.FindAsync(createDto.ProductionId.Value);
+                    if (batchedJob != null)
+                    {
+                        batchedJob.IsInWip = true;
+                        batchedJob.ModifiedOn = DateTime.UtcNow;
+                    }
                 }
             }
 
