@@ -19,6 +19,16 @@ public class ProductionsController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet("ids")]
+    public async Task<ActionResult<IEnumerable<Guid>>> GetAllIds()
+    {
+        var ids = await _context.Productions
+            .AsNoTracking()
+            .Select(p => p.Id)
+            .ToListAsync();
+        return Ok(ids);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProductionDto>>> GetAll(
         [FromQuery] bool? completeOnly = null, 

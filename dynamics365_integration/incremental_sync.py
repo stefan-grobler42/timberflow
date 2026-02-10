@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Incremental Sync for Dynamics 365 to Millennium ERP
-Only fetches records created after the last successful sync.
+Sync for Dynamics 365 to Millennium ERP (Timber Flow 01)
+Simple logic: fetch all D365 records, compare IDs with local system,
+only import records that don't exist locally. Never update existing records.
+Uses bulk import endpoints for speed.
 """
 import sys
 import os
@@ -9,7 +11,7 @@ import argparse
 import json
 import requests
 from datetime import datetime, timezone
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Set, Tuple
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
@@ -18,20 +20,14 @@ from dynamics365_integration.migrate_data import D365ToERPMigrator
 
 
 class IncrementalSyncer:
-    """Performs incremental sync from Dynamics 365 to Millennium ERP"""
+    """Syncs new records from Dynamics 365 to Millennium ERP"""
     
     SUPPORTED_ENTITIES = ['salesorder', 'cr694_production']
     
-    PAGE_SIZE = 500
+    PAGE_SIZE = 5000
+    BULK_BATCH_SIZE = 200
     
     def __init__(self, entity: str, api_url: str = 'http://localhost:8000'):
-        """
-        Initialize the incremental syncer
-        
-        Args:
-            entity: Entity to sync (salesorder or cr694_production)
-            api_url: Backend API URL
-        """
         if entity not in self.SUPPORTED_ENTITIES:
             raise ValueError(f"Unsupported entity: {entity}. Supported: {self.SUPPORTED_ENTITIES}")
         
@@ -47,43 +43,31 @@ class IncrementalSyncer:
         self.migrator = D365ToERPMigrator(erp_api_url=f"{api_url}/api")
         
         self.errors: List[str] = []
-        
-    def get_last_sync_timestamp(self) -> Optional[str]:
-        """
-        Get the last successful sync timestamp from the backend
-        
-        Returns:
-            ISO format timestamp string or None if no previous sync
-        """
+    
+    def get_existing_ids(self) -> Set[str]:
+        """Get all existing record IDs from the local system."""
         try:
-            url = f"{self.api_url}/api/sync/d365/last-sync/{self.entity}"
-            response = requests.get(url, timeout=30)
+            endpoint = self.entity_mapping['endpoint']
+            url = f"{self.api_url}/api/{endpoint}/ids"
+            
+            response = requests.get(url, timeout=60)
             
             if response.status_code == 200:
-                data = response.json()
-                timestamp = data.get('lastSyncTimestamp') or data.get('last_sync_timestamp')
-                if timestamp:
-                    return timestamp
-                return None
-            elif response.status_code == 404:
-                return None
+                ids = response.json()
+                return set(str(id_val).lower() for id_val in ids)
             else:
-                self.errors.append(f"Failed to get last sync timestamp: HTTP {response.status_code}")
-                return None
+                self.errors.append(f"Failed to get existing IDs: HTTP {response.status_code}")
+                return set()
                 
         except requests.exceptions.RequestException as e:
-            self.errors.append(f"Error getting last sync timestamp: {str(e)}")
-            return None
+            self.errors.append(f"Error getting existing IDs: {str(e)}")
+            return set()
     
-    def fetch_records_since(self, since_timestamp: Optional[str] = None) -> Tuple[List[Dict], int]:
+    def fetch_all_d365_records(self) -> List[Dict]:
         """
-        Fetch D365 records created OR modified after the given timestamp with pagination
-        
-        Args:
-            since_timestamp: ISO format timestamp to filter records created/modified after
-            
-        Returns:
-            Tuple of (list of records, total count)
+        Fetch ALL records from D365 with proper pagination.
+        Uses Prefer: odata.maxpagesize header for per-page sizing
+        and follows @odata.nextLink for all pages.
         """
         all_records = []
         entity_set = self.entity_mapping['d365_entity_set']
@@ -94,16 +78,7 @@ class IncrementalSyncer:
             
             base_url = f"{self.d365_base_url}/{entity_set}"
             
-            params = []
-            params.append("$count=true")
-            params.append("$orderby=modifiedon asc")
-            
-            if since_timestamp:
-                odata_timestamp = since_timestamp.replace('+00:00', 'Z')
-                if not odata_timestamp.endswith('Z'):
-                    odata_timestamp = odata_timestamp + 'Z'
-                params.append(f"$filter=createdon gt {odata_timestamp} or modifiedon gt {odata_timestamp}")
-            
+            params = ["$count=true"]
             url = f"{base_url}?{'&'.join(params)}"
             
             page = 1
@@ -122,143 +97,67 @@ class IncrementalSyncer:
                 else:
                     url = None
                     
-            return all_records, len(all_records)
+            return all_records
             
         except requests.exceptions.RequestException as e:
             self.errors.append(f"Error fetching D365 records: {str(e)}")
-            return [], 0
+            return []
     
-    def check_record_exists(self, record_id: str) -> bool:
+    def bulk_import_records(self, records: List[Dict]) -> int:
         """
-        Check if a record already exists in the backend
+        Import new records using the bulk import endpoint.
+        Sends records in batches. The backend handles deduplication.
+        Returns total imported count.
+        """
+        if not records:
+            return 0
         
-        Args:
-            record_id: The GUID of the record
-            
-        Returns:
-            True if record exists, False otherwise
-        """
-        try:
-            endpoint = self.entity_mapping['endpoint']
-            url = f"{self.api_url}/api/{endpoint}/{record_id}"
-            
-            response = requests.get(url, timeout=30)
-            return response.status_code == 200
-            
-        except requests.exceptions.RequestException:
-            return False
-    
-    def import_record(self, record: Dict) -> bool:
-        """
-        Import a single record to the backend
+        total_imported = 0
+        endpoint = self.entity_mapping['endpoint']
+        url = f"{self.api_url}/api/{endpoint}/bulk"
         
-        Args:
-            record: D365 record to import
+        for i in range(0, len(records), self.BULK_BATCH_SIZE):
+            batch = records[i:i + self.BULK_BATCH_SIZE]
             
-        Returns:
-            True if successfully imported, False otherwise
-        """
-        try:
-            transformed = self.migrator.transform_record(record, self.entity)
+            transformed_batch = []
+            for record in batch:
+                try:
+                    transformed = self.migrator.transform_record(record, self.entity)
+                    transformed_batch.append(transformed)
+                except Exception as e:
+                    primary_key = self.entity_mapping['primary_key']
+                    record_id = record.get(primary_key, 'unknown')
+                    self.errors.append(f"Transform error for {record_id}: {str(e)}")
             
-            endpoint = self.entity_mapping['endpoint']
-            url = f"{self.api_url}/api/{endpoint}"
+            if not transformed_batch:
+                continue
             
-            response = requests.post(
-                url,
-                json=transformed,
-                headers={'Content-Type': 'application/json'},
-                timeout=30
-            )
-            
-            if response.status_code in [200, 201]:
-                return True
-            else:
-                primary_key = self.entity_mapping['primary_key']
-                record_id = record.get(primary_key, 'unknown')
-                self.errors.append(f"Failed to import record {record_id}: HTTP {response.status_code} - {response.text[:200]}")
-                return False
+            try:
+                response = requests.post(
+                    url,
+                    json=transformed_batch,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=120
+                )
                 
-        except Exception as e:
-            primary_key = self.entity_mapping['primary_key']
-            record_id = record.get(primary_key, 'unknown')
-            self.errors.append(f"Error importing record {record_id}: {str(e)}")
-            return False
-    
-    def import_records_bulk(self, records: List[Dict]) -> Tuple[int, int]:
-        """
-        Import or update records (upsert behavior)
-        
-        Args:
-            records: List of D365 records to import/update
-            
-        Returns:
-            Tuple of (imported/updated count, skipped count)
-        """
-        imported = 0
-        skipped = 0
-        primary_key = self.entity_mapping['primary_key']
-        
-        for record in records:
-            record_id = record.get(primary_key)
-            
-            exists = record_id and self.check_record_exists(record_id)
-            
-            if exists:
-                if self.update_record(record):
-                    imported += 1
+                if response.status_code == 200:
+                    result = response.json()
+                    total_imported += result.get('imported', 0)
                 else:
-                    skipped += 1
-            else:
-                if self.import_record(record):
-                    imported += 1
-                
-        return imported, skipped
-    
-    def update_record(self, record: Dict) -> bool:
-        """
-        Update an existing record in the backend
+                    self.errors.append(f"Bulk import failed: HTTP {response.status_code} - {response.text[:300]}")
+                    
+            except Exception as e:
+                self.errors.append(f"Bulk import error: {str(e)}")
         
-        Args:
-            record: D365 record to update
-            
-        Returns:
-            True if successfully updated, False otherwise
-        """
-        try:
-            transformed = self.migrator.transform_record(record, self.entity)
-            
-            endpoint = self.entity_mapping['endpoint']
-            primary_key = self.entity_mapping['primary_key']
-            record_id = record.get(primary_key)
-            
-            url = f"{self.api_url}/api/{endpoint}/{record_id}"
-            
-            response = requests.put(
-                url,
-                json=transformed,
-                headers={'Content-Type': 'application/json'},
-                timeout=30
-            )
-            
-            if response.status_code in [200, 204]:
-                return True
-            else:
-                self.errors.append(f"Failed to update record {record_id}: HTTP {response.status_code} - {response.text[:200]}")
-                return False
-                
-        except Exception as e:
-            primary_key = self.entity_mapping['primary_key']
-            record_id = record.get(primary_key, 'unknown')
-            self.errors.append(f"Error updating record {record_id}: {str(e)}")
-            return False
+        return total_imported
     
     def run(self) -> Dict:
         """
-        Execute the incremental sync
-        
-        Returns:
-            Status dictionary with sync results
+        Execute the sync:
+        1. Get all existing IDs from local system
+        2. Fetch all records from D365
+        3. Filter to only new records (not in local system)
+        4. Bulk import only new records - never update existing ones
         """
         start_time = time.time()
         
@@ -270,32 +169,36 @@ class IncrementalSyncer:
             'errors': [],
             'duration_seconds': 0,
             'success': False,
-            'last_sync_timestamp': None,
-            'sync_timestamp': datetime.now(timezone.utc).isoformat()
         }
         
-        last_sync = self.get_last_sync_timestamp()
-        result['last_sync_timestamp'] = last_sync
+        existing_ids = self.get_existing_ids()
         
-        records, total_count = self.fetch_records_since(last_sync)
-        result['records_found'] = len(records)
+        all_d365_records = self.fetch_all_d365_records()
+        result['records_found'] = len(all_d365_records)
         
-        if records:
-            imported, skipped = self.import_records_bulk(records)
-            result['records_imported'] = imported
-            result['records_skipped'] = skipped
+        primary_key = self.entity_mapping['primary_key']
+        new_records = []
+        for record in all_d365_records:
+            record_id = str(record.get(primary_key, '')).lower()
+            if record_id and record_id not in existing_ids:
+                new_records.append(record)
         
+        result['records_skipped'] = len(all_d365_records) - len(new_records)
+        
+        imported = self.bulk_import_records(new_records)
+        
+        result['records_imported'] = imported
         result['errors'] = self.errors
         result['duration_seconds'] = round(time.time() - start_time, 2)
-        result['success'] = len(self.errors) == 0 and result['records_imported'] >= 0
+        result['success'] = len(self.errors) == 0
         
         return result
 
 
 def main():
-    """Main entry point for incremental sync"""
+    """Main entry point for sync"""
     parser = argparse.ArgumentParser(
-        description='Incremental sync from Dynamics 365 to Millennium ERP'
+        description='Sync new records from Dynamics 365 to Millennium ERP'
     )
     parser.add_argument(
         '--entity',
@@ -323,7 +226,7 @@ def main():
         )
         
         if not args.quiet:
-            print(f"Starting incremental sync for {args.entity}...", file=sys.stderr)
+            print(f"Starting sync for {args.entity}...", file=sys.stderr)
         
         result = syncer.run()
         

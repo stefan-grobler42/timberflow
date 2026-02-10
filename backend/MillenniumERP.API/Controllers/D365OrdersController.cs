@@ -19,6 +19,16 @@ public class D365OrdersController : ControllerBase
         _logger = logger;
     }
 
+    [HttpGet("ids")]
+    public async Task<ActionResult<IEnumerable<Guid>>> GetAllIds()
+    {
+        var ids = await _context.D365Orders
+            .AsNoTracking()
+            .Select(o => o.Id)
+            .ToListAsync();
+        return Ok(ids);
+    }
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<D365OrderDto>>> GetAll()
     {
