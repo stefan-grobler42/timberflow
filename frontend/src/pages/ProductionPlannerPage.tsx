@@ -17,6 +17,9 @@ import { WeekView } from '../components/ProductionPlanner/WeekView';
 import { DayView, type DropZoneMetadata } from '../components/ProductionPlanner/DayView';
 import { ScheduleBlockPanel } from '../components/ProductionPlanner/ScheduleBlockPanel';
 import batchedJobService from '../services/jobBatchService';
+import type { BatchedJobDetails } from '../services/jobBatchService';
+import { BatchManagePanel } from '../components/ProductionPlanner/BatchManagePanel';
+import type { BatchProduction } from '../components/ProductionPlanner/BatchManagePanel';
 import { 
   startOfMonthUtc, 
   startOfWeekUtc, 
@@ -115,8 +118,11 @@ export const ProductionPlannerPage = () => {
   
   // Staged jobs - jobs in edit mode (not yet persisted)
   const [stagedJobs, setStagedJobs] = useState<StagedJob[]>([]);
-  
-  
+  const [batchManageOpen, setBatchManageOpen] = useState(false);
+  const [managingBatchId, setManagingBatchId] = useState<string | null>(null);
+  const [batchManageLoading, setBatchManageLoading] = useState(false);
+  const [batchDetails, setBatchDetails] = useState<BatchedJobDetails | null>(null);
+
   // Date range for loading productions - default: 12 months back, 3 months forward
   const getDefaultDateRange = () => {
     const today = new Date();
@@ -1197,13 +1203,48 @@ export const ProductionPlannerPage = () => {
   };
 
   const handleRemoveFromBatch = async (batchedJobId: string, productionId: string) => {
+    setBatchManageLoading(true);
     try {
-      await batchedJobService.removeFromBatch(batchedJobId, productionId);
+      const result = await batchedJobService.removeFromBatch(batchedJobId, productionId);
       console.log('[PLANNER] ✓ Removed production from batch, refreshing data...');
+      if (result.dissolved) {
+        setBatchManageOpen(false);
+        setManagingBatchId(null);
+      }
       await loadData();
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to remove from batch:', err);
       setError(`Failed to remove from batch: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchManageLoading(false);
+    }
+  };
+
+  const handleDissolveBatch = async (batchedJobId: string) => {
+    setBatchManageLoading(true);
+    try {
+      await batchedJobService.deleteBatch(batchedJobId);
+      console.log('[PLANNER] ✓ Batch dissolved, refreshing data...');
+      setBatchManageOpen(false);
+      setManagingBatchId(null);
+      await loadData();
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to dissolve batch:', err);
+      setError(`Failed to dissolve batch: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchManageLoading(false);
+    }
+  };
+
+  const handleOpenManagePanel = async (batchId: string) => {
+    setManagingBatchId(batchId);
+    setBatchDetails(null);
+    setBatchManageOpen(true);
+    try {
+      const details = await batchedJobService.getBatchDetails(batchId);
+      setBatchDetails(details);
+    } catch (err) {
+      console.error('[PLANNER] ✗ Failed to fetch batch details:', err);
     }
   };
 
@@ -2396,25 +2437,47 @@ export const ProductionPlannerPage = () => {
                               key={job.id}
                               draggable
                               onDragStart={() => handleDragStart(job.id)}
-                              onDoubleClick={() => handleJobDoubleClick(job.id)}
+                              onDoubleClick={() => job.isBatchedJob ? handleOpenManagePanel(job.id) : handleJobDoubleClick(job.id)}
                               style={{
                                 padding: '5px 8px',
-                                backgroundColor: '#f0fff0',
+                                position: 'relative',
+                                backgroundColor: job.isBatchedJob ? 'rgba(16, 124, 16, 0.08)' : '#f0fff0',
                                 borderRadius: 3,
                                 cursor: 'grab',
-                                border: '1px solid #90ee90',
+                                border: job.isBatchedJob ? '1px solid rgba(16, 124, 16, 0.5)' : '1px solid #90ee90',
                                 boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
                               }}
                             >
-                              <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333' } }}>
+                              {job.isBatchedJob && (
+                                <div style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  backgroundColor: 'rgba(16, 124, 16, 0.85)',
+                                  color: 'white',
+                                  padding: '1px 5px',
+                                  borderRadius: 3,
+                                  fontSize: 8,
+                                  fontWeight: 600,
+                                  marginBottom: 2
+                                }}>
+                                  📦 BATCH
+                                </div>
+                              )}
+                              <Text variant="small" styles={{ root: { fontWeight: 600, fontSize: 11, color: '#333', display: 'block' } }}>
                                 {job.orderNumber}
                               </Text>
                               <Text variant="tiny" styles={{ root: { fontSize: 10, color: '#666', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' } }}>
                                 {job.customer}
                               </Text>
-                              <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#107c10', fontWeight: 500 } }}>
+                              <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#107c10', fontWeight: 500, display: 'block' } }}>
                                 {job.estimatedEFinks} E-Finks
                               </Text>
+                              {job.isBatchedJob && (
+                                <Text variant="tiny" styles={{ root: { fontSize: 9, color: '#666', fontStyle: 'italic', display: 'block' } }}>
+                                  Double-click to manage
+                                </Text>
+                              )}
                             </div>
                           ))}
                         </>
@@ -2524,10 +2587,43 @@ export const ProductionPlannerPage = () => {
               onSaveStagedJob={handleSaveStagedJob}
               onCancelStagedJob={handleCancelStagedJob}
               onEditPersistedJob={handleEditPersistedJob}
+              onManageBatch={handleOpenManagePanel}
             />
           )}
         </Stack>
       </Stack>
+
+      {/* Batch Manage Panel */}
+      {managingBatchId && (() => {
+        const batchJob = jobs.find(j => j.id === managingBatchId);
+        const batchProductions: BatchProduction[] = batchDetails
+          ? batchDetails.sourceProductions.map(sp => ({
+              id: sp.id,
+              orderNumber: sp.orderNumber,
+              name: sp.name,
+              estimatedEfinks: sp.estimatedEfinks
+            }))
+          : [];
+        const formatDur = (mins: number) => {
+          const h = Math.floor(mins / 60); const m = mins % 60;
+          return m === 0 ? `${h}h` : `${h}h ${m}m`;
+        };
+        return (
+          <BatchManagePanel
+            isOpen={batchManageOpen}
+            batchId={managingBatchId}
+            productions={batchProductions}
+            customerName={batchDetails?.customerName ?? batchJob?.customer ?? ''}
+            totalEfinks={batchDetails?.estimatedEfinks ?? batchJob?.estimatedEFinks ?? 0}
+            combinedDurationMinutes={batchDetails?.customDurationMinutes ?? batchJob?.customDurationMinutes ?? 0}
+            onDismiss={() => { setBatchManageOpen(false); setManagingBatchId(null); setBatchDetails(null); }}
+            onRemoveProduction={handleRemoveFromBatch}
+            onDissolveBatch={handleDissolveBatch}
+            formatDuration={formatDur}
+            isLoading={batchManageLoading || !batchDetails}
+          />
+        );
+      })()}
 
       <ScheduleBlockPanel
         isOpen={blockPanelOpen}

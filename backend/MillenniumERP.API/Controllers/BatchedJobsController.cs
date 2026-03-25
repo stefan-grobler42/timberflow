@@ -40,6 +40,50 @@ public class BatchedJobsController : ControllerBase
         return Ok(MapToResponse(job));
     }
 
+    [HttpGet("{id}/details")]
+    public async Task<ActionResult> GetDetails(Guid id)
+    {
+        var job = await _context.BatchedJobs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == id);
+        if (job == null)
+            return NotFound(new { message = $"Batched job {id} not found" });
+
+        var sourceIds = job.SourceProductionIds?
+            .Split(',')
+            .Where(s => !string.IsNullOrEmpty(s.Trim()))
+            .Select(s => Guid.Parse(s.Trim()))
+            .ToList() ?? new List<Guid>();
+
+        var sourceProductions = await _context.Productions
+            .AsNoTracking()
+            .Include(p => p.Order)
+            .Where(p => sourceIds.Contains(p.Id))
+            .ToListAsync();
+
+        var productionDetails = sourceProductions.Select(p => new
+        {
+            Id = p.Id,
+            OrderNumber = p.Order?.OrderNumber ?? p.Order?.Name,
+            Name = p.Name,
+            EstimatedEfinks = p.NewEstimatedefinks
+        }).ToList();
+
+        return Ok(new
+        {
+            job.Id,
+            job.Name,
+            job.CustomerName,
+            job.OrderNumbers,
+            job.EstimatedEfinks,
+            job.CustomDurationMinutes,
+            job.ProductionPlannedDate,
+            job.IsInWip,
+            job.SourceProductionIds,
+            SourceProductions = productionDetails
+        });
+    }
+
     [HttpPost("combine")]
     public async Task<ActionResult<BatchedJob>> CombineJobs([FromBody] CombineJobsRequest dto)
     {

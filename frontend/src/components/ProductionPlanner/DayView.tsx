@@ -45,6 +45,8 @@ interface Job {
   segmentDuration?: number | null;
   segmentBreakMinutes?: number | null;
   isLastSegment?: boolean;
+  isBatchedJob?: boolean;
+  sourceProductionIds?: string;
 }
 
 interface Jig {
@@ -144,6 +146,7 @@ interface DayViewProps {
   onSaveStagedJob?: (jobId: string) => void;
   onCancelStagedJob?: (jobId: string) => void;
   onEditPersistedJob?: (productionId: string, teamId: string, dateStr: string) => void;
+  onManageBatch?: (batchId: string) => void;
 }
 
 const MIN_BLOCK_HEIGHT = 20;
@@ -173,7 +176,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   stagedJobs = [],
   onSaveStagedJob,
   onCancelStagedJob,
-  onEditPersistedJob
+  onEditPersistedJob,
+  onManageBatch
 }) => {
   const [workingHours, setWorkingHours] = useState<{ start: number; end: number } | null>(null);
   const [baseWorkingHours, setBaseWorkingHours] = useState<{ start: number; end: number } | null>(null);
@@ -2000,6 +2004,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 {/* Job blocks */}
                 {calculateJobPositions(jigJobs, true, teamWorkingMinutes.endMinutes).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isStaged = (job as Job & { isStaged?: boolean }).isStaged === true;
+                    const isBatchedJob = !!(job.isBatchedJob);
                     
                     // Separate Type B blocks (Breakdown, Material Shortage) from regular breaks
                     const typeBBlockLabels = ['Breakdown', 'Material Shortage'];
@@ -2009,18 +2014,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     
                     const getBackground = () => {
                       if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
+                      if (isBatchedJob) return 'linear-gradient(135deg, rgba(16, 124, 16, 0.9), rgba(0, 100, 0, 0.8))';
                       if (isStaged) return 'linear-gradient(135deg, rgba(0, 120, 212, 0.25), rgba(0, 90, 180, 0.15))';
                       return 'linear-gradient(135deg, rgba(0, 120, 212, 0.85), rgba(0, 90, 180, 0.75))';
                     };
                     
                     const getBorder = () => {
                       if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
+                      if (isBatchedJob) return '2px solid rgba(34, 177, 76, 0.8)';
                       if (isStaged) return '2px dashed rgba(0, 120, 212, 0.7)';
                       return '1px solid rgba(255, 255, 255, 0.3)';
                     };
                     
                     const getBoxShadow = () => {
                       if (dragOverJobId === job.id) return '0 0 0 3px #107c10, 0 4px 16px rgba(16, 124, 16, 0.5)';
+                      if (isBatchedJob && !job.productionComplete) return '0 4px 12px rgba(16, 124, 16, 0.4), inset 0 1px 0 rgba(255,255,255,0.25), 4px 4px 0 -2px rgba(16, 124, 16, 0.3), 6px 6px 0 -4px rgba(16, 124, 16, 0.2)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       if (isStaged) return '0 2px 8px rgba(0, 120, 212, 0.2)';
                       return '0 4px 12px rgba(0, 120, 212, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
@@ -2039,7 +2047,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         key={job.id}
                         draggable={canInteract}
                         onDragStart={() => canInteract && onDragStart(job.id)}
-                        onDoubleClick={() => onJobDoubleClick(job.id)}
+                        onDoubleClick={() => {
+                          if (isBatchedJob && onManageBatch) {
+                            onManageBatch(job.id);
+                          } else {
+                            onJobDoubleClick(job.id);
+                          }
+                        }}
                         onDragOver={(e) => {
                           if (!job.productionComplete && !isStaged) {
                             e.preventDefault();
@@ -2100,6 +2114,27 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
                           }}>
                             + COMBINE
+                          </div>
+                        )}
+                        {/* BATCH badge for batched jobs */}
+                        {isBatchedJob && !job.productionComplete && (
+                          <div style={{
+                            position: 'absolute',
+                            top: 2,
+                            left: 2,
+                            backgroundColor: 'rgba(34, 177, 76, 0.9)',
+                            color: 'white',
+                            padding: '2px 6px',
+                            borderRadius: 4,
+                            fontSize: 9,
+                            fontWeight: 600,
+                            zIndex: 300,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 3,
+                            pointerEvents: 'none'
+                          }}>
+                            📦 BATCH
                           </div>
                         )}
                         {/* Reset icon for manually resized jobs */}
@@ -2344,28 +2379,67 @@ const DayViewComponent: React.FC<DayViewProps> = ({
               </Text>
             ) : (
               <Stack tokens={{ childrenGap: 4 }}>
-                {unallocatedJobs.map(job => (
+                {unallocatedJobs.map(job => {
+                  const isUnallocBatched = !!(job.isBatchedJob);
+                  const getUnallocBackground = () => {
+                    if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
+                    if (isUnallocBatched) return 'linear-gradient(135deg, rgba(16, 124, 16, 0.9), rgba(0, 100, 0, 0.8))';
+                    return 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))';
+                  };
+                  const getUnallocBorder = () => {
+                    if (job.productionComplete) return '1px solid rgba(180, 180, 180, 0.6)';
+                    if (isUnallocBatched) return '2px solid rgba(34, 177, 76, 0.8)';
+                    return '1px solid rgba(255, 255, 255, 0.3)';
+                  };
+                  const getUnallocShadow = () => {
+                    if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
+                    if (isUnallocBatched) return '0 4px 12px rgba(16, 124, 16, 0.4), inset 0 1px 0 rgba(255,255,255,0.25), 4px 4px 0 -2px rgba(16, 124, 16, 0.3)';
+                    return '0 4px 12px rgba(198, 40, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)';
+                  };
+                  return (
                   <div
                     key={job.id}
                     draggable
                     onDragStart={() => onDragStart(job.id)}
-                    onDoubleClick={() => onJobDoubleClick(job.id)}
+                    onDoubleClick={() => {
+                      if (isUnallocBatched && onManageBatch) {
+                        onManageBatch(job.id);
+                      } else {
+                        onJobDoubleClick(job.id);
+                      }
+                    }}
                     style={{
                       padding: 8,
-                      background: job.productionComplete 
-                        ? 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))' 
-                        : 'linear-gradient(135deg, rgba(198, 40, 40, 0.85), rgba(160, 30, 30, 0.75))',
+                      position: 'relative',
+                      background: getUnallocBackground(),
                       color: job.productionComplete ? '#555' : 'white',
                       borderRadius: 6,
-                      border: job.productionComplete ? '1px solid rgba(180, 180, 180, 0.6)' : '1px solid rgba(255, 255, 255, 0.3)',
+                      border: getUnallocBorder(),
                       cursor: 'grab',
-                      boxShadow: job.productionComplete 
-                        ? '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)' 
-                        : '0 4px 12px rgba(198, 40, 40, 0.35), inset 0 1px 0 rgba(255,255,255,0.25)',
+                      boxShadow: getUnallocShadow(),
                       opacity: job.productionComplete ? 0.7 : 1
                     }}
                   >
-                    <Stack horizontal horizontalAlign="space-between" verticalAlign="start">
+                    {isUnallocBatched && !job.productionComplete && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 2,
+                        left: 2,
+                        backgroundColor: 'rgba(34, 177, 76, 0.9)',
+                        color: 'white',
+                        padding: '1px 4px',
+                        borderRadius: 3,
+                        fontSize: 8,
+                        fontWeight: 600,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        pointerEvents: 'none'
+                      }}>
+                        📦 BATCH
+                      </div>
+                    )}
+                    <Stack horizontal horizontalAlign="space-between" verticalAlign="start" style={{ marginTop: isUnallocBatched ? 14 : 0 }}>
                       <Text variant="small" styles={{ root: { color: job.productionComplete ? '#666' : 'white', fontWeight: 600 } }}>
                         {job.orderNumber}{job.name?.includes('(Rollover)') || job.name?.includes('(Roll Over)') ? ' (R)' : ''}{job.productionComplete ? ' (Complete)' : ''}
                       </Text>
@@ -2382,7 +2456,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                       {job.estimatedEFinks} E-Finks
                     </Text>
                   </div>
-                ))}
+                  );
+                })}
               </Stack>
             )}
           </div>

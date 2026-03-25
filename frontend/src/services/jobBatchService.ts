@@ -23,7 +23,20 @@ export interface BatchedJob {
   modifiedOn?: string;
 }
 
+export interface BatchedJobDetails extends BatchedJob {
+  sourceProductions: {
+    id: string;
+    orderNumber?: string;
+    name?: string;
+    estimatedEfinks?: number;
+  }[];
+}
+
 const batchedJobService = {
+  async getBatchDetails(id: string): Promise<BatchedJobDetails> {
+    return api.get<BatchedJobDetails>(`/batchedjobs/${id}/details`);
+  },
+
   async combineJobs(jobAId: string, jobBId: string): Promise<BatchedJob> {
     return api.post<BatchedJob>('/batchedjobs/combine', { jobAId, jobBId });
   },
