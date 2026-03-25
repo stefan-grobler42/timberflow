@@ -28,10 +28,6 @@ public class TeamWorkItemsController : ControllerBase
         [FromQuery] string? dateTo = null)
     {
         var query = _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .AsQueryable();
 
@@ -76,10 +72,6 @@ public class TeamWorkItemsController : ControllerBase
     public async Task<ActionResult<TeamWorkItemDto>> GetById(Guid id)
     {
         var item = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .FirstOrDefaultAsync(w => w.Id == id);
 
@@ -103,10 +95,6 @@ public class TeamWorkItemsController : ControllerBase
         var endOfDay = startOfDay.AddDays(1);
 
         var items = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .Where(w => w.TeamId == teamId && w.WorkDate >= startOfDay && w.WorkDate < endOfDay)
             .OrderBy(w => w.Sequence)
@@ -124,10 +112,6 @@ public class TeamWorkItemsController : ControllerBase
     {
         var query = _context.TeamWorkItems
             .AsNoTracking()
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .Where(w => w.Status == null || (w.Status != "completed" && w.Status != "cancelled"))
             .AsQueryable();
@@ -328,10 +312,6 @@ public class TeamWorkItemsController : ControllerBase
             item.Id, item.ProductionId, item.TeamId, item.IsRolloverOnly);
 
         var result = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .FirstOrDefaultAsync(w => w.Id == item.Id);
 
@@ -405,10 +385,6 @@ public class TeamWorkItemsController : ControllerBase
         _logger.LogInformation("Updated TeamWorkItem {Id}", item.Id);
 
         var result = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .FirstOrDefaultAsync(w => w.Id == item.Id);
 
@@ -458,10 +434,6 @@ public class TeamWorkItemsController : ControllerBase
     public async Task<ActionResult<IEnumerable<TeamWorkItemDto>>> GetByProductionId(Guid productionId)
     {
         var items = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .Where(w => w.ProductionId == productionId)
             .OrderBy(w => w.WorkDate)
@@ -741,7 +713,6 @@ public class TeamWorkItemsController : ControllerBase
     public async Task<ActionResult<TeamWorkItemDto>> Complete(Guid id, [FromBody] CompleteTeamWorkItemDto completeDto)
     {
         var item = await _context.TeamWorkItems
-            .Include(w => w.Production)
             .FirstOrDefaultAsync(w => w.Id == id);
 
         if (item == null)
@@ -762,25 +733,26 @@ public class TeamWorkItemsController : ControllerBase
         item.JiggingComplete = true;
         item.ModifiedOn = DateTime.UtcNow;
 
-        if (item.Production != null)
+        // Write completion data back to the normal production record (if this is a normal, non-batched job)
+        if (item.ProductionId.HasValue)
         {
-            if (completeDto.ActualStartTime.HasValue)
-                item.Production.Jigstart = completeDto.ActualStartTime;
-            if (completeDto.ActualEndTime.HasValue)
-                item.Production.Jigend = completeDto.ActualEndTime;
-            if (completeDto.TimberCubes.HasValue)
-                item.Production.Totaltimbercubes = completeDto.TimberCubes;
-            if (completeDto.TotalCuts.HasValue)
-                item.Production.Totalcuts = completeDto.TotalCuts;
-            if (completeDto.ActualEfinks.HasValue)
-                item.Production.Workunitsefinks = completeDto.ActualEfinks;
-            
-            if (!completeDto.NeedsVerification)
+            var production = await _context.Productions.FindAsync(item.ProductionId.Value);
+            if (production != null)
             {
-                item.Production.Productioncomplete = true;
+                if (completeDto.ActualStartTime.HasValue)
+                    production.Jigstart = completeDto.ActualStartTime;
+                if (completeDto.ActualEndTime.HasValue)
+                    production.Jigend = completeDto.ActualEndTime;
+                if (completeDto.TimberCubes.HasValue)
+                    production.Totaltimbercubes = completeDto.TimberCubes;
+                if (completeDto.TotalCuts.HasValue)
+                    production.Totalcuts = completeDto.TotalCuts;
+                if (completeDto.ActualEfinks.HasValue)
+                    production.Workunitsefinks = completeDto.ActualEfinks;
+                if (!completeDto.NeedsVerification)
+                    production.Productioncomplete = true;
+                production.ModifiedOn = DateTime.UtcNow;
             }
-            
-            item.Production.ModifiedOn = DateTime.UtcNow;
         }
 
         await _context.SaveChangesAsync();
@@ -789,10 +761,6 @@ public class TeamWorkItemsController : ControllerBase
             id, item.Status);
 
         var result = await _context.TeamWorkItems
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.CustomerAccount)
-            .Include(w => w.Production)
-                .ThenInclude(p => p!.Order)
             .Include(w => w.Team)
             .FirstOrDefaultAsync(w => w.Id == item.Id);
 
@@ -835,12 +803,11 @@ public class TeamWorkItemsController : ControllerBase
             CreatedBy = item.CreatedBy,
             ModifiedOn = item.ModifiedOn,
             ModifiedBy = item.ModifiedBy,
-            // Use WIP fields directly, fall back to Production for backwards compatibility
-            ProductionName = item.ProductionName ?? item.Production?.Name,
+            ProductionName = item.ProductionName,
             TeamName = item.Team?.Name,
-            CustomerName = item.CustomerName ?? item.Production?.CustomerAccount?.Name,
-            OrderNumber = item.OrderNumber ?? item.Production?.Order?.OrderNumber,
-            EstimatedEfinks = item.EstimatedEfinks ?? item.Production?.NewEstimatedefinks,
+            CustomerName = item.CustomerName,
+            OrderNumber = item.OrderNumber,
+            EstimatedEfinks = item.EstimatedEfinks,
             SiteAddress = item.SiteAddress,
             CustomDurationMinutes = item.CustomDurationMinutes,
             IsRolloverOnly = item.IsRolloverOnly,

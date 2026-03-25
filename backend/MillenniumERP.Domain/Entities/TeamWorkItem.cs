@@ -143,9 +143,6 @@ namespace MillenniumERP.Domain.Entities
         [Column("modified_by")]
         public Guid? ModifiedBy { get; set; }
 
-        [ForeignKey("ProductionId")]
-        public Production? Production { get; set; }
-
         [ForeignKey("TeamId")]
         public Jig? Team { get; set; }
 

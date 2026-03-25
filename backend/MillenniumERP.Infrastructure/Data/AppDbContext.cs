@@ -583,11 +583,6 @@ public class AppDbContext : DbContext
             entity.Property(e => e.TimberCubes).HasPrecision(18, 4);
             entity.Property(e => e.ActualEfinks).HasPrecision(18, 4);
 
-            entity.HasOne(e => e.Production)
-                  .WithMany()
-                  .HasForeignKey(e => e.ProductionId)
-                  .OnDelete(DeleteBehavior.Cascade);
-
             entity.HasOne(e => e.Team)
                   .WithMany()
                   .HasForeignKey(e => e.TeamId)
