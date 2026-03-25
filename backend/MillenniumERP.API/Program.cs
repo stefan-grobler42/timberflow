@@ -26,7 +26,7 @@ if (!string.IsNullOrEmpty(pgHost) && !string.IsNullOrEmpty(pgUser) && !string.Is
         Username = pgUser,
         Password = pgPassword,
         Database = pgDatabase ?? "neondb",
-        SslMode = SslMode.Require,
+        SslMode = SslMode.Disable,
         // Connection pooling and resilience settings for large result sets
         Pooling = true,
         MinPoolSize = 1,
