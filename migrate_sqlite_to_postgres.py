@@ -19,11 +19,11 @@ PG_CONFIG = {
     'database': os.environ.get('PGDATABASE'),
     'user': os.environ.get('PGUSER'),
     'password': os.environ.get('PGPASSWORD'),
-    'sslmode': 'require'
+    'sslmode': os.environ.get('PGSSLMODE', 'prefer')
 }
 
 # SQLite database path
-SQLITE_DB = '/tmp/migration.db'
+SQLITE_DB = os.environ.get('SQLITE_DB', '/tmp/migration.db')
 
 # Define table migration order (respecting dependencies)
 # Tables without foreign keys come first, then tables with dependencies
@@ -88,22 +88,52 @@ def connect_postgres():
         conn = psycopg2.connect(**PG_CONFIG)
         conn.autocommit = False
         print(f"✓ Connected to PostgreSQL: {PG_CONFIG['host']}/{PG_CONFIG['database']}")
+        cursor = conn.cursor()
+        cursor.execute("SET session_replication_role = replica")
+        conn.commit()
+        cursor.close()
+        print("✓ Temporarily disabled PostgreSQL FK triggers for backup import")
         return conn
     except Exception as e:
         print(f"✗ Failed to connect to PostgreSQL: {e}")
         sys.exit(1)
 
-def get_pg_column_types(pg_conn, table_name):
-    """Get column types from PostgreSQL table"""
+def get_pg_columns(pg_conn, table_name):
+    """Get column metadata from PostgreSQL table"""
     cursor = pg_conn.cursor()
     cursor.execute("""
-        SELECT column_name, data_type 
+        SELECT column_name, data_type, is_nullable, column_default
         FROM information_schema.columns 
         WHERE table_schema = 'public' AND table_name = %s
+        ORDER BY ordinal_position
     """, (table_name,))
-    column_types = {row[0]: row[1] for row in cursor.fetchall()}
+    columns = {
+        row[0]: {
+            'type': row[1],
+            'nullable': row[2] == 'YES',
+            'default': row[3],
+        }
+        for row in cursor.fetchall()
+    }
     cursor.close()
-    return column_types
+    return columns
+
+def default_value_for_column(column_name, column_meta):
+    """Return a safe local-dev default for required columns missing in older backups."""
+    column_type = column_meta['type']
+
+    if column_type == 'boolean':
+        return False
+    if column_type in ('integer', 'bigint', 'smallint'):
+        return 0
+    if column_type in ('numeric', 'decimal', 'double precision', 'real'):
+        return 0
+    if column_type in ('text', 'character varying', 'character'):
+        return ''
+    if column_type in ('timestamp without time zone', 'timestamp with time zone', 'date'):
+        return None
+
+    raise ValueError(f"Missing required column '{column_name}' has no safe default")
 
 def convert_value(value, column_name, column_type):
     """
@@ -146,6 +176,17 @@ def get_table_columns(sqlite_conn, table_name):
     columns = [row['name'] for row in cursor.fetchall()]
     return columns
 
+def check_sqlite_table_exists(sqlite_conn, table_name):
+    """Check if source table exists in SQLite backup"""
+    cursor = sqlite_conn.cursor()
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = ?
+        )
+    """, (table_name,))
+    return bool(cursor.fetchone()[0])
+
 def check_table_exists(pg_conn, table_name):
     """Check if table exists in PostgreSQL"""
     cursor = pg_conn.cursor()
@@ -166,33 +207,49 @@ def migrate_table(sqlite_conn, pg_conn, sqlite_table, pg_table):
     Returns: (success: bool, rows_migrated: int)
     """
     try:
+        if not check_sqlite_table_exists(sqlite_conn, sqlite_table):
+            print(f"  ℹ SQLite table '{sqlite_table}' is not present in this backup, skipping...")
+            return (True, 0)
+
         # Check if PostgreSQL table exists
         if not check_table_exists(pg_conn, pg_table):
             print(f"  ⚠ PostgreSQL table '{pg_table}' does not exist, skipping...")
             return (False, 0)
         
         # Get columns from SQLite
-        columns = get_table_columns(sqlite_conn, sqlite_table)
+        sqlite_columns = get_table_columns(sqlite_conn, sqlite_table)
         
-        # Get PostgreSQL column types
-        pg_column_types = get_pg_column_types(pg_conn, pg_table)
+        # Get PostgreSQL column metadata
+        pg_columns = get_pg_columns(pg_conn, pg_table)
+        columns = [col for col in sqlite_columns if col in pg_columns]
+        missing_required_columns = [
+            col for col, meta in pg_columns.items()
+            if col not in columns and not meta['nullable'] and meta['default'] is None
+        ]
         
         # Get data from SQLite
         sqlite_cursor = sqlite_conn.cursor()
-        sqlite_cursor.execute(f"SELECT * FROM {sqlite_table}")
+        sqlite_cursor.execute(f"SELECT {', '.join([f'\"{col}\"' for col in columns])} FROM {sqlite_table}")
         rows = sqlite_cursor.fetchall()
         
         if not rows:
             print(f"  ℹ Table '{sqlite_table}' is empty, skipping...")
             return (True, 0)
+
+        if missing_required_columns:
+            print(f"  ℹ Filling missing required columns from newer schema: {', '.join(missing_required_columns)}")
+            columns.extend(missing_required_columns)
         
         # Convert rows to list of tuples with proper type conversion
         converted_rows = []
         for row in rows:
-            converted_row = tuple(
-                convert_value(row[col], col, pg_column_types.get(col, 'text')) 
-                for col in columns
-            )
+            values = []
+            for col in columns:
+                if col in row.keys():
+                    values.append(convert_value(row[col], col, pg_columns[col]['type']))
+                else:
+                    values.append(default_value_for_column(col, pg_columns[col]))
+            converted_row = tuple(values)
             converted_rows.append(converted_row)
         
         # Prepare PostgreSQL insert statement
@@ -352,6 +409,10 @@ def main():
     verification_passed = verify_migration(sqlite_conn, pg_conn)
     
     # Close connections
+    pg_cursor = pg_conn.cursor()
+    pg_cursor.execute("SET session_replication_role = DEFAULT")
+    pg_conn.commit()
+    pg_cursor.close()
     sqlite_conn.close()
     pg_conn.close()
     

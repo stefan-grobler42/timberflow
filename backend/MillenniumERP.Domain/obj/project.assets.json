@@ -8,24 +8,25 @@
     "net8.0": []
   },
   "packageFolders": {
-    "/home/runner/.nuget/packages/": {}
+    "/private/tmp/timberflow-dotnet/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/runner/workspace/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
+      "projectUniqueName": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
       "projectName": "MillenniumERP.Domain",
-      "projectPath": "/home/runner/workspace/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
-      "packagesPath": "/home/runner/.nuget/packages/",
-      "outputPath": "/home/runner/workspace/backend/MillenniumERP.Domain/obj/",
+      "projectPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
+      "packagesPath": "/private/tmp/timberflow-dotnet/.nuget/packages/",
+      "outputPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/home/runner/.nuget/NuGet/NuGet.Config"
+        "/private/tmp/timberflow-dotnet/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
+        "/opt/homebrew/Cellar/dotnet/10.0.107/libexec/library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -43,7 +44,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net8.0": {
@@ -59,12 +61,22 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.NETCore.App": {
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/nix/store/1d8g8d8xrrlxwfgbavgl4snymznfw5r7-dotnet-sdk-8.0.412/share/dotnet/sdk/8.0.412/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/opt/homebrew/Cellar/dotnet/10.0.107/libexec/sdk/10.0.107/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

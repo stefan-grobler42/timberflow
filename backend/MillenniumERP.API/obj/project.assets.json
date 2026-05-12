@@ -3398,35 +3398,36 @@
     ]
   },
   "packageFolders": {
-    "/home/runner/.nuget/packages/": {}
+    "/private/tmp/timberflow-dotnet/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/runner/workspace/backend/MillenniumERP.API/MillenniumERP.API.csproj",
+      "projectUniqueName": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/MillenniumERP.API.csproj",
       "projectName": "MillenniumERP.API",
-      "projectPath": "/home/runner/workspace/backend/MillenniumERP.API/MillenniumERP.API.csproj",
-      "packagesPath": "/home/runner/.nuget/packages/",
-      "outputPath": "/home/runner/workspace/backend/MillenniumERP.API/obj/",
+      "projectPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/MillenniumERP.API.csproj",
+      "packagesPath": "/private/tmp/timberflow-dotnet/.nuget/packages/",
+      "outputPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/home/runner/.nuget/NuGet/NuGet.Config"
+        "/private/tmp/timberflow-dotnet/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net8.0"
       ],
       "sources": {
+        "/opt/homebrew/Cellar/dotnet/10.0.107/libexec/library-packs": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
         "net8.0": {
           "targetAlias": "net8.0",
           "projectReferences": {
-            "/home/runner/workspace/backend/MillenniumERP.Application/MillenniumERP.Application.csproj": {
-              "projectPath": "/home/runner/workspace/backend/MillenniumERP.Application/MillenniumERP.Application.csproj"
+            "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Application/MillenniumERP.Application.csproj": {
+              "projectPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Application/MillenniumERP.Application.csproj"
             },
-            "/home/runner/workspace/backend/MillenniumERP.Infrastructure/MillenniumERP.Infrastructure.csproj": {
-              "projectPath": "/home/runner/workspace/backend/MillenniumERP.Infrastructure/MillenniumERP.Infrastructure.csproj"
+            "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Infrastructure/MillenniumERP.Infrastructure.csproj": {
+              "projectPath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Infrastructure/MillenniumERP.Infrastructure.csproj"
             }
           }
         }
@@ -3440,7 +3441,8 @@
         "enableAudit": "true",
         "auditLevel": "low",
         "auditMode": "direct"
-      }
+      },
+      "SdkAnalysisLevel": "10.0.100"
     },
     "frameworks": {
       "net8.0": {
@@ -3476,6 +3478,20 @@
         ],
         "assetTargetFallback": true,
         "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.AspNetCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Host.osx-arm64",
+            "version": "[8.0.26, 8.0.26]"
+          },
+          {
+            "name": "Microsoft.NETCore.App.Ref",
+            "version": "[8.0.26, 8.0.26]"
+          }
+        ],
         "frameworkReferences": {
           "Microsoft.AspNetCore.App": {
             "privateAssets": "none"
@@ -3484,7 +3500,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/nix/store/1d8g8d8xrrlxwfgbavgl4snymznfw5r7-dotnet-sdk-8.0.412/share/dotnet/sdk/8.0.412/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/opt/homebrew/Cellar/dotnet/10.0.107/libexec/sdk/10.0.107/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

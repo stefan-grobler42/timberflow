@@ -1,6 +1,6 @@
 {
   "Version": 1,
-  "Hash": "bylN06LeZ0EKOXwVvkvYLWBt39EhIAbaHl2WRX8oH3w=",
+  "Hash": "dOeRAmp0Yvl4GuA1LF1czC1sO4hhVc7THGDrsLDKEL0=",
   "Source": "MillenniumERP.API",
   "BasePath": "_content/MillenniumERP.API",
   "Mode": "Default",
@@ -10,17 +10,17 @@
     {
       "Name": "MillenniumERP.API/wwwroot",
       "Source": "MillenniumERP.API",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "Pattern": "**"
     }
   ],
   "Assets": [
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/.gitkeep",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/.gitkeep",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": ".gitkeep",
       "AssetKind": "All",
@@ -36,10 +36,10 @@
       "OriginalItemSpec": "wwwroot/.gitkeep"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "assets/index-DqYsQSV0.js",
       "AssetKind": "All",
@@ -55,10 +55,10 @@
       "OriginalItemSpec": "wwwroot/assets/index-DqYsQSV0.js"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index.es-BIf5PqcS.js",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/index.es-BIf5PqcS.js",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "assets/index.es-BIf5PqcS.js",
       "AssetKind": "All",
@@ -74,10 +74,10 @@
       "OriginalItemSpec": "wwwroot/assets/index.es-BIf5PqcS.js"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/purify.es-B9ZVCkUG.js",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/purify.es-B9ZVCkUG.js",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "assets/purify.es-B9ZVCkUG.js",
       "AssetKind": "All",
@@ -93,10 +93,10 @@
       "OriginalItemSpec": "wwwroot/assets/purify.es-B9ZVCkUG.js"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/index.html",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/index.html",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "index.html",
       "AssetKind": "All",
@@ -112,10 +112,10 @@
       "OriginalItemSpec": "wwwroot/index.html"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/millennium-logo.png",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/millennium-logo.png",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "millennium-logo.png",
       "AssetKind": "All",
@@ -131,10 +131,10 @@
       "OriginalItemSpec": "wwwroot/millennium-logo.png"
     },
     {
-      "Identity": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/vite.svg",
+      "Identity": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/vite.svg",
       "SourceId": "MillenniumERP.API",
       "SourceType": "Discovered",
-      "ContentRoot": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/",
+      "ContentRoot": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/",
       "BasePath": "_content/MillenniumERP.API",
       "RelativePath": "vite.svg",
       "AssetKind": "All",

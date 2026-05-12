@@ -1,8 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "ccGMsQkIZJ0=",
+  "dgSpecHash": "hmVegjZ11VI=",
   "success": true,
-  "projectFilePath": "/home/runner/workspace/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
-  "expectedPackageFiles": [],
+  "projectFilePath": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/MillenniumERP.Domain.csproj",
+  "expectedPackageFiles": [
+    "/private/tmp/timberflow-dotnet/.nuget/packages/microsoft.netcore.app.ref/8.0.26/microsoft.netcore.app.ref.8.0.26.nupkg.sha512",
+    "/private/tmp/timberflow-dotnet/.nuget/packages/microsoft.aspnetcore.app.ref/8.0.26/microsoft.aspnetcore.app.ref.8.0.26.nupkg.sha512"
+  ],
   "logs": []
 }

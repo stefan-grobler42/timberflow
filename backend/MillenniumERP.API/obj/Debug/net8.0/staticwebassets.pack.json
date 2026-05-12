@@ -1,31 +1,31 @@
 {
   "Files": [
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/.gitkeep",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/.gitkeep",
       "PackagePath": "staticwebassets/.gitkeep"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/index-DqYsQSV0.js",
       "PackagePath": "staticwebassets/assets/index-DqYsQSV0.js"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/index.es-BIf5PqcS.js",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/index.es-BIf5PqcS.js",
       "PackagePath": "staticwebassets/assets/index.es-BIf5PqcS.js"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/assets/purify.es-B9ZVCkUG.js",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/assets/purify.es-B9ZVCkUG.js",
       "PackagePath": "staticwebassets/assets/purify.es-B9ZVCkUG.js"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/index.html",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/index.html",
       "PackagePath": "staticwebassets/index.html"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/millennium-logo.png",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/millennium-logo.png",
       "PackagePath": "staticwebassets/millennium-logo.png"
     },
     {
-      "Id": "/home/runner/workspace/backend/MillenniumERP.API/wwwroot/vite.svg",
+      "Id": "/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.API/wwwroot/vite.svg",
       "PackagePath": "staticwebassets/vite.svg"
     },
     {

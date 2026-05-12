@@ -10,3 +10,15 @@
 /home/runner/workspace/backend/MillenniumERP.Domain/obj/Debug/net8.0/refint/MillenniumERP.Domain.dll
 /home/runner/workspace/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.pdb
 /home/runner/workspace/backend/MillenniumERP.Domain/obj/Debug/net8.0/ref/MillenniumERP.Domain.dll
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/bin/Debug/net8.0/MillenniumERP.Domain.deps.json
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/bin/Debug/net8.0/MillenniumERP.Domain.dll
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/bin/Debug/net8.0/MillenniumERP.Domain.pdb
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.AssemblyInfoInputs.cache
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.AssemblyInfo.cs
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.csproj.CoreCompileInputs.cache
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.sourcelink.json
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.dll
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/refint/MillenniumERP.Domain.dll
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/MillenniumERP.Domain.pdb
+/Users/Stefan/Desktop/TimberFlow-01/backend/MillenniumERP.Domain/obj/Debug/net8.0/ref/MillenniumERP.Domain.dll

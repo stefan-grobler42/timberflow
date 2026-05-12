@@ -27,8 +27,35 @@ Timberflow is a specialized, web-based ERP system for timber roofing contractors
 
 ### Prerequisites
 - Node.js 18+ 
+- .NET 8 SDK/runtime
 - PostgreSQL database
 - Google Maps API key (for location features)
+
+### Local Development
+
+This repo's current local app is the Vite frontend in `frontend/` plus the .NET API in `backend/MillenniumERP.API/`.
+
+The frontend runs on `http://localhost:5173` and proxies `/api` to the backend on `http://localhost:8000`.
+
+```bash
+# Terminal 1: API
+./scripts/dev-api.sh
+
+# Terminal 2: frontend
+./scripts/dev-frontend.sh
+```
+
+The API script defaults to the local Docker Postgres container already present on this machine:
+
+```text
+PGHOST=127.0.0.1
+PGPORT=5432
+PGUSER=timbertracker
+PGPASSWORD=timbertracker
+PGDATABASE=timberflow_dev
+```
+
+Override any of those environment variables before running `./scripts/dev-api.sh` if you want to point at a different database.
 
 ### Installation
 ```bash

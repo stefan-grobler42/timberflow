@@ -1,0 +1,79 @@
+[?1h=
+Welcome to .NET 8.0!
+---------------------
+SDK Version: 8.0.412
+
+Telemetry
+---------
+The .NET tools collect usage data in order to help us improve your experience. It is collected by Microsoft and shared with the community. You can opt-out of telemetry by setting the DOTNET_CLI_TELEMETRY_OPTOUT environment variable to '1' or 'true' using your favorite shell.
+
+Read more about .NET CLI Tools telemetry: https://aka.ms/dotnet-cli-telemetry
+
+----------------
+Installed an ASP.NET Core HTTPS development certificate.
+To trust the certificate, view the instructions: https://aka.ms/dotnet-https-linux
+
+----------------
+Write your first app: https://aka.ms/dotnet-hello-world
+Find out what's new: https://aka.ms/dotnet-whats-new
+Explore documentation: https://aka.ms/dotnet-docs
+Report issues and find source on GitHub: https://github.com/dotnet/core
+Use 'dotnet --help' to see available commands or visit: https://aka.ms/dotnet-cli
+--------------------------------------------------------------------------------------
+[39;49m[93mAn issue was encountered verifying workloads. For more information, run "dotnet workload update".[39;49m
+Building...
+[?1h=[40m[32minfo[39m[22m[49m: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (67ms) [Parameters=[], CommandType='Text', CommandTimeout='60']
+      SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END
+      FROM pg_class AS cls
+      JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+      WHERE
+              cls.relkind IN ('r', 'v', 'm', 'f', 'p') AND
+              ns.nspname NOT IN ('pg_catalog', 'information_schema') AND
+              -- Exclude tables which are members of PG extensions
+              NOT EXISTS (
+                  SELECT 1 FROM pg_depend WHERE
+                      classid=(
+                          SELECT cls.oid
+                          FROM pg_class AS cls
+                                   JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+                          WHERE relname='pg_class' AND ns.nspname='pg_catalog'
+                      ) AND
+                      objid=cls.oid AND
+                      deptype IN ('e', 'x')
+              )
+[40m[32minfo[39m[22m[49m: Program[0]
+      Database initialized successfully
+[40m[32minfo[39m[22m[49m: MillenniumERP.API[0]
+      Content root path: /home/runner/workspace/backend/MillenniumERP.API
+[40m[32minfo[39m[22m[49m: MillenniumERP.API[0]
+      Looking for wwwroot at: /home/runner/workspace/backend/MillenniumERP.API/wwwroot
+[40m[32minfo[39m[22m[49m: MillenniumERP.API.Services.DynamicsSyncScheduler[0]
+      D365 Sync Scheduler started. Waiting for next midnight SAST...
+[40m[32minfo[39m[22m[49m: MillenniumERP.API.Services.DynamicsSyncScheduler[0]
+      Next D365 sync scheduled for 2026-05-05 00:00:00 SAST (in 13h 54m)
+[40m[1m[33mwarn[39m[22m[49m: Microsoft.AspNetCore.Server.Kestrel[0]
+      Overriding address(es) 'http://localhost:5200'. Binding to endpoints defined via IConfiguration and/or UseKestrel() instead.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[14]
+      Now listening on: http://0.0.0.0:8000
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+[40m[32minfo[39m[22m[49m: Microsoft.Hosting.Lifetime[0]
+      Content root path: /home/runner/workspace/backend/MillenniumERP.API
+[40m[32minfo[39m[22m[49m: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (8ms) [Parameters=[], CommandType='Text', CommandTimeout='60']
+      SELECT a."Id", a."ActivityDate", a."ActivityType", a."AssignedToUserId", a."CompletedDate", a."CreatedAt", a."CreatedByUserId", a."CustomerId", a."Description", a."DueDate", a."IsCompleted", a."Priority", a."Status", a."Subject", a."UpdatedAt"
+      FROM activities AS a
+      ORDER BY COALESCE(a."ActivityDate", a."CreatedAt") DESC
+[40m[32minfo[39m[22m[49m: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (118ms) [Parameters=[], CommandType='Text', CommandTimeout='60']
+      SELECT d.quoteid, d.billto_city, d.billto_country, d.billto_latitude, d.billto_line1, d.billto_longitude, d.billto_name, d.billto_postalcode, d.billto_stateorprovince, d.billto_telephone, d.closedon, d.contactemail, d.contactname, d.contacttelephone, d."CreatedBy", d.createdon, d.customerid, d.description, d.discountpercentage, d.effectivefrom, d.effectiveto, d.expireson, d.freightamount, d."ModifiedBy", d.modifiedon, d.name, d.opportunityid, d.ownerid, d.pricelevelid, d.quotenumber, d.requestdeliveryby, d.shipto_city, d.shipto_country, d.shipto_latitude, d.shipto_line1, d.shipto_longitude, d.shipto_name, d.shipto_postalcode, d.shipto_stateorprovince, d.shipto_telephone, d.statecode, d.statuscode, d.totalamount, d.totalamountlessfreight, d.totaldiscountamount, d.totallineitemamount, d.totaltax, d.transactioncurrencyid
+      FROM d365_quotes AS d
+      ORDER BY d.name
+[40m[32minfo[39m[22m[49m: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (6ms) [Parameters=[], CommandType='Text', CommandTimeout='60']
+      SELECT c.cr694_tenderid, c.cr694_closingdate, c.cr694_contact, c."CreatedBy", c."CreatedOn", c.cr694_customer, c.cr694_description, c.cr694_distancetosite, c.exchangerate, c.cr694_filelink, c."ModifiedBy", c."ModifiedOn", c.cr694_name, c.new_designer, c.new_notes, c.new_pricingsubmitted, c.new_submissiondate, c.new_tenderstatus, c.cr694_quoteno, c.cr694_roofcoveringsheeting, c.cr694_roofcoveringtiles, c.cr694_streetaddress, c.cr694_timberstructure, c.cr694_totalvalueexcl, c.cr694_totalvalueexcl_base, c.transactioncurrencyid
+      FROM cr694_tender AS c
+      ORDER BY c.cr694_name
