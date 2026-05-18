@@ -38,10 +38,14 @@ This repo's current local app is the Vite frontend in `frontend/` plus the .NET 
 The frontend runs on `http://localhost:5173` and proxies `/api` to the backend on `http://localhost:8000`.
 
 ```bash
-# Terminal 1: API
-./scripts/dev-api.sh
+# One command: starts Docker/Postgres if needed, then API + frontend
+npm run dev
+```
 
-# Terminal 2: frontend
+You can still run the two app processes separately if you want split terminals:
+
+```bash
+./scripts/dev-api.sh
 ./scripts/dev-frontend.sh
 ```
 

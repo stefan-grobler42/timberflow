@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
+    "dev": "./scripts/dev-local.sh",
+    "dev:api": "./scripts/dev-api.sh",
+    "dev:frontend": "./scripts/dev-frontend.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

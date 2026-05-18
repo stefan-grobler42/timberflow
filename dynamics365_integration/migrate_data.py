@@ -747,7 +747,9 @@ class D365ToERPMigrator:
             'ordernumber': 'orderNumber',
             'name': 'name',
             'customerid': 'customerId',
+            '_customerid_value': 'customerId',
             'quoteid': 'quoteId',
+            '_quoteid_value': 'quoteId',
             'datefulfilled': 'dateFulfilled',
             'requestdeliveryby': 'requestDeliveryBy',
             'totalamount': 'totalAmount',
@@ -757,10 +759,13 @@ class D365ToERPMigrator:
             'statuscode': 'statusCode',
             'description': 'description',
             'ownerid': 'ownerId',
+            '_ownerid_value': 'ownerId',
             'createdon': 'createdOn',
             'createdby': 'createdBy',
+            '_createdby_value': 'createdBy',
             'modifiedon': 'modifiedOn',
-            'modifiedby': 'modifiedBy'
+            'modifiedby': 'modifiedBy',
+            '_modifiedby_value': 'modifiedBy'
         },
         'appointment': {
             'activityid': 'id',
