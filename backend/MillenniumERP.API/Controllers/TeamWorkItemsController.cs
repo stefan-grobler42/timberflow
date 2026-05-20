@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using MillenniumERP.Application.DTOs;
 using MillenniumERP.Domain.Entities;
 using MillenniumERP.Infrastructure.Data;
+using System.Text.Json;
 
 namespace MillenniumERP.API.Controllers;
 
@@ -319,8 +320,14 @@ public class TeamWorkItemsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult<TeamWorkItemDto>> Update(Guid id, [FromBody] UpdateTeamWorkItemDto updateDto)
+    public async Task<ActionResult<TeamWorkItemDto>> Update(Guid id, [FromBody] JsonElement updatePayload)
     {
+        var updateDto = updatePayload.Deserialize<UpdateTeamWorkItemDto>(new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true
+        }) ?? new UpdateTeamWorkItemDto();
+        var hasDayEndMinutes = updatePayload.TryGetProperty("dayEndMinutes", out _);
+
         var item = await _context.TeamWorkItems.FindAsync(id);
 
         if (item == null)
@@ -370,9 +377,11 @@ public class TeamWorkItemsController : ControllerBase
         if (updateDto.NeedsVerification.HasValue) item.NeedsVerification = updateDto.NeedsVerification.Value;
         if (updateDto.DayStartMinutes.HasValue) item.DayStartMinutes = updateDto.DayStartMinutes.Value;
         
-        // Always update DayEndMinutes when it's part of the request (including null to clear override)
-        // This allows the frontend to explicitly clear dayEndMinutes by sending null
-        item.DayEndMinutes = updateDto.DayEndMinutes;
+        // Preserve day-level overtime overrides on timing-only updates; clear only when the client sends dayEndMinutes:null.
+        if (hasDayEndMinutes)
+        {
+            item.DayEndMinutes = updateDto.DayEndMinutes;
+        }
         
         if (updateDto.BreakDefinitions != null) item.BreakDefinitions = updateDto.BreakDefinitions;
         if (updateDto.EstimatedEfinks.HasValue) item.EstimatedEfinks = updateDto.EstimatedEfinks;

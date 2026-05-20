@@ -367,7 +367,7 @@ export const ProductionPlannerPage = () => {
               orderNumber: wipData.orderNumber || p.orderNumber || p.name || 'N/A',
               customer: wipData.customerName || p.customerName || 'Unknown',
               estimatedEFinks: wipData.estimatedEfinks || totalEfinks,
-              customDurationMinutes: p.customDurationMinutes || undefined,
+              customDurationMinutes: wipData.customDurationMinutes ?? p.customDurationMinutes ?? undefined,
               plannedDateStr: formatIsoDateLocal(wipData.workDate),
               jigId: wipData.teamId || null,
               productionComplete: p.productionComplete === true,
@@ -573,6 +573,7 @@ export const ProductionPlannerPage = () => {
       estimatedEfinks?: number;
     }>
   ): Promise<boolean> => {
+    let previousJobs: Job[] | null = null;
     try {
       setOperationInProgress(true); setOperationMessage('Saving changes...');
       
@@ -620,31 +621,56 @@ export const ProductionPlannerPage = () => {
         }
       }
 
+      setJobs(prevJobs => {
+        previousJobs = prevJobs;
+        const updatesByWipId = new Map(updates.filter(u => u.wipId).map(u => [u.wipId!, u]));
+        const updatesByJobId = new Map(updates.map(u => [u.jobId, u]));
+        return prevJobs.map(j => {
+          const update = (j.wipId ? updatesByWipId.get(j.wipId) : undefined) ?? updatesByJobId.get(j.id);
+          if (!update) return j;
+          return {
+            ...j,
+            jigId: update.teamId,
+            plannedDateStr: update.workDate,
+            plannedStartTime: update.plannedStartMinutes,
+            plannedEndTime: update.plannedEndMinutes,
+            plannedDurationMinutes: update.plannedDurationMinutes,
+            breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+            customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes,
+            estimatedEFinks: update.estimatedEfinks ?? j.estimatedEFinks
+          };
+        });
+      });
+
+      const savedItems: Awaited<ReturnType<typeof teamWorkItemService.update>>[] = [];
+
       if (wipUpdates.length > 0) {
-        await teamWorkItemService.batchUpdate(wipUpdates);
+        savedItems.push(...await teamWorkItemService.batchUpdate(wipUpdates));
         console.log('[PLANNER] ✓ Batch updated', wipUpdates.length, 'WIP records');
       }
 
       if (wipCreates.length > 0) {
-        await teamWorkItemService.batchAllocate(wipCreates);
+        savedItems.push(...await teamWorkItemService.batchAllocate(wipCreates));
         console.log('[PLANNER] ✓ Batch created', wipCreates.length, 'WIP records');
       }
 
       setJobs(prevJobs => {
-        const updateMap = new Map(updates.map(u => [u.jobId, u]));
+        const savedByWipId = new Map(savedItems.map(item => [item.id, item]));
+        const savedByProductionId = new Map(savedItems.filter(item => item.productionId).map(item => [item.productionId!, item]));
         return prevJobs.map(j => {
-          const update = updateMap.get(j.id);
-          if (update) {
+          const saved = (j.wipId ? savedByWipId.get(j.wipId) : undefined) ?? savedByProductionId.get(j.id);
+          if (saved) {
             return {
               ...j,
-              jigId: update.teamId,
-              plannedDateStr: update.workDate,
-              plannedStartTime: update.plannedStartMinutes,
-              plannedEndTime: update.plannedEndMinutes,
-              plannedDurationMinutes: update.plannedDurationMinutes,
-              breakAdjustmentMinutes: update.breakAdjustmentMinutes,
-              customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes,
-              estimatedEFinks: update.estimatedEfinks ?? j.estimatedEFinks
+              wipId: saved.id,
+              jigId: saved.teamId,
+              plannedDateStr: formatIsoDateLocal(saved.workDate),
+              plannedStartTime: saved.plannedStartMinutes,
+              plannedEndTime: saved.plannedEndMinutes,
+              plannedDurationMinutes: saved.plannedDurationMinutes,
+              breakAdjustmentMinutes: saved.breakAdjustmentMinutes,
+              customDurationMinutes: saved.customDurationMinutes ?? undefined,
+              estimatedEFinks: saved.estimatedEfinks ?? j.estimatedEFinks
             };
           }
           return j;
@@ -654,7 +680,10 @@ export const ProductionPlannerPage = () => {
       return true;
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to save multiple jobs:', err);
-      setError(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      if (previousJobs) {
+        setJobs(previousJobs);
+      }
+      setError(`Resize rejected: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return false;
     } finally {
       setOperationInProgress(false); setOperationMessage('');
@@ -1458,14 +1487,56 @@ export const ProductionPlannerPage = () => {
   };
 
   const handleJobDurationChange = async (jobId: string, durationMinutes: number) => {
+    const roundedDuration = PlannerV2.roundToQuarterHour(durationMinutes);
+    const stagedJob = stagedJobs.find(sj => sj.jobId === jobId);
+
+    if (stagedJob) {
+      setStagedJobs(prev => prev.map(sj => {
+        if (sj.jobId !== jobId || sj.segments.length === 0) {
+          return sj;
+        }
+
+        const lastSegmentIndex = sj.segments.reduce((lastIdx, segment, idx, segments) => 
+          segment.segmentIndex >= segments[lastIdx].segmentIndex ? idx : lastIdx
+        , 0);
+        const targetSegment = sj.segments[lastSegmentIndex];
+        const teamOvertime = overtimeByTeamDay[targetSegment.workDate]?.[targetSegment.teamId];
+        const shift = PlannerV2.getShiftConfig(
+          teamOvertime?.enabled,
+          teamOvertime?.closeTime,
+          teamOvertime?.earlyEnabled,
+          teamOvertime?.earlyStartTime
+        );
+        const timing = PlannerV2.calculateEndTime(targetSegment.plannedStartMinutes, roundedDuration, shift);
+        const newTotalJobDuration = sj.segments.reduce(
+          (sum, segment, idx) => sum + (idx === lastSegmentIndex ? roundedDuration : segment.plannedDurationMinutes),
+          0
+        );
+
+        return {
+          ...sj,
+          segments: sj.segments.map((segment, idx) => ({
+            ...segment,
+            totalJobDuration: newTotalJobDuration,
+            ...(idx === lastSegmentIndex
+              ? {
+                  plannedEndMinutes: timing.endTime,
+                  plannedDurationMinutes: roundedDuration,
+                  breakAdjustmentMinutes: timing.breakMinutes
+                }
+              : {})
+          }))
+        };
+      }));
+      return;
+    }
+
     const job = allJobs.find(j => j.id === jobId);
     if (!job) return;
     
     const dateStr = job.plannedDateStr;
     const jigId = job.jigId;
-    
-    const roundedDuration = PlannerV2.roundToQuarterHour(durationMinutes);
-    
+
     if (job.plannedStartTime != null && jigId && dateStr) {
       setOperationInProgress(true);
       setOperationMessage('Resizing job...');
