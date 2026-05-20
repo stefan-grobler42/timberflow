@@ -20,3 +20,4 @@ export * from './schedulerEngine';
 export * from './stagingManager';
 export * from './continuousFlowAllocator';
 export * from './schedulerSettings';
+export * from './scheduleNormalizer';

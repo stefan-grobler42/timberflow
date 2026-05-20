@@ -90,6 +90,29 @@ interface StagedJob {
   primaryDate: string;
 }
 
+interface JobScheduleUpdate {
+  jobId: string;
+  wipId?: string;
+  teamId: string;
+  workDate: string;
+  plannedStartMinutes: number;
+  plannedEndMinutes: number;
+  plannedDurationMinutes: number;
+  breakAdjustmentMinutes: number;
+  customDurationMinutes?: number;
+  estimatedEfinks?: number;
+  segmentIndex?: number | null;
+  totalSegments?: number | null;
+}
+
+const getJobScheduleKey = (job: Pick<Job, 'id' | 'wipId' | 'plannedDateStr' | 'jigId' | 'segmentIndex' | 'plannedStartTime'>): string => {
+  return job.wipId ?? `${job.id}|${job.plannedDateStr ?? ''}|${job.jigId ?? ''}|${job.segmentIndex ?? 0}|${job.plannedStartTime ?? ''}`;
+};
+
+const getUpdateScheduleKey = (update: JobScheduleUpdate): string => {
+  return update.wipId ?? `${update.jobId}|${update.workDate}|${update.teamId}|${update.segmentIndex ?? 0}`;
+};
+
 export const ProductionPlannerPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -230,8 +253,10 @@ export const ProductionPlannerPage = () => {
       ]);
       
       // Convert SystemSettings to SchedulerConfig
+      let activeSchedulerConfig = schedulerConfig;
       if (settings) {
         const config = mapSystemSettingsToSchedulerConfig(settings);
+        activeSchedulerConfig = config;
         setSchedulerConfig(config);
         console.log('[PLANNER] ✓ SchedulerConfig loaded:', config.weekdayShift.startTime, '-', config.weekdayShift.endTime);
       } else {
@@ -452,7 +477,12 @@ export const ProductionPlannerPage = () => {
       
       try {
         console.log('[PLANNER] Updating state...');
-        setJobs(jobList);
+        const normalizedLoad = normalizePlannerJobs(jobList, 'load/refetch', new Set(), {
+          schedulerConfig: activeSchedulerConfig,
+          overtimeByTeamDay: restoredOTState,
+          scheduleBlocks: blocks
+        });
+        setJobs(normalizedLoad.items);
         setUnallocatedOrders(ordersNeedingProduction);
         setJigTeams(jigs);
         setScheduleBlocks(blocks);
@@ -461,7 +491,25 @@ export const ProductionPlannerPage = () => {
           setSelectedJigIds(jigs.map(j => j.id));
         }
         setLoading(false);
-        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${jobList.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
+        console.log(`[PLANNER] ✓ State updated: loading=false, jobs.length=${normalizedLoad.items.length}, unallocatedOrders=${ordersNeedingProduction.length}`);
+
+        const correctionUpdates = changesToScheduleUpdates(normalizedLoad.changes).filter(update => update.wipId);
+        if (correctionUpdates.length > 0) {
+          await teamWorkItemService.batchUpdate(correctionUpdates.map(update => ({
+            id: update.wipId!,
+            data: {
+              teamId: update.teamId,
+              workDate: update.workDate,
+              plannedStartMinutes: update.plannedStartMinutes,
+              plannedEndMinutes: update.plannedEndMinutes,
+              plannedDurationMinutes: update.plannedDurationMinutes,
+              breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+              estimatedEfinks: update.estimatedEfinks,
+              customDurationMinutes: update.customDurationMinutes
+            }
+          })));
+          console.log(`[PLANNER] ✓ Persisted ${correctionUpdates.length} load/refetch overlap correction(s)`);
+        }
       } catch (stateErr) {
         console.error('[PLANNER] ✗ State update FAILED:', stateErr);
         throw stateErr;
@@ -542,6 +590,10 @@ export const ProductionPlannerPage = () => {
   // All jobs is simply the combination of jobs and unallocated orders
   const allJobs = useMemo(() => baseJobs, [baseJobs]);
 
+  const findJobByScheduleKey = useCallback((scheduleKey: string): Job | undefined => {
+    return allJobs.find(job => job.wipId === scheduleKey) ?? allJobs.find(job => job.id === scheduleKey);
+  }, [allJobs]);
+
   // Convert Job to ScheduledJob for plannerV2
   const toScheduledJob = useCallback((job: Job): PlannerV2.ScheduledJob => ({
     id: job.id,
@@ -558,20 +610,232 @@ export const ProductionPlannerPage = () => {
     productionComplete: job.productionComplete
   }), []);
 
+  const calculateContinuousTiming = useCallback((
+    startTime: number,
+    workDuration: number,
+    shift: PlannerV2.ShiftConfig
+  ) => {
+    const timing = PlannerV2.calculateEndTime(startTime, workDuration, shift);
+    const uncappedEndTime = startTime + workDuration + timing.breakMinutes;
+    return {
+      endTime: Math.max(timing.endTime, uncappedEndTime),
+      breakMinutes: timing.breakMinutes
+    };
+  }, []);
+
+  const getPersistedJobEndTime = useCallback((job: Job, fallbackDuration = 0): number => {
+    const startTime = job.plannedStartTime ?? 0;
+    const visualEndTime = startTime + (job.plannedDurationMinutes ?? fallbackDuration) + (job.breakAdjustmentMinutes ?? 0);
+    return Math.max(job.plannedEndTime ?? visualEndTime, visualEndTime);
+  }, []);
+
+  const getPlannerShift = useCallback((
+    dateStr: string,
+    teamId: string,
+    config: SchedulerConfig = schedulerConfig,
+    overtimeMap = overtimeByTeamDay,
+    blocks: ScheduleBlock[] = scheduleBlocks
+  ): PlannerV2.ShiftConfig => {
+    const teamOvertime = overtimeMap[dateStr]?.[teamId];
+    const blocksForDay = blocks
+      .filter(block => block.dateStr === dateStr && (!block.teamId || block.teamId === teamId))
+      .map(block => ({
+        blockType: block.blockType,
+        startTimeMinutes: block.startTimeMinutes ?? 0,
+        endTimeMinutes: block.endTimeMinutes ?? 0
+      }));
+
+    return PlannerV2.getShiftConfigForDateWithBlocks(
+      dateStr,
+      teamOvertime?.enabled ?? false,
+      teamOvertime?.closeTime,
+      teamOvertime?.earlyEnabled ?? false,
+      teamOvertime?.earlyStartTime,
+      blocksForDay,
+      config
+    );
+  }, [overtimeByTeamDay, scheduleBlocks, schedulerConfig]);
+
+  const getScheduleDuration = useCallback((job: Job, config: SchedulerConfig = schedulerConfig): number => {
+    if (job.plannedDurationMinutes != null && job.plannedDurationMinutes > 0) {
+      return job.plannedDurationMinutes;
+    }
+
+    const team = job.jigId ? jigTeams.find(t => t.id === job.jigId) : undefined;
+    return PlannerV2.getJobDuration(
+      {
+        customDurationMinutes: job.customDurationMinutes,
+        plannedDurationMinutes: job.plannedDurationMinutes,
+        estimatedEFinks: job.estimatedEFinks
+      },
+      team?.averageEfinks,
+      config
+    );
+  }, [jigTeams, schedulerConfig]);
+
+  const normalizePlannerJobs = useCallback((
+    sourceJobs: Job[],
+    reason: string,
+    anchorIds = new Set<string>(),
+    overrides?: {
+      schedulerConfig?: SchedulerConfig;
+      overtimeByTeamDay?: typeof overtimeByTeamDay;
+      scheduleBlocks?: ScheduleBlock[];
+    }
+  ) => {
+    const config = overrides?.schedulerConfig ?? schedulerConfig;
+    const overtimeMap = overrides?.overtimeByTeamDay ?? overtimeByTeamDay;
+    const blocks = overrides?.scheduleBlocks ?? scheduleBlocks;
+
+    const result = PlannerV2.resolveScheduleOverlaps<Job>({
+      items: sourceJobs,
+      bufferMinutes: config.bufferMinutes,
+      anchorIds,
+      isScheduled: (job) => !!job.jigId && !!job.plannedDateStr && job.plannedStartTime != null && !job.productionComplete,
+      getId: getJobScheduleKey,
+      getGroupKey: (job) => `${job.plannedDateStr ?? ''}|${job.jigId ?? ''}`,
+      getStart: (job) => job.plannedStartTime ?? 0,
+      getEnd: (job) => job.plannedEndTime,
+      getDuration: (job) => getScheduleDuration(job, config),
+      getBreakMinutes: (job) => {
+        if (!job.plannedDateStr || !job.jigId || job.plannedStartTime == null) {
+          return job.breakAdjustmentMinutes ?? 0;
+        }
+        const shift = getPlannerShift(job.plannedDateStr, job.jigId, config, overtimeMap, blocks);
+        const timing = calculateContinuousTiming(job.plannedStartTime, getScheduleDuration(job, config), shift);
+        return Math.max(job.breakAdjustmentMinutes ?? 0, timing.breakMinutes);
+      },
+      getShift: (job) => getPlannerShift(job.plannedDateStr!, job.jigId!, config, overtimeMap, blocks),
+      calculateTiming: (job, startTime) => {
+        const shift = getPlannerShift(job.plannedDateStr!, job.jigId!, config, overtimeMap, blocks);
+        return calculateContinuousTiming(startTime, getScheduleDuration(job, config), shift);
+      },
+      updateItem: (job, timing) => ({
+        ...job,
+        plannedStartTime: timing.startTime,
+        plannedEndTime: timing.endTime,
+        plannedDurationMinutes: timing.durationMinutes,
+        breakAdjustmentMinutes: timing.breakMinutes
+      })
+    });
+
+    if (result.overlapsBefore.length > 0) {
+      console.warn(`[PLANNER] ${reason}: normalized ${result.overlapsBefore.length} schedule overlap(s)`);
+    }
+    if (result.overlapsAfter.length > 0) {
+      console.error(`[PLANNER] ${reason}: overlaps remain after normalization`, result.overlapsAfter);
+    }
+
+    return result;
+  }, [
+    calculateContinuousTiming,
+    getPlannerShift,
+    getScheduleDuration,
+    overtimeByTeamDay,
+    scheduleBlocks,
+    schedulerConfig
+  ]);
+
+  const changesToScheduleUpdates = useCallback((
+    changes: PlannerV2.ScheduleNormalizationChange<Job>[]
+  ): JobScheduleUpdate[] => changes
+    .filter(change => change.item.jigId && change.item.plannedDateStr)
+    .map(change => ({
+      jobId: change.item.id,
+      wipId: change.item.wipId,
+      teamId: change.item.jigId!,
+      workDate: change.item.plannedDateStr!,
+      plannedStartMinutes: change.after.startTime,
+      plannedEndMinutes: change.after.endTime,
+      plannedDurationMinutes: change.after.durationMinutes,
+      breakAdjustmentMinutes: change.after.breakMinutes,
+      customDurationMinutes: change.item.customDurationMinutes,
+      estimatedEfinks: change.item.estimatedEFinks,
+      segmentIndex: change.item.segmentIndex,
+      totalSegments: change.item.totalSegments
+    })), []);
+
+  const projectScheduleUpdatesToJobs = useCallback((sourceJobs: Job[], updates: JobScheduleUpdate[]): Job[] => {
+    const updatedWipIds = new Set(updates.map(update => update.wipId).filter((wipId): wipId is string => !!wipId));
+    const createdJobIds = new Set(updates.filter(update => !update.wipId).map(update => update.jobId));
+
+    const remainingJobs = sourceJobs.filter(job => {
+      if (job.wipId && updatedWipIds.has(job.wipId)) return false;
+      if (!job.wipId && createdJobIds.has(job.id)) return false;
+      return true;
+    });
+
+    const projectedUpdates = updates.map(update => {
+      const sourceJob =
+        (update.wipId ? sourceJobs.find(job => job.wipId === update.wipId) : undefined) ??
+        sourceJobs.find(job => job.id === update.jobId);
+
+      return {
+        ...(sourceJob ?? {
+          id: update.jobId,
+          name: '',
+          orderNumber: 'N/A',
+          customer: 'Unknown',
+          estimatedEFinks: update.estimatedEfinks ?? 0,
+          plannedDateStr: update.workDate,
+          jigId: update.teamId,
+          productionComplete: false
+        }),
+        id: update.jobId,
+        wipId: update.wipId,
+        jigId: update.teamId,
+        plannedDateStr: update.workDate,
+        plannedStartTime: update.plannedStartMinutes,
+        plannedEndTime: update.plannedEndMinutes,
+        plannedDurationMinutes: update.plannedDurationMinutes,
+        breakAdjustmentMinutes: update.breakAdjustmentMinutes,
+        customDurationMinutes: update.customDurationMinutes ?? sourceJob?.customDurationMinutes,
+        estimatedEFinks: update.estimatedEfinks ?? sourceJob?.estimatedEFinks ?? 0,
+        segmentIndex: update.segmentIndex ?? sourceJob?.segmentIndex,
+        totalSegments: update.totalSegments ?? sourceJob?.totalSegments
+      };
+    });
+
+    return [...remainingJobs, ...projectedUpdates].sort((a, b) => {
+      const dateCompare = (a.plannedDateStr ?? '').localeCompare(b.plannedDateStr ?? '');
+      if (dateCompare !== 0) return dateCompare;
+      const teamCompare = (a.jigId ?? '').localeCompare(b.jigId ?? '');
+      if (teamCompare !== 0) return teamCompare;
+      return (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0);
+    });
+  }, []);
+
+  const normalizeScheduleUpdates = useCallback((
+    updates: JobScheduleUpdate[],
+    reason: string,
+    anchorIds = new Set<string>(),
+    overrides?: {
+      schedulerConfig?: SchedulerConfig;
+      overtimeByTeamDay?: typeof overtimeByTeamDay;
+      scheduleBlocks?: ScheduleBlock[];
+    }
+  ): JobScheduleUpdate[] => {
+    const projectedJobs = projectScheduleUpdatesToJobs(allJobs, updates);
+    const normalized = normalizePlannerJobs(projectedJobs, reason, anchorIds, overrides);
+    if (normalized.changes.length === 0) {
+      return updates;
+    }
+
+    const merged = new Map<string, JobScheduleUpdate>();
+    for (const update of updates) {
+      merged.set(getUpdateScheduleKey(update), update);
+    }
+    for (const update of changesToScheduleUpdates(normalized.changes)) {
+      merged.set(getUpdateScheduleKey(update), update);
+    }
+    return Array.from(merged.values());
+  }, [allJobs, changesToScheduleUpdates, normalizePlannerJobs, projectScheduleUpdatesToJobs]);
+
   // Save multiple job updates (for cascade operations)
   const saveMultipleJobUpdates = useCallback(async (
-    updates: Array<{
-      jobId: string;
-      wipId?: string;
-      teamId: string;
-      workDate: string;
-      plannedStartMinutes: number;
-      plannedEndMinutes: number;
-      plannedDurationMinutes: number;
-      breakAdjustmentMinutes: number;
-      customDurationMinutes?: number;
-      estimatedEfinks?: number;
-    }>
+    updates: JobScheduleUpdate[],
+    rejectionLabel = 'Schedule update',
+    deleteWipIdsAfterSave: string[] = []
   ): Promise<boolean> => {
     let previousJobs: Job[] | null = null;
     try {
@@ -623,23 +887,8 @@ export const ProductionPlannerPage = () => {
 
       setJobs(prevJobs => {
         previousJobs = prevJobs;
-        const updatesByWipId = new Map(updates.filter(u => u.wipId).map(u => [u.wipId!, u]));
-        const updatesByJobId = new Map(updates.map(u => [u.jobId, u]));
-        return prevJobs.map(j => {
-          const update = (j.wipId ? updatesByWipId.get(j.wipId) : undefined) ?? updatesByJobId.get(j.id);
-          if (!update) return j;
-          return {
-            ...j,
-            jigId: update.teamId,
-            plannedDateStr: update.workDate,
-            plannedStartTime: update.plannedStartMinutes,
-            plannedEndTime: update.plannedEndMinutes,
-            plannedDurationMinutes: update.plannedDurationMinutes,
-            breakAdjustmentMinutes: update.breakAdjustmentMinutes,
-            customDurationMinutes: update.customDurationMinutes ?? j.customDurationMinutes,
-            estimatedEFinks: update.estimatedEfinks ?? j.estimatedEFinks
-          };
-        });
+        return projectScheduleUpdatesToJobs(prevJobs, updates)
+          .filter(job => !job.wipId || !deleteWipIdsAfterSave.includes(job.wipId));
       });
 
       const savedItems: Awaited<ReturnType<typeof teamWorkItemService.update>>[] = [];
@@ -654,11 +903,21 @@ export const ProductionPlannerPage = () => {
         console.log('[PLANNER] ✓ Batch created', wipCreates.length, 'WIP records');
       }
 
+      if (deleteWipIdsAfterSave.length > 0) {
+        await Promise.all(deleteWipIdsAfterSave.map(wipId => teamWorkItemService.delete(wipId)));
+        console.log('[PLANNER] ✓ Deleted', deleteWipIdsAfterSave.length, 'stale WIP segment(s)');
+      }
+
       setJobs(prevJobs => {
-        const savedByWipId = new Map(savedItems.map(item => [item.id, item]));
-        const savedByProductionId = new Map(savedItems.filter(item => item.productionId).map(item => [item.productionId!, item]));
         return prevJobs.map(j => {
-          const saved = (j.wipId ? savedByWipId.get(j.wipId) : undefined) ?? savedByProductionId.get(j.id);
+          const saved = savedItems.find(item => {
+            if (j.wipId && item.id === j.wipId) return true;
+            return item.productionId === j.id &&
+              item.teamId === j.jigId &&
+              formatIsoDateLocal(item.workDate) === j.plannedDateStr &&
+              item.plannedStartMinutes === j.plannedStartTime &&
+              item.plannedEndMinutes === j.plannedEndTime;
+          });
           if (saved) {
             return {
               ...j,
@@ -683,12 +942,12 @@ export const ProductionPlannerPage = () => {
       if (previousJobs) {
         setJobs(previousJobs);
       }
-      setError(`Resize rejected: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setError(`${rejectionLabel} rejected: ${err instanceof Error ? err.message : 'Unknown error'}`);
       return false;
     } finally {
       setOperationInProgress(false); setOperationMessage('');
     }
-  }, []);
+  }, [projectScheduleUpdatesToJobs]);
 
 
   // Unallocated basket: all production without planned date + orders needing production
@@ -715,78 +974,6 @@ export const ProductionPlannerPage = () => {
     e.preventDefault();
   }, []);
 
-  // Helper function to unallocate downstream jobs when dropping before existing jobs
-  const unallocateDownstreamJobs = async (
-    dateStr: string,
-    teamId: string,
-    insertIndex: number,
-    excludeJobId: string
-  ): Promise<string[]> => {
-    // Get jobs for this team/day sorted by start time
-    const teamDayJobs = jobs
-      .filter(j => j.plannedDateStr === dateStr && j.jigId === teamId && !j.productionComplete && j.id !== excludeJobId)
-      .sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
-    
-    // Find jobs at or after the insertIndex that need to be unallocated
-    const jobsToUnallocate = teamDayJobs.slice(insertIndex);
-    
-    if (jobsToUnallocate.length === 0) {
-      return [];
-    }
-    
-    console.log('[PLANNER] Downstream unallocation triggered:', {
-      dateStr,
-      teamId: teamId.substring(0, 8),
-      insertIndex,
-      jobsToUnallocate: jobsToUnallocate.map(j => ({ 
-        id: j.id.substring(0, 8), 
-        name: j.orderNumber,
-        startTime: j.plannedStartTime ? PlannerV2.formatMinutesToTime(j.plannedStartTime) : 'null'
-      }))
-    });
-    
-    const unallocatedJobIds: string[] = [];
-    
-    for (const jobToUnallocate of jobsToUnallocate) {
-      // Delete WIP records if they exist
-      if (jobToUnallocate.wipId) {
-        try {
-          await teamWorkItemService.deleteByProductionId(jobToUnallocate.id);
-          console.log(`[PLANNER] ✓ Deleted WIP for downstream job: ${jobToUnallocate.orderNumber}`);
-        } catch (err) {
-          console.error(`[PLANNER] ✗ Failed to delete WIP for job ${jobToUnallocate.id}:`, err);
-        }
-      }
-      
-      // Remove from staged jobs if present
-      setStagedJobs(prev => prev.filter(sj => sj.jobId !== jobToUnallocate.id));
-      
-      unallocatedJobIds.push(jobToUnallocate.id);
-    }
-    
-    // Update job state to clear team and planned times for unallocated jobs
-    setJobs(prevJobs => prevJobs.map(j => {
-      if (unallocatedJobIds.includes(j.id)) {
-        return {
-          ...j,
-          jigId: null,
-          plannedDateStr: null,
-          plannedStartTime: null,
-          plannedEndTime: null,
-          plannedDurationMinutes: null,
-          breakAdjustmentMinutes: null,
-          wipId: undefined
-        };
-      }
-      return j;
-    }));
-    
-    console.log(`[PLANNER] ✓ Unallocated ${unallocatedJobIds.length} downstream jobs:`, 
-      jobsToUnallocate.map(j => j.orderNumber).join(', '));
-    
-    return unallocatedJobIds;
-  };
-
   // Drop to a team/day column - assign jig, date, and calculate time with team-specific duration
   // CONTINUOUS FLOW: Jobs automatically span multiple days when duration exceeds daily capacity
   // Immediately saves to database (no staging)
@@ -795,14 +982,14 @@ export const ProductionPlannerPage = () => {
     
     if (!draggedJobId) return;
     
-    const job = allJobs.find(j => j.id === draggedJobId);
+    const job = findJobByScheduleKey(draggedJobId);
     if (!job) return;
     
     console.log('[PLANNER] Found job to drop:', job.id, job.name);
 
     // Check if dropping on another job for combining
     if (zoneMetadata?.targetJobId && draggedJobId) {
-      await handleCombineJobs(zoneMetadata.targetJobId, draggedJobId);
+      await handleCombineJobs(zoneMetadata.targetJobId, job.id);
       setDraggedJobId(null);
       return;
     }
@@ -811,7 +998,7 @@ export const ProductionPlannerPage = () => {
     // 1. Check if this is a staged job - use totalEstimatedEfinks from staged segment
     // 2. Check if this is a persisted multi-day job - sum all segments' E-Finks
     // 3. Otherwise use the job's estimatedEFinks directly
-    const existingStagedJob = stagedJobs.find(sj => sj.jobId === draggedJobId);
+    const existingStagedJob = stagedJobs.find(sj => sj.jobId === job.id);
     let totalEFinksForJob: number;
     let efinkSource: string;
     
@@ -821,7 +1008,7 @@ export const ProductionPlannerPage = () => {
       efinkSource = 'staged job totalEstimatedEfinks';
     } else if (job.totalSegments && job.totalSegments > 1) {
       // Persisted multi-day job - sum all segments' E-Finks from allJobs
-      const allSegmentsForJob = allJobs.filter(j => j.id === draggedJobId);
+      const allSegmentsForJob = allJobs.filter(j => j.id === job.id);
       totalEFinksForJob = allSegmentsForJob.reduce((sum, seg) => sum + (seg.estimatedEFinks || 0), 0);
       efinkSource = `summed from ${allSegmentsForJob.length} persisted segments`;
     } else {
@@ -901,146 +1088,126 @@ export const ProductionPlannerPage = () => {
           spanDays: `${allocation.primaryDate} to ${allocation.endDate}`
         });
         
-        // Calculate segment E-Finks based on work minutes proportion
-        const totalWorkMinutes = allocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
-        
-        // Build staged segments for edit mode (not persisted yet)
-        const stagedSegments: StagedJobSegment[] = allocation.segments.map((segment, idx) => {
-          const segmentEfinks = totalWorkMinutes > 0 
-            ? (segment.workMinutes / totalWorkMinutes) * totalEFinksForJob 
-            : totalEFinksForJob / allocation.segments.length;
-          
-          console.log(`[PLANNER] Staged segment ${idx + 1}/${allocation.segments.length}:`, {
-            date: segment.dateStr,
-            start: PlannerV2.formatMinutesToTime(segment.startTimeMinutes),
-            end: PlannerV2.formatMinutesToTime(segment.endTimeMinutes),
-            work: PlannerV2.formatDurationHoursMinutes(segment.workMinutes),
-            efinks: Math.round(segmentEfinks * 100) / 100
+        const buildAllocationUpdates = (
+          sourceJob: Job,
+          sourceAllocation: PlannerV2.ContinuousFlowAllocation,
+          totalEfinks: number,
+          firstSegmentWipId?: string
+        ): JobScheduleUpdate[] => {
+          const totalWorkMinutes = sourceAllocation.segments.reduce((sum, seg) => sum + seg.workMinutes, 0);
+          const existingSegments = allJobs
+            .filter(j => j.id === sourceJob.id && j.wipId)
+            .sort((a, b) => {
+              const dateCompare = (a.plannedDateStr ?? '').localeCompare(b.plannedDateStr ?? '');
+              if (dateCompare !== 0) return dateCompare;
+              return (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0);
+            });
+
+          return sourceAllocation.segments.map((segment, idx) => {
+            const segmentEfinks = totalWorkMinutes > 0
+              ? (segment.workMinutes / totalWorkMinutes) * totalEfinks
+              : totalEfinks / sourceAllocation.segments.length;
+            const matchingExistingSegment = existingSegments.find(existing =>
+              existing.plannedDateStr === segment.dateStr && existing.jigId === segment.jigId
+            ) ?? existingSegments[idx];
+
+            return {
+              jobId: sourceJob.id,
+              wipId: idx === 0 ? (firstSegmentWipId ?? matchingExistingSegment?.wipId) : matchingExistingSegment?.wipId,
+              teamId: segment.jigId,
+              workDate: segment.dateStr,
+              plannedStartMinutes: segment.startTimeMinutes,
+              plannedEndMinutes: segment.endTimeMinutes,
+              plannedDurationMinutes: segment.workMinutes,
+              breakAdjustmentMinutes: segment.breakMinutes,
+              customDurationMinutes: sourceJob.customDurationMinutes,
+              estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
+              segmentIndex: idx,
+              totalSegments: sourceAllocation.segments.length
+            };
           });
-          
-          return {
-            jobId: job.id,
-            teamId: updatedJigId,
-            workDate: segment.dateStr,
-            plannedStartMinutes: segment.startTimeMinutes,
-            plannedEndMinutes: segment.endTimeMinutes,
-            plannedDurationMinutes: segment.workMinutes,
-            breakAdjustmentMinutes: segment.breakMinutes,
-            segmentIndex: idx,
-            totalSegments: allocation.segments.length,
-            totalJobDuration: allocation.totalDurationMinutes,
-            estimatedEfinks: Math.round(segmentEfinks * 100) / 100,
-            totalEstimatedEfinks: totalEFinksForJob, // Store total E-Finks for recalculation
-            orderNumber: job.orderNumber,
-            customer: job.customer,
-            name: job.name
-          };
-        });
-        
-        // If job was previously persisted, delete its WIP records first
-        if (job.wipId) {
-          await teamWorkItemService.deleteByProductionId(job.id);
-          console.log('[PLANNER] Deleted existing WIP records - job is now in staged/edit mode');
-          
-          // Update job state to remove wipId
-          setJobs(prevJobs => prevJobs.map(j => 
-            j.id === job.id ? { ...j, wipId: undefined, jigId: null, plannedDateStr: null } : j
-          ));
-        }
-        
-        // Remove any existing staged job for this jobId (prevents duplicates)
-        setStagedJobs(prev => prev.filter(sj => sj.jobId !== job.id));
-        
-        // Add to staged jobs - NOT persisted until user clicks Save
-        const stagedJob: StagedJob = {
-          jobId: job.id,
-          originalJob: job,
-          segments: stagedSegments,
-          teamId: updatedJigId,
-          primaryDate: dateStr
         };
-        
-        setStagedJobs(prev => [...prev, stagedJob]);
-        console.log('[PLANNER] ✓ Job added to staged/edit mode - awaiting Save');
-        
-        // DOWNSTREAM UNALLOCATION: If dropping BEFORE existing jobs, unallocate jobs at and after insertIndex
-        if (zoneMetadata && zoneMetadata.beforeJobId !== null && zoneMetadata.insertIndex >= 0) {
-          console.log('[PLANNER] Drop zone has beforeJobId - checking for downstream unallocation:', {
-            insertIndex: zoneMetadata.insertIndex,
-            beforeJobId: zoneMetadata.beforeJobId.substring(0, 8),
-            afterJobId: zoneMetadata.afterJobId?.substring(0, 8) || 'null'
-          });
-          
-          // Unallocate jobs at and after the insertIndex (excluding the job being dropped)
-          const unallocatedIds = await unallocateDownstreamJobs(
-            dateStr,
-            updatedJigId,
-            zoneMetadata.insertIndex,
-            job.id
-          );
-          
-          if (unallocatedIds.length > 0) {
-            console.log(`[PLANNER] ✓ Downstream unallocation complete: ${unallocatedIds.length} jobs returned to Unallocated`);
+
+        const updates: JobScheduleUpdate[] = buildAllocationUpdates(job, allocation, totalEFinksForJob, job.wipId);
+
+        const targetSegment = allocation.segments.find(segment => segment.dateStr === dateStr) ?? allocation.segments[0];
+        if (targetSegment) {
+          const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+          let nextStartTime = PlannerV2.getNextJobStartTime(targetSegment.endTimeMinutes, bufferMinutes, shift);
+          const cascadeStartTime = targetSegment.startTimeMinutes;
+          const cascadedJobIds = new Set<string>();
+
+          const cascadeCandidates = jobs
+            .filter(j =>
+              j.id !== job.id &&
+              j.jigId === updatedJigId &&
+              j.plannedDateStr === targetSegment.dateStr &&
+              j.plannedStartTime != null &&
+              j.plannedEndTime != null &&
+              j.plannedEndTime > cascadeStartTime &&
+              !j.productionComplete
+            )
+            .sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
+
+          for (const cascadeJob of cascadeCandidates) {
+            const cascadeKey = getJobScheduleKey(cascadeJob);
+            if (cascadedJobIds.has(cascadeKey)) continue;
+            const originalStart = cascadeJob.plannedStartTime ?? shift.startTime;
+            const cascadedDuration = PlannerV2.getJobDuration(
+              {
+                customDurationMinutes: cascadeJob.customDurationMinutes,
+                plannedDurationMinutes: cascadeJob.plannedDurationMinutes,
+                estimatedEFinks: cascadeJob.estimatedEFinks
+              },
+              teamAverageEfinks,
+              schedulerConfig
+            );
+
+            if (originalStart >= nextStartTime) {
+              const originalEnd = getPersistedJobEndTime(cascadeJob, cascadedDuration);
+              nextStartTime = PlannerV2.getNextJobStartTime(originalEnd, bufferMinutes, shift);
+              continue;
+            }
+
+            const cascadedStart = PlannerV2.getNextValidStartTime(nextStartTime, shift);
+            const cascadedTiming = calculateContinuousTiming(cascadedStart, cascadedDuration, shift);
+
+            updates.push({
+              jobId: cascadeJob.id,
+              wipId: cascadeJob.wipId,
+              teamId: updatedJigId,
+              workDate: targetSegment.dateStr,
+              plannedStartMinutes: cascadedStart,
+              plannedEndMinutes: cascadedTiming.endTime,
+              plannedDurationMinutes: cascadedDuration,
+              breakAdjustmentMinutes: cascadedTiming.breakMinutes,
+              customDurationMinutes: cascadeJob.customDurationMinutes,
+              estimatedEfinks: cascadeJob.estimatedEFinks
+            });
+
+            cascadedJobIds.add(cascadeKey);
+            nextStartTime = PlannerV2.getNextJobStartTime(cascadedTiming.endTime, bufferMinutes, shift);
+          }
+
+          if (cascadedJobIds.size > 0) {
+            console.log('[PLANNER] Cascaded overlapping jobs after drop:', Array.from(cascadedJobIds));
           }
         }
-        
-        // TYPE B OVERLAP CHECK: If Type B blocks caused end time extension, unallocate overlapping jobs
-        // This handles the cascade requirement where Type B-stretched job overlaps with subsequent jobs
-        const allocatedEndTime = allocation.segments.length > 0 
-          ? allocation.segments[allocation.segments.length - 1].endTimeMinutes 
-          : dropPosition;
-        const allocatedEndDate = allocation.endDate;
-        
-        // Find jobs on the same date/team that start before the new end time
-        const overlappingJobs = jobs.filter(j => 
-          j.id !== job.id &&
-          j.jigId === updatedJigId &&
-          j.plannedDateStr === allocatedEndDate &&
-          j.plannedStartTime !== null &&
-          j.plannedStartTime < allocatedEndTime &&
-          j.plannedEndTime !== null &&
-          j.plannedEndTime > dropPosition &&
-          !j.productionComplete
+
+        const normalizedUpdates = normalizeScheduleUpdates(
+          updates,
+          'move',
+          new Set(updates.filter(update => update.jobId === job.id).map(getUpdateScheduleKey))
         );
-        
-        if (overlappingJobs.length > 0) {
-          console.log('[PLANNER] Type B stretch caused overlap with existing jobs:', 
-            overlappingJobs.map(j => j.orderNumber).join(', '));
-          
-          // Unallocate all overlapping jobs (they'll need to be re-scheduled)
-          for (const overlappingJob of overlappingJobs) {
-            if (overlappingJob.wipId) {
-              try {
-                await teamWorkItemService.deleteByProductionId(overlappingJob.id);
-                console.log(`[PLANNER] ✓ Deleted WIP for Type B-overlapping job: ${overlappingJob.orderNumber}`);
-              } catch (err) {
-                console.error(`[PLANNER] ✗ Failed to delete WIP for overlapping job ${overlappingJob.id}:`, err);
-              }
-            }
-            
-            // Remove from staged jobs if present
-            setStagedJobs(prev => prev.filter(sj => sj.jobId !== overlappingJob.id));
-          }
-          
-          // Update job state to clear planned times for overlapping jobs
-          const overlappingJobIds = overlappingJobs.map(j => j.id);
-          setJobs(prevJobs => prevJobs.map(j => {
-            if (overlappingJobIds.includes(j.id)) {
-              return {
-                ...j,
-                jigId: null,
-                plannedDateStr: null,
-                plannedStartTime: null,
-                plannedEndTime: null,
-                plannedDurationMinutes: null,
-                breakAdjustmentMinutes: null,
-                wipId: undefined
-              };
-            }
-            return j;
-          }));
-          
-          console.log(`[PLANNER] ✓ Type B overlap unallocation: ${overlappingJobs.length} jobs returned to Unallocated`);
+        const updatedWipIds = new Set(normalizedUpdates.map(update => update.wipId).filter((wipId): wipId is string => !!wipId));
+        const staleMovedSegmentWipIds = allJobs
+          .filter(existing => existing.id === job.id && existing.wipId && !updatedWipIds.has(existing.wipId))
+          .map(existing => existing.wipId!);
+        const success = await saveMultipleJobUpdates(normalizedUpdates, 'Move', staleMovedSegmentWipIds);
+        if (success) {
+          setStagedJobs(prev => prev.filter(sj => !normalizedUpdates.some(update => update.jobId === sj.jobId)));
+          console.log('[PLANNER] ✓ Saved drop move with', normalizedUpdates.length, 'affected schedule records');
+          await loadData();
         }
         
         if (viewMode !== 'day') {
@@ -1105,7 +1272,7 @@ export const ProductionPlannerPage = () => {
   const handleDropToUnallocated = async () => {
     if (!draggedJobId) return;
     
-    const job = allJobs.find(j => j.id === draggedJobId);
+    const job = findJobByScheduleKey(draggedJobId);
     if (!job) return;
 
     const isSalesOrder = job.id.startsWith('order-');
@@ -1155,7 +1322,7 @@ export const ProductionPlannerPage = () => {
   const handleDropToTeamUnallocated = async (jigId: string) => {
     if (!draggedJobId) return;
     
-    const job = allJobs.find(j => j.id === draggedJobId);
+    const job = findJobByScheduleKey(draggedJobId);
     if (!job) return;
 
     const isSalesOrder = job.id.startsWith('order-');
@@ -1531,7 +1698,7 @@ export const ProductionPlannerPage = () => {
       return;
     }
 
-    const job = allJobs.find(j => j.id === jobId);
+    const job = findJobByScheduleKey(jobId);
     if (!job) return;
     
     const dateStr = job.plannedDateStr;
@@ -1553,33 +1720,21 @@ export const ProductionPlannerPage = () => {
         console.log(`[RESIZE] Job ${job.orderNumber} resize to ${roundedDuration}m - CONTINUOUS FLOW (no rollovers)`);
         
         // CONTINUOUS FLOW: Simply resize the job - no rollover handling
-        const timing = PlannerV2.calculateEndTime(job.plannedStartTime, roundedDuration, shift);
+        const timing = calculateContinuousTiming(job.plannedStartTime, roundedDuration, shift);
         
         // Standard resize with cascade - CONTINUOUS FLOW model allows jobs to extend past shift end
           const existingJobsOnDay = allJobs.filter(
             j => j.plannedDateStr === dateStr && 
                  j.jigId === jigId && 
-                 j.id !== job.id &&
+                 getJobScheduleKey(j) !== getJobScheduleKey(job) &&
                  !j.productionComplete
-          ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
-           .map(j => toScheduledJob(j));
+          ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
           
           const subsequentJobs = existingJobsOnDay.filter(
             j => (j.plannedStartTime ?? 0) >= (job.plannedStartTime ?? 0)
           );
           
-          const updates: Array<{
-            jobId: string;
-            wipId?: string;
-            teamId: string;
-            workDate: string;
-            plannedStartMinutes: number;
-            plannedEndMinutes: number;
-            plannedDurationMinutes: number;
-            breakAdjustmentMinutes: number;
-            customDurationMinutes?: number;
-            estimatedEfinks?: number;
-          }> = [];
+          const updates: JobScheduleUpdate[] = [];
           
           updates.push({
             jobId: job.id,
@@ -1594,12 +1749,10 @@ export const ProductionPlannerPage = () => {
           });
           
           if (subsequentJobs.length > 0) {
-            let nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, shift) ?? shift.endTime;
+            const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+            let nextStartTime = PlannerV2.getNextJobStartTime(timing.endTime, bufferMinutes, shift);
             
             for (const subsequentJob of subsequentJobs) {
-              const origJob = allJobs.find(j => j.id === subsequentJob.id);
-              if (!origJob) continue;
-              
               const jobDuration = subsequentJob.plannedDurationMinutes ?? 
                 PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks, undefined, schedulerConfig);
               
@@ -1608,11 +1761,11 @@ export const ProductionPlannerPage = () => {
               
               if (jobDuration <= availableForSub) {
                 // Job fits on this day
-                const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
+                const subTiming = calculateContinuousTiming(nextStartTime, jobDuration, shift);
                 
                 updates.push({
                   jobId: subsequentJob.id,
-                  wipId: origJob.wipId,
+                  wipId: subsequentJob.wipId,
                   teamId: jigId,
                   workDate: dateStr,
                   plannedStartMinutes: nextStartTime,
@@ -1621,16 +1774,16 @@ export const ProductionPlannerPage = () => {
                   breakAdjustmentMinutes: subTiming.breakMinutes
                 });
                 
-                nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+                nextStartTime = PlannerV2.getNextJobStartTime(subTiming.endTime, bufferMinutes, shift);
               } else {
                 // CONTINUOUS FLOW: Job extends past shift end - just schedule it with full duration
-                console.log(`[RESIZE] Subsequent job ${origJob.orderNumber} extends past shift end - CONTINUOUS FLOW allows this`);
+                console.log(`[RESIZE] Subsequent job ${subsequentJob.orderNumber} extends past shift end - CONTINUOUS FLOW allows this`);
                 
-                const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
+                const subTiming = calculateContinuousTiming(nextStartTime, jobDuration, shift);
                 
                 updates.push({
                   jobId: subsequentJob.id,
-                  wipId: origJob.wipId,
+                  wipId: subsequentJob.wipId,
                   teamId: jigId,
                   workDate: dateStr,
                   plannedStartMinutes: nextStartTime,
@@ -1639,14 +1792,20 @@ export const ProductionPlannerPage = () => {
                   breakAdjustmentMinutes: subTiming.breakMinutes
                 });
                 
-                nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+                nextStartTime = PlannerV2.getNextJobStartTime(subTiming.endTime, bufferMinutes, shift);
               }
             }
           }
           
-        const success = await saveMultipleJobUpdates(updates);
+        const normalizedUpdates = normalizeScheduleUpdates(
+          updates,
+          'resize',
+          new Set(updates.filter(update => update.jobId === job.id).map(getUpdateScheduleKey))
+        );
+        const success = await saveMultipleJobUpdates(normalizedUpdates, 'Resize');
         if (success) {
-          console.log('[PLANNER] ✓ Saved resize with', updates.length, 'affected jobs');
+          console.log('[PLANNER] ✓ Saved resize with', normalizedUpdates.length, 'affected jobs');
+          await loadData();
         }
       } catch (err) {
         console.error('[RESIZE] Error:', err);
@@ -1661,14 +1820,14 @@ export const ProductionPlannerPage = () => {
   };
 
   const handleJobDurationReset = async (jobId: string) => {
-    const job = allJobs.find(j => j.id === jobId);
+    const job = findJobByScheduleKey(jobId);
     if (!job) return;
     
     const calculatedDuration = PlannerV2.calculateEfinksDuration(job.estimatedEFinks, undefined, schedulerConfig);
     console.log(`[PLANNER] Resetting job ${jobId} from custom duration to calculated: ${calculatedDuration}m`);
     
     setJobs(prevJobs => prevJobs.map(j => 
-      j.id === jobId ? { ...j, customDurationMinutes: undefined } : j
+      getJobScheduleKey(j) === getJobScheduleKey(job) ? { ...j, customDurationMinutes: undefined } : j
     ));
     
     const dateStr = job.plannedDateStr;
@@ -1682,33 +1841,22 @@ export const ProductionPlannerPage = () => {
         teamOvertime?.earlyEnabled,
         teamOvertime?.earlyStartTime
       );
-      const timing = PlannerV2.calculateEndTime(job.plannedStartTime, calculatedDuration, shift);
+      const timing = calculateContinuousTiming(job.plannedStartTime, calculatedDuration, shift);
       
       // Get all other jobs on the same day for cascading
       const existingJobsOnDay = allJobs.filter(
         j => j.plannedDateStr === dateStr && 
              j.jigId === jigId && 
-             j.id !== job.id &&
+             getJobScheduleKey(j) !== getJobScheduleKey(job) &&
              !j.productionComplete
-      ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime))
-       .map(j => toScheduledJob(j));
+      ).sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
       
       // Find jobs that come AFTER this one (need to cascade)
       const subsequentJobs = existingJobsOnDay.filter(
         j => (j.plannedStartTime ?? 0) > (job.plannedStartTime ?? 0)
       );
       
-      const updates: Array<{
-        jobId: string;
-        wipId?: string;
-        teamId: string;
-        workDate: string;
-        plannedStartMinutes: number;
-        plannedEndMinutes: number;
-        plannedDurationMinutes: number;
-        breakAdjustmentMinutes: number;
-        customDurationMinutes?: number;
-      }> = [];
+      const updates: JobScheduleUpdate[] = [];
       
       // Add the reset job itself
       updates.push({
@@ -1725,20 +1873,18 @@ export const ProductionPlannerPage = () => {
       
       // CASCADE: Reschedule subsequent jobs (they should move up if reset job is now smaller)
       if (subsequentJobs.length > 0) {
-        let nextStartTime = PlannerV2.getNextAvailableTime(timing.endTime, shift) ?? shift.endTime;
+        const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+        let nextStartTime = PlannerV2.getNextJobStartTime(timing.endTime, bufferMinutes, shift);
         
         for (const subsequentJob of subsequentJobs) {
-          const origJob = allJobs.find(j => j.id === subsequentJob.id);
-          if (!origJob) continue;
-          
           const jobDuration = subsequentJob.plannedDurationMinutes ?? 
             PlannerV2.calculateEfinksDuration(subsequentJob.estimatedEFinks, undefined, schedulerConfig);
           
-          const subTiming = PlannerV2.calculateEndTime(nextStartTime, jobDuration, shift);
+          const subTiming = calculateContinuousTiming(nextStartTime, jobDuration, shift);
           
           updates.push({
             jobId: subsequentJob.id,
-            wipId: origJob.wipId,
+            wipId: subsequentJob.wipId,
             teamId: jigId,
             workDate: dateStr,
             plannedStartMinutes: nextStartTime,
@@ -1747,14 +1893,20 @@ export const ProductionPlannerPage = () => {
             breakAdjustmentMinutes: subTiming.breakMinutes
           });
           
-          nextStartTime = PlannerV2.getNextAvailableTime(subTiming.endTime, shift) ?? shift.endTime;
+          nextStartTime = PlannerV2.getNextJobStartTime(subTiming.endTime, bufferMinutes, shift);
         }
         
         console.log(`[PLANNER] Reset cascading to ${subsequentJobs.length} subsequent jobs`);
       }
       
-      await saveMultipleJobUpdates(updates);
+      const normalizedUpdates = normalizeScheduleUpdates(
+        updates,
+        'duration reset',
+        new Set(updates.filter(update => update.jobId === job.id).map(getUpdateScheduleKey))
+      );
+      await saveMultipleJobUpdates(normalizedUpdates);
       console.log('[PLANNER] ✓ Reset job duration to calculated value with cascade');
+      await loadData();
     }
   };
 
@@ -1898,22 +2050,84 @@ export const ProductionPlannerPage = () => {
     }
   };
 
+  const cascadeTeamDayAfterOvertimeChange = async (
+    dayStr: string,
+    teamId: string,
+    newOvertimeSettings: typeof overtimeByTeamDay,
+    reason: string
+  ) => {
+    const affectedJobs = allJobs
+      .filter(job =>
+        job.plannedDateStr === dayStr &&
+        job.jigId === teamId &&
+        job.plannedStartTime != null &&
+        !job.productionComplete
+      )
+      .sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
+
+    if (affectedJobs.length === 0) {
+      console.log(`[PLANNER] ${reason}: no scheduled jobs to cascade for ${dayStr}/${teamId}`);
+      return;
+    }
+
+    const baseUpdates = affectedJobs.map((job): JobScheduleUpdate => {
+      const shift = getPlannerShift(dayStr, teamId, schedulerConfig, newOvertimeSettings, scheduleBlocks);
+      const duration = getScheduleDuration(job, schedulerConfig);
+      const validStart = PlannerV2.getNextValidStartTime(
+        Math.max(job.plannedStartTime ?? shift.startTime, shift.startTime),
+        shift
+      );
+      const timing = calculateContinuousTiming(validStart, duration, shift);
+
+      return {
+        jobId: job.id,
+        wipId: job.wipId,
+        teamId,
+        workDate: dayStr,
+        plannedStartMinutes: validStart,
+        plannedEndMinutes: timing.endTime,
+        plannedDurationMinutes: duration,
+        breakAdjustmentMinutes: timing.breakMinutes,
+        customDurationMinutes: job.customDurationMinutes,
+        estimatedEfinks: job.estimatedEFinks,
+        segmentIndex: job.segmentIndex,
+        totalSegments: job.totalSegments
+      };
+    });
+
+    const normalizedUpdates = normalizeScheduleUpdates(
+      baseUpdates,
+      reason,
+      new Set(),
+      { overtimeByTeamDay: newOvertimeSettings }
+    );
+
+    const success = await saveMultipleJobUpdates(normalizedUpdates, reason);
+    if (!success) {
+      throw new Error(`${reason} rejected while saving cascaded jobs`);
+    }
+
+    console.log(`[PLANNER] ✓ ${reason}: cascaded and saved ${normalizedUpdates.length} schedule record(s)`);
+  };
+
   const handleTeamOvertimeChange = async (dayStr: string, teamId: string, enabled: boolean, closeTime: number, _additionalMinutes?: number) => {
     console.log(`[PLANNER] Team overtime change for ${dayStr}/${teamId}: enabled=${enabled}, closeTime=${closeTime}`);
+    const existingTeamSettings = overtimeByTeamDay[dayStr]?.[teamId];
+    const nextOvertimeSettings = {
+      ...overtimeByTeamDay,
+      [dayStr]: {
+        ...(overtimeByTeamDay[dayStr] || {}),
+        [teamId]: {
+          ...(existingTeamSettings || { earlyEnabled: false, earlyStartTime: 360 }),
+          enabled,
+          closeTime
+        }
+      }
+    };
     
     // Update local state immediately for UI responsiveness
     // IMPORTANT: Spread existing team entry to preserve earlyEnabled/earlyStartTime when changing Late OT
-    setOvertimeByTeamDay(prev => ({
-      ...prev,
-      [dayStr]: {
-        ...(prev[dayStr] || {}),
-        [teamId]: { 
-          ...(prev[dayStr]?.[teamId] || { earlyEnabled: false, earlyStartTime: 360 }),
-          enabled, 
-          closeTime 
-        }
-      }
-    }));
+    setOvertimeByTeamDay(nextOvertimeSettings);
     
     // Show loading overlay
     setOperationInProgress(true);
@@ -1940,19 +2154,9 @@ export const ProductionPlannerPage = () => {
         dateTo: dayStr,
         teamId: teamId
       });
-      
-      if (wipItems.length === 0) {
-        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId} (settings persisted)`);
-        setOperationInProgress(false);
-        return;
-      }
-      
+
       console.log(`[PLANNER] Fetched ${wipItems.length} WIP records for ${dayStr}/${teamId}`);
-      
-      // IMPORTANT: When OT is toggled, we ONLY update the OT flags on WIP records
-      // We do NOT redistribute jobs - jobs stay in their current positions
-      // This allows the user to manually control job positions via Edit/Drag/Drop
-      console.log(`[LATE-OT] Updating OT settings for ${wipItems.length} jobs - positions unchanged`);
+      console.log(`[LATE-OT] Updating OT settings and cascading affected schedule for ${wipItems.length} jobs`);
       
       // Log current job positions BEFORE update for debugging
       for (const wip of wipItems) {
@@ -1980,11 +2184,18 @@ export const ProductionPlannerPage = () => {
         await teamWorkItemService.batchUpdate(updates);
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with late OT = ${enabled}`);
       }
+
+      await cascadeTeamDayAfterOvertimeChange(
+        dayStr,
+        teamId,
+        nextOvertimeSettings,
+        enabled ? 'Late overtime enabled' : 'Late overtime disabled'
+      );
       
-      // Reload data to reflect all changes (no automatic recalculation - user controls via Edit button)
+      // Reload data to reflect cascaded backend state
       console.log(`[LATE-OT] Reloading data after OT update...`);
       await loadData();
-      console.log(`[LATE-OT] ✓ Data reloaded - job positions should be unchanged`);
+      console.log(`[LATE-OT] ✓ Data reloaded after cascade`);
       
     } catch (err) {
       console.error('[PLANNER] ✗ Failed to persist overtime settings:', err);
@@ -2008,19 +2219,21 @@ export const ProductionPlannerPage = () => {
 
   const handleTeamEarlyOvertimeChange = async (dayStr: string, teamId: string, earlyEnabled: boolean, earlyStartTime: number) => {
     console.log(`[PLANNER] Team early overtime change for ${dayStr}/${teamId}: earlyEnabled=${earlyEnabled}, earlyStartTime=${earlyStartTime}`);
-    
-    // Update local state immediately for UI responsiveness
-    setOvertimeByTeamDay(prev => ({
-      ...prev,
+    const existingTeamSettings = overtimeByTeamDay[dayStr]?.[teamId];
+    const nextOvertimeSettings = {
+      ...overtimeByTeamDay,
       [dayStr]: {
-        ...(prev[dayStr] || {}),
-        [teamId]: { 
-          ...(prev[dayStr]?.[teamId] || { enabled: false, closeTime: 1140 }),
-          earlyEnabled, 
-          earlyStartTime 
+        ...(overtimeByTeamDay[dayStr] || {}),
+        [teamId]: {
+          ...(existingTeamSettings || { enabled: false, closeTime: 1140 }),
+          earlyEnabled,
+          earlyStartTime
         }
       }
-    }));
+    };
+    
+    // Update local state immediately for UI responsiveness
+    setOvertimeByTeamDay(nextOvertimeSettings);
     
     // Show loading overlay
     setOperationInProgress(true);
@@ -2047,19 +2260,9 @@ export const ProductionPlannerPage = () => {
         dateTo: dayStr,
         teamId: teamId
       });
-      
-      if (wipItems.length === 0) {
-        console.log(`[PLANNER] No WIP records to update for ${dayStr}/${teamId} (settings persisted)`);
-        setOperationInProgress(false);
-        return;
-      }
-      
+
       console.log(`[PLANNER] Fetched ${wipItems.length} WIP records for ${dayStr}/${teamId}`);
-      
-      // IMPORTANT: When OT is toggled, we ONLY update the OT flags on WIP records
-      // We do NOT redistribute jobs - jobs stay in their current positions
-      // This allows the user to manually control job positions via Edit/Drag/Drop
-      console.log(`[EARLY-OT] Updating OT settings for ${wipItems.length} jobs - positions unchanged`);
+      console.log(`[EARLY-OT] Updating OT settings and cascading affected schedule for ${wipItems.length} jobs`);
       
       const updates: { id: string; data: UpdateTeamWorkItemDto }[] = [];
       
@@ -2080,8 +2283,14 @@ export const ProductionPlannerPage = () => {
         await teamWorkItemService.batchUpdate(updates);
         console.log(`[PLANNER] ✓ Updated ${updates.length} WIP items with early OT = ${earlyEnabled}`);
       }
+
+      await cascadeTeamDayAfterOvertimeChange(
+        dayStr,
+        teamId,
+        nextOvertimeSettings,
+        earlyEnabled ? 'Early overtime enabled' : 'Early overtime disabled'
+      );
       
-      // Reload data to reflect all changes (no automatic recalculation - user controls via Edit button)
       await loadData();
       
     } catch (err) {

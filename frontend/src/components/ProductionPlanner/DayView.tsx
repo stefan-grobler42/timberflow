@@ -38,6 +38,7 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  wipId?: string;
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
@@ -187,12 +188,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const [loading, setLoading] = useState(true);
   const [customDurations, setCustomDurations] = useState<Record<string, number>>({});
   const [resizingJob, setResizingJob] = useState<string | null>(null);
+  const [activeEditingJobId, setActiveEditingJobId] = useState<string | null>(null);
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
   const currentResizeDuration = useRef<number>(0);
   const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
   const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
   const [dragOverJobId, setDragOverJobId] = useState<string | null>(null);
+
+  const getJobInteractionKey = useCallback((job: Job): string => {
+    return job.wipId ?? job.id;
+  }, []);
+
+  const getJobRenderKey = useCallback((job: Job): string => {
+    return job.wipId ?? `${job.id}-${job.plannedDateStr ?? 'unscheduled'}-${job.jigId ?? 'no-team'}-${job.segmentIndex ?? 0}-${job.plannedStartTime ?? 'none'}`;
+  }, []);
 
   // Helper to convert minutes to HH:MM format
   const minutesToTimeString = (minutes: number): string => {
@@ -647,8 +657,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
   const getBaseDuration = useCallback((job: Job): number => {
     // Priority 1: Local resize in progress
-    if (customDurations[job.id]) {
-      return PlannerV2.roundToQuarterHour(customDurations[job.id]);
+    const customDuration = customDurations[getJobInteractionKey(job)] ?? customDurations[job.id];
+    if (customDuration) {
+      return PlannerV2.roundToQuarterHour(customDuration);
     }
     
     // Priority 2: WIP plannedDurationMinutes (authoritative for allocated jobs - includes truncated rollovers)
@@ -661,7 +672,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations]);
+  }, [customDurations, getJobInteractionKey]);
 
   const getJobDurationMinutes = useCallback((job: Job): number => {
     const baseDuration = getBaseDuration(job);
@@ -670,12 +681,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   }, [getBaseDuration]);
 
   const hasManualResize = useCallback((job: Job): boolean => {
-    if (customDurations[job.id]) return true;
+    if (customDurations[getJobInteractionKey(job)] ?? customDurations[job.id]) return true;
     return PlannerV2.isManuallyAltered({
       customDurationMinutes: job.customDurationMinutes,
       estimatedEFinks: job.estimatedEFinks
     });
-  }, [customDurations]);
+  }, [customDurations, getJobInteractionKey]);
 
   const jobsByJig = useMemo(() => {
     const map = new Map<string, Job[]>();
@@ -690,16 +701,40 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     
     for (const jig of jigTeams) {
       const teamAverageEfinks = jig.averageEfinks ?? 80;
+      const persistedSegments = jobs
+        .filter(job =>
+          job.jigId === jig.id &&
+          job.plannedDateStr === dayStr &&
+          (job.wipId || job.segmentIndex != null || (job.totalSegments ?? 1) > 1)
+        )
+        .map(job => ({
+          ...job,
+          segmentIndex: job.segmentIndex ?? 0,
+          totalSegments: job.totalSegments ?? 1,
+          totalJobDuration: job.totalJobDuration ?? job.plannedDurationMinutes ?? undefined,
+          segmentEfinks: job.segmentEfinks ?? job.estimatedEFinks,
+          segmentDuration: job.segmentDuration ?? job.plannedDurationMinutes ?? undefined,
+          segmentBreakMinutes: job.segmentBreakMinutes ?? job.breakAdjustmentMinutes ?? undefined,
+          isLastSegment: job.isLastSegment ?? ((job.segmentIndex ?? 0) >= ((job.totalSegments ?? 1) - 1))
+        }));
+
+      const jobsNeedingExpansion = jobs.filter(job =>
+        job.jigId === jig.id &&
+        !job.wipId &&
+        job.segmentIndex == null &&
+        (job.totalSegments == null || job.totalSegments <= 1)
+      );
       
       const expandedJobs = PlannerV2.expandJobsForDay(
-        jobs as PlannerV2.JobForSegmentExpansion[],
+        jobsNeedingExpansion as PlannerV2.JobForSegmentExpansion[],
         dayStr,
         jig.id,
         overtimeMap,
-        teamAverageEfinks
+        teamAverageEfinks,
+        schedulerConfig
       );
       
-      const mappedJobs: Job[] = expandedJobs.map(segment => ({
+      const mappedExpandedJobs: Job[] = expandedJobs.map(segment => ({
         ...segment,
         plannedStartTime: segment.segmentStartTime,
         plannedEndTime: segment.segmentEndTime,
@@ -712,6 +747,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         segmentBreakMinutes: segment.segmentBreakMinutes,
         isLastSegment: segment.isLastSegment
       }));
+
+      const mappedJobs = [...persistedSegments, ...mappedExpandedJobs]
+        .sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
       
       if (mappedJobs.length > 0) {
         map.set(jig.id, mappedJobs);
@@ -719,7 +757,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     }
     
     return map;
-  }, [jobs, dayStr, jigTeams, overtimeByTeam, allOvertimeSettings]);
+  }, [jobs, dayStr, jigTeams, overtimeByTeam, allOvertimeSettings, schedulerConfig]);
 
   const unallocatedJobs = useMemo(() => {
     return jobs.filter(j => j.plannedDateStr === dayStr && !j.jigId && !j.productionComplete);
@@ -798,10 +836,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     return `${hours}h ${mins}m`;
   };
 
-  const handleResizeStart = (e: React.MouseEvent, jobId: string, currentHeight: number) => {
+  const handleResizeStart = (e: React.MouseEvent, job: Job, currentHeight: number) => {
     e.preventDefault();
     e.stopPropagation();
-    setResizingJob(jobId);
+    const interactionKey = getJobInteractionKey(job);
+    setResizingJob(interactionKey);
+    setActiveEditingJobId(interactionKey);
     resizeStartY.current = e.clientY;
     resizeStartHeight.current = currentHeight;
     currentResizeDuration.current = Math.round(currentHeight / PlannerV2.PIXELS_PER_MINUTE);
@@ -811,7 +851,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       const newHeight = Math.max(MIN_BLOCK_HEIGHT, resizeStartHeight.current + delta);
       const newDuration = PlannerV2.pixelsToDuration(newHeight);
       currentResizeDuration.current = newDuration;
-      setCustomDurations(prev => ({ ...prev, [jobId]: newDuration }));
+      setCustomDurations(prev => ({ ...prev, [interactionKey]: newDuration }));
     };
 
     const handleMouseUp = () => {
@@ -823,10 +863,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
       if (finalDuration > 0 && onJobDurationChange) {
         setCustomDurations(prev => {
           const next = { ...prev };
-          delete next[jobId];
+          delete next[interactionKey];
           return next;
         });
-        onJobDurationChange(jobId, finalDuration);
+        onJobDurationChange(interactionKey, finalDuration);
       }
     };
 
@@ -850,8 +890,6 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
-      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(baseDuration));
-      
       const jobTop = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
       
       let breakAdditions: BreakAddition[] = [];
@@ -864,11 +902,24 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
-      const totalHeight = baseHeight + PlannerV2.calculateJobHeight(totalBreakMinutes);
+      const unclippedEnd = jobTop + baseDuration + totalBreakMinutes;
+      const clippedTop = Math.max(jobTop, visibleStartMinutes);
+      const clippedEnd = Math.min(unclippedEnd, visibleEndMinutes);
+
+      if (clippedEnd <= clippedTop) {
+        continue;
+      }
+
+      const clippedDuration = clippedEnd - clippedTop;
+      const totalHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(clippedDuration));
+      const baseHeight = Math.min(
+        totalHeight,
+        Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(Math.min(baseDuration, clippedDuration)))
+      );
       
       positions.push({ 
         job, 
-        top: jobTop, 
+        top: clippedTop, 
         height: totalHeight,
         baseHeight,
         breakAdditions,
@@ -878,7 +929,29 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
     positions.sort((a, b) => a.top - b.top);
 
-    return positions;
+    let nextVisualTop: number | null = null;
+    const visualBufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+    for (const position of positions) {
+      if (nextVisualTop !== null && position.top < nextVisualTop) {
+        console.warn('[PLANNER] Defensive visual overlap normalization:', {
+          jobId: position.job.id,
+          from: PlannerV2.formatMinutesToTime(position.top),
+          to: PlannerV2.formatMinutesToTime(nextVisualTop)
+        });
+        position.top = nextVisualTop;
+      }
+
+      if (position.top >= visibleEndMinutes) {
+        position.height = 0;
+        continue;
+      }
+
+      const maxVisibleHeight = (visibleEndMinutes - position.top) * PlannerV2.PIXELS_PER_MINUTE;
+      position.height = Math.min(position.height, maxVisibleHeight);
+      nextVisualTop = position.top + (position.height / PlannerV2.PIXELS_PER_MINUTE) + visualBufferMinutes;
+    }
+
+    return positions.filter(position => position.height > 0);
   };
 
   const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number) => {
@@ -1794,6 +1867,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                 {calculateJobPositions(jigJobs, true, teamWorkingMinutes.endMinutes).map(({ job, top, height, baseHeight, breakAdditions }) => {
                     const isStaged = (job as Job & { isStaged?: boolean }).isStaged === true;
                     const isBatchedJob = !!(job.isBatchedJob);
+                    const interactionKey = getJobInteractionKey(job);
+                    const renderKey = getJobRenderKey(job);
                     
                     // Separate Type B blocks (Breakdown, Material Shortage) from regular breaks
                     const typeBBlockLabels = ['Breakdown', 'Material Shortage'];
@@ -1816,7 +1891,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     };
                     
                     const getBoxShadow = () => {
-                      if (dragOverJobId === job.id) return '0 0 0 3px #107c10, 0 4px 16px rgba(16, 124, 16, 0.5)';
+                      if (dragOverJobId === interactionKey) return '0 0 0 3px #107c10, 0 4px 16px rgba(16, 124, 16, 0.5)';
                       if (isBatchedJob && !job.productionComplete) return '0 4px 12px rgba(16, 124, 16, 0.4), inset 0 1px 0 rgba(255,255,255,0.25), 4px 4px 0 -2px rgba(16, 124, 16, 0.3), 6px 6px 0 -4px rgba(16, 124, 16, 0.2)';
                       if (job.productionComplete) return '0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.3)';
                       if (isStaged) return '0 2px 8px rgba(0, 120, 212, 0.2)';
@@ -1830,12 +1905,24 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     };
                     
                     const canInteract = !resizingJob;
+                    const isActiveEditingJob = activeEditingJobId === interactionKey || resizingJob === interactionKey;
+                    const jobZIndex = isActiveEditingJob ? 1200 : (isStaged ? 800 : 10);
                     
                     return (
                       <div
-                        key={job.id}
+                        key={renderKey}
+                        data-planner-job-card="true"
+                        data-job-id={job.id}
+                        data-schedule-key={interactionKey}
+                        data-jig-id={jig.id}
+                        data-date={dayStr}
                         draggable={canInteract}
-                        onDragStart={() => canInteract && onDragStart(job.id)}
+                        onMouseDown={() => {
+                          if (isStaged && !job.productionComplete) {
+                            setActiveEditingJobId(interactionKey);
+                          }
+                        }}
+                        onDragStart={() => canInteract && onDragStart(interactionKey)}
                         onDoubleClick={() => {
                           if (isBatchedJob && onManageBatch) {
                             onManageBatch(job.id);
@@ -1847,7 +1934,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           if (!job.productionComplete && !isStaged) {
                             e.preventDefault();
                             e.stopPropagation();
-                            setDragOverJobId(job.id);
+                            const timelineElement = e.currentTarget.parentElement;
+                            if (timelineElement) {
+                              const rect = timelineElement.getBoundingClientRect();
+                              const y = e.clientY - rect.top;
+                              const snapMinutes = Math.max(1, schedulerConfig?.durationRoundingIncrement ?? PlannerV2.QUARTER_HOUR);
+                              const rawDropMinutes = y / PlannerV2.PIXELS_PER_MINUTE + visibleStartMinutes;
+                              const dropMinutes = Math.round(rawDropMinutes / snapMinutes) * snapMinutes;
+                              setDropHoverJigId(jig.id);
+                              setDropHoverPosition(dropMinutes);
+                            }
                           }
                         }}
                         onDragLeave={(e) => {
@@ -1857,9 +1953,22 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         onDrop={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          if (!job.productionComplete && !isStaged && draggedJobId && draggedJobId !== job.id) {
+                          if (!job.productionComplete && !isStaged && draggedJobId && draggedJobId !== interactionKey) {
                             setDragOverJobId(null);
-                            onDrop(dayStr, jig.id, undefined, { targetJobId: job.id, position: 0, afterJobId: null, beforeJobId: null, insertIndex: 0 });
+                            setDropHoverJigId(null);
+                            setDropHoverPosition(null);
+
+                            const timelineElement = e.currentTarget.parentElement;
+                            if (timelineElement) {
+                              const rect = timelineElement.getBoundingClientRect();
+                              const y = e.clientY - rect.top;
+                              const snapMinutes = Math.max(1, schedulerConfig?.durationRoundingIncrement ?? PlannerV2.QUARTER_HOUR);
+                              const rawDropMinutes = y / PlannerV2.PIXELS_PER_MINUTE + visibleStartMinutes;
+                              const snappedPosition = Math.round(rawDropMinutes / snapMinutes) * snapMinutes;
+                              onDrop(dayStr, jig.id, snappedPosition);
+                            } else {
+                              onDrop(dayStr, jig.id, job.plannedStartTime ?? visibleStartMinutes);
+                            }
                           }
                         }}
                         style={{
@@ -1875,16 +1984,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           borderRadius: 6,
                           border: getBorder(),
                           cursor: resizingJob ? 'ns-resize' : 'grab',
-                          zIndex: resizingJob === job.id ? 100 : 10,
-                          boxShadow: getBoxShadow(),
+                          zIndex: jobZIndex,
+                          boxShadow: isActiveEditingJob
+                            ? '0 0 0 3px rgba(0, 120, 212, 0.35), 0 10px 28px rgba(0, 0, 0, 0.28)'
+                            : getBoxShadow(),
                           opacity: job.productionComplete ? 0.7 : 1,
                           display: 'flex',
                           flexDirection: 'column',
-                          overflow: 'hidden',
+                          overflow: isActiveEditingJob ? 'visible' : 'hidden',
                           backdropFilter: 'blur(4px)'
                         }}
                       >
-                        {dragOverJobId === job.id && (
+                        {dragOverJobId === interactionKey && (
                           <div style={{
                             position: 'absolute',
                             top: '50%',
@@ -1939,7 +2050,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                                 delete next[job.id];
                                 return next;
                               });
-                              onJobDurationReset(job.id);
+                              onJobDurationReset(interactionKey);
                             }}
                             styles={{
                               root: {
@@ -2020,15 +2131,17 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           </Text>
                         </Stack>
                         
-                        {/* Save/Cancel buttons for staged jobs - show on first segment */}
-                        {isStaged && job.segmentIndex === 0 && (
-                          <Stack horizontal tokens={{ childrenGap: 4 }} styles={{ root: { position: 'absolute', bottom: 16, right: 8 } }}>
+                        {/* Save/Cancel buttons for staged jobs */}
+                        {isStaged && (
+                          <Stack horizontal tokens={{ childrenGap: 4 }} styles={{ root: { position: 'absolute', bottom: 16, right: 8, zIndex: 5000, pointerEvents: 'auto' } }}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setActiveEditingJobId(null);
                                 onSaveStagedJob?.(job.id);
                               }}
                               style={{
+                                position: 'relative',
                                 padding: '2px 10px',
                                 fontSize: 10,
                                 fontWeight: 600,
@@ -2037,7 +2150,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                                 border: 'none',
                                 borderRadius: 4,
                                 cursor: 'pointer',
-                                zIndex: 50
+                                zIndex: 5001,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.25)'
                               }}
                               title="Save this job allocation"
                             >
@@ -2046,18 +2160,21 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
+                                setActiveEditingJobId(null);
                                 onCancelStagedJob?.(job.id);
                               }}
                               style={{
+                                position: 'relative',
                                 padding: '2px 8px',
                                 fontSize: 10,
                                 fontWeight: 600,
-                                backgroundColor: 'transparent',
+                                backgroundColor: 'white',
                                 color: '#0078D4',
                                 border: '1px solid rgba(0, 120, 212, 0.5)',
                                 borderRadius: 4,
                                 cursor: 'pointer',
-                                zIndex: 50
+                                zIndex: 5001,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.18)'
                               }}
                               title="Cancel and remove from schedule"
                             >
@@ -2066,8 +2183,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           </Stack>
                         )}
                         
-                        {/* Edit button for all persisted jobs - show on first segment (or single-day jobs) */}
-                        {!isStaged && !job.productionComplete && onEditPersistedJob && job.jigId && (job.segmentIndex === 0 || job.segmentIndex === undefined) && (
+                        {/* Edit button for persisted jobs */}
+                        {!isStaged && !job.productionComplete && onEditPersistedJob && job.jigId && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -2095,7 +2212,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         {/* Resize handle - only in edit mode, on last segment of multi-day jobs, not completed */}
                         {isStaged && !job.productionComplete && (job.isLastSegment !== false) && (job.segmentIndex === undefined || job.segmentIndex === (job.totalSegments ?? 1) - 1) && (
                           <div
-                            onMouseDown={(e) => handleResizeStart(e, job.id, baseHeight)}
+                            onMouseDown={(e) => handleResizeStart(e, job, baseHeight)}
                             style={{
                               position: 'absolute',
                               bottom: 4,
@@ -2103,11 +2220,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               right: 4,
                               height: 8,
                               cursor: 'ns-resize',
-                              backgroundColor: resizingJob === job.id ? 'rgba(0,120,212,0.3)' : 'rgba(0,120,212,0.15)',
+                              backgroundColor: resizingJob === interactionKey ? 'rgba(0,120,212,0.3)' : 'rgba(0,120,212,0.15)',
                               borderRadius: 4,
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center'
+                              justifyContent: 'center',
+                              zIndex: 5000,
+                              pointerEvents: 'auto'
                             }}
                             title="Drag to resize"
                           >
