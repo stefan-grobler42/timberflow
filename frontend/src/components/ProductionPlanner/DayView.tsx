@@ -42,6 +42,7 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
+  segmentEndIndex?: number | null;
   segmentEfinks?: number | null;
   segmentDuration?: number | null;
   segmentBreakMinutes?: number | null;
@@ -127,6 +128,7 @@ interface DayViewProps {
   allJobs: Job[];
   jigTeams: Jig[];
   onDragStart: (jobId: string) => void;
+  onDragEnd?: () => void;
   onDragOver: (e: React.DragEvent) => void;
   onDrop: (dateStr: string, jigId: string | null, dropTimeMinutes?: number, zoneMetadata?: DropZoneMetadata) => void;
   onJobDoubleClick: (jobId: string) => void;
@@ -151,6 +153,8 @@ interface DayViewProps {
 }
 
 const MIN_BLOCK_HEIGHT = 20;
+const MIN_WEEKDAY_WORK_START_MINUTES = 7 * 60;
+const MIN_WEEKDAY_WORK_END_MINUTES = 17 * 60;
 
 const DayViewComponent: React.FC<DayViewProps> = ({
   dayStr,
@@ -158,6 +162,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   allJobs: _allJobs,
   jigTeams,
   onDragStart,
+  onDragEnd,
   onDragOver,
   onDrop,
   onJobDoubleClick,
@@ -195,6 +200,18 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const [dropHoverJigId, setDropHoverJigId] = useState<string | null>(null);
   const [dropHoverPosition, setDropHoverPosition] = useState<number | null>(null);
   const [dragOverJobId, setDragOverJobId] = useState<string | null>(null);
+
+  const clearDragPreview = useCallback(() => {
+    setDropHoverJigId(null);
+    setDropHoverPosition(null);
+    setDragOverJobId(null);
+  }, []);
+
+  useEffect(() => {
+    if (!isDragging) {
+      clearDragPreview();
+    }
+  }, [clearDragPreview, isDragging]);
 
   const getJobInteractionKey = useCallback((job: Job): string => {
     return job.wipId ?? job.id;
@@ -891,6 +908,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     for (const job of jigJobs) {
       const baseDuration = getBaseDurationMinutes(job);
       const jobTop = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
+      if (!Number.isFinite(jobTop) || !Number.isFinite(baseDuration) || baseDuration <= 0) {
+        continue;
+      }
       
       let breakAdditions: BreakAddition[] = [];
       let totalBreakMinutes = 0;
@@ -902,59 +922,39 @@ const DayViewComponent: React.FC<DayViewProps> = ({
         totalBreakMinutes = breakAdditions.reduce((sum, b) => sum + b.minutes, 0);
       }
       
-      const unclippedEnd = jobTop + baseDuration + totalBreakMinutes;
+      const calculatedEnd = jobTop + baseDuration + totalBreakMinutes;
+      const renderEndLimit = Math.min(visibleEndMinutes, teamWorkingEndMinutes ?? visibleEndMinutes);
+      const scheduledEnd = Math.max(job.plannedEndTime ?? calculatedEnd, calculatedEnd);
       const clippedTop = Math.max(jobTop, visibleStartMinutes);
-      const clippedEnd = Math.min(unclippedEnd, visibleEndMinutes);
+      const clippedEnd = Math.min(scheduledEnd, renderEndLimit);
 
-      if (clippedEnd <= clippedTop) {
+      if (!Number.isFinite(clippedTop) || !Number.isFinite(clippedEnd) || clippedEnd <= clippedTop) {
         continue;
       }
 
       const clippedDuration = clippedEnd - clippedTop;
-      const totalHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(clippedDuration));
-      const baseHeight = Math.min(
-        totalHeight,
-        Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(Math.min(baseDuration, clippedDuration)))
+      const visibleWorkMinutes = Math.max(0, Math.min(baseDuration, clippedDuration));
+      const baseHeight = Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(visibleWorkMinutes));
+      const totalHeight = Math.min(
+        PlannerV2.calculateJobHeight(visibleEndMinutes - visibleStartMinutes),
+        Math.max(MIN_BLOCK_HEIGHT, PlannerV2.calculateJobHeight(clippedDuration))
       );
       
       positions.push({ 
         job, 
         top: clippedTop, 
         height: totalHeight,
-        baseHeight,
+        baseHeight: Math.min(baseHeight, totalHeight),
         breakAdditions,
         totalBreakMinutes
       });
     }
 
     positions.sort((a, b) => a.top - b.top);
-
-    let nextVisualTop: number | null = null;
-    const visualBufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
-    for (const position of positions) {
-      if (nextVisualTop !== null && position.top < nextVisualTop) {
-        console.warn('[PLANNER] Defensive visual overlap normalization:', {
-          jobId: position.job.id,
-          from: PlannerV2.formatMinutesToTime(position.top),
-          to: PlannerV2.formatMinutesToTime(nextVisualTop)
-        });
-        position.top = nextVisualTop;
-      }
-
-      if (position.top >= visibleEndMinutes) {
-        position.height = 0;
-        continue;
-      }
-
-      const maxVisibleHeight = (visibleEndMinutes - position.top) * PlannerV2.PIXELS_PER_MINUTE;
-      position.height = Math.min(position.height, maxVisibleHeight);
-      nextVisualTop = position.top + (position.height / PlannerV2.PIXELS_PER_MINUTE) + visualBufferMinutes;
-    }
-
-    return positions.filter(position => position.height > 0);
+    return positions;
   };
 
-  const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number) => {
+  const handleTimelineDragOver = (e: React.DragEvent, jigId: string, visibleStart: number, maxDropMinutes?: number) => {
     e.preventDefault();
     e.stopPropagation();
     onDragOver(e);
@@ -963,42 +963,45 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const y = e.clientY - rect.top;
     const snapMinutes = Math.max(1, schedulerConfig?.durationRoundingIncrement ?? PlannerV2.QUARTER_HOUR);
     const rawDropMinutes = y / PlannerV2.PIXELS_PER_MINUTE + visibleStart;
-    const dropMinutes = Math.round(rawDropMinutes / snapMinutes) * snapMinutes;
+    const dropMinutes = Math.min(
+      Math.round(rawDropMinutes / snapMinutes) * snapMinutes,
+      maxDropMinutes ?? visibleEndMinutes
+    );
     
     setDropHoverJigId(jigId);
     setDropHoverPosition(dropMinutes);
   };
 
   const handleTimelineDragLeave = () => {
-    setDropHoverJigId(null);
-    setDropHoverPosition(null);
+    clearDragPreview();
   };
 
-  const handleTimelineDrop = (e: React.DragEvent, jigId: string | null, visibleStart: number) => {
+  const handleTimelineDrop = (e: React.DragEvent, jigId: string | null, visibleStart: number, maxDropMinutes?: number) => {
     e.preventDefault();
-    setDragOverJobId(null);
+    clearDragPreview();
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
     const snapMinutes = Math.max(1, schedulerConfig?.durationRoundingIncrement ?? PlannerV2.QUARTER_HOUR);
     const rawDropMinutes = y / PlannerV2.PIXELS_PER_MINUTE + visibleStart;
     
-    let snappedPosition = Math.round(rawDropMinutes / snapMinutes) * snapMinutes;
+    let snappedPosition = Math.min(
+      Math.round(rawDropMinutes / snapMinutes) * snapMinutes,
+      maxDropMinutes ?? visibleEndMinutes
+    );
     
     if (jigId && workingHours) {
       // Get team-specific working hours (accounts for early/late OT)
       const teamOvertime = getTeamOvertime(jigId);
+      const configuredStartMinutes = Math.min(workingHours.start * 60, MIN_WEEKDAY_WORK_START_MINUTES);
       const teamStartMinutes = teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
         ? teamOvertime.earlyStartTime
-        : workingHours.start * 60;
+        : configuredStartMinutes;
       
       // Use team-specific start time for clamping (respects early OT)
       if (snappedPosition < teamStartMinutes) {
         snappedPosition = teamStartMinutes;
       }
     }
-    
-    setDropHoverJigId(null);
-    setDropHoverPosition(null);
     
     onDrop(dayStr, jigId, snappedPosition);
   };
@@ -1031,6 +1034,11 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   const calculateVisibleTimeRange = (): { startHour: number; endHour: number; startMinutes: number; endMinutes: number } => {
     let earliestStartMinutes = workingHours.start * 60; // e.g., 420 for 07:00
     let latestEndMinutes = workingHours.end * 60; // e.g., 1020 for 17:00
+
+    if (!isWeekendDay) {
+      earliestStartMinutes = Math.min(earliestStartMinutes, MIN_WEEKDAY_WORK_START_MINUTES);
+      latestEndMinutes = Math.max(latestEndMinutes, MIN_WEEKDAY_WORK_END_MINUTES);
+    }
 
     // Check all teams' overtime settings - use minute precision
     for (const teamId of Object.keys(overtimeByTeam)) {
@@ -1325,7 +1333,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
               borderBottom: '1px solid #ddd',
               boxSizing: 'border-box'
             }}></div>
-            <div style={{ position: 'relative', height: totalTimelineHeight }}>
+            <div style={{ position: 'relative', height: totalTimelineHeight, minHeight: totalTimelineHeight, flexShrink: 0 }}>
               {/* Background segments without borders */}
               {timelineSegments.map((segment, idx) => (
                 <Stack
@@ -1411,11 +1419,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
             return baseWorkingHours ? {
               startMinutes: teamOvertime.earlyEnabled && teamOvertime.earlyStartTime !== undefined
                 ? teamOvertime.earlyStartTime
-                : baseWorkingHours.start * 60,
+                : Math.min(baseWorkingHours.start * 60, MIN_WEEKDAY_WORK_START_MINUTES),
               endMinutes: teamOvertime.enabled && teamOvertime.closeTime !== undefined
                 ? teamOvertime.closeTime
-                : (isFridayDay ? 960 : baseWorkingHours.end * 60) // Friday: 16:00 = 960 min
-            } : { startMinutes: workingHours.start * 60, endMinutes: workingHours.end * 60 };
+                : Math.max(baseWorkingHours.end * 60, MIN_WEEKDAY_WORK_END_MINUTES)
+            } : {
+              startMinutes: Math.min(workingHours.start * 60, MIN_WEEKDAY_WORK_START_MINUTES),
+              endMinutes: Math.max(workingHours.end * 60, MIN_WEEKDAY_WORK_END_MINUTES)
+            };
           })();
           const teamTimelineHeight = visibleDurationMinutes * PlannerV2.PIXELS_PER_MINUTE;
           
@@ -1694,13 +1705,16 @@ const DayViewComponent: React.FC<DayViewProps> = ({
 
               {/* Timeline background with break slots */}
               <div
-                onDragOver={(e) => handleTimelineDragOver(e, jig.id, visibleStartMinutes)}
+                onDragOver={(e) => handleTimelineDragOver(e, jig.id, visibleStartMinutes, teamWorkingMinutes.endMinutes)}
                 onDragLeave={handleTimelineDragLeave}
-                onDrop={(e) => handleTimelineDrop(e, jig.id, visibleStartMinutes)}
+                onDrop={(e) => handleTimelineDrop(e, jig.id, visibleStartMinutes, teamWorkingMinutes.endMinutes)}
                 style={{
                   position: 'relative',
                   height: teamTimelineHeight,
+                  minHeight: teamTimelineHeight,
+                  flexShrink: 0,
                   borderBottom: '1px solid #ddd',
+                  overflow: 'hidden',
                   backgroundColor: isDragging && dropHoverJigId === jig.id ? 'rgba(0, 120, 212, 0.05)' : undefined
                 }}
               >
@@ -1907,6 +1921,12 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     const canInteract = !resizingJob;
                     const isActiveEditingJob = activeEditingJobId === interactionKey || resizingJob === interactionKey;
                     const jobZIndex = isActiveEditingJob ? 1200 : (isStaged ? 800 : 10);
+                    const blockTopPx = Math.max(0, (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE);
+                    const blockHeightPx = Math.max(0, Math.min(height, teamTimelineHeight - blockTopPx));
+
+                    if (!Number.isFinite(blockTopPx) || !Number.isFinite(blockHeightPx) || blockHeightPx <= 0) {
+                      return null;
+                    }
                     
                     return (
                       <div
@@ -1922,7 +1942,15 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             setActiveEditingJobId(interactionKey);
                           }
                         }}
-                        onDragStart={() => canInteract && onDragStart(interactionKey)}
+                        onDragStart={() => {
+                          if (!canInteract) return;
+                          clearDragPreview();
+                          onDragStart(interactionKey);
+                        }}
+                        onDragEnd={() => {
+                          clearDragPreview();
+                          onDragEnd?.();
+                        }}
                         onDoubleClick={() => {
                           if (isBatchedJob && onManageBatch) {
                             onManageBatch(job.id);
@@ -1954,9 +1982,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                           e.preventDefault();
                           e.stopPropagation();
                           if (!job.productionComplete && !isStaged && draggedJobId && draggedJobId !== interactionKey) {
-                            setDragOverJobId(null);
-                            setDropHoverJigId(null);
-                            setDropHoverPosition(null);
+                            clearDragPreview();
 
                             const timelineElement = e.currentTarget.parentElement;
                             if (timelineElement) {
@@ -1973,10 +1999,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         }}
                         style={{
                           position: 'absolute',
-                          top: (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE,
+                          top: blockTopPx,
                           left: hasTypeBBlocks ? 20 : 4,
                           right: 4,
-                          height: height,
+                          height: blockHeightPx,
                           padding: 8,
                           boxSizing: 'border-box',
                           background: getBackground(),
@@ -2086,7 +2112,13 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                                     whiteSpace: 'nowrap'
                                   } 
                                 }}>
-                                  Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
+                                  {(() => {
+                                    const startSegment = (job.segmentIndex ?? 0) + 1;
+                                    const endSegment = (job.segmentEndIndex ?? job.segmentIndex ?? 0) + 1;
+                                    return startSegment === endSegment
+                                      ? `Day ${startSegment}/${job.totalSegments}`
+                                      : `Day ${startSegment}-${endSegment}/${job.totalSegments}`;
+                                  })()}
                                 </Text>
                               )}
                             </Stack>
@@ -2272,9 +2304,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           {/* Unallocated jobs - stacked compact cards with same timeline height */}
           <div
             onDragOver={onDragOver}
-            onDrop={() => onDrop(dayStr, null)}
+            onDrop={() => {
+              clearDragPreview();
+              onDrop(dayStr, null);
+            }}
             style={{
               height: totalTimelineHeight,
+              minHeight: totalTimelineHeight,
+              flexShrink: 0,
               overflowY: 'auto',
               backgroundColor: '#ffebee',
               padding: 6,
@@ -2308,7 +2345,14 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                   <div
                     key={job.id}
                     draggable
-                    onDragStart={() => onDragStart(job.id)}
+                    onDragStart={() => {
+                      clearDragPreview();
+                      onDragStart(job.id);
+                    }}
+                    onDragEnd={() => {
+                      clearDragPreview();
+                      onDragEnd?.();
+                    }}
                     onDoubleClick={() => {
                       if (isUnallocBatched && onManageBatch) {
                         onManageBatch(job.id);
