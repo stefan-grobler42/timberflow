@@ -58,7 +58,6 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
-  segmentEndIndex?: number | null;
   segmentEfinks?: number;
   sourceType?: JobSourceType; // 'production' = has production record, 'order-only' = missing production record
   isBatchedJob?: boolean;
@@ -114,6 +113,53 @@ const getUpdateScheduleKey = (update: JobScheduleUpdate): string => {
   return update.wipId ?? `${update.jobId}|${update.workDate}|${update.teamId}|${update.segmentIndex ?? 0}`;
 };
 
+const relabelMultiDayJobs = (sourceJobs: Job[]): Job[] => {
+  const jobsByProduction = new Map<string, Job[]>();
+
+  for (const job of sourceJobs) {
+    if (!job.id || !job.plannedDateStr || !job.jigId || job.plannedStartTime == null) {
+      continue;
+    }
+
+    jobsByProduction.set(job.id, [...(jobsByProduction.get(job.id) ?? []), job]);
+  }
+
+  const segmentLabelsByJob = new Map<string, { segmentIndex?: number; totalSegments?: number }>();
+
+  for (const jobs of jobsByProduction.values()) {
+    const orderedDates = Array.from(new Set(jobs.map(job => job.plannedDateStr).filter(Boolean) as string[]))
+      .sort((a, b) => a.localeCompare(b));
+    const totalSegments = orderedDates.length;
+
+    for (const job of jobs) {
+      const scheduleKey = getJobScheduleKey(job);
+      if (totalSegments <= 1 || !job.plannedDateStr) {
+        segmentLabelsByJob.set(scheduleKey, {
+          segmentIndex: undefined,
+          totalSegments: undefined
+        });
+        continue;
+      }
+
+      segmentLabelsByJob.set(scheduleKey, {
+        segmentIndex: orderedDates.indexOf(job.plannedDateStr),
+        totalSegments
+      });
+    }
+  }
+
+  return sourceJobs.map(job => {
+    const label = segmentLabelsByJob.get(getJobScheduleKey(job));
+    if (!label) return job;
+
+    return {
+      ...job,
+      segmentIndex: label.segmentIndex,
+      totalSegments: label.totalSegments
+    };
+  });
+};
+
 const mergeSameDayJobSegments = (sourceJobs: Job[]): Job[] => {
   const passthrough: Job[] = [];
   const groups = new Map<string, Job[]>();
@@ -130,11 +176,7 @@ const mergeSameDayJobSegments = (sourceJobs: Job[]): Job[] => {
 
   const mergedGroups = Array.from(groups.values()).map(group => {
     if (group.length === 1) {
-      const [job] = group;
-      return {
-        ...job,
-        segmentEndIndex: job.segmentEndIndex ?? job.segmentIndex
-      };
+      return group[0];
     }
 
     const sorted = [...group].sort((a, b) => (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0));
@@ -153,7 +195,6 @@ const mergeSameDayJobSegments = (sourceJobs: Job[]): Job[] => {
       .map(job => job.segmentIndex)
       .filter((index): index is number => typeof index === 'number');
     const segmentStartIndex = segmentIndexes.length > 0 ? Math.min(...segmentIndexes) : first.segmentIndex;
-    const segmentEndIndex = segmentIndexes.length > 0 ? Math.max(...segmentIndexes) : first.segmentEndIndex ?? first.segmentIndex;
     const totalSegments = Math.max(...sorted.map(job => job.totalSegments ?? 1));
 
     return {
@@ -165,18 +206,19 @@ const mergeSameDayJobSegments = (sourceJobs: Job[]): Job[] => {
       estimatedEFinks: Math.round(estimatedEfinks * 100) / 100,
       segmentEfinks: Math.round(estimatedEfinks * 100) / 100,
       segmentIndex: segmentStartIndex,
-      segmentEndIndex,
       totalSegments
     };
   });
 
-  return [...passthrough, ...mergedGroups].sort((a, b) => {
+  const sortedJobs = [...passthrough, ...mergedGroups].sort((a, b) => {
     const dateCompare = (a.plannedDateStr ?? '').localeCompare(b.plannedDateStr ?? '');
     if (dateCompare !== 0) return dateCompare;
     const teamCompare = (a.jigId ?? '').localeCompare(b.jigId ?? '');
     if (teamCompare !== 0) return teamCompare;
     return (a.plannedStartTime ?? 0) - (b.plannedStartTime ?? 0);
   });
+
+  return relabelMultiDayJobs(sortedJobs);
 };
 
 export const ProductionPlannerPage = () => {
@@ -474,7 +516,6 @@ export const ProductionPlannerPage = () => {
               // Multi-day segment info from actual WIP data
               segmentIndex: segmentIndex,
               totalSegments: totalSegments,
-              segmentEndIndex: segmentIndex,
               segmentEfinks: wipData.estimatedEfinks || (totalEfinks / totalSegments),
               sourceType: 'production' as JobSourceType,
               isBatchedJob: p.isBatchedJob || false,
@@ -504,7 +545,6 @@ export const ProductionPlannerPage = () => {
             overtimeEnabled: undefined,
             segmentIndex: undefined,
             totalSegments: undefined,
-            segmentEndIndex: undefined,
             segmentEfinks: undefined,
             sourceType: 'production' as JobSourceType,
             isBatchedJob: p.isBatchedJob || false,
@@ -961,8 +1001,7 @@ export const ProductionPlannerPage = () => {
         customDurationMinutes: update.customDurationMinutes ?? sourceJob?.customDurationMinutes,
         estimatedEFinks: update.estimatedEfinks ?? sourceJob?.estimatedEFinks ?? 0,
         segmentIndex: update.segmentIndex ?? sourceJob?.segmentIndex,
-        totalSegments: update.totalSegments ?? sourceJob?.totalSegments,
-        segmentEndIndex: update.segmentIndex ?? sourceJob?.segmentEndIndex ?? sourceJob?.segmentIndex
+        totalSegments: update.totalSegments ?? sourceJob?.totalSegments
       };
     });
 

@@ -42,7 +42,6 @@ interface Job {
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
-  segmentEndIndex?: number | null;
   segmentEfinks?: number | null;
   segmentDuration?: number | null;
   segmentBreakMinutes?: number | null;
@@ -2112,13 +2111,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                                     whiteSpace: 'nowrap'
                                   } 
                                 }}>
-                                  {(() => {
-                                    const startSegment = (job.segmentIndex ?? 0) + 1;
-                                    const endSegment = (job.segmentEndIndex ?? job.segmentIndex ?? 0) + 1;
-                                    return startSegment === endSegment
-                                      ? `Day ${startSegment}/${job.totalSegments}`
-                                      : `Day ${startSegment}-${endSegment}/${job.totalSegments}`;
-                                  })()}
+                                  Day {(job.segmentIndex ?? 0) + 1}/{job.totalSegments}
                                 </Text>
                               )}
                             </Stack>
