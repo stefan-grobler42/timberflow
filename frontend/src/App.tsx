@@ -38,6 +38,7 @@ import { SubContractorDeductionsPage } from './pages/SubContractorDeductionsPage
 import { SettingsPage } from './pages/SettingsPage';
 import { JigFormPage } from './pages/JigFormPage';
 import { ScheduleBlocksPage } from './pages/ScheduleBlocksPage';
+import { MobileJobTimePage } from './pages/MobileJobTimePage';
 
 initializeIcons();
 
@@ -74,6 +75,7 @@ function App() {
           <Route path="/pricing" element={<PricingCalculationsPage />} />
           <Route path="/production" element={<ProductionPage />} />
           <Route path="/production-planner" element={<ProductionPlannerPage />} />
+          <Route path="/mobile/job-time" element={<MobileJobTimePage />} />
           <Route path="/waterfall-planner" element={<WaterfallPlannerPage />} />
           <Route path="/production-planner/:id" element={<ProductionFormPage />} />
           <Route path="/jigs/:id" element={<JigFormPage />} />

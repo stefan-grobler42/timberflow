@@ -68,6 +68,7 @@ public class AppDbContext : DbContext
     // Waterfall Planner - continuous job allocations
     public DbSet<JobAllocation> JobAllocations { get; set; }
     public DbSet<JobWorkLog> JobWorkLogs { get; set; }
+    public DbSet<JobTimeEntry> JobTimeEntries { get; set; }
     public DbSet<TeamDaySettings> TeamDaySettings { get; set; }
     
     // Dynamics 365 standard entities
@@ -667,6 +668,33 @@ public class AppDbContext : DbContext
                   .WithMany()
                   .HasForeignKey(e => e.Helper4Id)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // JobTimeEntry configuration - mobile start/end actual job timing
+        modelBuilder.Entity<JobTimeEntry>(entity =>
+        {
+            entity.ToTable("job_time_entries");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.JobId, e.TeamId });
+            entity.HasIndex(e => new { e.JobId, e.TeamId, e.StageType });
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.StartedAt);
+
+            entity.Property(e => e.StageType).HasMaxLength(50).HasDefaultValue("overall");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("in_progress");
+            entity.Property(e => e.StartedBy).HasMaxLength(200);
+            entity.Property(e => e.EndedBy).HasMaxLength(200);
+            entity.Property(e => e.Notes).HasMaxLength(2000);
+
+            entity.HasOne(e => e.Job)
+                  .WithMany()
+                  .HasForeignKey(e => e.JobId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Team)
+                  .WithMany()
+                  .HasForeignKey(e => e.TeamId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // TeamDaySettings configuration - OT toggles per team per day

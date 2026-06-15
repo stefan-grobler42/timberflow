@@ -58,6 +58,12 @@ public class TeamWorkItemDto
     [JsonPropertyName("actualDurationMinutes")]
     public int? ActualDurationMinutes { get; set; }
 
+    [JsonPropertyName("stageDurations")]
+    public TeamWorkItemStageDurationsDto? StageDurations { get; set; }
+
+    [JsonPropertyName("timingSummary")]
+    public JobTimingSummaryDto? TimingSummary { get; set; }
+
     [JsonPropertyName("status")]
     public string Status { get; set; } = "scheduled";
 
@@ -132,6 +138,21 @@ public class TeamWorkItemDto
 
     [JsonPropertyName("estimatedEfinks")]
     public decimal? EstimatedEfinks { get; set; }
+}
+
+public class TeamWorkItemStageDurationsDto
+{
+    [JsonPropertyName("pickingMinutes")]
+    public int PickingMinutes { get; set; }
+
+    [JsonPropertyName("sawingMinutes")]
+    public int SawingMinutes { get; set; }
+
+    [JsonPropertyName("productionMinutes")]
+    public int ProductionMinutes { get; set; }
+
+    [JsonPropertyName("totalLabourMinutes")]
+    public int TotalLabourMinutes => PickingMinutes + SawingMinutes + ProductionMinutes;
 }
 
 public class CreateTeamWorkItemDto

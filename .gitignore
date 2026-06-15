@@ -85,6 +85,15 @@ logs
 # Build outputs
 dist/
 build/
+bin/
+obj/
+
+# Local Python environments
+.venv/
+venv/
+
+# Local Codex/data repair backups
+.codex-data-backups/
 
 # Temporary files
 tmp/

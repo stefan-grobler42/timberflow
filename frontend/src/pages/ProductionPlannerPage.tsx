@@ -8,7 +8,13 @@ import { productionService, d365OrderService } from '../services/d365Services';
 import { jigService, scheduleBlockService } from '../services/millenniumServices';
 import type { ScheduleBlock } from '../services/millenniumServices';
 import { syncService } from '../services/syncService';
-import { teamWorkItemService, type CreateTeamWorkItemDto, type UpdateTeamWorkItemDto } from '../services/teamWorkItemService';
+import {
+  teamWorkItemService,
+  type CreateTeamWorkItemDto,
+  type TeamWorkItemStageDurationsDto,
+  type UpdateTeamWorkItemDto
+} from '../services/teamWorkItemService';
+import { jobTimeTrackingService, type JobTimingSummaryDto } from '../services/jobTimeTrackingService';
 import { systemSettingsService } from '../services/systemSettingsService';
 import { teamDaySettingsService } from '../services/teamDaySettingsService';
 import type { Jig } from '../types/millennium';
@@ -51,6 +57,11 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  actualDurationMinutes?: number | null;
+  stageDurations?: TeamWorkItemStageDurationsDto | null;
+  timingSummary?: JobTimingSummaryDto | null;
   wipId?: string;
   dayStartMinutes?: number;
   dayEndMinutes?: number;
@@ -373,6 +384,37 @@ export const ProductionPlannerPage = () => {
       
       console.log(`[PLANNER] ✓ All data loaded in ${Date.now() - startTime}ms`);
       console.log(`[PLANNER] ✓ ${productions.length} productions, ${wipItems.length} WIP items, ${jigs.length} jig teams, ${unallocated.length} unallocated orders, ${blocks.length} blocks`);
+
+      if (import.meta.env.DEV) {
+        const testRows = wipItems.filter(wip =>
+          (wip.orderNumber || '').includes('TEST-J260013') ||
+          (wip.productionName || '').includes('TEST-J260013')
+        );
+
+        void Promise.all(testRows.map(async (wip) => {
+          const workDate = formatIsoDateLocal(wip.workDate);
+          if (!workDate) return;
+
+          try {
+            const mobileJobs = await jobTimeTrackingService.getTodayJobs(wip.teamId, workDate);
+            const mobileJob = mobileJobs.find(job => job.jobId === wip.id);
+            console.info('[JOB_TIME_DEBUG] planner/mobile timing compare', {
+              allocationId: wip.id,
+              jobId: wip.productionId,
+              workDate,
+              mobileSummary: mobileJob?.timingSummary ?? null,
+              plannerSummary: wip.timingSummary ?? null,
+              summariesMatch: JSON.stringify(mobileJob?.timingSummary ?? null) === JSON.stringify(wip.timingSummary ?? null)
+            });
+          } catch (debugErr) {
+            console.warn('[JOB_TIME_DEBUG] failed to compare planner/mobile timing summary', {
+              allocationId: wip.id,
+              jobId: wip.productionId,
+              error: debugErr
+            });
+          }
+        }));
+      }
       
       // Store ALL WIP records per production (for multi-day jobs there can be multiple)
       const wipByProductionId = new Map<string, (typeof wipItems[0])[]>();
@@ -509,6 +551,11 @@ export const ProductionPlannerPage = () => {
               plannedEndTime: wipData.plannedEndMinutes !== undefined ? wipData.plannedEndMinutes : null,
               plannedDurationMinutes: wipData.plannedDurationMinutes !== undefined ? wipData.plannedDurationMinutes : null,
               breakAdjustmentMinutes: wipData.breakAdjustmentMinutes !== undefined ? wipData.breakAdjustmentMinutes : null,
+              actualStartTime: wipData.actualStartTime ?? null,
+              actualEndTime: wipData.actualEndTime ?? null,
+              actualDurationMinutes: wipData.actualDurationMinutes ?? null,
+              stageDurations: wipData.stageDurations ?? null,
+              timingSummary: wipData.timingSummary ?? null,
               wipId: wipData.id,
               dayStartMinutes: wipData.dayStartMinutes !== undefined ? wipData.dayStartMinutes : undefined,
               dayEndMinutes: wipData.dayEndMinutes !== undefined ? wipData.dayEndMinutes : undefined,
@@ -539,6 +586,10 @@ export const ProductionPlannerPage = () => {
             plannedEndTime: null,
             plannedDurationMinutes: null,
             breakAdjustmentMinutes: null,
+            actualStartTime: null,
+            actualEndTime: null,
+            actualDurationMinutes: null,
+            timingSummary: null,
             wipId: undefined,
             dayStartMinutes: undefined,
             dayEndMinutes: undefined,
@@ -1213,10 +1264,16 @@ export const ProductionPlannerPage = () => {
     // 2. Check if this is a persisted multi-day job - sum all segments' E-Finks
     // 3. Otherwise use the job's estimatedEFinks directly
     const existingStagedJob = stagedJobs.find(sj => sj.jobId === job.id);
+    const isExistingPlannerBlock = Boolean(job.wipId);
     let totalEFinksForJob: number;
     let efinkSource: string;
     
-    if (existingStagedJob?.segments[0]?.totalEstimatedEfinks) {
+    if (isExistingPlannerBlock) {
+      // Moving an existing planner block should preserve that block/segment's planned shape.
+      // Recalculating from total job E-Finks here can reallocate it across future days.
+      totalEFinksForJob = job.estimatedEFinks;
+      efinkSource = 'existing planner block estimatedEFinks';
+    } else if (existingStagedJob?.segments[0]?.totalEstimatedEfinks) {
       // Staged job - use stored total
       totalEFinksForJob = existingStagedJob.segments[0].totalEstimatedEfinks;
       efinkSource = 'staged job totalEstimatedEfinks';
@@ -1241,7 +1298,17 @@ export const ProductionPlannerPage = () => {
         const team = jigTeams.find(t => t.id === updatedJigId);
         const teamAverageEfinks = team?.averageEfinks ?? 80;
         
-        const teamSpecificDuration = PlannerV2.calculateEfinksDuration(totalEFinksForJob, teamAverageEfinks, schedulerConfig);
+        const teamSpecificDuration = isExistingPlannerBlock
+          ? PlannerV2.getJobDuration(
+              {
+                customDurationMinutes: job.customDurationMinutes,
+                plannedDurationMinutes: job.plannedDurationMinutes,
+                estimatedEFinks: totalEFinksForJob
+              },
+              teamAverageEfinks,
+              schedulerConfig
+            )
+          : PlannerV2.calculateEfinksDuration(totalEFinksForJob, teamAverageEfinks, schedulerConfig);
         console.log('[PLANNER] Team-specific duration:', teamSpecificDuration, 'min (team avg efinks:', teamAverageEfinks, ', rounding:', schedulerConfig.durationRoundingIncrement, 'min)');
         console.log('[PLANNER] Duration in hours:', PlannerV2.formatDurationHoursMinutes(teamSpecificDuration));
         
@@ -1267,6 +1334,7 @@ export const ProductionPlannerPage = () => {
         // Use continuous-flow allocation for multi-day spanning
         const droppedJob: PlannerV2.ScheduledJob = {
           ...toScheduledJob(job),
+          estimatedEFinks: totalEFinksForJob,
           plannedDateStr: dateStr,
           jigId: updatedJigId,
           plannedDurationMinutes: teamSpecificDuration
@@ -1274,6 +1342,102 @@ export const ProductionPlannerPage = () => {
         
         // Calculate drop position - default to shift start if not specified
         const dropPosition = dropTimeMinutes ?? shift.startTime;
+
+        if (isExistingPlannerBlock) {
+          const validDropStart = PlannerV2.getNextValidStartTime(
+            Math.max(dropPosition, shift.startTime),
+            shift
+          );
+          const movedTiming = calculateContinuousTiming(validDropStart, teamSpecificDuration, shift);
+          const updates: JobScheduleUpdate[] = [{
+            jobId: job.id,
+            wipId: job.wipId,
+            teamId: updatedJigId,
+            workDate: dateStr,
+            plannedStartMinutes: validDropStart,
+            plannedEndMinutes: movedTiming.endTime,
+            plannedDurationMinutes: teamSpecificDuration,
+            breakAdjustmentMinutes: movedTiming.breakMinutes,
+            customDurationMinutes: job.customDurationMinutes,
+            estimatedEfinks: totalEFinksForJob,
+            segmentIndex: job.segmentIndex,
+            totalSegments: job.totalSegments
+          }];
+
+          const bufferMinutes = schedulerConfig?.bufferMinutes ?? PlannerV2.BUFFER_MINUTES;
+          let nextStartTime = PlannerV2.getNextJobStartTime(movedTiming.endTime, bufferMinutes, shift);
+          const cascadeStartTime = validDropStart;
+          const cascadedJobIds = new Set<string>();
+
+          const cascadeCandidates = jobs
+            .filter(j =>
+              getJobScheduleKey(j) !== getJobScheduleKey(job) &&
+              j.jigId === updatedJigId &&
+              j.plannedDateStr === dateStr &&
+              j.plannedStartTime != null &&
+              j.plannedEndTime != null &&
+              j.plannedEndTime > cascadeStartTime &&
+              !j.productionComplete
+            )
+            .sort((a, b) => (a.plannedStartTime ?? shift.startTime) - (b.plannedStartTime ?? shift.startTime));
+
+          for (const cascadeJob of cascadeCandidates) {
+            const cascadeKey = getJobScheduleKey(cascadeJob);
+            if (cascadedJobIds.has(cascadeKey)) continue;
+            const originalStart = cascadeJob.plannedStartTime ?? shift.startTime;
+            const cascadedDuration = PlannerV2.getJobDuration(
+              {
+                customDurationMinutes: cascadeJob.customDurationMinutes,
+                plannedDurationMinutes: cascadeJob.plannedDurationMinutes,
+                estimatedEFinks: cascadeJob.estimatedEFinks
+              },
+              teamAverageEfinks,
+              schedulerConfig
+            );
+
+            if (originalStart >= nextStartTime) {
+              const originalEnd = getPersistedJobEndTime(cascadeJob, cascadedDuration);
+              nextStartTime = PlannerV2.getNextJobStartTime(originalEnd, bufferMinutes, shift);
+              continue;
+            }
+
+            const cascadedStart = PlannerV2.getNextValidStartTime(nextStartTime, shift);
+            const cascadedTiming = calculateContinuousTiming(cascadedStart, cascadedDuration, shift);
+
+            updates.push({
+              jobId: cascadeJob.id,
+              wipId: cascadeJob.wipId,
+              teamId: updatedJigId,
+              workDate: dateStr,
+              plannedStartMinutes: cascadedStart,
+              plannedEndMinutes: cascadedTiming.endTime,
+              plannedDurationMinutes: cascadedDuration,
+              breakAdjustmentMinutes: cascadedTiming.breakMinutes,
+              customDurationMinutes: cascadeJob.customDurationMinutes,
+              estimatedEfinks: cascadeJob.estimatedEFinks
+            });
+
+            cascadedJobIds.add(cascadeKey);
+            nextStartTime = PlannerV2.getNextJobStartTime(cascadedTiming.endTime, bufferMinutes, shift);
+          }
+
+          if (cascadedJobIds.size > 0) {
+            console.log('[PLANNER] Cascaded overlapping jobs after existing-block drop:', Array.from(cascadedJobIds));
+          }
+
+          const success = await saveMultipleJobUpdates(updates, 'Move');
+          if (success) {
+            console.log('[PLANNER] ✓ Saved existing block move with', updates.length, 'affected schedule records');
+            await loadData();
+          }
+
+          if (viewMode !== 'day') {
+            setViewMode('day');
+            setCurrentDateStr(dateStr);
+          }
+
+          return;
+        }
         
         // Allocate using continuous-flow model - job spans multiple days if needed
         // Pass schedule blocks so Type A blocks are treated as non-working intervals
@@ -1414,9 +1578,11 @@ export const ProductionPlannerPage = () => {
           new Set(updates.filter(update => update.jobId === job.id).map(getUpdateScheduleKey))
         );
         const updatedWipIds = new Set(normalizedUpdates.map(update => update.wipId).filter((wipId): wipId is string => !!wipId));
-        const staleMovedSegmentWipIds = allJobs
-          .filter(existing => existing.id === job.id && existing.wipId && !updatedWipIds.has(existing.wipId))
-          .map(existing => existing.wipId!);
+        const staleMovedSegmentWipIds = isExistingPlannerBlock
+          ? []
+          : allJobs
+              .filter(existing => existing.id === job.id && existing.wipId && !updatedWipIds.has(existing.wipId))
+              .map(existing => existing.wipId!);
         const success = await saveMultipleJobUpdates(normalizedUpdates, 'Move', staleMovedSegmentWipIds);
         if (success) {
           setStagedJobs(prev => prev.filter(sj => !normalizedUpdates.some(update => update.jobId === sj.jobId)));
@@ -1586,15 +1752,6 @@ export const ProductionPlannerPage = () => {
       setOperationInProgress(false); setOperationMessage('');
       setDraggedJobId(null);
     }
-  };
-
-  // Format duration helper for batch panel
-  const formatDuration = (minutes: number): string => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (hours === 0) return `${mins}m`;
-    if (mins === 0) return `${hours}h`;
-    return `${hours}h ${mins}m`;
   };
 
   const handleCombineJobs = async (primaryJobId: string, secondaryJobId: string) => {
@@ -2270,6 +2427,8 @@ export const ProductionPlannerPage = () => {
       console.log(`[PLANNER] ✓ Saved ${segmentUpdates.length} recalculated segments for ${firstWip.orderNumber || productionId.substring(0, 8)}`);
     }
   };
+
+  void recalculateMultiDaySegments;
 
   const cascadeTeamDayAfterOvertimeChange = async (
     dayStr: string,

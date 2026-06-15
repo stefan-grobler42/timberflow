@@ -3,6 +3,7 @@ export { userService } from './userService';
 export { customerService } from './customerService';
 export { companyService } from './companyService';
 export { duplicateService } from './duplicateService';
+export { jobTimeTrackingService } from './jobTimeTrackingService';
 export {
   designerService,
   saleRepresentativeService,

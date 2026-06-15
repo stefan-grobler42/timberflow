@@ -12,8 +12,15 @@ export const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const isMobileWorkerRoute = location.pathname.startsWith('/mobile/');
 
-  const navLinkGroups: INavLinkGroup[] = [
+  if (isMobileWorkerRoute) {
+    return <>{children}</>;
+  }
+
+  const hiddenNavGroupNames = new Set(['My Work', 'Customers', 'Sales', 'Procurement', 'Dispatch', 'Installation']);
+
+  const allNavLinkGroups: INavLinkGroup[] = [
     {
       links: [
         {
@@ -124,6 +131,12 @@ export const Layout = ({ children }: LayoutProps) => {
           icon: 'Calendar',
         },
         {
+          key: 'mobile-job-time',
+          name: 'Mobile Job Time',
+          url: '/mobile/job-time',
+          icon: 'Clock',
+        },
+        {
           key: 'schedule-blocks',
           name: 'Schedule Blocks',
           url: '/schedule-blocks',
@@ -219,6 +232,9 @@ export const Layout = ({ children }: LayoutProps) => {
       ],
     },
   ];
+
+  // Hide undecided modules from the sidebar only; routes and pages remain available directly.
+  const navLinkGroups = allNavLinkGroups.filter(group => !group.name || !hiddenNavGroupNames.has(group.name));
 
   const handleLinkClick = (ev?: React.MouseEvent<HTMLElement>, item?: any): void => {
     if (item?.url) {
