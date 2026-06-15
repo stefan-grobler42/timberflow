@@ -1,6 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using MillenniumERP.Infrastructure.Data;
 
+if (args.Length > 0)
+{
+    if (args[0].Equals("seed-job-time-test-data", StringComparison.OrdinalIgnoreCase))
+    {
+        await JobTimeTestDataSeeder.SeedAsync();
+        return;
+    }
+
+    if (args[0].Equals("remove-job-time-test-data", StringComparison.OrdinalIgnoreCase))
+    {
+        await JobTimeTestDataSeeder.RemoveAsync();
+        return;
+    }
+}
+
 Console.WriteLine("Millennium ERP - Database Setup & Migration");
 Console.WriteLine("===========================================\n");
 

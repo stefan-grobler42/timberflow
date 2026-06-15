@@ -3,6 +3,7 @@ import type { IDropdownOption } from '@fluentui/react';
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { systemSettingsService, type SystemSettings } from '../../services/systemSettingsService';
 import type { ScheduleBlock, ScheduleBlockType } from '../../services/millenniumServices';
+import type { JobTimingSummaryDto } from '../../services/jobTimeTrackingService';
 import * as PlannerV2 from '../../domain/plannerV2';
 import { isTypeABlock, isTypeBBlock } from '../../domain/plannerV2/shiftCalendar';
 import type { SchedulerConfig } from '../../domain/plannerV2/schedulerSettings';
@@ -38,6 +39,16 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  actualDurationMinutes?: number | null;
+  timingSummary?: JobTimingSummaryDto | null;
+  stageDurations?: {
+    pickingMinutes: number;
+    sawingMinutes: number;
+    productionMinutes: number;
+    totalLabourMinutes: number;
+  } | null;
   wipId?: string;
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
@@ -79,6 +90,42 @@ interface JobPositionInfo {
   totalBreakMinutes: number;
 }
 
+const formatClockTime = (value?: string | null): string => {
+  if (!value) return '-';
+  return new Date(value).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatEfficiency = (plannedMinutes?: number | null, actualMinutes?: number | null): string => {
+  if (!plannedMinutes || !actualMinutes) return '-';
+  return `${Math.round((plannedMinutes / actualMinutes) * 100)}%`;
+};
+
+const formatElapsedSeconds = (seconds: number): string => {
+  const safeSeconds = Math.max(0, seconds);
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+};
+
+const LiveElapsedText = ({
+  startedAt,
+  completedMinutes = 0
+}: {
+  startedAt: string;
+  completedMinutes?: number;
+}) => {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [startedAt]);
+
+  const startedMs = new Date(startedAt).getTime();
+  const activeSeconds = Number.isNaN(startedMs) ? 0 : Math.floor((now - startedMs) / 1000);
+  return <>{formatElapsedSeconds((completedMinutes * 60) + activeSeconds)}</>;
+};
 
 interface TeamOvertimeSettings {
   enabled: boolean;
@@ -882,7 +929,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
           delete next[interactionKey];
           return next;
         });
-        onJobDurationChange(interactionKey, finalDuration);
+        onJobDurationChange(job.id, finalDuration);
       }
     };
 
@@ -896,7 +943,7 @@ const DayViewComponent: React.FC<DayViewProps> = ({
   };
 
   const getBaseDurationMinutes = (job: Job): number => {
-    // Delegate to getBaseDuration for consistent logic
+    // Delegate to getBaseDuration for consistent planned sizing logic.
     return getBaseDuration(job);
   };
 
@@ -905,6 +952,8 @@ const DayViewComponent: React.FC<DayViewProps> = ({
     const workingHoursOffset = includeBreaks ? getWorkingHoursOffset() : 0;
     
     for (const job of jigJobs) {
+      // Planner block geometry is based on planned schedule data only.
+      // Actual mobile timing is reporting text and must not feed into top/height.
       const baseDuration = getBaseDurationMinutes(job);
       const jobTop = job.plannedStartTime != null ? job.plannedStartTime : workingHoursOffset;
       if (!Number.isFinite(jobTop) || !Number.isFinite(baseDuration) || baseDuration <= 0) {
@@ -1922,6 +1971,9 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                     const jobZIndex = isActiveEditingJob ? 1200 : (isStaged ? 800 : 10);
                     const blockTopPx = Math.max(0, (top - visibleStartMinutes) * PlannerV2.PIXELS_PER_MINUTE);
                     const blockHeightPx = Math.max(0, Math.min(height, teamTimelineHeight - blockTopPx));
+                    const controlPosition = blockHeightPx > 140
+                      ? { top: 16, bottom: 'auto' as const }
+                      : { top: 'auto' as const, bottom: 16 };
 
                     if (!Number.isFinite(blockTopPx) || !Number.isFinite(blockHeightPx) || blockHeightPx <= 0) {
                       return null;
@@ -2155,11 +2207,68 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                             })()}
                           </Text>
                         </Stack>
+
+                        {(() => {
+                          const summary = job.timingSummary;
+                          const actualDurationMinutes = summary?.actualDurationMinutes ?? job.actualDurationMinutes;
+                          const activeStartedAt = summary?.activeEntry?.startedAt;
+                          const actualStartTime = activeStartedAt ?? summary?.latestEntry?.startedAt ?? summary?.actualStartTime ?? job.actualStartTime;
+                          const actualEndTime = activeStartedAt ? null : summary?.latestEntry?.endedAt ?? summary?.actualEndTime ?? job.actualEndTime;
+                          const hasOverallTiming = Boolean(summary?.hasOverallTiming || actualStartTime || actualDurationMinutes != null);
+
+                          if (!hasOverallTiming) return null;
+
+                          const plannedMinutes = job.plannedDurationMinutes ?? getBaseDurationMinutes(job);
+                          const activeStartedMs = activeStartedAt ? new Date(activeStartedAt).getTime() : NaN;
+                          const activeElapsedMinutes = Number.isNaN(activeStartedMs)
+                            ? 0
+                            : Math.max(0, Math.round((Date.now() - activeStartedMs) / 60_000));
+                          const completedMinutesBeforeActive = activeStartedAt && actualDurationMinutes != null
+                            ? Math.max(0, actualDurationMinutes - activeElapsedMinutes)
+                            : 0;
+
+                          return (
+                            <Stack tokens={{ childrenGap: 1 }} styles={{ root: { marginTop: 4 } }}>
+                              <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#555' : 'rgba(255,255,255,0.95)', fontSize: 10, fontWeight: 700 } }}>
+                                Actual {formatClockTime(actualStartTime)} - {activeStartedAt ? 'running' : formatClockTime(actualEndTime)}
+                                {!activeStartedAt && actualDurationMinutes != null ? ` (${formatDuration(actualDurationMinutes)})` : ''}
+                              </Text>
+                              {activeStartedAt && (
+                                <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#555' : 'rgba(255,255,255,0.95)', fontSize: 10, fontWeight: 700 } }}>
+                                  Live elapsed <LiveElapsedText startedAt={activeStartedAt} completedMinutes={completedMinutesBeforeActive} />
+                                </Text>
+                              )}
+                              <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'rgba(255,255,255,0.85)', fontSize: 10 } }}>
+                                Planned {formatDuration(plannedMinutes)} · Efficiency {formatEfficiency(plannedMinutes, actualDurationMinutes)}
+                              </Text>
+                            </Stack>
+                          );
+                        })()}
+
+                        {(() => {
+                          const stageDurations = job.timingSummary?.stageDurations ?? job.stageDurations;
+                          if (!stageDurations || stageDurations.totalLabourMinutes <= 0) return null;
+
+                          return (
+                            <Stack tokens={{ childrenGap: 1 }} styles={{ root: { marginTop: 4 } }}>
+                              <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#555' : 'rgba(255,255,255,0.95)', fontSize: 10, fontWeight: 700 } }}>
+                                Picking {formatDuration(stageDurations.pickingMinutes)} · Sawing {formatDuration(stageDurations.sawingMinutes)}
+                              </Text>
+                              <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'rgba(255,255,255,0.85)', fontSize: 10 } }}>
+                                Production {formatDuration(stageDurations.productionMinutes)} · Total labour {formatDuration(stageDurations.totalLabourMinutes)}
+                              </Text>
+                            </Stack>
+                          );
+                        })()}
                         
                         {/* Save/Cancel buttons for staged jobs */}
                         {isStaged && (
-                          <Stack horizontal tokens={{ childrenGap: 4 }} styles={{ root: { position: 'absolute', bottom: 16, right: 8, zIndex: 5000, pointerEvents: 'auto' } }}>
+                          <Stack horizontal tokens={{ childrenGap: 4 }} styles={{ root: { position: 'absolute', ...controlPosition, right: 8, zIndex: 5000, pointerEvents: 'auto' } }}>
                             <button
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveEditingJobId(null);
@@ -2183,6 +2292,10 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                               Save
                             </button>
                             <button
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setActiveEditingJobId(null);
@@ -2211,13 +2324,17 @@ const DayViewComponent: React.FC<DayViewProps> = ({
                         {/* Edit button for persisted jobs */}
                         {!isStaged && !job.productionComplete && onEditPersistedJob && job.jigId && (
                           <button
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
                             onClick={(e) => {
                               e.stopPropagation();
                               onEditPersistedJob(job.id, job.jigId!, dayStr);
                             }}
                             style={{
                               position: 'absolute',
-                              bottom: 16,
+                              ...controlPosition,
                               right: 8,
                               padding: '2px 8px',
                               fontSize: 10,

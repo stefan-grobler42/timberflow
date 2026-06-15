@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MillenniumERP.Application.DTOs;
+using MillenniumERP.Application.Services;
 using MillenniumERP.Domain.Entities;
 using MillenniumERP.Infrastructure.Data;
 using System.Text.Json;
@@ -114,7 +115,7 @@ public class TeamWorkItemsController : ControllerBase
         var query = _context.TeamWorkItems
             .AsNoTracking()
             .Include(w => w.Team)
-            .Where(w => w.Status == null || (w.Status != "completed" && w.Status != "cancelled"))
+            .Where(w => w.Status == null || w.Status != "cancelled")
             .AsQueryable();
 
         if (teamId.HasValue)
@@ -138,7 +139,17 @@ public class TeamWorkItemsController : ControllerBase
             .ThenBy(w => w.Sequence)
             .ToListAsync();
 
-        var dtos = items.Select(MapToDto).ToList();
+        var timingSummariesByJob = await GetTimingSummariesAsync(items);
+        await LogJobTimeDebugAsync(items, timingSummariesByJob);
+        var dtos = items.Select(item =>
+        {
+            var dto = MapToDto(item);
+            if (timingSummariesByJob.TryGetValue(item.Id, out var summary))
+            {
+                ApplyTimingSummary(dto, summary);
+            }
+            return dto;
+        }).ToList();
 
         _logger.LogInformation("Planner endpoint returned {Count} allocated jobs from WIP", dtos.Count);
         return Ok(dtos);
@@ -824,5 +835,127 @@ public class TeamWorkItemsController : ControllerBase
             ParentProductionId = item.ParentProductionId,
             SalesOrderId = item.SalesOrderId
         };
+    }
+
+    private static void ApplyTimingSummary(TeamWorkItemDto dto, JobTimingSummaryDto summary)
+    {
+        dto.TimingSummary = summary;
+        dto.StageDurations = summary.HasStageTiming ? summary.StageDurations : null;
+
+        if (summary.HasOverallTiming)
+        {
+            dto.ActualStartTime = summary.ActiveEntry?.StartedAt ?? summary.LatestEntry?.StartedAt ?? summary.ActualStartTime;
+            dto.ActualEndTime = summary.ActiveEntry == null
+                ? summary.LatestEntry?.EndedAt ?? summary.ActualEndTime
+                : null;
+            dto.ActualDurationMinutes = summary.ActualDurationMinutes;
+        }
+        else
+        {
+            dto.ActualStartTime = null;
+            dto.ActualEndTime = null;
+            dto.ActualDurationMinutes = null;
+        }
+    }
+
+    private async Task<Dictionary<Guid, JobTimingSummaryDto>> GetTimingSummariesAsync(List<TeamWorkItem> items)
+    {
+        var jobIds = items.Select(i => i.Id).ToList();
+        if (jobIds.Count == 0)
+        {
+            return new Dictionary<Guid, JobTimingSummaryDto>();
+        }
+
+        var now = DateTime.UtcNow;
+        var entries = await _context.JobTimeEntries
+            .AsNoTracking()
+            .Where(e => jobIds.Contains(e.JobId))
+            .ToListAsync();
+
+        return entries
+            .GroupBy(e => e.JobId)
+            .ToDictionary(g => g.Key, g => JobTimeSummaryBuilder.Build(g, now));
+    }
+
+    private static List<TeamWorkItem> FilterSupersededRootAllocations(List<TeamWorkItem> items)
+    {
+        var latestRootByProductionTeam = items
+            .Where(IsRootPlannerAllocation)
+            .Where(i => i.ProductionId.HasValue)
+            .GroupBy(i => new { ProductionId = i.ProductionId!.Value, i.TeamId })
+            .Where(g => g.Count() > 1)
+            .ToDictionary(
+                g => g.Key,
+                g => g
+                    .OrderByDescending(i => i.WorkDate)
+                    .ThenByDescending(i => i.ModifiedOn ?? i.CreatedOn)
+                    .ThenByDescending(i => i.CreatedOn)
+                    .First().Id);
+
+        if (latestRootByProductionTeam.Count == 0)
+        {
+            return items;
+        }
+
+        return items
+            .Where(item =>
+            {
+                if (!IsRootPlannerAllocation(item) || !item.ProductionId.HasValue)
+                {
+                    return true;
+                }
+
+                var key = new { ProductionId = item.ProductionId.Value, item.TeamId };
+                return !latestRootByProductionTeam.TryGetValue(key, out var latestId) || item.Id == latestId;
+            })
+            .ToList();
+    }
+
+    private static bool IsRootPlannerAllocation(TeamWorkItem item)
+    {
+        return item.ParentWipId == null &&
+               item.RolloverSequence == 0 &&
+               item.SpilloverMinutes == null &&
+               item.IsRolloverOnly == false;
+    }
+
+    private async Task LogJobTimeDebugAsync(List<TeamWorkItem> items, Dictionary<Guid, JobTimingSummaryDto> summariesByJob)
+    {
+        if (Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") == "Production")
+        {
+            return;
+        }
+
+        foreach (var item in items.Where(i =>
+            (i.OrderNumber?.Contains("TEST-J260013", StringComparison.OrdinalIgnoreCase) ?? false) ||
+            (i.ProductionName?.Contains("TEST-J260013", StringComparison.OrdinalIgnoreCase) ?? false)))
+        {
+            summariesByJob.TryGetValue(item.Id, out var plannerSummary);
+            var rawEntries = await _context.JobTimeEntries
+                .AsNoTracking()
+                .Where(e => e.JobId == item.Id)
+                .OrderBy(e => e.StartedAt)
+                .Select(e => new
+                {
+                    e.Id,
+                    e.JobId,
+                    e.TeamId,
+                    e.StageType,
+                    e.StartedAt,
+                    e.EndedAt,
+                    e.ActualDurationMinutes,
+                    e.Status
+                })
+                .ToListAsync();
+
+            _logger.LogWarning(
+                "[JOB_TIME_DEBUG] planner allocationId={AllocationId} jobId={JobId} status={Status} mobileSummary={MobileSummary} plannerSummary={PlannerSummary} rawTimingEntries={RawTimingEntries}",
+                item.Id,
+                item.ProductionId,
+                item.Status,
+                JsonSerializer.Serialize(plannerSummary),
+                JsonSerializer.Serialize(plannerSummary),
+                JsonSerializer.Serialize(rawEntries));
+        }
     }
 }

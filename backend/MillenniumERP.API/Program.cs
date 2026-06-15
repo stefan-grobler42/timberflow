@@ -118,6 +118,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await dbContext.Database.EnsureCreatedAsync();
+    await EnsureJobTimeEntriesTableAsync(dbContext);
     
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     logger.LogInformation("Database initialized successfully");
@@ -151,3 +152,59 @@ app.MapControllers();
 app.MapFallbackToFile("index.html");
 
 app.Run();
+
+static async Task EnsureJobTimeEntriesTableAsync(AppDbContext dbContext)
+{
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE TABLE IF NOT EXISTS job_time_entries (
+            id uuid PRIMARY KEY,
+            job_id uuid NOT NULL REFERENCES team_work_items(id) ON DELETE CASCADE,
+            team_id uuid NOT NULL REFERENCES jigs(id) ON DELETE CASCADE,
+            stage_type varchar(50) NOT NULL DEFAULT 'overall',
+            started_at timestamp with time zone NOT NULL,
+            ended_at timestamp with time zone NULL,
+            actual_duration_minutes integer NULL,
+            status varchar(50) NOT NULL DEFAULT 'in_progress',
+            started_by varchar(200) NULL,
+            ended_by varchar(200) NULL,
+            notes varchar(2000) NULL,
+            created_on timestamp with time zone NOT NULL,
+            modified_on timestamp with time zone NULL
+        );
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        ALTER TABLE job_time_entries
+        ADD COLUMN IF NOT EXISTS stage_type varchar(50) NOT NULL DEFAULT 'overall';
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE INDEX IF NOT EXISTS ix_job_time_entries_job_team
+        ON job_time_entries (job_id, team_id);
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE INDEX IF NOT EXISTS ix_job_time_entries_job_team_stage
+        ON job_time_entries (job_id, team_id, stage_type);
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE INDEX IF NOT EXISTS ix_job_time_entries_status
+        ON job_time_entries (status);
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE INDEX IF NOT EXISTS ix_job_time_entries_started_at
+        ON job_time_entries (started_at);
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        DROP INDEX IF EXISTS ix_job_time_entries_active_job_team;
+        """);
+
+    await dbContext.Database.ExecuteSqlRawAsync("""
+        CREATE UNIQUE INDEX IF NOT EXISTS ix_job_time_entries_active_job_team_stage
+        ON job_time_entries (job_id, team_id, stage_type)
+        WHERE ended_at IS NULL AND status = 'in_progress';
+        """);
+}

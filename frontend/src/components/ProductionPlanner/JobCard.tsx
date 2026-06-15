@@ -16,6 +16,15 @@ interface Job {
   plannedEndTime?: number | null;
   plannedDurationMinutes?: number | null;
   breakAdjustmentMinutes?: number | null;
+  actualStartTime?: string | null;
+  actualEndTime?: string | null;
+  actualDurationMinutes?: number | null;
+  stageDurations?: {
+    pickingMinutes: number;
+    sawingMinutes: number;
+    productionMinutes: number;
+    totalLabourMinutes: number;
+  } | null;
   totalJobDuration?: number | null;
   segmentIndex?: number | null;
   totalSegments?: number | null;
@@ -83,6 +92,15 @@ const JobCardComponent: React.FC<JobCardProps> = ({
 }) => {
   const isMultiDay = job.totalSegments && job.totalSegments > 1;
   const isFirstSegment = job.segmentIndex === 0;
+  const formatClockTime = (value?: string | null): string => {
+    if (!value) return '-';
+    return new Date(value).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' });
+  };
+  const formatEfficiency = (plannedMinutes?: number | null, actualMinutes?: number | null): string => {
+    if (!plannedMinutes || !actualMinutes) return '-';
+    return `${Math.round((plannedMinutes / actualMinutes) * 100)}%`;
+  };
+  const hasStageDurations = Boolean(job.stageDurations && job.stageDurations.totalLabourMinutes > 0);
   const getBackground = () => {
     if (isStaged) return 'linear-gradient(135deg, rgba(255, 185, 0, 0.95), rgba(200, 140, 0, 0.85))';
     if (job.productionComplete) return 'linear-gradient(135deg, rgba(180, 180, 180, 0.85), rgba(200, 200, 200, 0.75))';
@@ -279,6 +297,28 @@ const JobCardComponent: React.FC<JobCardProps> = ({
           </Text>
         </Stack>
       )}
+
+      {job.productionComplete && job.actualDurationMinutes != null && (
+        <Stack tokens={{ childrenGap: 1 }} style={{ marginTop: 4 }}>
+          <Text variant="tiny" styles={{ root: { color: '#555', fontSize: 10, fontWeight: 700 } }}>
+            Actual {formatClockTime(job.actualStartTime)} - {formatClockTime(job.actualEndTime)} ({formatDuration(job.actualDurationMinutes)})
+          </Text>
+          <Text variant="tiny" styles={{ root: { color: '#666', fontSize: 10 } }}>
+            Planned {formatDuration(job.plannedDurationMinutes ?? getBaseDurationMinutes(job))} · Efficiency {formatEfficiency(job.plannedDurationMinutes ?? getBaseDurationMinutes(job), job.actualDurationMinutes)}
+          </Text>
+        </Stack>
+      )}
+
+      {hasStageDurations && job.stageDurations && (
+        <Stack tokens={{ childrenGap: 1 }} style={{ marginTop: 4 }}>
+          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#555' : 'rgba(255,255,255,0.95)', fontSize: 10, fontWeight: 700 } }}>
+            Picking {formatDuration(job.stageDurations.pickingMinutes)} · Sawing {formatDuration(job.stageDurations.sawingMinutes)}
+          </Text>
+          <Text variant="tiny" styles={{ root: { color: job.productionComplete ? '#666' : 'rgba(255,255,255,0.85)', fontSize: 10 } }}>
+            Production {formatDuration(job.stageDurations.productionMinutes)} · Total labour {formatDuration(job.stageDurations.totalLabourMinutes)}
+          </Text>
+        </Stack>
+      )}
       
       {/* Save/Edit buttons for multi-day jobs - only show on first segment */}
       {isMultiDay && isFirstSegment && !job.productionComplete && (onSaveJob || onEditJob) && (
@@ -371,6 +411,13 @@ export const JobCard = memo(JobCardComponent, (prevProps, nextProps) => {
     prevProps.isResizing === nextProps.isResizing &&
     prevProps.job.plannedStartTime === nextProps.job.plannedStartTime &&
     prevProps.job.plannedEndTime === nextProps.job.plannedEndTime &&
+    prevProps.job.actualStartTime === nextProps.job.actualStartTime &&
+    prevProps.job.actualEndTime === nextProps.job.actualEndTime &&
+    prevProps.job.actualDurationMinutes === nextProps.job.actualDurationMinutes &&
+    prevProps.job.stageDurations?.pickingMinutes === nextProps.job.stageDurations?.pickingMinutes &&
+    prevProps.job.stageDurations?.sawingMinutes === nextProps.job.stageDurations?.sawingMinutes &&
+    prevProps.job.stageDurations?.productionMinutes === nextProps.job.stageDurations?.productionMinutes &&
+    prevProps.job.stageDurations?.totalLabourMinutes === nextProps.job.stageDurations?.totalLabourMinutes &&
     prevProps.job.productionComplete === nextProps.job.productionComplete &&
     prevProps.job.totalSegments === nextProps.job.totalSegments &&
     prevProps.job.segmentIndex === nextProps.job.segmentIndex &&

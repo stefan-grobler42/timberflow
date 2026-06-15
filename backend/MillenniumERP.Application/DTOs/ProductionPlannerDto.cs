@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MillenniumERP.Application.DTOs;
 
 public class ProductionPlannerDto
@@ -20,6 +22,8 @@ public class ProductionPlannerDto
     public int? BreakAdjustmentMinutes { get; set; }
     public bool IsInWip { get; set; }
     public DateTime? CreatedOn { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public bool IsBatchedJob { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? SourceProductionIds { get; set; }
 }

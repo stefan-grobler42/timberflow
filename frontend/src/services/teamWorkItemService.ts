@@ -1,4 +1,5 @@
 import { api } from './api';
+import type { JobTimingSummaryDto } from './jobTimeTrackingService';
 
 export interface TeamWorkItemDto {
   id: string;
@@ -13,6 +14,8 @@ export interface TeamWorkItemDto {
   actualStartTime?: string;
   actualEndTime?: string;
   actualDurationMinutes?: number;
+  stageDurations?: TeamWorkItemStageDurationsDto | null;
+  timingSummary?: JobTimingSummaryDto | null;
   status: string;
   parentWipId?: string;
   rolloverSequence: number;
@@ -44,6 +47,13 @@ export interface TeamWorkItemDto {
   rootProductionId?: string | null;
   parentProductionId?: string | null;
   salesOrderId?: string | null;
+}
+
+export interface TeamWorkItemStageDurationsDto {
+  pickingMinutes: number;
+  sawingMinutes: number;
+  productionMinutes: number;
+  totalLabourMinutes: number;
 }
 
 export interface CreateTeamWorkItemDto {
